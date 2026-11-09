@@ -1,0 +1,12 @@
+# jwxt 课表同步工具链 —— 依赖说明
+#
+# 只需要 requests（HTTP 客户端）+ pycryptodome（统一认证 authserver 的 AES 密码加密）。
+# 其余全部是 Python 标准库：
+#   base64 / ctypes(DPAPI 凭据、剪贴板) / json / re / socket(最小 WebSocket 客户端，给 headless
+#   Edge CDP 用) / subprocess / tempfile / urllib.parse 等。
+# 如果 pycryptodome 装不上，cryptography 也可以（二选一，代码会自动探测）。
+#
+# 安装（在 web\jwxt 目录）：
+#   pip install -r requirements.txt
+requests>=2.25
+pycryptodome>=3.15

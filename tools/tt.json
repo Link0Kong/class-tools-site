@@ -1,0 +1,331 @@
+{
+  "c": [
+    {
+      "name": "高等数学",
+      "teacher": "龚志伟",
+      "room": "自强楼(教室01104)",
+      "day": 0,
+      "start": 1,
+      "end": 2,
+      "weeks": "4",
+      "parity": "all"
+    },
+    {
+      "name": "思想道德与法治",
+      "teacher": "陈丽晶教授",
+      "room": "自强楼(教室01104)",
+      "day": 0,
+      "start": 1,
+      "end": 3,
+      "weeks": "13-18",
+      "parity": "all"
+    },
+    {
+      "name": "高等数学",
+      "teacher": "龚志伟",
+      "room": "自强楼(教室01104)",
+      "day": 0,
+      "start": 1,
+      "end": 3,
+      "weeks": "2-3",
+      "parity": "all"
+    },
+    {
+      "name": "英语1",
+      "teacher": "花爱阳",
+      "room": "自强楼(教室01204)",
+      "day": 0,
+      "start": 6,
+      "end": 7,
+      "weeks": "13",
+      "parity": "all"
+    },
+    {
+      "name": "体育1",
+      "teacher": "甘子怡讲师（高校）",
+      "room": "体育场篮球区(篮球场1-3)",
+      "day": 0,
+      "start": 8,
+      "end": 9,
+      "weeks": "2-3,5,7-10,13-18",
+      "parity": "all"
+    },
+    {
+      "name": "体育1",
+      "teacher": "汤艳丽助教（高校）",
+      "room": "体育场篮球区(篮球场1-3)",
+      "day": 0,
+      "start": 8,
+      "end": 9,
+      "weeks": "4",
+      "parity": "all"
+    },
+    {
+      "name": "中医学",
+      "teacher": "温建恩讲师（高校）",
+      "room": "自强楼(教室01203)",
+      "day": 0,
+      "start": 10,
+      "end": 12,
+      "weeks": "13-18",
+      "parity": "all"
+    },
+    {
+      "name": "中医学",
+      "teacher": "陈玉鹏副教授",
+      "room": "自强楼(教室01203)",
+      "day": 0,
+      "start": 10,
+      "end": 12,
+      "weeks": "2-5,7-10",
+      "parity": "all"
+    },
+    {
+      "name": "C语言程序设计",
+      "teacher": "张翠萍副教授",
+      "room": "自强楼(教室01105)",
+      "day": 1,
+      "start": 1,
+      "end": 2,
+      "weeks": "2-3,7-8,10,14-16",
+      "parity": "all"
+    },
+    {
+      "name": "C语言程序设计",
+      "teacher": "张翠萍副教授",
+      "room": "自强楼(01514-计算机实验室2)",
+      "day": 1,
+      "start": 1,
+      "end": 2,
+      "weeks": "4-6,9,13",
+      "parity": "all"
+    },
+    {
+      "name": "军事理论",
+      "teacher": "沈国俊副教授",
+      "room": "厚德楼(教室02111)",
+      "day": 1,
+      "start": 3,
+      "end": 5,
+      "weeks": "2,5-6,8,10,14-15",
+      "parity": "all"
+    },
+    {
+      "name": "军事理论",
+      "teacher": "沈国俊副教授",
+      "room": "网络平台(网络平台)",
+      "day": 1,
+      "start": 3,
+      "end": 5,
+      "weeks": "3-4,7,9,13",
+      "parity": "all"
+    },
+    {
+      "name": "形势与政策01",
+      "teacher": "林心影未评级",
+      "room": "厚德楼(教室02405)",
+      "day": 1,
+      "start": 6,
+      "end": 7,
+      "weeks": "7,13,16",
+      "parity": "all"
+    },
+    {
+      "name": "思想道德与法治",
+      "teacher": "林绸花助理研究员（社会科学）",
+      "room": "自强楼(教室01202)",
+      "day": 1,
+      "start": 6,
+      "end": 8,
+      "weeks": "10",
+      "parity": "all"
+    },
+    {
+      "name": "英语1",
+      "teacher": "花爱阳",
+      "room": "自强楼(教室01202)",
+      "day": 1,
+      "start": 8,
+      "end": 9,
+      "weeks": "2-9,13-18",
+      "parity": "all"
+    },
+    {
+      "name": "中医学",
+      "teacher": "陈玉鹏副教授",
+      "room": "自强楼(教室01203)",
+      "day": 1,
+      "start": 10,
+      "end": 12,
+      "weeks": "6-9",
+      "parity": "all"
+    },
+    {
+      "name": "计算机科学导论与Python实践",
+      "teacher": "林立讲师（高校）",
+      "room": "厚德楼(教室02210)",
+      "day": 2,
+      "start": 1,
+      "end": 3,
+      "weeks": "3,8,14,19",
+      "parity": "all"
+    },
+    {
+      "name": "计算机科学导论与Python实践",
+      "teacher": "林立讲师（高校）",
+      "room": "自强楼(01514-计算机实验室2)",
+      "day": 2,
+      "start": 1,
+      "end": 3,
+      "weeks": "6",
+      "parity": "all"
+    },
+    {
+      "name": "C语言程序设计",
+      "teacher": "张翠萍副教授",
+      "room": "自强楼(01514-计算机实验室2)",
+      "day": 2,
+      "start": 4,
+      "end": 5,
+      "weeks": "2,7,14-15",
+      "parity": "all"
+    },
+    {
+      "name": "C语言程序设计",
+      "teacher": "张翠萍副教授",
+      "room": "自强楼(教室01101)",
+      "day": 2,
+      "start": 4,
+      "end": 5,
+      "weeks": "3-6,8-9,13",
+      "parity": "all"
+    },
+    {
+      "name": "高等数学",
+      "teacher": "龚志伟",
+      "room": "自强楼(教室01202)",
+      "day": 2,
+      "start": 6,
+      "end": 8,
+      "weeks": "2-8,13-18",
+      "parity": "all"
+    },
+    {
+      "name": "英语1",
+      "teacher": "花爱阳",
+      "room": "自强楼(教室01202)",
+      "day": 2,
+      "start": 8,
+      "end": 9,
+      "weeks": "9",
+      "parity": "all"
+    },
+    {
+      "name": "英语1",
+      "teacher": "谢舒婷副教授",
+      "room": "自强楼(01506-语音室（6）)",
+      "day": 3,
+      "start": 1,
+      "end": 2,
+      "weeks": "2-4,6-9,13-18",
+      "parity": "all"
+    },
+    {
+      "name": "计算机科学导论与Python实践",
+      "teacher": "林立讲师（高校）",
+      "room": "厚德楼(教室02309)",
+      "day": 3,
+      "start": 3,
+      "end": 5,
+      "weeks": "2-4,6,9,15",
+      "parity": "all"
+    },
+    {
+      "name": "计算机科学导论与Python实践",
+      "teacher": "林立讲师（高校）",
+      "room": "自强楼(01514-计算机实验室2)",
+      "day": 3,
+      "start": 3,
+      "end": 5,
+      "weeks": "7-8,13-14,18",
+      "parity": "all"
+    },
+    {
+      "name": "中医学",
+      "teacher": "温建恩讲师（高校）",
+      "room": "自强楼(教室01203)",
+      "day": 3,
+      "start": 6,
+      "end": 8,
+      "weeks": "13-18",
+      "parity": "all"
+    },
+    {
+      "name": "思想道德与法治",
+      "teacher": "陈丽晶教授",
+      "room": "自强楼(教室01203)",
+      "day": 3,
+      "start": 6,
+      "end": 8,
+      "weeks": "2",
+      "parity": "all"
+    },
+    {
+      "name": "思想道德与法治",
+      "teacher": "林绸花助理研究员（社会科学）",
+      "room": "自强楼(教室01203)",
+      "day": 3,
+      "start": 6,
+      "end": 8,
+      "weeks": "3-4,6-9",
+      "parity": "all"
+    },
+    {
+      "name": "高等数学",
+      "teacher": "龚志伟",
+      "room": "自强楼(教室01217)",
+      "day": 4,
+      "start": 1,
+      "end": 3,
+      "weeks": "2-3,6-9,13-17",
+      "parity": "all"
+    },
+    {
+      "name": "英语1",
+      "teacher": "谢舒婷副教授",
+      "room": "自强楼(01509-语音室)",
+      "day": 4,
+      "start": 6,
+      "end": 7,
+      "weeks": "8-9,13",
+      "parity": "all"
+    },
+    {
+      "name": "体育1",
+      "teacher": "甘子怡讲师（高校）",
+      "room": "厚德楼(教室02101)",
+      "day": 5,
+      "start": 2,
+      "end": 5,
+      "weeks": "3",
+      "parity": "all"
+    },
+    {
+      "name": "体育1",
+      "teacher": "甘子怡讲师（高校）",
+      "room": "体育场篮球区(篮球场1-3)",
+      "day": 5,
+      "start": 6,
+      "end": 9,
+      "weeks": "9",
+      "parity": "all"
+    }
+  ],
+  "t": "2026-08-31",
+  "meta": {
+    "fetchedAt": 1794231478160,
+    "term": "2026-2027-1",
+    "source": "jwxt",
+    "count": 32
+  }
+}

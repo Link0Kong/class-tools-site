@@ -1,0 +1,42 @@
+# ==== 密钥与证书（绝不入库） ====
+cert/
+tools/cert/
+*.key
+*.pem
+creds.env
+deploy/creds.env
+*.env
+
+# ==== 大体积产物 / 过程文件 ====
+tools/_backup/
+_backup*/
+tools/tests/_*/
+tools/tests/**/*.png
+tools/tests/**/*.jpg
+tools/tests/**/*.log
+!tools/tests/**/*.py
+_audit/_tmp/
+*.zip
+*.7z
+*.mp4
+*.pdf
+
+# ==== 系统 / 编辑器 ====
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+
+# ==== 运行时 ====
+*.log
+_report_*.txt
+*.bak-*
+tt.json.bak-*
+# ==== generated ====
+ppt/work/
+tools/tests/frozen/
+*.pptx
+

@@ -1,0 +1,2930 @@
+<!DOCTYPE html>
+<!-- 测试 fixture：从真实教务系统课表页裁剪（去掉 tooltip，保留 qz-weeklyTable 结构与节次/周次/教师/地点）
+     真实页面来源：GET http://210.34.74.77/jsxsd/xskb/xskb_list.do?viweType=0 （2026-2027-1） -->
+<html>
+<head><meta charset="utf-8"><title>个人课表信息</title></head>
+<body class="qz-blue qz-reLayout">
+<form action="/jsxsd/xskb/xskb_list.do?viweType=0">
+  <select id="xnxq01id" name="xnxq01id">
+    <option value="2027-2028-1">2027-2028-1</option>
+    <option value="2026-2027-2">2026-2027-2</option>
+    <option value="2026-2027-1" selected="selected">2026-2027-1</option>
+  </select>
+</form>
+<table class="qz-weeklyTable" border="1">
+
+            <!-- qz-currentWeek 标识当前星期 -->
+
+            <thead class="qz-weeklyTable-thead">
+
+            <tr class="qz-weeklyTable-tr">
+
+                <th class="qz-weeklyTable-th qz-weeklyTable-label qz-ellipse" width="122px">
+
+                    周次
+
+                </th>
+
+                
+
+                    <th class="qz-weeklyTable-th qz-ellipse " width="13%">
+
+                        星期日
+
+                    </th>
+
+                
+
+                <th class="qz-weeklyTable-th qz-ellipse " width="13%">
+
+                    星期一
+
+                </th>
+
+                <th class="qz-weeklyTable-th qz-ellipse qz-currentWeek" width="13%">
+
+                    星期二
+
+                </th>
+
+                <th class="qz-weeklyTable-th qz-ellipse " width="13%">
+
+                    星期三
+
+                </th>
+
+                <th class="qz-weeklyTable-th qz-ellipse " width="13%">
+
+                    星期四
+
+                </th>
+
+                <th class="qz-weeklyTable-th qz-ellipse " width="13%">
+
+                    星期五
+
+                </th>
+
+                <th class="qz-weeklyTable-th qz-ellipse " width="13%">
+
+                    星期六
+
+                </th>
+
+                
+
+            </tr>
+
+            </thead>
+
+            <!--主体部分
+
+               "qz-weeklyTable-label"表示第一列的样式
+
+              "qz-showFullInfo"类切换判断是否展示所有课程信息 在tbody的类上加可看到效果 qz-hasCourse-fullinfo
+
+               "isThreeCourse"标识非合并单元格非放大下有三门及三门以上课程，只有第一门显示全，其他不显示全
+
+              "isThreeCourseOpen"标识放大的情况
+
+              "qz-showkcbh"类表示勾选显示课程编号
+
+              "qz-showlink"类表示勾选显示链接
+
+              "qz-hasCourse"类标识有课程
+
+               "qz-default"标识不显示内容
+
+                "qz-showkcbhInside"类标识显示提示框中的课程号
+
+              "qz-showWeiCode"类标识显示提示框中的二维码/群号网址
+
+              "qz-hasCourse-1"类标识星期一有课的样式以此类推
+
+              "hasMoreCourse"标识有多门课程的情况
+
+               一天内连续两大节相同的课需要通过rowspan设置行合并
+
+               并且需要加上"qz-mixrow"标识设置了rowspan的单元格,
+
+               注意：合并行需要动态设置高度，且分为两种（单行高度*行，示例合并两行），1.信息简写：(152*2)+4，2.信息全部显示：(192*2)+4
+
+            -->
+
+            <tbody class="qz-weeklyTable-thbody " >
+
+            
+
+                <tr class="qz-weeklyTable-tr">
+
+                    <td class="qz-weeklyTable-td qz-weeklyTable-label " width="122px"  name="timeTd" height="156" >
+
+                        <div class="td-cell qz-ellipse qz-flex-col">
+
+                            <div class="index-title">
+
+                                    一（1-2节）
+
+                            </div>
+
+                                
+
+                                <div class="index-detailtext">
+
+                                    (01、02小节)
+
+                                </div>
+
+                            
+
+
+
+                            
+
+                                <div class="index-detailtext qz-flex-row">
+
+                                    <iconpark-icon name="time"></iconpark-icon>
+
+                                    <span> 08:10~09:40</span>
+
+                                </div>
+
+                            
+
+
+
+                        </div>
+
+                    </td>
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col hasMoreCourse isThreeCourse " kbdataSize="3"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">高等数学</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:龚志伟;时间:2-3周[1-3节];地点:自强楼(教室01104)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2020046</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:6.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">高等数学</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:龚志伟;时间:4周[1-2节];地点:自强楼(教室01104)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2020046</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">思想道德与法治</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:陈丽晶教授;时间:13-18周[1-3节];地点:自强楼(教室01104)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2120027</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:18.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col hasMoreCourse  " kbdataSize="2"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">C语言程序设计</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:张翠萍副教授;时间:2-3,7-8,10,14-16周[1-2节];地点:自强楼(教室01105)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2060396</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:上机;
+
+                                                                          总学时:16.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">C语言程序设计</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:张翠萍副教授;时间:4-6,9,13周[1-2节];地点:自强楼(01514-计算机实验室2)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2060396</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:上机;
+
+                                                                          总学时:10.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="2" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse qz-mixrow"  width="13%" colSize="2"
+
+                                height="312" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col hasMoreCourse  " kbdataSize="2"    colSize="2" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">计算机科学导论与Python实践</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:林立讲师（高校）;时间:3,8,14,19周[1-3节];地点:厚德楼(教室02210)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2060395</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:上机;
+
+                                                                          总学时:12.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">计算机科学导论与Python实践</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:林立讲师（高校）;时间:6周[1-3节];地点:自强楼(01514-计算机实验室2)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2060395</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:上机;
+
+                                                                          总学时:3.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="1"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">英语1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:谢舒婷副教授;时间:2-4,6-9,13-18周[1-2节];地点:自强楼(01506-语音室（6）)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2060089</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:26.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="2" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse qz-mixrow"  width="13%" colSize="2"
+
+                                height="312" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="1"    colSize="2" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">高等数学</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:龚志伟;时间:2-3,6-9,13-17周[1-3节];地点:自强楼(教室01217)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2020046</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:33.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="3" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse qz-mixrow"  width="13%" colSize="3"
+
+                                height="468" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="1"    colSize="3" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:3周[2-5节];地点:厚德楼(教室02101)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:4.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="0"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                    </ul>
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                </tr>
+
+            
+
+                <tr class="qz-weeklyTable-tr">
+
+                    <td class="qz-weeklyTable-td qz-weeklyTable-label " width="122px"  name="timeTd" height="156" >
+
+                        <div class="td-cell qz-ellipse qz-flex-col">
+
+                            <div class="index-title">
+
+                                    二（3节）
+
+                            </div>
+
+                                
+
+                                <div class="index-detailtext">
+
+                                    (03小节)
+
+                                </div>
+
+                            
+
+
+
+                            
+
+                                <div class="index-detailtext qz-flex-row">
+
+                                    <iconpark-icon name="time"></iconpark-icon>
+
+                                    <span> 09:50~10:30</span>
+
+                                </div>
+
+                            
+
+
+
+                        </div>
+
+                    </td>
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="0"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                    </ul>
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="2" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse qz-mixrow"  width="13%" colSize="2"
+
+                                height="312" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col hasMoreCourse  " kbdataSize="5"    colSize="2" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">军事理论</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:沈国俊副教授;时间:2,15周[3-5节];地点:厚德楼(教室02111)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N1190012</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:论文;
+
+                                                                          总学时:6.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">军事理论</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:沈国俊副教授;时间:3,7,9,13周[3-5节];地点:网络平台(网络平台)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N1190012</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:论文;
+
+                                                                          总学时:12.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">军事理论</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:沈国俊副教授;时间:4周[3-5节];地点:网络平台(网络平台)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N1190012</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:论文;
+
+                                                                          总学时:3.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">军事理论</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:沈国俊副教授;时间:5周[3-5节];地点:厚德楼(教室02111)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N1190012</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:论文;
+
+                                                                          总学时:3.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">军事理论</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:沈国俊副教授;时间:6,8,10,14周[3-5节];地点:厚德楼(教室02111)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N1190012</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:论文;
+
+                                                                          总学时:12.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="2" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse qz-mixrow"  width="13%" colSize="2"
+
+                                height="312" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col hasMoreCourse  " kbdataSize="2"    colSize="2" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">计算机科学导论与Python实践</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:林立讲师（高校）;时间:2-4,6,9,15周[3-5节];地点:厚德楼(教室02309)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2060395</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:上机;
+
+                                                                          总学时:18.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">计算机科学导论与Python实践</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:林立讲师（高校）;时间:7-8,13-14,18周[3-5节];地点:自强楼(01514-计算机实验室2)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2060395</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:上机;
+
+                                                                          总学时:15.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+
+
+                    
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="0"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                    </ul>
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                </tr>
+
+            
+
+                <tr class="qz-weeklyTable-tr">
+
+                    <td class="qz-weeklyTable-td qz-weeklyTable-label " width="122px"  name="timeTd" height="156" >
+
+                        <div class="td-cell qz-ellipse qz-flex-col">
+
+                            <div class="index-title">
+
+                                    三（4-5节）
+
+                            </div>
+
+                                
+
+                                <div class="index-detailtext">
+
+                                    (04、05小节)
+
+                                </div>
+
+                            
+
+
+
+                            
+
+                                <div class="index-detailtext qz-flex-row">
+
+                                    <iconpark-icon name="time"></iconpark-icon>
+
+                                    <span> 10:40~12:10</span>
+
+                                </div>
+
+                            
+
+
+
+                        </div>
+
+                    </td>
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="0"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                    </ul>
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col hasMoreCourse  " kbdataSize="2"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">C语言程序设计</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:张翠萍副教授;时间:2,7,14-15周[4-5节];地点:自强楼(01514-计算机实验室2)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2060396</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:上机;
+
+                                                                          总学时:8.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">C语言程序设计</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:张翠萍副教授;时间:3-6,8-9,13周[4-5节];地点:自强楼(教室01101)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2060396</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:上机;
+
+                                                                          总学时:14.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="0"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                    </ul>
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="0"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                    </ul>
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                </tr>
+
+            
+
+                <tr class="qz-weeklyTable-tr">
+
+                    <td class="qz-weeklyTable-td qz-weeklyTable-label " width="122px"  name="timeTd" height="156" >
+
+                        <div class="td-cell qz-ellipse qz-flex-col">
+
+                            <div class="index-title">
+
+                                    四（6-7节）
+
+                            </div>
+
+                                
+
+                                <div class="index-detailtext">
+
+                                    (06、07小节)
+
+                                </div>
+
+                            
+
+
+
+                            
+
+                                <div class="index-detailtext qz-flex-row">
+
+                                    <iconpark-icon name="time"></iconpark-icon>
+
+                                    <span> 14:30~16:00</span>
+
+                                </div>
+
+                            
+
+
+
+                        </div>
+
+                    </td>
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="1"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">英语1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:花爱阳;时间:13周[6-7节];地点:自强楼(教室01204)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2060089</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col hasMoreCourse  " kbdataSize="2"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">形势与政策01</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:林心影未评级;时间:7,13,16周[6-7节];地点:厚德楼(教室02405)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2120019</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:论文;
+
+                                                                          总学时:6.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">思想道德与法治</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:林绸花助理研究员（社会科学）;时间:10周[6-8节];地点:自强楼(教室01202)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2120027</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:3.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="1"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">高等数学</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:龚志伟;时间:2-8,13-18周[6-8节];地点:自强楼(教室01202)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2020046</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:39.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="2" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse qz-mixrow"  width="13%" colSize="2"
+
+                                height="312" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col hasMoreCourse  " kbdataSize="3"    colSize="2" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">思想道德与法治</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:陈丽晶教授;时间:2周[6-8节];地点:自强楼(教室01203)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2120027</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:3.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">思想道德与法治</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:林绸花助理研究员（社会科学）;时间:3-4,6-9周[6-8节];地点:自强楼(教室01203)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2120027</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:18.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">中医学</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:温建恩讲师（高校）;时间:13-18周[6-8节];地点:自强楼(教室01203)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2010266F3</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:18.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="1"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">英语1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:谢舒婷副教授;时间:8-9,13周[6-7节];地点:自强楼(01509-语音室)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2060089</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:6.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="2" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse qz-mixrow"  width="13%" colSize="2"
+
+                                height="312" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="1"    colSize="2" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:9周[6-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:4.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="0"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                    </ul>
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                </tr>
+
+            
+
+                <tr class="qz-weeklyTable-tr">
+
+                    <td class="qz-weeklyTable-td qz-weeklyTable-label " width="122px"  name="timeTd" height="156" >
+
+                        <div class="td-cell qz-ellipse qz-flex-col">
+
+                            <div class="index-title">
+
+                                    五（8-9）
+
+                            </div>
+
+                                
+
+                                <div class="index-detailtext">
+
+                                    (08、09小节)
+
+                                </div>
+
+                            
+
+
+
+                            
+
+                                <div class="index-detailtext qz-flex-row">
+
+                                    <iconpark-icon name="time"></iconpark-icon>
+
+                                    <span> 16:10~17:40</span>
+
+                                </div>
+
+                            
+
+
+
+                        </div>
+
+                    </td>
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col hasMoreCourse isThreeCourse " kbdataSize="14"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:2周[8-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:3周[8-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:汤艳丽助教（高校）;时间:4周[8-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:5周[8-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:7周[8-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:8周[8-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:9周[8-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:10周[8-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:13周[8-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:14周[8-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:15周[8-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:16周[8-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:17周[8-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">体育1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:甘子怡讲师（高校）;时间:18周[8-9节];地点:体育场篮球区(篮球场1-3)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2100014</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级健康服务与管理（闽台4+0）,2026级信息管理与信息系统;总人数:36;考核方式:操作;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:[太极拳]</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="1"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">英语1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:花爱阳;时间:2-9,13-18周[8-9节];地点:自强楼(教室01202)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2060089</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:28.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="1"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">英语1</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:花爱阳;时间:9周[8-9节];地点:自强楼(教室01202)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2060089</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:2.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="0"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                    </ul>
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="0"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                    </ul>
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                </tr>
+
+            
+
+                <tr class="qz-weeklyTable-tr">
+
+                    <td class="qz-weeklyTable-td qz-weeklyTable-label " width="122px"  name="timeTd" height="156" >
+
+                        <div class="td-cell qz-ellipse qz-flex-col">
+
+                            <div class="index-title">
+
+                                    六（10-12节）
+
+                            </div>
+
+                                
+
+                                <div class="index-detailtext">
+
+                                    (10、11、12小节)
+
+                                </div>
+
+                            
+
+
+
+                            
+
+                                <div class="index-detailtext qz-flex-row">
+
+                                    <iconpark-icon name="time"></iconpark-icon>
+
+                                    <span> 19:00~21:20</span>
+
+                                </div>
+
+                            
+
+
+
+                        </div>
+
+                    </td>
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col hasMoreCourse  " kbdataSize="2"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">中医学</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:温建恩讲师（高校）;时间:13-18周[10-12节];地点:自强楼(教室01203)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2010266F3</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:18.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">中医学</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:陈玉鹏副教授;时间:2-5,7-10周[10-12节];地点:自强楼(教室01203)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2010266F3</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:24.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="1"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                            <li class="courselists-item qz-hasCourse-1" >
+
+                                                <div class="qz-hasCourse-title qz-ellipse">中医学</div>
+
+                                                <p class="qz-hasCourse-detaillists ">
+
+                                                    <span class="qz-hasCourse-detailitem qz-hasCourse-abbrinfo">
+
+                                                             老师:陈玉鹏副教授;时间:6-9周[10-12节];地点:自强楼(教室01203)
+
+                                                    </span>
+
+                                                    <span name="kchSpan" class="qz-default">;课程编号:N2010266F3</span>
+
+                                                    <span name="dealeSpan" class="qz-hasCourse-fullinfo">班级:2026级信息管理与信息系统;总人数:70;考核方式:闭卷;
+
+                                                                          总学时:12.0
+
+                                                     </span>
+
+                                                    <span name="linkSpan" class="qz-default "></span>
+
+                                                    <span name="fzmSpan" class="qz-default ">;分组名:</span>
+
+                                                </p>
+
+                                            </li>
+
+                                        
+
+                                    </ul>
+
+                                    
+
+                                        
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="0"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                    </ul>
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="0"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                    </ul>
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="0"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                    </ul>
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="0"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                    </ul>
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                        
+
+                            <td rowspan="1" name="kbDataTd"  class="qz-weeklyTable-td  qz-hasCourse "  width="13%" colSize="1"
+
+                                height="156" >
+
+                                <div class="td-cell qz-flex-col ">
+
+                                    <ul class="courselists qz-flex-col   " kbdataSize="0"    colSize="1" name="kbdataUl">
+
+                                        
+
+                                    </ul>
+
+                                    
+
+
+
+                                </div>
+
+                            </td>
+
+                        
+
+
+
+                    
+
+                </tr>
+
+            
+
+            </tbody>
+
+            <!-- 尾部  需要注意最后一行的第二个单元格需要设置colspan="7"以此合并7个单元格-->
+
+            <tfoot class="qz-weeklyTable-tfoot" >
+
+            <tr class="qz-weeklyTable-tr">
+
+                <td class="qz-weeklyTable-td qz-weeklyTable-label" width="122px">
+
+                    <div class="td-cell qz-ellipse qz-flex-col">
+
+                        <div class="index-title">备注</div>
+
+                    </div>
+
+                </td>
+
+                <td class="qz-weeklyTable-td qz-weeklyTable-detailtext" colspan="7" width="91%">
+
+                    <div class="td-cell">
+
+                        个人理财规划  ;
+
+                    </div>
+
+                </td>
+
+            </tr>
+
+            </tfoot>
+
+        </table>
+</body>
+</html>

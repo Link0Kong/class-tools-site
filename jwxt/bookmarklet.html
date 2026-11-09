@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>教务课表同步书签 · 班级工具站</title>
+<style>
+  :root{--bg:#F7F8F8;--card:#FFFFFF;--ink:#2B3330;--muted:#6E8CA8;--green:#4E9082;--sand:#B98F63;--line:#E4E8E6}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 18px 60px}
+  h1{font-size:22px;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:22px}
+  .card{background:var(--card);border-radius:16px;padding:18px 20px;margin:0 0 16px;box-shadow:0 1px 0 rgba(0,0,0,.03),0 6px 20px rgba(78,144,130,.06)}
+  h2{font-size:16px;margin:0 0 10px}
+  ol,ul{margin:0;padding-left:20px}
+  li{margin:5px 0}
+  code{background:#F1F4F2;border-radius:6px;padding:1px 6px;font-size:13px}
+  .bm{display:inline-block;margin:10px 8px 10px 0;padding:12px 20px;border-radius:12px;background:var(--green);color:#fff;text-decoration:none;font-weight:600;cursor:grab;user-select:none}
+  .bm:active{cursor:grabbing}
+  button{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:9px 14px;font-size:14px;cursor:pointer}
+  button:hover{border-color:var(--green);color:var(--green)}
+  textarea{width:100%;height:190px;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:12px;font:12px/1.55 Consolas,Menlo,monospace;color:#3A4742;background:#FBFCFB}
+  pre{background:#F1F4F2;border-radius:10px;padding:10px 12px;font-size:12.5px;white-space:pre-wrap;word-break:break-all;margin:8px 0 0}
+  .note{color:var(--muted);font-size:13px}
+  .warn{background:#FFF7EC;border-left:3px solid var(--sand);border-radius:8px;padding:10px 12px;color:#7C5B33;font-size:13.5px;margin-top:10px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>教务课表 → 班级工具站</h1>
+  <div class="sub">在教务系统课表页点一下书签，把课表发布成 tool.furina.fun 的分享链接。纯本地、零依赖、不上传任何东西。</div>
+
+  <div class="card">
+    <h2>怎么用</h2>
+    <ol>
+      <li>把下面这个按钮 <b>拖到浏览器书签栏</b>（Edge / Chrome 都行）。</li>
+      <li>登录教务系统（学校统一身份认证 → 门户 →「新教务系统」），打开「个人课表信息」页面：新版 <code>qz-weeklyTable</code> 或旧版 <code>#kbtable</code> 都支持。</li>
+      <li>点书签 → 按提示填「学期第 1 周周一的日期」→ 自动打开 <code>https://tool.furina.fun/#tt=…</code>，课表就发布好了（链接可直接发给同学）。</li>
+    </ol>
+    <div><a class="bm" id="bm" href="#" draggable="true">📅 同步课表到工具站</a></div>
+    <div class="row">
+      <button id="copyBtn" type="button">复制书签源码</button>
+      <button id="testBtn" type="button">本地自检解析器（新旧两种表格）</button>
+    </div>
+    <pre id="selftestOut" style="display:none"></pre>
+    <div class="warn">账号密码不会被读取：书签只解析当前页面上的课表表格，不做任何网络请求，只做一次页面跳转。</div>
+  </div>
+
+  <div class="card">
+    <h2>书签源码（可手动新建书签，把下面整段粘进「网址」）</h2>
+    <div class="row" style="margin-bottom:8px">
+      <button id="copyCodeBtn" type="button">复制 javascript: 源码</button>
+    </div>
+    <textarea id="code" readonly spellcheck="false">
+(function(){
+  function norm(s){return String(s==null?'':s).replace(/\u00a0/g,' ').replace(/\u3000/g,' ').replace(/\s+/g,' ').trim();}
+  function numNorm(s){
+    var t=norm(s).replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-65248);});
+    var map={'，':',','、':',','．':'.','；':';','：':':','（':'(','）':')'};
+    t=t.replace(/[，、．；：（）]/g,function(c){return map[c]||c;});
+    return t.replace(/[—–~～至]/g,'-');
+  }
+  function splitLines(html){
+    var lines=[];
+    String(html||'').split(/<hr\b[^>]*>/i).forEach(function(part){
+      part.split(/<br\b[^>]*>/i).forEach(function(seg){
+        var t=norm(seg.replace(/<[^>]*>/g,''));
+        if(t)lines.push(t);
+      });
+    });
+    return lines;
+  }
+  function dayOf(text){
+    var m=String(text||'').match(/(?:星期|周)\s*([一二三四五六日天])/);
+    if(!m)return null;
+    var map={'一':0,'二':1,'三':2,'四':3,'五':4,'六':5,'日':6,'天':6};
+    return (m[1] in map)?map[m[1]]:null;
+  }
+  function weeksFromText(s){
+    s=numNorm(s);
+    var odd=s.indexOf('单')>=0,even=s.indexOf('双')>=0,set={},re=/(\d{1,2})\s*(?:-\s*(\d{1,2}))?/g,m;
+    while((m=re.exec(s))){
+      var a=parseInt(m[1],10),b=m[2]?parseInt(m[2],10):a;
+      if(b<a){var tmp=a;a=b;b=tmp;}
+      if(b-a>40)b=a;
+      for(var n=a;n<=b;n++){if(n>=1&&n<=30)set[n]=1;}
+    }
+    var arr=[];
+    for(var k in set){var v=parseInt(k,10);if(odd&&v%2===0)continue;if(even&&v%2===1)continue;arr.push(v);}
+    if(!arr.length){for(var i=1;i<=20;i++)arr.push(i);}
+    return arr.sort(function(x,y){return x-y;});
+  }
+  function compress(arr){
+    var a=arr.slice().sort(function(x,y){return x-y;}),parts=[],i=0;
+    if(!a.length)return '';
+    while(i<a.length){
+      var j=i;
+      while(j+1<a.length&&a[j+1]===a[j]+1)j++;
+      var run=j-i+1;
+      if(run>=2)parts.push(a[i]+'-'+a[j]);
+      else if(run===2){parts.push(String(a[i]));parts.push(String(a[j]));}
+      else parts.push(String(a[i]));
+      i=j+1;
+    }
+    return parts.join(',');
+  }
+  function parseSections(text){
+    var t=numNorm(text),m;
+    m=t.match(/第\s*(\d{1,2})\s*[-,、]\s*(\d{1,2})\s*节/);
+    if(m)return [parseInt(m[1],10),parseInt(m[2],10)];
+    m=t.match(/第\s*(\d{1,2})\s*节/);
+    if(m)return [parseInt(m[1],10),parseInt(m[1],10)];
+    m=t.match(/(\d{1,2})\s*-\s*(\d{1,2})\s*节/);
+    if(m)return [parseInt(m[1],10),parseInt(m[2],10)];
+    return null;
+  }
+  function parseBlock(block){
+    var fonts=[],name='',teachers=[],weekVals=[],rooms=[];
+    Array.prototype.slice.call(block.querySelectorAll('font[title]')).forEach(function(f){
+      var title=norm(f.getAttribute('title')).replace(/\s+/g,'');
+      var val=norm(f.textContent);
+      if(!val)return;
+      if(title.indexOf('课程')>=0&&(title.indexOf('名称')>=0||title.indexOf('名')>=0)){if(!name)name=val;}
+      else if(title.indexOf('老师')>=0||title.indexOf('教师')>=0||title.indexOf('授课')>=0||title.indexOf('任课')>=0){teachers.push(val);}
+      else if(title.indexOf('周次')>=0){weekVals.push(val);}
+      else if(title.indexOf('教室')>=0||title.indexOf('地点')>=0||title.indexOf('场地')>=0){rooms.push(val);}
+    });
+    var clone=block.cloneNode(true);
+    Array.prototype.slice.call(clone.querySelectorAll('font')).forEach(function(f){if(f.parentNode)f.parentNode.removeChild(f);});
+    var lines=splitLines(clone.innerHTML);
+    if(!name&&lines.length)name=lines.shift();
+    if(!weekVals.length){
+      for(var i=0;i<lines.length;i++){if(lines[i].indexOf('周')>=0&&/\d/.test(lines[i])){weekVals.push(lines.splice(i,1)[0]);break;}}
+    }
+    if(!teachers.length){
+      var ti=-1;
+      for(var i=0;i<lines.length;i++){if(/老师|教师|教授|讲师|助教|研究员|工程师|博士/.test(lines[i])){ti=i;break;}}
+      if(ti<0){for(var i=0;i<lines.length;i++){if(/^[\u4e00-\u9fa5]{2,4}$/.test(lines[i])){ti=i;break;}}}
+      if(ti>=0)teachers.push(lines.splice(ti,1)[0]);
+    }
+    if(!rooms.length){
+      var ri=-1;
+      for(var i=lines.length-1;i>=0;i--){if(/楼|室|场|馆|教室|机房|实验|中心|校区|号|栋|区|厅|阶梯|报告厅/.test(lines[i])){ri=i;break;}}
+      if(ri<0&&lines.length)ri=lines.length-1;
+      if(ri>=0)rooms.push(lines.splice(ri,1)[0]);
+    }
+    if(!name&&lines.length)name=lines[0];
+    var sections=parseSections(block.textContent);
+    return {name:norm(name),teacher:teachers.join('、'),room:rooms.join('、'),weeks:compress(weeksFromText(weekVals.length?weekVals[0]:'')),sections:sections};
+  }
+  function extractBlocks(td){
+    var blocks=[],divs=td.querySelectorAll('[class*="kbcontent"]');
+    function pushHtml(html){
+      var tmp=document.createElement('div');
+      tmp.innerHTML=html;
+      if(norm(tmp.textContent))blocks.push(tmp);
+    }
+    if(divs.length){
+      Array.prototype.slice.call(divs).forEach(function(d){
+        String(d.innerHTML||'').split(/<hr\b[^>]*>/i).forEach(pushHtml);
+      });
+    }else{
+      pushHtml(td.innerHTML);
+    }
+    return blocks;
+  }
+  function findTable(){
+    var t=document.getElementById('kbtable');
+    if(t)return t;
+    var tables=document.getElementsByTagName('table'),i;
+    for(i=0;i<tables.length;i++){if(tables[i].querySelector('[class*="kbcontent"]'))return tables[i];}
+    for(i=0;i<tables.length;i++){
+      var tx=tables[i].textContent||'';
+      if((tx.indexOf('星期')>=0||tx.indexOf('周一')>=0)&&tx.indexOf('节')>=0&&tables[i].rows.length>=3)return tables[i];
+    }
+    return null;
+  }
+  function parseTable(table){
+    var rows=[],cols=[],occupied={},r,c;
+    for(r=0;r<table.rows.length;r++){
+      var row=table.rows[r],list=[];
+      for(c=0;c<row.cells.length;c++)list.push(row.cells[c]);
+      if(list.length)rows.push(list);
+    }
+    for(r=0;r<rows.length;r++){
+      var col=0;cols[r]=[];
+      for(c=0;c<rows[r].length;c++){
+        var cell=rows[r][c];
+        while(occupied[r+','+col])col++;
+        var rs=parseInt(cell.getAttribute('rowspan')||'1',10)||1;
+        var cs=parseInt(cell.getAttribute('colspan')||'1',10)||1;
+        cols[r][c]=col;
+        cell.__jwxtRS=rs;
+        for(var dr=0;dr<rs;dr++)for(var dc=0;dc<cs;dc++)occupied[(r+dr)+','+(col+dc)]=1;
+        col+=cs;
+      }
+    }
+    var headerRows={},dayMap={},maxCells=0;
+    for(r=0;r<rows.length;r++){
+      var mapped={};
+      for(c=0;c<rows[r].length;c++){
+        var d=dayOf(norm(rows[r][c].textContent));
+        if(d!==null)mapped[cols[r][c]]=d;
+      }
+      if(Object.keys(mapped).length>=5){headerRows[r]=1;if(!Object.keys(dayMap).length)dayMap=mapped;}
+      if(rows[r].length>maxCells)maxCells=rows[r].length;
+    }
+    var dayKeys=[];
+    for(var k in dayMap)dayKeys.push(parseInt(k,10));
+    var timeCol=dayKeys.length?(Math.min.apply(null,dayKeys)>=1):(maxCells>=8);
+    var sectionMap={},big=0;
+    for(r=0;r<rows.length;r++){
+      if(headerRows[r])continue;
+      var sec=null;
+      for(c=0;c<rows[r].length;c++){
+        var cell=rows[r][c];
+        if(cell.querySelector('[class*="kbcontent"]'))continue;
+        var s=parseSections(norm(cell.textContent));
+        if(s){sec=s;break;}
+      }
+      if(!sec)sec=[big*2+1,big*2+2];
+      sectionMap[r]=sec;
+      big++;
+    }
+    var out=[];
+    for(r=0;r<rows.length;r++){
+      if(headerRows[r])continue;
+      for(c=0;c<rows[r].length;c++){
+        var cell=rows[r][c],col=cols[r][c];
+        if(timeCol&&col===0)continue;
+        var blocks=extractBlocks(cell);
+        if(!blocks.length)continue;
+        var day;
+        if(dayKeys.length){day=(col in dayMap)?dayMap[col]:null;}
+        else{day=col-(timeCol?1:0);}
+        if(day===null||day<0||day>6)continue;
+        var rs=cell.__jwxtRS||1,covered=[];
+        for(var rr=r;rr<r+rs;rr++){if(sectionMap[rr])covered.push(sectionMap[rr]);}
+        var start,end;
+        if(covered.length){
+          start=Math.min.apply(null,covered.map(function(x){return x[0];}));
+          end=Math.max.apply(null,covered.map(function(x){return x[1];}));
+        }else if(sectionMap[r]){start=sectionMap[r][0];end=sectionMap[r][1];}
+        else{continue;}
+        for(var bi=0;bi<blocks.length;bi++){
+          var p=parseBlock(blocks[bi]);
+          if(!p.name)continue;
+          if(/^(无课|空|休息|自习|—+|-+)$/.test(p.name))continue;
+          var s0=start,e0=end;
+          if(p.sections){s0=p.sections[0];e0=p.sections[1];}
+          if(s0>12||e0<1)continue;
+          s0=Math.max(1,Math.min(12,s0));
+          e0=Math.max(1,Math.min(12,e0));
+          if(e0<s0)e0=s0;
+          out.push({name:p.name,teacher:p.teacher,room:p.room,day:day,start:s0,end:e0,weeks:p.weeks,parity:'all'});
+        }
+      }
+    }
+    var merged={},order=[];
+    out.forEach(function(c){
+      var key=[c.name,c.teacher,c.room,c.day,c.start,c.end].join('|');
+      if(!(key in merged)){merged[key]={c:c,weeks:{}};order.push(key);}
+      weeksFromText(c.weeks).forEach(function(w){merged[key].weeks[w]=1;});
+    });
+    var result=order.map(function(key){
+      var item=merged[key],c=item.c,ws=[];
+      for(var w in item.weeks)ws.push(parseInt(w,10));
+      c.weeks=compress(ws)||'1-20';
+      return c;
+    });
+    result.sort(function(a,b){return (a.day-b.day)||(a.start-b.start)||(a.end-b.end)||(a.name<b.name?-1:a.name>b.name?1:0);});
+    return result;
+  }
+  function findQzTable(){
+    var t=document.querySelector('table.qz-weeklyTable');
+    if(t)return t;
+    var tables=document.getElementsByTagName('table'),i;
+    for(i=0;i<tables.length;i++){if(tables[i].querySelector('li.courselists-item'))return tables[i];}
+    return null;
+  }
+  function parseQzAbbr(txt){
+    var out={teacher:'',time:'',room:''};
+    String(txt||'').split(/[;；]/).forEach(function(part){
+      var idx=part.indexOf(':')>=0?part.indexOf(':'):part.indexOf('：');
+      if(idx<0)return;
+      var k=norm(part.slice(0,idx)),v=norm(part.slice(idx+1));
+      if(k==='老师'||k==='教师'||k==='任课教师')out.teacher=v;
+      else if(k==='时间'||k==='上课时间')out.time=v;
+      else if(k==='地点'||k==='教室'||k==='上课地点')out.room=v;
+    });
+    return out;
+  }
+  function parseQzRowPeriod(cell){
+    var t=cell.querySelector('.index-title');
+    var txt=numNorm(t?t.textContent:cell.textContent);
+    var m=txt.match(/[（(]\s*(\d{1,2})(?:\s*-\s*(\d{1,2}))?\s*节\s*[)）]/);
+    if(!m)return null;
+    var a=parseInt(m[1],10),b=m[2]?parseInt(m[2],10):a;
+    return [a,b];
+  }
+  function parseQzTable(table){
+    var rows=[],cols=[],occupied={},r,c;
+    for(r=0;r<table.rows.length;r++){
+      var row=table.rows[r],list=[];
+      for(c=0;c<row.cells.length;c++)list.push(row.cells[c]);
+      if(list.length)rows.push(list);
+    }
+    for(r=0;r<rows.length;r++){
+      var col=0;cols[r]=[];
+      for(c=0;c<rows[r].length;c++){
+        var cell=rows[r][c];
+        while(occupied[r+','+col])col++;
+        var rs=parseInt(cell.getAttribute('rowspan')||'1',10)||1;
+        var cs=parseInt(cell.getAttribute('colspan')||'1',10)||1;
+        cols[r][c]=col;cell.__jwxtRS=rs;
+        for(var dr=0;dr<rs;dr++)for(var dc=0;dc<cs;dc++)occupied[(r+dr)+','+(col+dc)]=1;
+        col+=cs;
+      }
+    }
+    var headerRow=-1,headerDay={};
+    for(r=0;r<rows.length;r++){
+      var mapped={},ths=0;
+      for(c=0;c<rows[r].length;c++){
+        if(rows[r][c].tagName==='TH')ths++;
+        var d=dayOf(norm(rows[r][c].textContent));
+        if(d!==null)mapped[cols[r][c]]=d;
+      }
+      if(ths&&Object.keys(mapped).length>=5){headerRow=r;headerDay=mapped;break;}
+    }
+    var dayKeys=[];
+    for(var k in headerDay)dayKeys.push(parseInt(k,10));
+    var offset=dayKeys.length?Math.min.apply(null,dayKeys):1;
+    var rowPeriod={};
+    for(r=0;r<rows.length;r++){
+      if(r===headerRow)continue;
+      var sec=null;
+      for(c=0;c<rows[r].length;c++){
+        var cell2=rows[r][c];
+        if(cell2.getAttribute('name')==='timeTd'||(c===0&&!cell2.querySelector('li.courselists-item'))){
+          sec=parseQzRowPeriod(cell2);
+          if(sec)break;
+        }
+      }
+      rowPeriod[r]=sec||[r*2+1,r*2+2];
+    }
+    var out=[];
+    for(r=0;r<rows.length;r++){
+      if(r===headerRow)continue;
+      for(c=0;c<rows[r].length;c++){
+        var cell3=rows[r][c];
+        var lis=cell3.querySelectorAll('li.courselists-item');
+        if(!lis.length)continue;
+        var day=cols[r][c]-offset;
+        if(day<0||day>6)continue;
+        var rs2=cell3.__jwxtRS||1,rowStart=99,rowEnd=0;
+        for(var rr=r;rr<r+rs2;rr++){
+          var p2=rowPeriod[rr];
+          if(p2){if(p2[0]<rowStart)rowStart=p2[0];if(p2[1]>rowEnd)rowEnd=p2[1];}
+        }
+        if(rowStart>rowEnd){rowStart=rowPeriod[r][0];rowEnd=rowPeriod[r][1];}
+        Array.prototype.slice.call(lis).forEach(function(li){
+          var title=li.querySelector('.qz-hasCourse-title');
+          var abbr=li.querySelector('.qz-hasCourse-abbrinfo');
+          var name=norm(title?title.textContent:'');
+          if(!name)return;
+          var fields=parseQzAbbr(abbr?abbr.textContent:'');
+          var timeText=numNorm(fields.time);
+          var re=/(\d{1,2}(?:\s*-\s*\d{1,2})?(?:\s*,\s*\d{1,2}(?:\s*-\s*\d{1,2})?)*)\s*周\s*[\[［]\s*(\d{1,2})(?:\s*-\s*(\d{1,2}))?\s*节\s*[\]］]/g,m,any=false;
+          while((m=re.exec(timeText))){
+            any=true;
+            var ws=weeksFromText(m[1]);
+            if(!ws.length)continue;
+            var s0=parseInt(m[2],10),e0=m[3]?parseInt(m[3],10):s0;
+            if(s0>12||e0<1)continue;
+            s0=Math.max(1,Math.min(12,s0));e0=Math.max(1,Math.min(12,e0));if(e0<s0)e0=s0;
+            out.push({name:name,teacher:fields.teacher,room:fields.room,day:day,start:s0,end:e0,weeks:compress(ws),parity:'all'});
+          }
+          if(!any){
+            var ws2=weeksFromText(timeText);
+            if(!ws2.length)return;
+            out.push({name:name,teacher:fields.teacher,room:fields.room,day:day,
+              start:Math.max(1,Math.min(12,rowStart)),end:Math.max(1,Math.min(12,rowEnd)),
+              weeks:compress(ws2),parity:'all'});
+          }
+        });
+      }
+    }
+    var merged={},order=[];
+    out.forEach(function(c2){
+      var key=[c2.name,c2.teacher,c2.room,c2.day,c2.start,c2.end].join('|');
+      if(!(key in merged)){merged[key]={c:c2,weeks:{}};order.push(key);}
+      weeksFromText(c2.weeks).forEach(function(w){merged[key].weeks[w]=1;});
+    });
+    var result2=order.map(function(key){
+      var item=merged[key],cc=item.c,ws3=[];
+      for(var w2 in item.weeks)ws3.push(parseInt(w2,10));
+      cc.weeks=compress(ws3)||'1-20';
+      return cc;
+    });
+    result2.sort(function(a,b){return (a.day-b.day)||(a.start-b.start)||(a.end-b.end)||(a.name<b.name?-1:a.name>b.name?1:0);});
+    return result2;
+  }
+  window.__jwxt={parseTable:parseTable,findTable:findTable,parseQzTable:parseQzTable,findQzTable:findQzTable,weeksFromText:weeksFromText,compress:compress};
+  if(window.__jwxtNoRun)return;
+  var courses=[];
+  var qzTable=findQzTable();
+  if(qzTable){
+    courses=parseQzTable(qzTable);
+  }else{
+    var table=findTable();
+    if(!table){alert('课表同步：没找到课表表格（新版 qz-weeklyTable / 旧版 #kbtable）。请先在教务系统打开「我的课表」页面再点书签。');return;}
+    courses=parseTable(table);
+  }
+  if(!courses.length){alert('课表同步：表格找到了，但没解析出课程。请截图发给管理员。');return;}
+  var def=localStorage.getItem('jwxt_term_start')||'2026-09-07';
+  var t=prompt('学期第 1 周周一的日期（YYYY-MM-DD）\n解析到 '+courses.length+' 门课',def);
+  if(!t)return;
+  t=String(t).replace(/\s+/g,'');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(t)){alert('课表同步：日期格式不对，应为 YYYY-MM-DD');return;}
+  localStorage.setItem('jwxt_term_start',t);
+  var json=JSON.stringify({c:courses,t:t});
+  var b64=btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  var url='https://tool.furina.fun/#tt='+b64;
+  if(url.length>20000&&!confirm('链接较长（'+url.length+' 字符），部分浏览器可能截断，仍要打开？'))return;
+  location.href=url;
+})();
+</textarea>
+    <div class="note" style="margin-top:8px">提示：书签只能在教务系统课表页用；新版 <code>qz-weeklyTable</code> 按数据列位置映射星期（col1=周一…col7=周日，已用「有课表课程」列表交叉核对；页面 th 文本顺序是服务器模板 bug），旧版 <code>#kbtable</code> 按表头/列位置。解析规则与 Python 端 <code>jwxt.py::parse_timetable</code> 保持一致（单双周展开、周次用英文逗号、parity 固定 all）。</div>
+  </div>
+</div>
+
+<!-- 本地自检用的示例表格（不显示） -->
+<div style="display:none">
+  <table id="demoKb">
+    <tr><td>节次</td><td>星期一</td><td>星期二</td><td>星期三</td><td>星期四</td><td>星期五</td><td>星期六</td><td>星期日</td></tr>
+    <tr>
+      <td>第1，2节<br>(08:00-09:40)</td>
+      <td><div class="kbcontent">高等数学<br><font title="老师">龚志伟</font><br><font title="周次(节次)">2-4(周)</font><br><font title="教室">自强楼(教室01104)</font></div></td>
+      <td><div class="kbcontent">体育1<br><font title="老师">甘子怡</font><br><font title="周次(节次)">1-16(周)(单)</font><br><font title="教室">体育场篮球区(篮球场1-3)</font></div></td>
+      <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>第3，4节<br>(10:00-11:40)</td>
+      <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+      <td rowspan="2"><div class="kbcontent">数据结构<br><font title="老师">王教授</font><br><font title="周次(节次)">3-5,7-14(周)</font><br><font title="教室">厚德楼(教室03205)</font></div></td>
+      <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>第5，6节<br>(14:30-16:10)</td>
+      <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+    </tr>
+  </table>
+
+  <!-- 新版 qz-weeklyTable 示例：th 故意按真实页面的「星期日打头」，
+       数据列第 1 列是周一（真实页面同款服务器模板 bug）。 -->
+  <table class="qz-weeklyTable" id="demoQz">
+    <thead><tr>
+      <th>周次</th><th>星期日</th><th>星期一</th><th>星期二</th><th>星期三</th><th>星期四</th><th>星期五</th><th>星期六</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td name="timeTd"><div class="index-title">一（1-2节）</div></td>
+        <td name="kbDataTd"><ul><li class="courselists-item"><div class="qz-hasCourse-title">高等数学</div><span class="qz-hasCourse-abbrinfo">老师:龚志伟;时间:2-3周[1-3节];地点:自强楼(教室01104)</span></li></ul></td>
+        <td name="kbDataTd"><ul><li class="courselists-item"><div class="qz-hasCourse-title">C语言程序设计</div><span class="qz-hasCourse-abbrinfo">老师:张翠萍;时间:2-3,7-8周[1-2节];地点:自强楼(教室01105)</span></li></ul></td>
+        <td name="kbDataTd"><ul><li class="courselists-item"><div class="qz-hasCourse-title">计算机科学导论与Python实践</div><span class="qz-hasCourse-abbrinfo">老师:林立;时间:3,8,14,19周[1-3节];地点:厚德楼(教室02210)</span></li></ul></td>
+        <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td name="timeTd"><div class="index-title">二（3节）</div></td>
+        <td name="kbDataTd"><ul><li class="courselists-item"><div class="qz-hasCourse-title">军事理论</div><span class="qz-hasCourse-abbrinfo">老师:沈国俊;时间:2,15周[3-5节];地点:厚德楼(教室02111)</span></li></ul></td>
+        <td>&nbsp;</td><td rowspan="2"><ul><li class="courselists-item"><div class="qz-hasCourse-title">数据结构</div><span class="qz-hasCourse-abbrinfo">老师:王教授;时间:3-5,7-14周[3-5节];地点:厚德楼(教室03205)</span></li></ul></td>
+        <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td name="timeTd"><div class="index-title">三（4-5节）</div></td>
+        <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+(function(){
+  var codeEl = document.getElementById('code');
+  var raw = codeEl.value.replace(/^\s+/, '').replace(/\s+$/, '');
+  var oneLine = raw.replace(/\n+/g, ' ');
+  var bm = document.getElementById('bm');
+  bm.href = 'javascript:' + oneLine;
+
+  function copyText(text, okMsg){
+    function fallback(){
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      ta.remove();
+      alert(ok ? okMsg : '复制失败，请手动选中文本复制');
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function(){ alert(okMsg); }, fallback);
+    } else { fallback(); }
+  }
+
+  document.getElementById('copyBtn').addEventListener('click', function(){
+    copyText('javascript:' + oneLine, '书签源码已复制：新建书签，把内容粘到「网址」即可');
+  });
+  document.getElementById('copyCodeBtn').addEventListener('click', function(){
+    copyText('javascript:' + oneLine, 'javascript: 源码已复制');
+  });
+  document.getElementById('testBtn').addEventListener('click', function(){
+    var out = document.getElementById('selftestOut');
+    try {
+      window.__jwxtNoRun = true;
+      try { eval(oneLine); } finally { window.__jwxtNoRun = false; }
+      var oldParsed = window.__jwxt.parseTable(document.getElementById('demoKb'));
+      var qzParsed = window.__jwxt.parseQzTable(document.getElementById('demoQz'));
+      out.style.display = '';
+      out.textContent = '自检通过：旧版表格 ' + oldParsed.length + ' 门课 / 新版 qz 表格 '
+        + qzParsed.length + ' 门课\n\n' + JSON.stringify({old: oldParsed, qz: qzParsed}, null, 2);
+    } catch (e) {
+      out.style.display = '';
+      out.textContent = '自检失败：' + e;
+    }
+  });
+})();
+</script>
+</body>
+</html>

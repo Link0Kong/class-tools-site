@@ -1,0 +1,353 @@
+{
+  "_meta": {
+    "title": "福建中医药大学学生公寓水电计费规则（机器可读建议常量）",
+    "author": "billing-researcher",
+    "verified_at": "2026-11-06",
+    "school": "福建中医药大学 (FJTCM)",
+    "campuses": ["旗山校区", "屏山校区"],
+    "purpose": "web/tools/index.html 水量统计 + 电费计费的常量与公式；页面只能直接使用 confidence=verified 的数值",
+    "companion_doc": "web/_water_rules/research.md",
+    "confidence_levels": {
+      "verified": "官方原文（学校后勤/公众号官方说明），可直接写入页面",
+      "multi_source": "≥2 个独立来源一致，可写入页面但建议注明来源",
+      "inferred": "由已核实事实推导（如房间定额=人数×人均），可写入页面但标『估算/参考』",
+      "unverified": "仅推测或来源冲突，不得写成事实"
+    }
+  },
+
+  "currency": "CNY",
+  "elec_price_yuan_per_kwh": 0.58,
+  "elec_price_confidence": "verified",
+  "water_price_yuan_per_ton": 3.03,
+  "water_price_confidence": "verified",
+
+  "price_scope": {
+    "applies_to": "学生公寓（本科/研究生宿舍），两校区",
+    "teacher_staff": "不适用学生单价；教工生活区（屏山）按福州市相应价格另计（unverified 具体值）",
+    "public_cost_allocation": false,
+    "public_cost_note": "学生宿舍一室一表按实计费，无公共能耗分摊；3.5% 损耗附加仅适用于附属单位（《水电管理规定（修订）》第二十条）",
+    "tiered_pricing": false,
+    "excess_surcharge": false,
+    "no_markup_statement": "水电收费标准严格遵循国家相关规定，不存在额外加价情况（2025-09-05 后勤基建处说明原文）"
+  },
+
+  "free_quota": {
+    "enabled": true,
+    "unit": "per_student_per_month",
+    "water_ton_per_person_month": 2,
+    "elec_kwh_per_person_month": 5,
+    "confidence": "verified",
+    "conflict_note": "官方 2021 文件为 5 度电/人/月；2022-2023 第三方宿舍介绍站写 4 度电，无文号，建议以官方 5 度为准，若用户实测 4 度则以用户为准",
+    "rules": {
+      "monthly_grant": true,
+      "valid_only_current_month": true,
+      "months_per_year": 10,
+      "vacation_no_quota": "寒暑假留宿无相应水电补贴",
+      "apply_order": "先用免费额度，超出部分按单价收费"
+    },
+    "room_level_examples": {
+      "4_person": { "water_ton_per_month": 8, "elec_kwh_per_month": 20 },
+      "6_person": { "water_ton_per_month": 12, "elec_kwh_per_month": 30 }
+    },
+    "room_level_confidence": "inferred"
+  },
+
+  "billing_cycle": {
+    "quota_cycle": "monthly",
+    "charge_cycle_mode": "prepaid_realtime",
+    "prepaid_realtime_since": "2025-09（智能水电表全面更新后）",
+    "legacy_manual_cycle": {
+      "meter_reading": "每月 28–31 日",
+      "usage_published": "次月 1–5 日",
+      "payment_window": "次月 6–10 日（学生宿舍科收取）",
+      "overdue": "暂停供电"
+    },
+    "initial_credit": { "value": 30, "unit": "kwh", "note": "进校时为各寝室预存 30 度电（一次性，非每月补贴）" },
+    "low_balance_alert": { "threshold_yuan": 15, "time": "每天 09:00", "channel": "手机短信（发给绑定该寝室的所有用户）" },
+    "auto_cutoff": { "threshold_yuan": 0, "cut_electricity": true, "cut_water": false, "restore_on_topup": "充值费用高于 0 元自动恢复供电" }
+  },
+
+  "water_deduction_from_elec_account": {
+    "shared_account": true,
+    "account_balance_unit": "yuan",
+    "displayed_unit": "kwh",
+    "mechanism": "水、电绑定同一寝室账户；水费按 用水量×3.03 换算成金额从账户余额（元）扣除；页面余额以度显示，故水费扣除表现为电量骤降",
+    "confidence": "multi_source_mechanism_inferred_formula",
+    "evidence": [
+      "2025-09-05 说明：每个寝室的水电费用绑定为一个账户，低于15元…低于0元自动断电但不断水",
+      "2017-06 福中医学生媒体：水费是补在电费里的，所谓电费就是水电费",
+      "2021 公寓管理规定：使用远程电脑收费系统的宿舍，须提前预交水电费"
+    ],
+    "formulas": {
+      "water_fee_yuan": "water_ton * 3.03",
+      "deduct_kwh_from_water_fee": "water_fee_yuan / 0.58",
+      "deduct_kwh_from_water_ton": "water_ton * (3.03 / 0.58)",
+      "ton_to_kwh_factor": 5.224137931034483,
+      "kwh_to_yuan": "kwh * 0.58",
+      "balance_yuan_from_kwh": "kwh * 0.58"
+    },
+    "official_formula_found": false,
+    "official_formula_note": "《水电管理规定（修订）》与《学生公寓水电费计取的情况说明》均未给出折算公式或算例；公式由『一个账户 + 余额按元』事实推导，与 2017 年官方学生媒体口径一致"
+  },
+
+  "water_deduction_detection": {
+    "idea": "短时电费大跌（电量骤降）很可能是水费从同一账户扣除，而非真实用电",
+    "formula": {
+      "deduct_kwh": "water_fee_yuan / elec_price_yuan_per_kwh",
+      "water_fee_yuan": "deduct_kwh * 0.58",
+      "implied_water_ton": "deduct_kwh / 5.224137931034483"
+    },
+    "abnormal_drop_threshold": {
+      "rule": "(-delta_q) > max(5, 4 * U)",
+      "min_abs_kwh": 5,
+      "typical_usage_multiplier": 4,
+      "U_definition": "近 14 天相邻采样正差值（正常用电段消耗）的中位数",
+      "min_abs_yuan_equivalent": 2.9
+    },
+    "classify_as_water_fee_if_any": [
+      "事件日期落在每月 6–10 日（旧收费窗口）或月底抄表后次日",
+      "deduct_kwh * 0.58 与当月水量记录(吨) * 3.03 误差 ≤ 10%",
+      "implied_water_ton 小于该寝室月用水上限（4 人间 < 12 吨、6 人间 < 18 吨）",
+      "后续 24h 正常用电小于跌幅的 30%（即跌幅无法被随后用电解释）"
+    ],
+    "not_water_fee_guards": [
+      "单次跌幅 > 该房间历史最大单段用电 × 8",
+      "连续两次采样为同一值或为 0（断网/换表/断电/欠费断电）",
+      "跌幅发生后余额为 0 且无充值记录（欠费断电而非扣费）"
+    ],
+    "handling": {
+      "exclude_from_usage": true,
+      "exclude_from_cost": true,
+      "ui_hint": "已忽略 X 次水费扣除（约 Y 度 / Z 元）",
+      "if_matched_with_water_record": "标注为水费扣除，不再计入区间用电"
+    }
+  },
+
+  "extras": {
+    "separate_hot_water_price": false,
+    "hot_water_note": "宿舍独立卫浴 + 电热水器，热水用电计入电费；宿舍楼公共开水免费。无独立热水计价。",
+    "hot_water_confidence": "multi_source",
+    "sewage_fee_listed": false,
+    "sewage_fee_note": "3.03 元/吨为到户综合单价，不单列污水处理费（福州水价本身含代征污水处理费）；校方说明称不存在额外加价。构成未核实。",
+    "sewage_fee_confidence": "unverified_composition",
+    "public_energy_allocation": false,
+    "late_fee": {
+      "water_daily_rate": 0.001,
+      "elec_daily_rate": 0.002,
+      "note": "《水电管理规定（修订）》第二十一条；预付费模式下基本不触发"
+    },
+    "subsidiary_unit_surcharge": {
+      "rate": 0.035,
+      "applies_to": "附属单位（高压电房及输变线路损耗、维护、保养），不适用于学生宿舍"
+    }
+  },
+
+  "page_rules_text": {
+    "summary_lines": [
+      "电费 0.58 元/度，水费 3.03 元/吨（学校后勤基建处 2025-09-05 说明，不存在额外加价）",
+      "每人每月免费 2 吨水 + 5 度电，按月拨给、当月有效、每学年 10 个月；寒暑假留宿无补贴",
+      "超出免费额度按 0.58 元/度、3.03 元/吨 收费；无阶梯、无超额加价",
+      "水费从电费账户余额中扣除，余额按度显示，故水费 = 扣减度数 × 0.58",
+      "预存 30 度电；余额 <15 元每日 9:00 短信预警；<0 元自动断电但不断水"
+    ],
+    "formula_lines": [
+      "区间电费(元) = 区间用电(度) × 0.58",
+      "区间水费(元) = max(0, 用水量(吨) − 2×人数) × 3.03",
+      "折合扣电(度) = 区间水费(元) ÷ 0.58"
+    ],
+    "do_not_claim": [
+      "不得写成『按福州市居民阶梯水价/福建省居民阶梯电价』，那是对照口径不是校方宿舍口径",
+      "不得写死热水价格/污水处理费单价/公共能耗费（均为未核实或不单列）",
+      "0.58、3.03 的构成（对应哪类市政价）未核实，不要解释"
+    ]
+  },
+
+  "fallback_official_rates_for_comparison_only": {
+    "note": "以下仅作『对照』，不是福建中医药大学学生公寓计费口径，页面需明确标注",
+    "fuzhou_residential_water_tiers_yuan_per_ton": {
+      "tier1_0_18": 2.4,
+      "tier2_19_29": 3.6,
+      "tier3_30_plus": 7.2,
+      "effective": "现行（2024-10 起可查；2026-02 供水公司清单同）",
+      "source": "https://www.fuzhou.gov.cn:10000/zgfzhd/znhd/sfgw/stwmjs/202410/t20241010_4905893.htm ; https://www.fzwater.com/business/shownews.php?id=18259"
+    },
+    "fuzhou_sewage_fee_yuan_per_ton": {
+      "residential": 0.95,
+      "non_residential_incl_school": 1.4,
+      "effective": "2026-12-01 起（榕建规〔2026〕12号）",
+      "source": "http://zjj.fuzhou.gov.cn/zwgk/tzgg/202610/t20261028_5386943.htm"
+    },
+    "fujian_residential_elec_tiers_yuan_per_kwh": {
+      "tier1_le_230": 0.4983,
+      "tier2_231_420": 0.5483,
+      "tier3_ge_421": 0.7983,
+      "combined_meter": 0.533,
+      "peak_valley": { "peak_8_22_plus": 0.03, "valley_22_8_minus": 0.2, "voluntary": true },
+      "effective": "2023-06-01 起执行",
+      "source": "国网福州供电公司阳光价费公示牌（华人头条转载 2025-09）https://www.52hrtt.com/kh/n/w/info/G1756374710136"
+    }
+  },
+
+  "open_questions_for_user": [
+    "每月免费额度按官方 2021 文件 5 度电/人/月，还是你在校看到的 4 度电？",
+    "每月 6–10 日前后是否观察到电量一次性大幅下降，且降幅×0.58≈当月水费？",
+    "是否需要在页面提供『市政阶梯价』对照入口（明确标注非校方口径）？"
+  ],
+
+  "sources": [
+    {
+      "id": "fjtcm-2025-09-statement",
+      "title": "关于学生公寓水电费计取的情况说明",
+      "publisher": "福建中医药大学后勤基建处（微信公众号）",
+      "date": "2025-09-05",
+      "url": "http://mp.weixin.qq.com/s?__biz=MzkzOTM3ODkzMQ==&mid=2247485206&idx=1&sn=1afa5be36fbb198ca952282063d56af4",
+      "accessed": "2026-11-06",
+      "method": "正文页微信风控（环境异常验证页）；经搜索引擎索引获得完整正文，多次不同关键词检索一致",
+      "confidence": "verified_summary",
+      "supports": ["电费 0.58 元/度", "水费 3.03 元/吨", "不存在额外加价", "水电绑定一个账户", "预存 30 度", "低于 15 元预警", "低于 0 元断电报不断水"]
+    },
+    {
+      "id": "fjtcm-2021-dorm-rules",
+      "title": "福建中医药大学学生公寓（宿舍）管理规定（闽中医后〔2021〕10号）",
+      "publisher": "福建中医药大学后勤管理处",
+      "date": "2021-07-13",
+      "url": "https://hq.fjtcm.edu.cn/2021/0713/c1014a23442/page.htm",
+      "accessed": "2026-11-06",
+      "method": "全文抓取",
+      "confidence": "verified",
+      "supports": ["每人每月补贴 2 吨水、5 度电", "免费指标按月拨给、当月有效、每学年 10 个月", "寒暑假留宿无补贴", "超额按学校行政或市政管理部门托收标准收费", "每月 6–10 日收费", "每月 28–31 日抄表"]
+    },
+    {
+      "id": "fjtcm-2024-water-rules",
+      "title": "福建中医药大学水电管理规定（修订）（闽中医后〔2024〕7号）",
+      "publisher": "福建中医药大学后勤管理处",
+      "date": "2024-10-29 印发 / 2024-10-30 发布",
+      "url": "https://hq.fjtcm.edu.cn/2024/1030/c1014a100184/page.htm",
+      "doc_attachment": "https://hq.fjtcm.edu.cn/_upload/article/files/a6/f2/6d36e8764d209be2d180fdbc90d8/96650e56-34a3-4a7c-b063-e61b398dc645.doc",
+      "accessed": "2026-11-06",
+      "method": "页面 + .doc 附件下载解析（2476 字）",
+      "confidence": "verified",
+      "supports": ["按福州市销售电价表/自来水价格表/青源供水水价标准计量收费", "附属单位加收 3.5%", "滞纳金水费日 0.1%、电费日 0.2%", "该文件未规定学生公寓单价与定额，也无水费扣电公式"]
+    },
+    {
+      "id": "fjtcm-2017-selfservice-meter",
+      "title": "【查电费？自己搞定！】自助查询电费机入驻福中医！",
+      "publisher": "福中医宋慈湖畔大学生网络文化工作室（搜狐号）",
+      "date": "2017-06-17",
+      "url": "https://www.sohu.com/a/149810862_757850",
+      "accessed": "2026-11-06",
+      "method": "全文抓取",
+      "confidence": "verified_official_student_media",
+      "supports": ["水费是补在电费里的，所谓电费就是水电费"]
+    },
+    {
+      "id": "fjtcm-metc-faq-2022",
+      "title": "信息化常见问题解答宣传册",
+      "publisher": "福建中医药大学现代教育技术中心",
+      "date": "2022-08",
+      "url": "https://metc.fjtcm.edu.cn/2022/0829/c1090a25617/page.htm",
+      "accessed": "2026-11-06",
+      "confidence": "verified_summary",
+      "supports": ["今日校园 → 购电查询：填楼栋号及房间号实时查询电费"]
+    },
+    {
+      "id": "fjtcm-4g-meter-bid-2025",
+      "title": "学生宿舍4G电表询价采购项目结果公示",
+      "publisher": "福建中医药大学",
+      "date": "2025-05-29",
+      "url": "https://www.fjtcm.edu.cn/2025/0530/c1325a105654/page.htm",
+      "accessed": "2026-11-06",
+      "confidence": "verified",
+      "supports": ["中标单位福建新开普信息科技有限公司", "项目地点屏山、旗山校区（对应 2025-09 智能水电表更新）"]
+    },
+    {
+      "id": "fjtcm-rules-index",
+      "title": "后勤管理处 文件汇编（现行文件列表）",
+      "publisher": "福建中医药大学后勤管理处",
+      "url": "https://hq.fjtcm.edu.cn/_s38/1014/list.psp",
+      "accessed": "2026-11-06",
+      "confidence": "verified",
+      "supports": ["公寓（宿舍）管理规定最新为 2021-07-13 版", "水电管理规定最新为 2024-10-30 版"]
+    },
+    {
+      "id": "third-party-dorm-intro",
+      "title": "福建中医药大学宿舍条件（多站转载）",
+      "publisher": "高考志愿库/高招帮/高三网",
+      "date": "2022-05 至 2023-07",
+      "url": "http://www.zhiyuanku.com/gaokao/fujian/935044.html",
+      "alt_urls": [
+        "http://m.okaoyan.com/gaozhaobang/benkeyuanxiao/684382_66.html",
+        "http://www.gaosan.com/gaokao/492452.html"
+      ],
+      "accessed": "2026-11-06",
+      "confidence": "multi_source_but_conflicts",
+      "supports": ["水电定量、超量收费", "每人每月 2 吨水、4 度电（与官方 5 度冲突）", "独立卫浴+电热水器", "楼内免费开水"],
+      "note": "多站互相转载，非独立来源；电量为 4 度与官方 2021 文件 5 度不一致"
+    },
+    {
+      "id": "baijiahao-2023",
+      "title": "一天一所冷门大学真实体验之福建中医药大学",
+      "publisher": "百家号",
+      "date": "2023-08-31",
+      "url": "https://baijiahao.baidu.com/s?id=1775691127879473466",
+      "accessed": "2026-11-06",
+      "confidence": "multi_source",
+      "supports": ["每个宿舍有补贴的电费和水费，水费基本不用交（补贴够）"]
+    },
+    {
+      "id": "fuzhou-water-price",
+      "title": "我市四城区居民用户自来水价格标准",
+      "publisher": "福州市人民政府（12345 问答）",
+      "date": "2024-10-10",
+      "url": "https://www.fuzhou.gov.cn:10000/zgfzhd/znhd/sfgw/stwmjs/202410/t20241010_4905893.htm",
+      "accessed": "2026-11-06",
+      "confidence": "verified",
+      "supports": ["居民阶梯水价 2.40 / 3.60 / 7.20 元/吨"],
+      "note": "仅作对照，非校方宿舍口径"
+    },
+    {
+      "id": "fuzhou-water-company-list",
+      "title": "福州市自来水有限公司供水收费目录清单明细表",
+      "publisher": "福州市自来水有限公司",
+      "date": "2026-02-10",
+      "url": "https://www.fzwater.com/business/shownews.php?id=18259",
+      "accessed": "2026-11-06",
+      "confidence": "verified",
+      "supports": ["第一阶梯 0–18 吨 2.40、第二 19–29 吨 3.60、第三 30 吨以上 7.20 元/吨"],
+      "note": "仅作对照"
+    },
+    {
+      "id": "fuzhou-water-category-2026",
+      "title": "关于四城区城镇用水类别调整等有关事项的通知（榕建规〔2026〕12号）",
+      "publisher": "福州市住房和城乡建设局、福州市发展和改革委员会",
+      "date": "2026-10-28（2026-12-01 施行）",
+      "url": "http://zjj.fuzhou.gov.cn/zwgk/tzgg/202610/t20261028_5386943.htm",
+      "accessed": "2026-11-06",
+      "confidence": "verified",
+      "supports": ["学校教学和学生生活用水按居民生活用水价格执行", "非居民污水处理费 1.40 元/吨", "非居民及特种用水超定额累进加价"],
+      "note": "仅作对照/构成参考，非校方宿舍口径"
+    },
+    {
+      "id": "fujian-elec-price",
+      "title": "国网福州供电公司 阳光价费公示牌（福建省电网销售电价表）",
+      "publisher": "国网福建省电力有限公司福州供电公司（华人头条转载）",
+      "date": "2025-09-03",
+      "url": "https://www.52hrtt.com/kh/n/w/info/G1756374710136",
+      "accessed": "2026-11-06",
+      "confidence": "verified_summary",
+      "supports": ["居民阶梯 0.4983/0.5483/0.7983 元/度", "合表用户 0.5330 元/度", "峰谷 ±0.03/−0.20", "上表自 2023-06-01 起执行"],
+      "note": "仅作对照，非校方宿舍口径"
+    },
+    {
+      "id": "analog-xmmc-2023",
+      "title": "1-5#宿舍楼水电、淋浴使用说明（厦门医学院）",
+      "publisher": "厦门医学院信息中心",
+      "date": "2023-09-04",
+      "url": "https://www.xmmc.edu.cn/xxzx/info/1226/2035.htm",
+      "accessed": "2026-11-06",
+      "confidence": "verified_for_other_school",
+      "supports": ["同类福建高校：电 0.533 元/度（合表电价）、水 3.13 元/吨、每人补助 5 度电/2 吨水/月、水电联动（欠费停电报不断水）"],
+      "note": "仅作同类机制对照，不可用于福中医数值"
+    }
+  ]
+}

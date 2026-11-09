@@ -1,0 +1,25 @@
+# jwxt 运行产物 / 机密 —— 一律不进 Git
+__pycache__/
+*.pyc
+tests/__pycache__/
+
+# DPAPI 加密凭据（只有当前 Windows 用户可解，仍然禁止上传/提交）
+creds.dpapi
+creds.dpapi.tmp
+
+# 教务系统 cookie 缓存（SSO 后会话凭据，含时间戳；仅本机使用，禁止提交）
+jwxsd_cookies.json
+jwxsd_cookies.json.tmp
+
+# 抓取调试用 HTML（含课表内容，别提交）
+_last_timetable.html
+_last_timetable_*.html
+
+# 日志
+logs/
+
+# 旧版人工模式 profile 位置（现已改用 %TEMP%，保留忽略以防残留）
+_manual_profile/
+
+# 开发调试临时文件
+_dev_*

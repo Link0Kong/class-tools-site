@@ -1,0 +1,1 @@
+{"steps":[{"k":"页面启动（身份门禁通过）","ok":true,"note":""},{"k":"带 #tab= 打开可直达工具","ok":true,"note":"#tab=hw | on"},{"k":"0 JS 报错","ok":true,"note":"[]"},{"k":"0 console.error","ok":true,"note":"[]"}],"errs":[],"cerrs":[]}
