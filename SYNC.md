@@ -3,7 +3,7 @@
 本仓库是「班级工具站」的完整归档：单文件站点 `tools/index.html`、部署脚本 `deploy/`、测试 `tools/tests/`、文档与历史说明。
 
 - GitHub（主）：https://github.com/Link0Kong/class-tools-site  —— remote 名 `origin`
-- Gitee（镜像）：见下方 remote 名 `gitee`
+- Gitee（镜像）：https://gitee.com/ko_Link/class-tools-site  —— remote 名 gitee
 
 ## 每次改完，只跑这一条
 
@@ -50,7 +50,8 @@ web/
 | 现象 | 处理 |
 |---|---|
 | `push` 被拒（non-fast-forward） | `git pull --rebase origin master` 后再推；冲突就手工合并 |
-| Gitee 提示认证失败 | 令牌过期。去 gitee.com → 设置 → 私人令牌 重新生成，然后 `git remote set-url gitee https://<用户名>:<新令牌>@gitee.com/<用户名>/class-tools-site.git` |
+| Gitee 提示认证失败 | 令牌过期。去 gitee.com → 设置 → 私人令牌 重新生成，然后覆盖 C:\Users\Ko_Li\.git-credentials 里 gitee.com 那一行（格式 https://ko_Link:<新令牌>@gitee.com，必须 LF 换行、不能带 CR） |
+| push 卡住不返回 / 弹登录窗 | 本仓库已设 credential.helper=store；若还卡，先 git config --local --unset-all credential.helper，再 git config --local --add credential.helper store |
 | 中文文件名显示成 `\346\226\207` | `git config core.quotepath false` |
 | 提交里混进了大文件 | `git rm --cached <file>` 后补进 `.gitignore`，再提交 |
 

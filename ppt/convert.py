@@ -983,8 +983,8 @@ def convert_deck(src_path, work_dir, opts=None):
     os.makedirs(assets_dir, exist_ok=True)
     os.makedirs(tmp_dir, exist_ok=True)
 
-    app = None
-    pres = None
+    # COM 对象统一放 holder：收尾时先清 holder 再 Quit/反初始化（见 _quiet_shutdown）
+    com = {"app": None, "pres": None}
     pythoncom = None
     try:
         ctx.progress(2, "检查 PowerPoint")
@@ -1001,15 +1001,16 @@ def convert_deck(src_path, work_dir, opts=None):
             pythoncom.CoInitialize()
         except ImportError:  # pragma: no cover
             raise ConvertError("缺少 pywin32（pythoncom）")
-        app = _acquire_powerpoint(ctx)
+        com["app"] = _acquire_powerpoint(ctx)
         ctx.log("PowerPoint 就绪（启动+打开准备 %.0fms）"
                 % (1000 * (time.monotonic() - t0)))
         ctx.progress(4, "打开演示文稿")
         try:
-            pres = app.Presentations.Open(local_copy, True, False, False)
+            com["pres"] = com["app"].Presentations.Open(local_copy, True, False, False)
         except Exception as exc:  # noqa: BLE001
             raise ConvertError("PowerPoint 无法打开该文件（可能加密/损坏）：%s"
                                % exc.__class__.__name__)
+        pres = com["pres"]
         ctx.log("已打开：%s" % os.path.basename(src_path))
         slides_meta, slide_w_pt, slide_h_pt, render_w, render_h = _collect_slides_meta(
             ctx, pres, opts, tmp_dir)
@@ -1064,9 +1065,13 @@ def convert_deck(src_path, work_dir, opts=None):
             "render_h": int(render_h),
         }
     finally:
-        _quiet_shutdown(app, pres, ctx)
-        app = None
-        pres = None
+        # 关键：先把局部 pres 引用放进 holder，再统一清理；否则调用方局部变量
+        # 会在 Quit 之后才 Release，偶发卡 ~60s。
+        try:
+            del pres
+        except NameError:
+            pass
+        _quiet_shutdown(com, ctx)
         try:
             import gc
 

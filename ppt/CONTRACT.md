@@ -262,15 +262,18 @@ PATCH /ppt_decks?id=eq.<id>  { "status":"queued", "progress":0, "error":"", "upd
 
 ## 7. 页切换动效映射（转换机写，客户端执行）
 
+> 2026-11-09 由转换机用真实 PowerPoint COM 探测修正（`convert.py` / `pptx_xml.py`；客户端只消费 `tr` 字符串，
+> 取值仍只有下列 6 个，接口不受影响）：
+
 | PowerPoint EntryEffect | manifest.tr |
 |---|---|
 | 0 / 无 | `none` |
-| fade 家族（3849、1793…） | `fade` |
-| push 家族（3844–3848、1281…） | `push` |
-| wipe 家族（2817、2561…） | `wipe` |
-| zoom 家族（3073、3853…） | `zoom` |
-| cover 家族（1285…、3851…） | `cover` |
-| 其它 | `fade` |
+| fade 家族（1793、3849…） | `fade` |
+| push 家族（3852–3855…） | `push` |
+| wipe 家族（2817–2820、2561–2564…） | `wipe` |
+| zoom 家族（3073、3074…） | `zoom` |
+| cover 家族（1281–1288…） | `cover` |
+| cut（257、258、3844）/ 1537 / 3954–3956 / 其它 | `none` 或 `fade`（按转换机实测表，见 `pptx_xml.py`） |
 
 - 客户端实现建议：`fade` 交叉淡入 320ms；`push` 上一层左移出+新层右移入 360ms；`wipe` 左→右裁切 380ms；
   `zoom` 1.04→1 透明度渐入 300ms；`cover` 新层从右覆盖 340ms；`none` 直切。步内切换一律 120–160ms 淡入。

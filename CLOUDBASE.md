@@ -688,3 +688,68 @@ PATCH {REST}/site_assets?id=eq.tt   body={body,meta,updated_at}
 - 本机 `C:\briefdesk\scripts\health_beat.py` 只剩 local 10 行；云端 8 行由 `health_probe` 云函数写
   （含 `tt_cloud` 检查本行 freshness、`cloud_power_sync`、`cloud_xgj_sync`、`cloud_health_probe` 心跳等，见 `health_monitor_spec.md` §9）。
 - 暂停/恢复后无需改代码：`web_pause.py --on/--off` 即可；**2026-12-10 前必须续费 CloudBase**，否则小程序/云端一并中断。
+
+## PPT 演示：`ppt_decks` / `ppt_upload_chunks`（2026-11-09）
+
+> 需求：教室电脑老旧，PPT 动画多会卡死、嵌入视频换机后「媒体不可用」→ 上传源文件，由本机转换机
+> 一次性渲染**分步图片** + 抽取嵌入视频转 H.264，三端只加载图片/MP4，任意设备流畅播放。
+> 唯一契约（字段/状态/清单/播放语义）：`web/ppt/CONTRACT.md`；设计参考 `web/ppt/DESIGN.md`。
+> 迁移：`deploy/cloudbase/2026-11-09_ppt_decks.sql`（已应用，幂等）。
+
+### 表结构
+
+`public.ppt_decks`（一行 = 一个演示文件；客户端生成 id `d...+10位`）：
+
+| 列 | 说明 |
+|---|---|
+| `id` text PK / `title` / `owner_sid` / `owner_name` / `client` | 身份与来源（client: web/mp/android） |
+| `status` | `uploading` → `queued` → `processing` → `ready` / `failed` |
+| `progress` / `error` | 转换进度 0-100 / 失败中文原因（≤300 字） |
+| `source_name` / `source_size` / `chunk_count` / `source_key` | 源文件信息（source_key 为 OSS 原件 key） |
+| `slide_count` / `step_count` / `aspect` / `cover_url` | 转换后统计与封面（OSS URL） |
+| `manifest` jsonb | 播放清单 v1（默认 `{}`，见契约 §5） |
+| `deleted` bool / `created_at` / `updated_at` / `converted_at` bigint | 软删与时间 |
+
+`public.ppt_upload_chunks`（分片暂存，转换机取走后立即 DELETE）：
+
+| 列 | 说明 |
+|---|---|
+| `deck_id` / `owner_sid` / `idx` / `data`(base64 text) / `ts` | PK `(deck_id, idx)`；512KiB 原始字节/片 |
+
+### 权限（RLS，已实测）
+
+- `ppt_decks` 读 = `auth_ok()`（全班共享演示库）；写 = 本人 `owner_sid = auth_sid()`；转换机用**管理员 token**可更新任意行；
+  **无 DELETE 策略**（删除=软删 `deleted=true`）。
+- `ppt_upload_chunks`：本人可 SELECT/INSERT/UPDATE/DELETE（UPDATE 供断点重传 upsert）；管理员 token 可读/删。
+- 匿名 token 读两张表均返回 `[]`；实测 `anon` 无写权限。
+
+### 接口（PostgREST，三端一致）
+
+```http
+POST  {REST}/ppt_decks            [...]                      # 建行（status=uploading）
+POST  {REST}/ppt_upload_chunks    [...]                      # 分片（Prefer: return=minimal / merge-duplicates）
+PATCH {REST}/ppt_decks?id=eq.<id> {"status":"queued",...}    # 提交转换
+GET   {REST}/ppt_decks?select=<轻字段>&deleted=eq.false&order=created_at.desc&limit=100
+GET   {REST}/ppt_decks?select=manifest,...&id=eq.<id>        # 播放前取清单
+PATCH {REST}/ppt_decks?id=eq.<id> {"deleted":true}           # 软删 / 失败重试改 status=queued
+```
+
+- 分片大小/重试/并行度/进度与状态文案见契约 §3/§4；转换机每轮 upsert `site_assets` 行 `id='ppt_agent'`
+  （`body={online,seen_at,queued,version,host}`）作心跳，客户端 `seen_at` >180s 视为「转换机离线 · 排队中」。
+- 转换机：`web/ppt/agent.py`（计划任务 `PptConvertAgent` 每分钟、pythonw、InteractiveToken——PowerPoint COM 需桌面会话）。
+
+### 媒体资产（阿里云 OSS，非 CloudBase）
+
+- Bucket `tool-furina-fun` @ `oss-cn-hongkong`，公共读；**直连域名**（不依赖暂停中的 furina.fun DNS）：
+  `https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/`
+- 转换产物：`ppt/a/<deckId>/<buildId>/`（`s{slide}-{step}.webp` 1600 宽主图 / `t{slide}.webp` 400 宽缩略图 /
+  `m{idx}.mp4` 或 `.m4a`），长缓存 `public,max-age=31536000,immutable`；`buildId` 内容哈希，重转换换目录。
+- 原件：`ppt/src/<deckId>/source.<ext>`（供「下载原件」）。
+- 写只允许本机转换机（oss2，凭据复用 `deploy/sync_tools.load_creds()`，**不进前端/日志**）；三端只读。
+
+### 小程序所需用户侧配置（发布前）
+
+微信公众平台把 `https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com` 加入 **request 合法域名 + downloadFile 合法域名**；
+香港 OSS 默认域名能否过微信校验未查证，发布前必须真机正式版验一张图 + 一段视频；OSS 防盗链需放行空 Referer 与
+`servicewechat.com`（当前 bucket 无防盗链、allow_empty_referer=true，已实测）。
+

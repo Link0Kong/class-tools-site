@@ -2456,3 +2456,107 @@ SLOW_BLD  = ["13号楼","16号楼"]   // 楼栋级慢频配置（23A/23B 不在�
 > 19:10 补丁：signupWindows 在「窗口已开始但无结束时间/全部结束」时不再返回无时间的「报名中」，继续走 deadline/eventAt 逻辑（修 `v2_notice_time_check` A7 chip 契约）；三窗口仍由 `signupWindows` + 要点体现。最终线上 731,777B/`c21787b9…`；time 测试 64/72（基线 62/72，剩余为存量花名册/献血）。
 
 
+## 2026-11-09 22:0x–23:0x · 增量 28：PPT 演示（三端同步上线；网页已部署 / 小程序待用户上传 / 安卓 APK 已交付）
+
+> 用户需求（2026-11-09 原话场景）：教室电脑老旧，PPT 动画多时常常无反应；在自己电脑能播的嵌入视频移到班级电脑显示「媒体不可用」。
+> 希望「可在任意设备上完整流畅播放 PPT」的、任何人可上传的播放工具。三端同步上线。
+>
+> **方案**：上传端只传源文件；家里电脑的「转换机」（Windows + Microsoft PowerPoint COM）一次性把 PPT 渲染成
+> **分步图片**（每页 + 每个点击动画步）并把**嵌入视频/音频抽出来转成 H.264/AAC**；三端只加载图片/MP4 → 老电脑也秒开、
+> 视频不再依赖 PowerPoint 解码器。清单与状态走 CloudBase PG（现有班级 token RLS），媒体资产走阿里云 OSS（公共读、内容哈希路径、长缓存）。
+>
+> **唯一契约**：`web/ppt/CONTRACT.md`（表/RLS/接口/manifest v1/播放语义/三端要求/红线）；**设计参考**：`web/ppt/DESIGN.md`
+> （19 个竞品拆解 + 三端交互规格 + 微信域名/WebP 技术查证）；转换机运维：`web/ppt/README.md`。
+
+### 云端（已应用）
+- 迁移 `deploy/cloudbase/2026-11-09_ppt_decks.sql`（`apply_sql.py` 逐条 ExecutePGSQL）：`public.ppt_decks`（22 列：
+  状态 `uploading→queued→processing→ready/failed`、`progress/error`、源文件信息、`manifest jsonb`、`deleted` 软删等）+
+  `public.ppt_upload_chunks`（`(deck_id,idx)` PK、512KiB 原始字节/片 base64、转换完即删）。
+- RLS：decks 读 `auth_ok()`（全班共享演示库）、写本人 `owner_sid=auth_sid()`、转换机管理员 token 可更新任意行；chunks 本人
+  SELECT/INSERT/UPDATE(upsert)/DELETE、管理员可读删；匿名读 `[]`。**无 DELETE 给 decks**（删除=软删）。
+- 转换机心跳复用 `public.site_assets` 行 `id='ppt_agent'`（`body={online,seen_at,queued,version,host}`；客户端 `seen_at>180s`
+  显示「转换机离线 · 排队中」，不报错）。CLOUDBASE.md 已补章节。
+- OSS 布局：`ppt/a/<deckId>/<buildId>/`（`s{页}-{步}.webp` 1600 宽主图 / `t{页}.webp` 400 缩略图 / `m{n}.mp4|.m4a`）+
+  `ppt/src/<deckId>/source.<ext>`；`Cache-Control: public,max-age=31536000,immutable`；直连域名
+  `https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/`（不依赖暂停中的 furina.fun DNS）。
+
+### 转换机（本机，已装好并启用）
+- `web/ppt/`：`pptx_xml.py`（纯函数：sldSz/页序/媒体+xfrm 归一化/切换映射/step 规划降级/manifest 校验/buildId）、
+  `convert.py`（PowerPoint COM：忙检测、可见性快照分步导出、字节去重、页 step≤12/整图≤260 降级、`SaveCopyAs` 媒体抽取、
+  ffmpeg H.264/AAC `faststart`、Pillow WebP 主图≤200KB q72→q62 / thumb≤25KB、manifest+buildId）、
+  `agent.py`（队列轮询/条件认领/分片拼装/OSS 上传/心跳线程/token 过期自动刷新/单实例锁/进度 PATCH/中文失败 error/日志脱敏）、
+  `oss_upload.py`、`install_agent.ps1`、`README.md`（运维手册）、`tests/`（fixture 生成 + 纯逻辑 51 + COM 集成 13 + 云端契约 7）。
+- **计划任务 `PptConvertAgent`**（系统 pythonw `C:\Users\Ko_Li\AppData\Local\Programs\Python\Python312\pythonw.exe`、
+  Interactive only（COM 必须桌面会话）、每分钟 + 登录后 30s、StartWhenAvailable、IgnoreNew、单实例、ExecutionTimeLimit 20min）。
+  已 `-NoRun` 注册 → Lead 已 `schtasks /Change /ENABLE` 并实测：22:59 计划任务真实消费 queued deck（6 页/7 步/13 资产）→ PATCH ready，
+  `Last Result=0`。运维：`schtasks /Query /TN PptConvertAgent /V`；暂停=`schtasks /Change /DISABLE` 或建 `web/ppt/ppt-agent.pause`；
+  日志 `web/ppt/logs/agent-YYYYMMDD.log`；单次 `python web/ppt/agent.py --once`；指定 deck `--deck <id>`。
+- 安全/健壮性：用户 PowerPoint 有打开文档时本轮跳过（不打扰编辑）；失败 PATCH `failed`+中文≤300 字+清 chunks；token/密钥绝不落日志；
+  修复了 PowerPoint Quit 后 COM 释放偶发 60s 卡顿（Close→释放引用→Quit→CoUninitialize，连续 6 次 4.4–4.9s、无残留进程）。
+- **取舍（如实）**：分步图取「每步最终视觉态」→同段逐字出现会合并、强调/运动路径取快照、自动动画（afterPrevious/withPrevious）
+  合并为当页最终态（内容不丢）；外链媒体跳过并 warning；隐藏页仍转换；单 deck ≤64MiB/≤300 页/图 ≤260/页 step ≤12；
+  媒体 ≤200MB/总时长 ≤30min（超出截断/跳过）；重转换旧 buildId 目录不自动删。
+
+### 网页（已部署）
+- `tools/index.html` 732,621 → **800,243 B**（sha256 `4412f5fc…`）：CSS `/* __PPT_FEATURE_V1__ */` 187 行（`</style>` 前）+
+  `<section id="s-ppt">` 26 行（`#s-all` 前）+ JS 1,255 行/96 函数（OPTIM V1 块前）；站点其它逻辑只 4 处挂钩
+  （TOOLS 一项、gotoTab 两行、滑动引擎 resolveStart 排除 `#pptPlayer` 一行）；`APP_VER` 仍 2.0.0、无外部依赖/密钥。
+- 列表（暖白卡片/状态胶囊/离线提示/空态/骨架）、上传（File.slice 512KiB→base64 并行≤4 重试2 退避 400/1200ms、PATCH queued、
+  取消软删、>60MiB 拒绝）、10s 可见轮询+心跳同轮；全屏播放器（页码按页/顶部进度按 step/步点 step≥2；点击 2/3-1/3、鼠标拖、
+  触摸滑、键盘全套；控制条单行 3s 自动隐藏、B 黑屏、缩略图/备注抽屉、视频热点点击才播且不随 step 卸载、站内退出确认、
+  全屏 API+沉浸降级、预加载后 2 张/释放旧图/低端 fade 降级）。
+- 专项测试 `tools/tests/v2_ppt_check.py` **86/86**（CDP Fetch 只 mock ppt 三路径 + 假 token，0 真实云端写；430px 无横向溢出；
+  播放器手势不切工具）；回归 `overflow_check 430`=0、`v2_ui_check` 27/27、`v2_pos_restore_check` 12/12、`v2_drag_check` 56/56、
+  `optim_v1_check` 14/14、`v2_x5_anim_check` 28/28。
+- **上线**：2026-11-09 23:04 `deploy/sync_tools.py`；`deploy/oss_object.py check index.html` = **MATCH**
+  （远程 800,243 B/`4412f5fc…`）；DNS 暂停期以 OSS 对象字节为准，恢复解析后生效。备份
+  `tools/_backup/index_online_20261109-2220_prePPT.html`（732,621 B/`65610511…`，回滚用）。
+- **真实端到端（Lead，独立于实现者的测试）**：headless Edge + 测试身份真实 token（`_cloud_guard` 阻断所有云端写）+
+  真实云端 deck + 真实 OSS 资源：桌面 1280×800 与 430×900 触摸两套，16 页逐页/键盘/点按/滑动/缩略图/备注/黑屏/退出确认全 PASS，
+  含视频 deck（`dtestvidspc2gii79oz4`）热点点击后 `<video>` 真实播放（`paused=false,dur=3,w=640,h=360`）、4:3 deck letterbox 正确，
+  0 console/exception。截图证据 `tools/tests/_shots_ppt/`（实现者 15 张）与 Lead 临时 E2E 截图。
+- **真实浏览器上传闭环（Lead，第二套独立 E2E）**：headless Edge 真实 UI 选文件（55KB PPT）→ 真实分片上传 → `queued` →
+  计划任务转换 `ready`（6 页/7 步）→ 播放器真实打开播放 → 自动软删测试行；仅放行 ppt 两表写、其它云端写阻断，页面 0 错误。
+  脚本留档 `web/ppt/tests/e2e_web_real.py`（真实 deck 播放：桌面/手机/视频/4:3）与 `web/ppt/tests/e2e_web_upload.py`（真实上传）。
+
+### 小程序（源码完成，待用户上传发布）
+- 新增 `utils/ppt.js`（§4 全部接口 + 512KiB 分片读取/base64/并发≤4/重试/进度/取消 + manifest 归一化/URL/step 导航纯函数）、
+  `pages/ppt/{js,wxml,wxss,json}`（列表+上传，23KB）、`pages/pptplay/*`（全屏播放器 38KB）、`images/tool-ppt.png`；
+  `app.json` 注册 2 页（23 页，未改 tabBar）；`utils/tools.js` 目录末尾加「演示」；`utils/cloud.js|cloud-config.js` +2 表名/+通用
+  `cbDelete`；版本 `utils/version.js` 仍 **2.0.0**。
+- 关键实现：聊天记录选 `.ppt/.pptx`（唯一入口）→ 占位卡片先行 → 分片上传 → queued；状态胶囊/离线横幅/取消/重试/删除/重命名/下载原件；
+  10s 可见轮询/onShow 强拉；播放器（custom nav + `pageOrientation:auto` + disableScroll；点击 2/3-1/3、左右滑、后退=step、
+  控制条自动隐藏、缩略图/备注抽屉、黑屏、`<image webp="{{true}}">`、媒体热点点击才播不随 step 卸载、退出释放）。
+- 测试：`ppt_unit_tests.js` 38/0、`unit.js` 297/0、`sync_contract_test.js` 33/0、`tool_sort_unit.js` 21/0、
+  `staticcheck.py` exit 0（23 页）、`code_quality_check.js` exit 0。
+- **用户需做（发布前）**：微信公众平台把 `https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com` 加入
+  **request 合法域名 + downloadFile 合法域名**；OSS 防盗链放行空 Referer 与 `servicewechat.com`（当前 bucket 无防盗链、
+  allow_empty_referer=true，已实测）；**真机正式版**验一张图 + 一段视频（香港 OSS 默认域名能否过微信校验未查证）；
+  之后在开发者工具上传发布。代码版本仍 2.0.0。
+
+### 安卓（已构建 APK，待用户安装）
+- 新增 `data/ppt/`（容错模型/解析、§4 全部接口、分片上传器≤4 并行/重试/进度/取消、SAF Uri 分片源、自建 OkHttp+BitmapFactory
+  WebP/LRU 图片加载）、`features/ppt/`（URL/step 导航/状态文案/分片计划/列表过滤/播放逻辑，纯 Kotlin 可单测）、
+  `ui/screens/ppt/`（列表+沉浸式播放器，VideoView+MediaController 热点、音量键±翻页、缩略图/备注抽屉、黑屏、转场保守淡入）、
+  `ui/preview/PptPreviews.kt`；注册 `ToolCatalog(id=ppt,「演示」)`、`Routes.PPT_PLAYER`、`MainNavHost`、`AppContainer`、`MainActivity` 音量键。
+- 版本 **3.3.0 / versionCode 9**；无新增第三方依赖。验收：`:app:testDebugUnitTest` **904/0**（新增 PPT 87，原有 817 全绿，无回退）、
+  `assembleRelease` BUILD SUCCESSFUL；APK **2,692,174 B**，sha256 `B4E88732…9459BF2B`，apksigner v2 通过；
+  artifacts：`artifacts/classtools-3.3.0-release-signed.apk` + 5 张 Compose 预览 PNG（列表全状态/空态/16:9/4:3/深色）。
+  交付由 Lead 统一复制到桌面。
+
+### 独立验收（QA，另 agent）
+- 报告 `web/验收报告/PPT演示_独立验收_20261109.md`（31.5 KB）：功能验收 **PASS**；脚本断言合计 **1,574 项 / 0 失败**
+  （网页 86/86 + 真实 E2E 3/3、回归全绿；小程序 38/0+297/0+33/0+21/0+staticcheck/code_quality exit0；安卓 904/0；
+  转换机 51/51+13/13+7/7+计划任务真实运行；DB 只读 RLS/列校验）。唯一 P0「网页未部署」已由 Lead 23:04 部署消除；
+  剩余 P2：播放器封面阶段页码占位 1/1（瞬态）、云端测试数据交付前清理、`site_assets.ppt_agent.updated_at` 不随心跳刷新
+  （客户端用 body.seen_at，不影响）、mp 顶部按钮文案「上传」vs 契约「上传 PPT」、安卓仅 fade 转场（契约允许）。
+- 未验证（如实）：微信真机域名白名单/真机 WebP、安卓实机安装与预览渲染之外的交互、生产域名 CORS（DNS 暂停期）、
+  真实用户账号上传→转换→播放（用测试身份完成，等价链路）。
+
+### 回滚 / 清理
+- 网页：重传 `tools/_backup/index_online_20261109-2220_prePPT.html`；转换机：`schtasks /Change /TN PptConvertAgent /DISABLE`；
+  云端表可保留（无数据即无影响）或 DROP `public.ppt_upload_chunks`、`public.ppt_decks`；小程序/安卓回退到上一版源码/APK。
+- 交付前已清理：测试身份产生的演示行全部软删、分片清零、OSS 测试前缀（`ppt/a/dtest*`、`ppt/a/dd3xpuazwls`、`ppt/src/*`、
+  `ppt/probe/`）删除；`web/ppt/work`、`tests/_out`、`__pycache__` 等过程产物清理（fixture 可用 `tests/make_fixture_pptx.py` 重生成）。
+
+

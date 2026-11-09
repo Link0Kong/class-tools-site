@@ -32,7 +32,8 @@ param(
     [switch]$Remove,
     [switch]$Show,
     [switch]$Run,
-    [switch]$NoRun
+    [switch]$NoRun,
+    [switch]$Disabled
 )
 
 $ErrorActionPreference = "Stop"
@@ -180,6 +181,11 @@ Write-Info "task created: $TaskName (every $EveryMinutes min + logon 30s, python
 if (-not $NoRun) {
     # 注意：默认注册后也**不**主动触发（Lead 统一 E2E 后才 /Run）；-Run 才立即跑一轮。
     Write-Info "task registered (not started). Use -Run to trigger one round now, -Show to inspect, -Remove to uninstall."
+}
+if ($Disabled) {
+    & schtasks.exe /Change /TN $TaskName /DISABLE | Out-Null
+    if ($LASTEXITCODE -ne 0) { Write-Host "[ppt-agent] ERROR: failed to disable task: $TaskName" -ForegroundColor Red; exit 1 }
+    Write-Info "task DISABLED (enable later: schtasks /Change /TN $TaskName /ENABLE)"
 }
 Write-Info "pause : create $Here\ppt-agent.pause ; resume: delete it"
 Write-Info "logs  : $LogDir\agent-YYYYMMDD.log"
