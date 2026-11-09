@@ -259,7 +259,19 @@ def _acquire_powerpoint(ctx):
     return app
 
 
-def _quiet_shutdown(app, pres, ctx):
+def _quiet_shutdown(holder, ctx):
+    """收尾：先释放 COM 引用再 Quit/反初始化（顺序很关键）。
+
+    实测（2026-11-09）：PowerPoint Quit 之后再 Release COM 代理偶发卡 ~60s
+    （COM RPC 清理）。这里用 holder 集中持有引用并提前置 None、先 gc 再 Quit，
+    避免调用方局部变量继续持有代理。绝不 Quit 有用户文档的实例。
+    """
+    import gc
+
+    app = holder.get("app")
+    pres = holder.get("pres")
+    holder["pres"] = None
+    holder["app"] = None
     t0 = time.monotonic()
     if pres is not None:
         try:
@@ -267,11 +279,14 @@ def _quiet_shutdown(app, pres, ctx):
         except Exception:  # noqa: BLE001
             pass
         ctx.log("关闭演示文稿 %.0fms" % ((time.monotonic() - t0) * 1000))
+    pres = None
+    try:
+        gc.collect()
+    except Exception:  # noqa: BLE001
+        pass
     t1 = time.monotonic()
     if app is not None:
         try:
-            # 只 Quit 自己创建的实例：走到这里说明开始前 PowerPoint 没有用户文档。
-            # 若转换期间用户又打开了文档，Presentations.Count>0 → 保留实例，只关自己的稿。
             try:
                 count = int(app.Presentations.Count)
             except Exception:  # noqa: BLE001
@@ -283,6 +298,11 @@ def _quiet_shutdown(app, pres, ctx):
                 ctx.warn("退出时检测到 PowerPoint 有 %d 个文档（用户新开），保留实例" % count)
         except Exception:  # noqa: BLE001
             pass
+    app = None
+    try:
+        gc.collect()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -1045,7 +1065,6 @@ def convert_deck(src_path, work_dir, opts=None):
         }
     finally:
         _quiet_shutdown(app, pres, ctx)
-        # 释放 COM 引用再反初始化：残留引用会让 CoUninitialize 偶发卡 ~60s（实测）
         app = None
         pres = None
         try:
@@ -1078,18 +1097,29 @@ def _main(argv=None):
     parser.add_argument("--no-media", action="store_true", help="跳过媒体抽取")
     parser.add_argument("--keep-intermediate", action="store_true")
     parser.add_argument("--json-out", default="", help="把结果摘要写到该文件")
+    parser.add_argument("--opts-json", default="", help="从 JSON 文件加载全部转换选项")
     args = parser.parse_args(argv)
 
     src = os.path.abspath(args.src)
     work = os.path.abspath(args.work_dir or os.path.join(
         HERE, "work", "cli-" + os.path.splitext(os.path.basename(src))[0]))
-    opts = {
+    opts = {}
+    if args.opts_json:
+        try:
+            with open(args.opts_json, encoding="utf-8") as fh:
+                loaded = json.load(fh)
+            if isinstance(loaded, dict):
+                opts.update(loaded)
+        except (OSError, ValueError) as exc:
+            print("[convert] FAIL: 读取 --opts-json 失败：%s" % exc)
+            return 1
+    opts.update({
         "deck_id": args.deck_id,
         "timeout_s": args.timeout,
         "with_media": not args.no_media,
         "keep_intermediate": args.keep_intermediate,
-        "log": lambda msg: print("[convert] " + msg, flush=True),
-    }
+        "log": opts.get("log") or (lambda msg: print("[convert] " + msg, flush=True)),
+    })
     t0 = time.time()
     try:
         result = convert_deck(src, work, opts)
@@ -1100,11 +1130,22 @@ def _main(argv=None):
         print("[convert] FAIL: %s" % exc)
         return 1
     summary = {
+        "ok": True,
         "manifest": result["manifest"],
         "build_id": result["build_id"],
         "stats": result["stats"],
         "warnings": result["warnings"],
-        "assets": [{"name": a["name"], "size": a["size"]} for a in result["assets"]],
+        "aspect": result["aspect"],
+        "slide_count": result["slide_count"],
+        "step_count": result["step_count"],
+        "cover": result["cover"],
+        "src_ext": result["src_ext"],
+        "source_key": result["source_key"],
+        "render_w": result["render_w"],
+        "render_h": result["render_h"],
+        "assets": [{"name": a["name"], "path": a["path"], "size": a["size"],
+                    "content_type": a.get("content_type"), "kind": a.get("kind")}
+                   for a in result["assets"]],
         "work_dir": work,
         "total_s": round(time.time() - t0, 2),
     }
