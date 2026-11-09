@@ -1,0 +1,14 @@
+# 二进制文件：不做行尾转换、不参与文本 diff（图片 / Office / 安装包等）
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.7z binary
+*.pptx binary
+*.docx binary
+*.xlsx binary
+*.apk binary

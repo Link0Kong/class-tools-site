@@ -2559,4 +2559,30 @@ SLOW_BLD  = ["13号楼","16号楼"]   // 楼栋级慢频配置（23A/23B 不在�
 - 交付前已清理：测试身份产生的演示行全部软删、分片清零、OSS 测试前缀（`ppt/a/dtest*`、`ppt/a/dd3xpuazwls`、`ppt/src/*`、
   `ppt/probe/`）删除；`web/ppt/work`、`tests/_out`、`__pycache__` 等过程产物清理（fixture 可用 `tests/make_fixture_pptx.py` 重生成）。
 
+## 2026-11-10 07:4x · 仓库规范化：GitHub + Gitee 双远端确认与同步流程（当前会话）
 
+> 用户 2026-11-10 07:24 要求：确认已配置好的 Gitee / GitHub，把项目规范化，以后每次修改都要同时上传两个远端并附说明。
+
+### 配置确认（实测）
+- `origin` = GitHub `Link0Kong/class-tools-site`（**Private**，默认分支 `master`，推送凭据 = `gh auth` keyring token）；
+  `gitee` = Gitee `ko_Link/class-tools-site`（**私有**，推送凭据 = `credential.helper=store` 的 `C:\Users\Ko_Li\.git-credentials`）。
+- 实测：`git ls-remote origin/gitee refs/heads/master` 均成功、`git push --dry-run` 两端通过；本地 `master` 与两端已对齐。
+- **已知环境问题（如实）**：本机到 `github.com:443` 偶发 `Recv failure: Connection was reset`（`api.github.com` / `gh` 正常、时好时坏），
+  因此同步脚本内置 3 次自动重试；仍失败时隔 1–2 分钟重跑同一条命令即可（提交已在本地，不会产生空提交）。
+
+### 本次规范化内容
+1. 新增根 `README.md`：项目入口（远端 / 目录 / 交付流程 / 安全红线 / 当前状态）。
+2. 新增 `sync_repos.py` + 重写 `sync-repos.cmd`：安全检查（敏感路径 / GitHub 令牌 / 私钥 / AccessKey / 明文 DB 密码）
+   → `git add -A` → commit（无改动跳过）→ 推 GitHub → 推 Gitee → `ls-remote` 核对两端 HEAD 与本地一致；
+   支持 `--check` 只核对；网络失败自动重试；UTF-8 输出。
+3. `SYNC.md` 重写：双远端流程、说明规范、验证命令、排障、`.gitignore` 约定。
+4. `AGENTS.md`：`§0` 增加第 6 条「双远端同步」红线；`§4` 增加交付时附两端 SHA 的期望；两处失效的 `§5` 自检引用改为 `HANDOFF.md §5.2`。
+5. `.gitignore` 补 `.zcode/`；新增 `.gitattributes`（图片 / Office / APK 标记 binary）；`.zcode/plans/` 工具过程文件移出索引（本地保留）。
+6. `tools/tt.json` 课表快照（2026-11-10 06:42 教务同步）入库。
+7. 旧交接文件加「历史存档」提示：`给ZCode的开场指令.txt`、`使用说明.txt`（部分账号 / 登录描述已过时，现状以 `AGENTS.md` / `tools/README.md` 为准）。
+
+### 以后每次改动的硬性流程
+```cmd
+sync-repos.cmd "feat: 说明本次改了什么"
+```
+只推一个远端 / 不写说明 = 未完成交付；两端 SHA 以 `sync-repos.cmd --check` 为准。仓库保持私有。

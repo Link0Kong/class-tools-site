@@ -21,12 +21,13 @@ _audit/_tmp/
 *.mp4
 *.pdf
 
-# ==== 系统 / 编辑器 ====
+# ==== 系统 / 编辑器 / 工具过程文件 ====
 .DS_Store
 Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+.zcode/
 __pycache__/
 *.pyc
 
