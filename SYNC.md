@@ -56,6 +56,7 @@ git ls-remote gitee refs/heads/master
 
 - **绝不入库**：`tools/cert/`、`deploy/creds.env`、`deploy/acme_account_key.pem`、任何 `*.pem` / `*.key` / `*.env`、`.git-credentials`、`tools/_backup/`（线上备份快照）、`ppt/work/`、截图 / 日志 / 临时产物、`.zcode/`（工具过程文件）。
 - **入库**：站点与部署脚本、测试 `.py` / `.md`、文档、验收报告、`tools/tt.json` 课表快照；`tools/tests/frozen/` 仅保留既有基线冻结副本，新生成的不入库。
+- 注：`tools/tt.json` 由本机计划任务 `JwxtTimetableSync`（每日 07:00）自动更新；出现改动时随下一次提交入库，若只有 `fetchedAt` 变化，并入下次提交即可，不必单独提交。
 - 提交前脚本会自动检查敏感路径；不要用 `git add -f` 强行加入被忽略的凭据文件。
 
 ## 仓库结构（简）
