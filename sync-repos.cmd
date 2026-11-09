@@ -1,6 +1,8 @@
 @echo off
-rem 双远端同步入口：GitHub(origin) + Gitee(gitee)。用法：sync-repos.cmd "feat: 说明"
-rem 逻辑在 sync_repos.py；本文件只负责切到仓库根目录并转发参数。
+rem Dual-remote sync entry: GitHub (origin) + Gitee (gitee).
+rem Usage: sync-repos.cmd "feat: summary of this change"
+rem Real logic lives in sync_repos.py; this wrapper only cd's to the repo root and forwards args.
+rem Keep this file ASCII-only: cmd.exe parses batch files with the OEM codepage, non-ASCII comments can break.
 setlocal
 chcp 65001 >nul 2>nul
 cd /d "%~dp0"
