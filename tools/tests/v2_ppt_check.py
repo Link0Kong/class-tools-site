@@ -1061,6 +1061,121 @@ def scenario_offline(server):
         sess.close()
 
 
+BAD_MANIFEST = {
+    "v": 1, "base": "", "src": "",
+    "w": 1600, "h": 900,
+    "slides": [
+        {"tr": "fade", "trd": 300, "notes": "", "thumb": THUMB1,
+         "steps": [{"img": IMG1, "media": []},
+                   {"img": "https://bad.invalid/step2.webp", "media": []}]},
+    ],
+    "media": [],
+}
+
+
+def scenario_img_error(server):
+    """图片加载失败：保留上一张图 + 「图片加载失败 · 重试」，不白屏、不阻塞翻页。"""
+    with MOCK_LOCK:
+        MOCK["decks"] = [deck(id="dbadimg1", title="坏图演示", manifest=BAD_MANIFEST,
+                              slide_count=1, step_count=2, cover_url=THUMB1)]
+    sess = Session(server)
+    try:
+        page = sess.page
+        js(page, "window.PPT.open('dbadimg1');")
+        if not sess.wait("!!document.getElementById('pptPlayer')", 8):
+            R.add("坏图：播放器可打开", False)
+            return
+        sess.sleep(0.8)
+        page.click(int(sess.width * 0.90), int(sess.height * 0.45))
+        sess.sleep(1.4)
+        st = js(page, r"""
+(function(){
+  var e=document.getElementById('pptImgErr');
+  return {err:!!e&&!e.hidden, txt:e?e.textContent:'',
+          idx:(document.getElementById('pptIdx')||{}).textContent,
+          img:(function(){var ls=[].slice.call(document.querySelectorAll('#pptPlayer .ppt-layer'));
+            for(var i=0;i<ls.length;i++){if(ls[i].style.visibility!=='hidden'){
+              var im=ls[i].querySelector('img');return im?(im.getAttribute('src')||''):'';}}return '';})()};
+})()
+""")
+        R.add("播放器：图片加载失败 → 提示「图片加载失败 · 重试」且保留上一张图（不白屏）",
+              bool(st) and st.get("err") and "图片加载失败 · 重试" in str(st.get("txt"))
+              and st.get("img") == IMG1, json.dumps(st, ensure_ascii=False)[:260])
+        tgt = js(page, "(function(){var e=document.getElementById('pptImgErr');"
+                       "if(!e)return null;var r=e.getBoundingClientRect();"
+                       "return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)};})()")
+        if tgt:
+            page.click(int(tgt["x"]), int(tgt["y"]))
+            sess.sleep(0.9)
+        R.add("播放器：失败提示可点重试且不产生 JS 报错（重试仍失败也保留画面）",
+              not (js(page, "window.__errs||[]") or []),
+              json.dumps(js(page, "window.__errs||[]") or [], ensure_ascii=False)[:200])
+        shot(page, "12_img_error")
+    finally:
+        sess.close()
+
+
+def scenario_desktop(server):
+    """≥960 桌面：列表多列、缩略图抽屉在左、备注抽屉在右、无横向溢出。"""
+    with MOCK_LOCK:
+        MOCK["decks"] = [dict(d) for d in FIXTURE_DECKS]
+        MOCK["agent"]["seen_at"] = NOW
+    sess = Session(server, width=1280, height=800, mobile=False)
+    try:
+        page = sess.page
+        sess.wait("document.querySelectorAll('#pptList .ppt-card').length>=5", 10)
+        sess.sleep(0.3)
+        cards = js(page, r"""
+(function(){
+  var cs=[].slice.call(document.querySelectorAll('#pptList .ppt-card'));
+  var a=cs[0]?cs[0].getBoundingClientRect():null, b=cs[1]?cs[1].getBoundingClientRect():null;
+  return {n:cs.length, aTop:a?Math.round(a.top):null, bTop:b?Math.round(b.top):null,
+          aLeft:a?Math.round(a.left):null, bLeft:b?Math.round(b.left):null,
+          sw:document.documentElement.scrollWidth, vw:innerWidth};
+})()
+""")
+        R.add("桌面 1280px：列表多列排布（前两张同排、左右并排）",
+              bool(cards) and cards.get("n") >= 5 and cards.get("aTop") == cards.get("bTop")
+              and cards.get("bLeft") > cards.get("aLeft"),
+              json.dumps(cards, ensure_ascii=False))
+        R.add("桌面 1280px：列表无横向溢出", cards.get("sw", 9999) <= cards.get("vw", 0) + 1)
+        shot(page, "13_desktop_list")
+        open_player(page)
+        sess.sleep(0.8)
+        js(page, "(function(){document.querySelector('#pptCtl [data-act=\"thumbs\"]').click();return true;})()")
+        sess.sleep(0.4)
+        th = js(page, "(function(){var d=document.getElementById('pptThumbs');"
+                      "if(!d)return null;var r=d.getBoundingClientRect();"
+                      "return {on:d.classList.contains('on'),x:Math.round(r.left),y:Math.round(r.top),"
+                      "w:Math.round(r.width),h:Math.round(r.height),vw:innerWidth,vh:innerHeight};})()")
+        R.add("桌面：缩略图抽屉从左侧滑入（左贴边 / 宽 288 / 全高）",
+              bool(th) and th.get("on") and abs(th.get("x", 9)) <= 2
+              and abs(th.get("w", 0) - 288) <= 2 and abs(th.get("h", 0) - th.get("vh", 0)) <= 2,
+              json.dumps(th, ensure_ascii=False))
+        shot(page, "14_desktop_thumbs")
+        js(page, "(function(){document.querySelector('#pptCtl [data-act=\"thumbs\"]').click();return true;})()")
+        sess.sleep(0.3)
+        js(page, "(function(){document.querySelector('#pptCtl [data-act=\"notes\"]').click();return true;})()")
+        sess.sleep(0.4)
+        nt = js(page, "(function(){var d=document.getElementById('pptNotes');"
+                      "if(!d)return null;var r=d.getBoundingClientRect();"
+                      "return {on:d.classList.contains('on'),right:Math.round(r.right),x:Math.round(r.left),"
+                      "w:Math.round(r.width),vw:innerWidth,txt:document.getElementById('pptNoteBody')?"
+                      "document.getElementById('pptNoteBody').textContent:''};})()")
+        R.add("桌面：备注抽屉从右侧滑入（右贴边 / 宽 320 / 不透明底）",
+              bool(nt) and nt.get("on") and abs(nt.get("right", 0) - nt.get("vw", 0)) <= 2
+              and abs(nt.get("w", 0) - 320) <= 2 and "第一页备注" in str(nt.get("txt")),
+              json.dumps(nt, ensure_ascii=False)[:240])
+        shot(page, "15_desktop_notes")
+        ply = js(page, "(function(){var p=document.getElementById('pptPlayer');"
+                       "return {sw:document.documentElement.scrollWidth,vw:innerWidth,"
+                       "psw:p?p.scrollWidth:0,pcw:p?p.clientWidth:0};})()")
+        R.add("桌面 1280px：播放器无横向溢出", ply.get("sw", 9999) <= ply.get("vw", 0) + 1
+              and ply.get("psw", 9999) <= ply.get("pcw", 0) + 1, json.dumps(ply))
+    finally:
+        sess.close()
+
+
 def main():
     t0 = time.time()
     print("=" * 68)
@@ -1102,16 +1217,13 @@ def main():
     finally:
         if sess:
             sess.close()
-    try:
-        scenario_empty(server)
-    except Exception as e:  # noqa: BLE001
-        R.add("空态场景执行", False, repr(e))
-    try:
-        scenario_offline(server)
-    except Exception as e:  # noqa: BLE001
-        R.add("离线场景执行", False, repr(e))
-    finally:
-        server.stop()
+    for _name, _fn in (("空态", scenario_empty), ("离线", scenario_offline),
+                       ("图片失败降级", scenario_img_error), ("桌面布局", scenario_desktop)):
+        try:
+            _fn(server)
+        except Exception as e:  # noqa: BLE001
+            R.add(_name + "场景执行", False, repr(e))
+    server.stop()
 
     total, passed, failed = R.summary()
     print("=" * 68)

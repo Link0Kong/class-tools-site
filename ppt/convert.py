@@ -1045,11 +1045,22 @@ def convert_deck(src_path, work_dir, opts=None):
         }
     finally:
         _quiet_shutdown(app, pres, ctx)
+        # 释放 COM 引用再反初始化：残留引用会让 CoUninitialize 偶发卡 ~60s（实测）
+        app = None
+        pres = None
+        try:
+            import gc
+
+            gc.collect()
+        except Exception:  # noqa: BLE001
+            pass
         if pythoncom is not None:
+            t_un = time.monotonic()
             try:
                 pythoncom.CoUninitialize()
             except Exception:  # noqa: BLE001
                 pass
+            ctx.log("COM 反初始化 %.0fms" % ((time.monotonic() - t_un) * 1000))
         _cleanup_tmp(tmp_dir, bool(opts.get("keep_intermediate")))
 
 
