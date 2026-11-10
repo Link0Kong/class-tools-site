@@ -447,15 +447,14 @@ def _quiet_shutdown(holder, ctx):
                          "POWERPNT.EXE" % count)
         except Exception:  # noqa: BLE001
             pass
+    # 注意顺序：**持有 app 代理时先清理滞留进程**；Quit 后立刻释放代理会卡 ~60s（RPC 清理）。
+    if quit_called:
+        _kill_lingering_powerpoint(ctx, grace_s=3.0)
     app = None
     try:
         gc.collect()
     except Exception:  # noqa: BLE001
         pass
-    # 官方 Quit 后 Office 自动化实例偶发滞留 ~60s（RPC 清理卡顿）→ 先给 3s 自然退出，
-    # 仍滞留则强制结束 /AUTOMATION 实例（无文档、文件已保存，不丢数据）
-    if quit_called:
-        _kill_lingering_powerpoint(ctx, grace_s=3.0)
 
 
 # ---------------------------------------------------------------------------
@@ -1656,8 +1655,15 @@ def convert_compat(src_path, work_dir, opts=None):
             if changed:
                 raise ConvertError("兼容包媒体字节与原文件不一致（疑似重编码）：%s"
                                    % ", ".join(changed[:3]))
-            ctx.log("compat: 内嵌媒体 sha256 与源包逐字节一致（%d 个，未重编码）"
-                    % len(pkg["media"]))
+            if len(pkg["media"]) != len(src_media):
+                ctx.warn("compat: 兼容包媒体部件数与原包不同（源 %d / 兼容 %d），"
+                         "PowerPoint 可能合并了重复媒体；字节校验通过"
+                         % (len(src_media), len(pkg["media"])))
+            same_names = sum(1 for n, sha in pkg["media"].items()
+                             if src_media.get(n) == sha)
+            ctx.log("compat: 内嵌媒体 sha256 与源包逐字节一致（源 %d / 兼容 %d 个，"
+                    "未重编码；部件名同名 %d 个，PowerPoint SaveAs 可能重编号但字节不变）"
+                    % (len(src_media), len(pkg["media"]), same_names))
         else:
             ctx.log("compat: 源为 .ppt（OLE 包），跳过包内媒体 sha 对比（PowerPoint 转换，不重采样）")
         ctx.log("compat: 字体部件 %d 个（embedTrueTypeFonts=%s, saveSubsetFonts=%s）"
@@ -1776,7 +1782,6 @@ def convert_compat(src_path, work_dir, opts=None):
             "converted_from": compat_meta["converted_from"],
             "build_prefix": prefix,
         })
-        ctx.progress(80, "兼容性处理完成")
         ctx.log("compat 完成：%d 页 / compat %.2fMB sha=%s / pdf %d 页 %.2fMB / "
                 "字体 %d / 外链媒体 %d 处 / 耗时 %.1fs / build=%s"
                 % (slide_count, stats["compat_size"] / 1048576.0,
@@ -1805,26 +1810,19 @@ def convert_compat(src_path, work_dir, opts=None):
             del pres
         except NameError:
             pass
-        _t_fin = time.monotonic()
         _quiet_shutdown(com, ctx)
-        ctx.log("DBG finally shutdown %.1fs" % (time.monotonic() - _t_fin))
         try:
             import gc
 
             gc.collect()
         except Exception:  # noqa: BLE001
             pass
-        ctx.log("DBG finally gc %.1fs" % (time.monotonic() - _t_fin))
         if pythoncom is not None:
-            _t_un = time.monotonic()
             try:
                 pythoncom.CoUninitialize()
             except Exception:  # noqa: BLE001
                 pass
-            ctx.log("DBG finally couninit %.1fs" % (time.monotonic() - _t_un))
-        ctx.log("DBG finally pre-wait %.1fs" % (time.monotonic() - _t_fin))
-        # COM 完全反初始化后 PowerPoint 自动化实例才会真正退出（否则可能挂 60s 等 RPC 超时）
-        _wait_powerpoint_exit(ctx, 60.0, "COM 反初始化后")
+        _wait_powerpoint_exit(ctx, 30.0, "COM 反初始化后")
         _cleanup_tmp(tmp_dir, bool(opts.get("keep_intermediate")))
         stats["elapsed_s"] = round(time.monotonic() - t0, 2)
 

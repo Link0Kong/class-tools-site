@@ -2642,3 +2642,30 @@ sync-repos.cmd "feat: 说明本次改了什么"
   manifest 可 PATCH 去掉 video（客户端自动回落分步）；已补转 deck 的 `deck.mp4` 删除即可。
 - **已知取舍**：原样播放把单击动画合并为自动节奏；外链媒体无法播放（视频中以其海报静态帧代替）；章节允许 ±1s；>120 页/30min 不生成视频；
   小程序/安卓真机受 OSS 默认域名 force-download 头与微信域名白名单影响，失败会自动回退分步（详见 §11.4/§11.8）。
+
+## 2026-11-10 22:0x–23:5x · 增量 31：PPT 功能重定义 v2.0——上传→自动兼容性处理→多端下载（不降质）
+
+> 用户 22:05 原话：「重新定义该功能，不再已在线播放为主要功能，而是以上传ppt，自动对内容进行兼容性处理，并提供多端下载的方式，不改变ppt本身质量」。
+> **新定位**：兼容性处理与多端下载中心；在线播放降为旧 deck 的「在线预览」次要入口。契约见 `ppt/CONTRACT.md` §12。
+
+- **转换机**（`ppt/convert.py` 新增 `convert_compat()`、`agent.py` 默认 compat / `--legacy` / `--compat-only`）：
+  - 临时副本（不改 `ppt/src` 原件）：`.ppt→.pptx`（PowerPoint SaveAs 24）、`SaveAs(24, EmbedFonts=-1)` 规范化+嵌入字体（实测 ppt/fonts 6 部件）、
+    `SaveAs(32)` 导出 PDF（ExportAsFixedFormat 在 pywin32 动态绑定不可用，已记录等价适配）、第 1 页 cover.webp、上传 `compat.pptx` + `original.<ext>` + `preview.pdf` + `cover.webp`；
+  - **质量强保证**：compat 包内 `ppt/media/*` sha256 与源包逐字节一致（用户 deck 15/15 一致，0 重编码）；PDF 页数= slide_count；
+  - 外链媒体（TargetMode=External）**不删除**，manifest `compat.warnings` 按页告警（用户 deck 第 7 页外链视频 1 处）；
+  - manifest v2 `files{compat,pdf,source}`+`compat{warnings,fonts_embedded,converted_from}`；slides 为空（compat 模式不生成分步图）；旧字段保留；
+  - `--compat-only --deck <id>`：从 source_key 补 compat/PDF/源副本并合并 manifest（保留 slides/video/src/media/base）；进度 10/30/55/75/85/95；上传重试 2 次；
+  - PowerPoint 自动化 Quit 偶发滞留 → 3s 宽限后强杀 `/AUTOMATION` 实例（不误杀用户手动实例），单次 compat 转换 2–7s；计划任务 ExecutionTimeLimit PT45M 保持不变并已重新启用。
+  - 测试：`test_pure_logic.py` **123/123**、`test_compat_integration.py` **19/19**（媒体 sha 逐字节/页数/PDF 页数/字体/外链告警/.ppt/失败路径）、`test_convert_integration.py` **22/22**、`test_cloud_contract.py` **7/7**。
+- **存量用户 deck** `dmwalrdlgevz90l`：真实 `--compat-only` 完成（manifest 保留旧 slides/video，仅新增 files+compat）：compat.pptx **39,068,049 B / sha256 20de7b37…**、preview.pdf **1,105,861 B / 16 页**、original.pptx **38,016,533 B**、cover.webp 25,174 B；字体 6；外链告警 1；compat 转换 4.5s（总耗时含 38MB 下载 189s）。
+  独立质量验收 `_qa_ppt_compat.py`（真实云端/OSS 下载）**24/24 PASS**：三件套 size/sha256 与 manifest 一致、compat 页数=16、**源 15 个媒体全部逐字节保留（missing=[]）**、PDF 页数=16、warnings 可读、旧 slides/video 保留。
+- **网页** `tools/index.html`（**870,349 B / sha256 `ea799a28…`**，APP_VER 仍 2.0.0；已部署 OSS MATCH）：
+  点卡片=下载详情（懒拉 manifest）；三行下载 **兼容版 PPTX / PDF（页数）/ 原始文件**（OSS 直链 + download 文件名/大小）；橙色兼容提示；旧 deck「兼容版未生成+原始文件+在线预览+重新处理」；
+  列表「兼容版」「PDF」小标签（轻量 `manifest->files` 子查询，失败静默）；旧播放器保留为「在线预览」；新 compat deck 外部 `PPT.open` 自动转详情。
+  专项 `v2_ppt_download_check.py` **41/41**、`v2_ppt_check.py` **92/92**、`v2_ppt_video_check.py` **100/100**；真实云端 E2E **16/16**（真实 deck、三行 href/name/大小、warnings、0 JS error）。
+- **小程序**（源码 `mp-class-tools/`，VERSION 2.0.0）：新页 `pages/pptdl`（三行下载、wx.downloadFile 进度/取消→wx.openDocument、wx.shareFileMessage 转发、复制链接、兼容提示、旧 deck 预览/重新处理）；列表点击=详情+「兼容版/PDF」标签；
+  `unit 363/0`、`ppt_dl_unit 26/0`、`sync 33/0`、staticcheck/code_quality 0、automator `ppt_dl_preview` **27/0**（真实 old deck 详情 + 注入 v2 三行下载链）。
+- **安卓** 3.5.0 / versionCode 11：下载详情页（三行下载/大小/DownloadManager/FileProvider 打开/分享/兼容提示/旧 deck/在线预览入口）；`testDebugUnitTest` **982/0**（新增 28 不可回退 954）；`assembleRelease` 成功，APK **2,741,438 B / sha256 `C45070AC…`**（保存在应用下载目录，系统通知可见，可直接打开/分享）。
+- **交付**：桌面 `班级工具站_PPT演示_20261109\` 更新 **班级工具站_3.5.0.apk**、`更新说明_PPT_v2.0_20261110.md`、`截图_v2.0\`；独立验收报告 `web/验收报告/PPT演示_v2.0_下载中心_验收_20261110.md`。
+- **回滚**：网页重传 `tools/_backup/index_online_20261110-2215_preStageV2.html`（847,026 B/`411354e1…`，注意会连同并行大屏改动回退）；禁用任务 `schtasks /Change /TN PptConvertAgent /DISABLE` 或 `ppt-agent.pause`；manifest 去掉 `files`/`compat` 即回落旧逻辑；`--legacy` 可临时跑旧链路；无 DB schema 变更。
+- **已知限制**：外链媒体不能随包（只告警不删除）；字体许可受限时仅告警；兼容包体积 ≈ 源 + 字体（36.3MB→37.3MB）；小程序/安卓需设备装有 Office/WPS/PDF 查看器；小程序需微信后台配置 OSS request+downloadFile 合法域名并上传发布；安卓下载落私有下载目录（受不申请存储权限红线约束）；兼容版与原文件建议文件名区分（当前取同标题，浏览器会重命名）。

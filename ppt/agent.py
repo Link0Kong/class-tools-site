@@ -1,21 +1,28 @@
 # -*- coding: utf-8 -*-
-"""agent.py — PPT 转换机（本机 Windows + PowerPoint COM + ffmpeg + OSS）
+"""agent.py — PPT 转换机（本机 Windows + PowerPoint COM + OSS）
 
-契约唯一真源：``web/ppt/CONTRACT.md``（§3/§4/§6）。一轮流程：
+契约唯一真源：``web/ppt/CONTRACT.md``（§3/§4/§6/§7/§11/§12）。
+
+**v2.0 默认流程（compat）**：一轮流程：
 
     心跳 → 取 status=queued（created_at asc, limit 1）→ 认领 processing/progress=3
     → 拉分片拼源文件（≤64MiB，.ppt/.pptx）→ 上传原件 ppt/src/<deckId>/source.<ext>
-    → 删分片 → convert.convert_deck() 渲染/转码 → 上传资产 ppt/a/<deckId>/<buildId>/
-    → PATCH ready + manifest/cover；任何异常 → PATCH failed + 中文 error（≤300 字）
+    → 删分片 → convert.convert_compat()（compat.pptx 字体嵌入/规范化 + preview.pdf +
+    cover.webp + original.<ext>，**不重编码媒体**）→ 上传资产（单对象重试 2 次）
+    → PATCH ready + manifest v2（files/compat）；任何异常 → PATCH failed + 中文 error（≤300 字）
+
+旧流程 `--legacy`（v1.2 分步图片 + 原样播放视频）保留，仅运维调试。
 
 用法::
 
-    python agent.py --once                 # 跑一轮（计划任务每 1 分钟调用）
+    python agent.py --once                 # 跑一轮（计划任务每 1 分钟调用；默认 compat）
     python agent.py --once --dry-run       # 只打印：不认领/不写云端/不上传 OSS
-    python agent.py --deck <deckId>        # 调试单个 deck（真实链路）
+    python agent.py --deck <deckId>        # 调试单个 deck（默认 compat）
     python agent.py --deck <deckId> --dry-run
-    python agent.py --deck <deckId> --video-only           # 为已 ready deck 只补原样播放视频
-    python agent.py --deck <deckId> --video-only --dry-run # 本地导出视频并打印，不上传/不写云端
+    python agent.py --deck <deckId> --compat-only           # 存量 ready deck 补兼容文件
+    python agent.py --deck <deckId> --compat-only --dry-run # 本地演练（保留产物供核对），不写云端
+    python agent.py --once --legacy        # 旧分步图/原样播放视频链路（运维调试）
+    python agent.py --deck <deckId> --video-only            # v1.2 补 deck.mp4
     python agent.py --scheduled            # ≡ --once
 
 身份：管理员 token 读 ``C:\\briefdesk\\secrets\\class-token.json``；
@@ -1151,7 +1158,10 @@ def run_video_only(cloud, uploader, log, host, deck_id, dry_run=False):
                 send_heartbeat(cloud, log, host, 0)
             except Exception:  # noqa: BLE001
                 pass
-        cleanup_work_dir(work_dir, log)
+        if dry_run:
+            log("[dry-run] 工作目录保留：%s" % work_dir)
+        else:
+            cleanup_work_dir(work_dir, log)
         summary["elapsed_s"] = summary.get("elapsed_s") or round(time.monotonic() - t0, 2)
 
 
@@ -1248,6 +1258,7 @@ def run_compat_only(cloud, uploader, log, host, deck_id, dry_run=False):
                    summary["pdf_bytes"] / 1048576.0, summary["fonts_embedded"],
                    summary["warnings"], len(manifest.get("slides") or []),
                    ",".join(sorted(merged.keys()))))
+            log("[dry-run] 本地产物保留（供核对 size/sha256/页数/媒体）：%s" % work_dir)
             summary["action"] = "dry-run"
             summary["export_s"] = round(time.monotonic() - t_conv, 2)
             return summary
@@ -1277,7 +1288,10 @@ def run_compat_only(cloud, uploader, log, host, deck_id, dry_run=False):
                 send_heartbeat(cloud, log, host, 0)
             except Exception:  # noqa: BLE001
                 pass
-        cleanup_work_dir(work_dir, log)
+        if dry_run:
+            log("[dry-run] 工作目录保留（供核对 size/sha256/页数/媒体）：%s" % work_dir)
+        else:
+            cleanup_work_dir(work_dir, log)
         summary["elapsed_s"] = summary.get("elapsed_s") or round(time.monotonic() - t0, 2)
 
 

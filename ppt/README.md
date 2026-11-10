@@ -1,26 +1,32 @@
 # PPT 演示 · 本机转换机运维手册（web/ppt）
 
-> 唯一契约真源：`web/ppt/CONTRACT.md`（v1 + §11 v1.2，2026-11-10）。本目录实现契约 §3/§4/§6/§7/§11.2：
-> Windows + Microsoft PowerPoint COM 把班级上传的 `.ppt/.pptx` 一次性转换成
-> **分步图片（WebP）+ H.264 视频/AAC 音频 + 原样播放视频（deck.mp4）**，上传阿里云 OSS，并更新 CloudBase 队列状态。
-> 三端播放器只加载图片/视频 → 老电脑也能流畅播放；视频不再依赖 PowerPoint 解码器。
-> **v1.2（2026-11-10）**：新增「原样播放」——本机 PowerPoint `CreateVideo` 导出一份含
-> 入场/强调/路径动画、页切换、内嵌视频与声音的 720p 视频，网络良好时三端默认播放它；
-> 失败/超限只跳过视频，分步模式照常 ready。
+> 唯一契约真源：`web/ppt/CONTRACT.md`（v1/v1.2 + **§12 v2.0 重定义**，2026-11-10）。
+> 本目录实现契约 §3/§4/§6/§7/§11.2/§12：Windows + Microsoft PowerPoint COM 把班级上传的
+> `.ppt/.pptx` 转换成 **v2.0 兼容性处理包**（默认）或**旧版分步图片+原样播放视频**（`--legacy`），
+> 上传阿里云 OSS，并更新 CloudBase 队列状态。
+>
+> **v2.0（2026-11-10 22:05，用户重定义）**：本工具 = **PPT 兼容性处理与多端下载中心**。
+> 上传 PPT → 转换机自动做**不降质**的兼容性处理 → 网页/小程序/安卓都能**下载处理后的文件**
+> （`compat.pptx` 兼容版 / `preview.pdf` / `original.<ext>` 原件），在教室电脑/自己电脑/手机上用
+> PowerPoint/WPS/PDF 查看器打开，动画、媒体、版式与清晰度保持原样。在线播放降级为旧 deck 的可选「预览」。
+>
+> **禁止**把 PPT 渲染成图片/视频冒充兼容版；**禁止**对图片/视频重编码或降分辨率（质量红线，见 §6.2）。
 
 ```
 [web/mp/android] --分片上传--> CloudBase ppt_decks(status=queued)
                                        │
         web/ppt/agent.py --once 每分钟轮询 ┤
         ├ 心跳 site_assets(id=ppt_agent)
-        ├ 认领 → 拉分片拼源文件 → 上传原件 ppt/src/<id>/source.pptx → 删分片
-        ├ convert.py：PowerPoint COM 分步渲染 → WebP + 抽取视频 → ffmpeg H.264
-        │              + CreateVideo 原样播放视频（advance/章节/PlayOnEntry）→ deck.mp4
-        ├ 上传资产 ppt/a/<id>/<buildId>/ → PATCH ready + manifest
+        ├ 认领 → 拉分片拼源文件 → 上传原件 ppt/src/<id>/source.<ext> → 删分片
+        ├ convert.py：PowerPoint 临时副本 → compat.pptx(字体嵌入/规范化) + preview.pdf
+        │              + cover.webp + original.<ext>（绝不重编码媒体/不动源文件）→ manifest v2
+        ├ 上传资产 ppt/a/<id>/<buildId>/ → PATCH ready + manifest（进度 10/30/55/75/85/95）
         └ 任何异常 → PATCH failed + 中文 error（≤300 字）
 
-存量 ready deck 补视频（不重传图片/媒体）：
-        python agent.py --deck <id> --video-only [--dry-run]
+存量 ready deck 补兼容文件（保留旧 slides/video 预览字段）：
+        python agent.py --deck <id> --compat-only [--dry-run]
+旧版流程（分步图片 + 原样播放视频，仅运维调试）：
+        python agent.py --once --legacy / python agent.py --deck <id> --legacy
 ```
 
 ---
@@ -29,15 +35,16 @@
 
 | 文件 | 作用 |
 |---|---|
-| `agent.py` | 入口：轮询/认领/分片拼装/OSS 上传/心跳/token 刷新/单实例锁/进度 PATCH/日志；`--video-only` 为存量 ready deck 只补原样播放视频（从 OSS 下载 `source_key` 原件，只新增 `manifest.video`） |
-| `convert.py` | 转换核心：PowerPoint 忙检测、可见性快照、去重、导出、媒体抽取、ffmpeg、WebP、manifest、buildId；**v1.2 视频阶段**（advance/章节/PlayOnEntry/CreateVideo/remux 或重编码/ffprobe）+ `export_video_only()` |
-| `pptx_xml.py` | 纯函数：`presentation.xml` 尺寸、页序、媒体/热区解析、页面切换映射、step 规划/降级、manifest/video 校验、buildId；**v1.2** `compute_anim_end` / `compute_advance` / `compute_chapters` / `video_skip_reason` / `parse_ffprobe_json` |
-| `oss_upload.py` | OSS 封装（`oss2`，凭据复用 `web/deploy/sync_tools.py::load_creds()`，不打印）；`download_to()` 供 `--video-only` 取回原件 |
-| `install_agent.ps1` | 注册计划任务 `PptConvertAgent`（每分钟 + 登录后 30s、InteractiveToken、pythonw、StartWhenAvailable、单实例、`ExecutionTimeLimit=PT45M`） |
-| `tests/make_fixture_pptx.py` | 用 COM 生成测试 fixture（16:9 五页 + 4:3 三页，含动画/退场/嵌入视频+音轨/外链/备注/切换） |
-| `tests/test_pure_logic.py` | **97 项**纯逻辑单测（无 COM/网络；原 51 项 + v1.2 视频章节/限流/ffprobe/video 校验/`--video-only` 合并 46 项） |
-| `tests/test_convert_integration.py` | **22 项**真实 COM 转换断言（图片尺寸/step 去重/视频/热区/4:3/外链跳过/笔记/耗时 + `manifest.video`、h264+aac、章节=页数、帧级验证、降级路径、真实 tuanri 16 页视频） |
-| `tests/test_cloud_contract.py` | 云端 RLS/分片/失败路径/token 刷新/心跳冒烟 + 真实 OSS 视频链路 E2E |
+| `agent.py` | 入口：轮询/认领/分片拼装/OSS 上传/心跳/token 刷新/单实例锁/进度 PATCH/日志；v2.0 默认 `--once` 走 **compat**（`--legacy` 保留旧流程）、`--compat-only --deck <id>` 为存量 ready deck 补兼容文件并合并 manifest（保留旧 slides/video） |
+| `convert.py` | 转换核心：v2.0 `convert_compat()`（compat.pptx 字体嵌入/规范化 + preview.pdf + cover.webp + original.<ext> + manifest v2 + sha256；不重编码媒体）；v1.2 `convert_deck()`/`export_video_only()`（分步图+原样播放视频）保留给 `--legacy` |
+| `pptx_xml.py` | 纯函数：尺寸/页序/媒体/切换/step 规划/buildId；v1.2 视频章节/限流/ffprobe/`manifest.video` 校验；**v2.0** 文件名清洗/路径尾/外链媒体告警/包内媒体 sha256/`manifest.files` 校验（v1/v2 兼容） |
+| `oss_upload.py` | OSS 封装（`oss2`，凭据复用 `web/deploy/sync_tools.py::load_creds()`，不打印）；`download_to()` 供补转取回原件 |
+| `install_agent.ps1` | 注册计划任务 `PptConvertAgent`（每分钟 + 登录后 30s、InteractiveToken、pythonw、StartWhenAvailable、单实例、`ExecutionTimeLimit=PT45M`；compat 转换预算 ≥20min） |
+| `tests/make_fixture_pptx.py` | 用 COM 生成测试 fixture（16:9 五页、4:3 三页、**.ppt 旧格式三页**；含动画/退场/嵌入视频+音轨/外链/备注/切换） |
+| `tests/test_pure_logic.py` | **123 项**纯逻辑单测（无 COM/网络；v1.2 视频 46 项 + v2.0 compat 26 项：文件名/外链告警/媒体 sha/manifest v2/上传重试/compat-only 合并） |
+| `tests/test_convert_integration.py` | **22 项**真实 COM 旧链路断言（图片尺寸/step 去重/视频 hot区/4:3/外链跳过/笔记/耗时 + v1.2 video/帧级/降级/tuanri；`--legacy` 路径回归） |
+| `tests/test_compat_integration.py` | **19 项** v2.0 compat 真实 COM 断言（manifest v2/files 存在+sha/size、页数=源、PowerPoint 可打开、**媒体 sha256 逐字节一致**、PDF 页数、cover、字体、外链告警且不删除、`.ppt→pptx`、失败路径） |
+| `tests/test_cloud_contract.py` | 云端 RLS/分片/失败路径/token 刷新/心跳冒烟 + 真实 OSS E2E（E2E 显式走 `legacy=True` 保持旧断言） |
 | `logs/` | `agent-YYYYMMDD.log`（按天，保留 14 天）；`agent.lock` 单实例锁 |
 | `work/` | 每个 deck 的临时工作目录（转换结束删除；陈旧目录 >24h 自动清） |
 | `ppt-agent.pause` | 暂停开关（存在即本轮跳过） |
@@ -53,31 +60,34 @@ ffmpeg/ffprobe 在 PATH（`C:\Users\Ko_Li\bin\ffmpeg.exe`）。
 ```powershell
 cd C:\Users\Ko_Li\.openclaw\workspace\web\ppt
 
-# 只转换、不碰云端（调试单文件）
-python convert.py "C:\path\deck.pptx" --deck-id dtestfix --work-dir work\debug
+# ---- v2.0 默认：兼容性处理（不降质 + 多端下载）----
+# 只转换、不碰云端（调试单文件；输出 compat.pptx/preview.pdf/cover.webp/original.<ext>）
+python convert.py "C:\path\deck.pptx" --compat --work-dir work\debug-compat
 
-# 跑一轮队列（计划任务等价命令）
+# 跑一轮队列（计划任务等价命令；新 deck 默认走 compat）
 python agent.py --once
 
-# 调试指定 deck（真实链路：认领→原件→转换→资产→ready，含原样播放视频）
+# 调试指定 deck（真实链路：认领→原件→compat→上传→ready；默认 compat）
 python agent.py --deck <deckId>
 
-# 只读演练：不认领、不写云端、不上传 OSS（本地转换并打印 manifest 摘要）
+# 只读演练：不认领、不写云端、不上传 OSS（本地实际转换并打印摘要）
 python agent.py --deck <deckId> --dry-run
 
-# v1.2 存量 ready deck 补原样播放视频（不重传图片/媒体，只新增 manifest.video）
-python agent.py --deck <deckId> --video-only
-# 先本地演练（从 OSS 下载原件 → 导出视频 → 打印，不上传/不写云端）
-python agent.py --deck <deckId> --video-only --dry-run
+# v2.0 存量 ready deck 补兼容文件（不重传旧预览资产，只新增 files/compat）
+python agent.py --deck <deckId> --compat-only
+# 先本地演练（从 OSS 下载原件 → 实际 compat 导出 → 打印，不上传/不写云端）
+python agent.py --deck <deckId> --compat-only --dry-run
 
-# 只导出视频、不渲染图片（调试单文件；等价 convert.export_video_only）
+# ---- 旧链路（v1.2 分步图片 + 原样播放视频，运维调试用）----
+python agent.py --once --legacy                    # 旧链路跑一轮
+python agent.py --deck <deckId> --video-only       # 存量 deck 补 deck.mp4
+python convert.py "C:\path\deck.pptx" --work-dir work\debug          # 旧分步图+视频
 python convert.py "C:\path\deck.pptx" --video-only --work-dir work\debug-video
-# 跳过视频（只跑分步图片/媒体）
-python convert.py "C:\path\deck.pptx" --no-video
 ```
 
 > `--deck` 只对 `queued`（或调试用 `failed/processing`）有意义；已经是 `ready` 的 deck 会被
-> 跳过，提示「如需重转先把 status PATCH 回 queued」。**只有 `--video-only` 接受 `ready` deck**。
+> 跳过，提示「如需重转先把 status PATCH 回 queued」。**只有 `--compat-only` / `--video-only`
+> 接受 `ready` deck**。
 
 ---
 
@@ -105,16 +115,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install_agent.ps1 -Remove
 - 触发器：每 1 分钟 + **登录后 30s**（关机/睡眠错过的任务由 StartWhenAvailable 补跑）；
 - 主体：当前用户、**InteractiveToken**（PowerPoint COM 自动化必须交互桌面，不能"不管用户是否登录"）；
 - 设置：`StartWhenAvailable`、`IgnoreNew`（多实例等待）、`Hidden`、`StopIfGoingOnBatteries=false`、
-  `ExecutionTimeLimit=PT45M`（v1.2：单任务转换预算 **30min** 含原样播放视频 + 收尾/排队余量；
-  旧版本为 PT20M）；
+  `ExecutionTimeLimit=PT45M`（单任务预算：**v2.0 compat ≥20min**；v1.2 legacy 视频 30min + 收尾余量）；
 - 单实例：`agent.py` 自己还有 `logs/agent.lock`（MSVCRT 文件锁），并发轮次直接跳过。
 
 创建/启用后可以用 `-Show` 或 `schtasks /Query /TN PptConvertAgent` 核对；`Last Result: 267011`
 是「任务尚未运行」的正常值（0x41303）。
 
-> **v1.2 升级提示**：旧注册任务的 `ExecutionTimeLimit` 是 `PT20M`，需**重新运行一次
-> `install_agent.ps1`**（保持 `-NoRun -Disabled`，不会启用任务）把任务定义更新为 `PT45M`
-> 后再由 Lead 统一启用；`schtasks /Change` 改不了时间上限。
+> **升级提示**：任务定义里的 `ExecutionTimeLimit` 只能在注册时写入（`schtasks /Change` 改不了），
+> 升级 `install_agent.ps1` 后需**重新运行一次** `install_agent.ps1 -NoRun -Disabled` 更新定义
+> （仍保持禁用），再由 Lead 统一启用。v2.0 沿用 PT45M，无需再改。
 
 ---
 
@@ -124,21 +133,38 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install_agent.ps1 -Remove
 - **恢复**：删除该文件；
 - **日志**：`web\ppt\logs\agent-YYYYMMDD.log`（UTF-8，按天，14 天自动清理）。
   - 每轮：`round start` / `round done（action=...）`
-  - 认领/进度/转换逐页耗时/媒体转码/OSS 上传/失败堆栈（已脱敏，绝不含 token）
-  - 视频：`video: slide i/N animEnd=… media=… trans=… → advance=…`（每页时序）、
-    `video: PowerPoint 导出完成 …`、`video: remux/reencode …`、
-    `video: 完成 dur=… w=… h=… audio=… size=… 耗时 …（预估 …，chapters=…，末章 t=…，重编码=…）`；
-    跳过时 `video: <原因>，跳过原样播放视频`（**不影响 ready**）
-  - 补视频：`=== deck <id> 补视频开始` → `下载源文件` → `上传 deck.mp4 → ppt/a/<id>/<build>/deck.mp4`
-    → `补视频完成：… manifest 仅新增 video（slides=N 未改动）`
+  - 认领/进度/OSS 上传/失败堆栈（已脱敏，绝不含 token）
+  - **compat（v2.0 默认）**：`compat: 源 …（N 页，页面 WxH pt）` → `compat: 兼容包已生成 …` →
+    `compat: 内嵌媒体 sha256 与源包逐字节一致（M 个，未重编码）` →
+    `compat: 字体部件 N 个（embedTrueTypeFonts=…, saveSubsetFonts=…）` →
+    `compat: preview.pdf …MB / N 页；cover=cover.webp` →
+    `compat 完成：N 页 / compat …MB sha=… / pdf N 页 … / 字体 N / 外链媒体 N / 耗时 … / build=…`；
+    外链媒体逐条 `WARN compat: 外链视频 … 处未随文件携带（第 N 页，路径尾 …）`
+  - 补兼容文件：`=== deck <id> 补兼容文件开始` → `下载源文件` → `上传兼容文件 N 个 → <原 build 前缀>`
+    → `补兼容文件完成：… manifest 仅新增 files+compat（slides=N, video=True 原样保留）`
+  - v1.2 legacy：`video: slide i/N animEnd=… → advance=…`、`video: 完成 dur=…` 等
   - `[skip] PowerPoint busy`：用户正开 PowerPoint，deck 保持 queued，下一轮自动再试
 - **看心跳/队列**：云端 `public.site_assets` 行 `id='ppt_agent'`
   `body={online,seen_at,queued,version,host}`（`seen_at` 超过 180s 视为离线）；
-- **日志里的进度**：进度按「已渲染页数」推进 5→85，视频阶段 82/89，媒体/资产上传 88→98，ready=100。
+- **日志里的进度**：compat 阶段 10（下载源文件）→30（PowerPoint 处理）→55（生成兼容包）→
+  75（导出 PDF）→85（上传）→95（写入 ready）→100；legacy 旧流程按页 5→85 / 90→98。
 
 ---
 
-## 5. 耗时与体积预算（本机实测 2026-11-09 / v1.2 补充 2026-11-10）
+## 5. 耗时与体积预算（本机实测，2026-11-10 v2.0 补充）
+
+**v2.0 compat（默认流程，不降质）**
+
+| 场景 | 实测 |
+|---|---|
+| fixture 5 页 / 1 内嵌视频+音轨 / 外链媒体 1 处（16:9） | 转换 **2.1–2.6s**（SaveAs 0.2s、PDF 0.2–0.5s）；compat.pptx **0.32MB** / PDF **69KB / 5 页** / 字体部件 **3** / 外链告警 1 条 / cover.webp 12KB |
+| fixture 3 页（4:3） | 转换 **1.5–2s**；compat 0.18MB / PDF 28KB / 3 页 / 字体 3 / cover 1600x1200 |
+| fixture `.ppt`（97-2003，3 页） | 转换 **1.8–2s**；→ compat ext=pptx、0.19MB / PDF 3 页 / `converted_from=ppt` |
+| **真实 user deck `dmwalrdlgevz90l`**（16 页、源 38,016,533B、含 225.6s 内嵌视频 + 第 7 页外链媒体） | **compat 转换 4.6s**（SaveAs 0.5s + PDF 3s + 校验/封面/收尾）；compat.pptx **39,068,048B（37.26MB）** / PDF **1,107,904B / 16 页** / 字体部件 **6** / 外链告警 1 条（第 7 页，路径尾 `NULL`）/ cover.webp 25,174B；**媒体 15 个 sha256 与源包集合完全一致（字节未变；PowerPoint SaveAs 重编号了 5 个 image 部件名）**；`--compat-only --dry-run` 总耗时含 OSS 下载 ≈250–550s（本机网络波动） |
+| PowerPoint 冷启动 | 首次可能 60s+，之后 ~1s |
+| Quit 收尾 | 自动化实例 Quit 后偶发滞留 60s+ → 3s 宽限后强制结束 `/AUTOMATION`；单次转换总耗时 **2–7s**（修复前 60–80s） |
+
+**v1.2 legacy（`--legacy` / 旧 deck 预览，非默认）**
 
 | 场景 | 实测 |
 |---|---|
@@ -147,22 +173,21 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install_agent.ps1 -Remove
 | 真实 tuanri deck 16 页动画+切换（无媒体）`--video-only` 等价导出 | **11–37s**（CreateVideo 7–33s，冷启动/首次 CreateVideo 偏慢）；deck.mp4 **64.28s / 7.46MB** / 1280x720；chapters=16 |
 | 真实 user deck `dmwalrdlgevz90l` 16 页含 225.6s 内嵌视频（源 38MB）| `--video-only --dry-run` 总 **127s**（其中 OSS 下载 38MB ≈ 81s、视频导出 37s/CreateVideo 18s）；raw 52.7MB → **deck.mp4 13.66MB / 303.60s / 1280x720 H.264+AAC**；chapters=16、末章 t=299.11<303.60（偏差 +1.19s） |
 | 真实 deck 逐页渲染（分步图） | 约 **0.3–0.5s/页**（1600×900 JPG 快照 + WebP 编码） |
-| 缩略图 / OSS 单对象上传 | 每页 1 张 ~2–5KB；单对象 0.3–0.6s（资产先传完才 PATCH ready） |
-| PowerPoint 冷启动 | **首次可能 60s+**（本机实测 COM 冷启动 62s），之后 ~1s；单任务 30min 预算足够 |
 
 > 计划任务每分钟一轮：`queued` 为空时一轮仅心跳 + 1 次查询（<2s）。
-> 单 deck 上限：源文件 ≤64MiB、≤300 页、每页动画 step ≤12、整份图片 ≤260（超出自动降级为每页 1–2 步但不丢内容）。
-> **原样播放视频**：>120 页或预估 >1800s 不生成；CreateVideo 最长等 30min；`deck.mp4` 体积
-> <40MB 只 remux、≥40MB（或非 h264）自动重编码控体积（实测 1.8–13.7MB）。
+> 单 deck 上限：源文件 ≤64MiB、≤300 页；legacy 另有每页 step ≤12 / 图片 ≤260 降级。
+> **compat 体积**：compat.pptx ≈ 源 + 字体子集（user deck 38MB→39MB）；
+> PDF 另计（16 页 1.22MB）；原件 `original.<ext>` = 源大小。单 deck 总传输 ≈ 2×源文件 + PDF。
+> legacy 视频：>120 页或预估 >1800s 不生成；`deck.mp4` 实测 1.8–13.7MB。
 
-磁盘预算（建议 C 盘 ≥2GB 空闲；v1.2 视频导出时更大）：
+磁盘预算（建议 C 盘 ≥2GB 空闲；compat 转换时约 3–4 倍源文件）：
 
-- `work/<deck>-<ts>/` 临时：源文件 + 每步 JPG（约 100–300KB/张）+ 处理中的 WebP；
-  60 页 × 1.4 步 ≈ 21MB，转换结束/失败都会清理；陈旧目录 >24h 开机首轮清掉；
-  **视频阶段另有** `tmp/video_deck.pptx`（源文件副本）+ `tmp/deck_raw.mp4`（PowerPoint 原始导出，
-  实测 user deck 52.6MB，约为 deck.mp4 的 3–4 倍）+ `deck.mp4`；转换结束一起清理；
-- OSS：每页主图 30–80KB + 缩略图 2–5KB，60 页 deck ≈ 3–6MB（38 页典型 ≈ 8MB 量级含多步）；
-  **每个 deck 另加一份 `deck.mp4`**（实测 1.8MB–13.7MB，上限 40MB 阈值内自动控体积）；
+- compat 阶段 `work/<deck>-compat-<ts>/`：源副本 + `compat.pptx` + `original.<ext>` + `pdf_src.pptx` +
+  `preview.pdf` + cover ≈ 源 × 3–4（user deck 38MB → 约 160MB），转换结束/失败都会清理；
+  `--dry-run` 时**保留下载/产物**供核对 sha256/页数/媒体（成功 dry-run 不清理，见日志路径）；
+- legacy 阶段另有每步 JPG（约 100–300KB/张）+ `tmp/deck_raw.mp4`（约为 deck.mp4 的 3–4 倍）；
+- OSS：compat 每个 deck = compat.pptx（源+字体）+ original.<ext>（源）+ preview.pdf + cover；
+  legacy 每 deck ≈ 图片 3–8MB + deck.mp4 1.8–13.7MB；
 - 日志：约 50–300KB/天，保留 14 天。
 
 ---
@@ -224,6 +249,61 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install_agent.ps1 -Remove
 `PATCH {manifest}` 时 `dict(manifest)` 拷贝后**只新增 `video`**（slides/img/media/notes/base 原样保留，
 旧目录其它资产不动）；源文件缺失返回中文错误「源文件缺失：OSS 上找不到 …，请重新上传源文件后转换」。
 
+### 6.2 v2.0 compat 兼容性处理（**默认流程**，CONTRACT §12）
+
+**定位**：上传 PPT → 自动做**不降质**兼容性处理 → 三端下载处理后的文件（不再以在线播放为主）。
+`agent.py --once` 默认走本节；旧分步/视频链路保留为 `--legacy`（运维调试）。
+
+输出（同一 build 目录 `ppt/a/<deckId>/<buildId>/`）：`compat.pptx` + `preview.pdf` +
+`cover.webp` + `original.<ext>`；`manifest` v2：
+
+```jsonc
+{"v":2, "w":960, "h":540, "slides":[], "files":{
+   "compat":{"s":"compat.pptx","size":…,"sha256":"…","ext":"pptx","name":"<安全标题>.pptx"},
+   "pdf":{"s":"preview.pdf","size":…,"sha256":"…","pages":16,"name":"<安全标题>.pdf"},
+   "source":{"s":"original.pptx","size":…,"sha256":"…","ext":"pptx","name":"<原文件名>"}},
+ "compat":{"warnings":[…中文兼容提示…],"fonts_embedded":N,"converted_from":"ppt"|null,
+           "external_media":[{"slide":7,"kind":"v","path_tail":"…v.mp4"}]}}
+```
+
+步骤（全部在**临时副本**上，绝不修改源文件 / `ppt/src` 原件）：
+
+1. 复制源文件 → 临时 `.ppt/.pptx` 副本；PowerPoint 以**可写**方式打开；
+2. **格式标准化 + 包规范化 + 字体嵌入**：一次
+   `Presentation.SaveAs(compat.pptx, ppSaveAsOpenXMLPresentation=24, EmbedFonts=msoTrue=-1)`
+   完成（`.ppt`→`.pptx` 也走这一步，PowerPoint 转换，不重采样媒体）；
+3. **媒体不降质自检**：源 `.pptx` 与 compat.pptx 的 `ppt/media/*` 做 sha256 集合比对，
+   出现「compat 媒体不是源包某媒体的原始字节」→ **直接失败**（判定疑似重编码）；
+   页数以 zip 解析复验 = 源页数；
+4. **外链媒体如实告警**（`TargetMode=External`，不能随包携带）：按 kind 聚合为中文提示，
+   逐处记 `{slide, kind, path_tail}`；**不删除任何内容**，compat 包内仍保留原链接；
+5. **PDF 兼容副本**：重开 compat 副本 → `SaveAs(preview.pdf, ppSaveAsPDF=32)`；校验 `%PDF` 头、
+   用 pypdf 读实测页数（与幻灯片数不一致只 warn，以 PDF 实测为准）；
+6. **封面**：第 1 页导出 JPG → WebP（最长边 1600，`cover.webp`）；失败只 warning；
+7. sha256/size 写入 `files`；`buildId` 含 manifest；先传资产（单对象失败**重试 2 次**）再 PATCH ready；
+8. `--compat-only --deck <id>`：对已 ready 的旧 deck，用 `source_key` 从 OSS 下载原件 → compat 处理 →
+   上传到**原 build 目录** → 只新增 `files`/`compat`（旧 `slides`/`video`/`src`/`media` 原样保留，
+   旧 deck 仍可在线预览）；失败不会把 ready deck 改成 failed。
+
+**COM/API 适配（实测 2026-11-10，Windows PowerPoint 16）**：
+
+- 本机 Presentation **没有**可写的 `EmbedTrueTypeFonts`/`SaveSubsetFonts` 属性 → 用官方等价参数
+  `SaveAs(FileName, FileFormat, EmbedFonts)`（MS 文档）；实测生成 `ppt/fonts/*.fntdata` 且
+  presentation.xml 带 `embedTrueTypeFonts="1" saveSubsetFonts="1"`（PowerPoint 自动做子集化）。
+  字体因许可受限无法嵌入时只 warning（`compat.warnings` 含提示），不失败；
+- `ExportAsFixedFormat` 在 pywin32 动态绑定下报 `TypeError: Python instance can not be converted to
+  a COM object`（positional/kwargs 均试）→ 改用同一 PDF 引擎的 `SaveAs(FileName, ppSaveAsPDF=32)`，
+  输出 `%PDF-1.7`、页数一致、compat.pptx 字节不变；
+- **PowerPoint 收尾坑**：`Quit()` 后 POWERPNT.EXE 偶发滞留 **60s+**（Office RPC 清理卡顿），
+  且「空实例」可能是半断开代理（复用后 `Presentations.Open` 报「接口未知」）。处理：
+  ① 不复用空闲实例，先 Quit 再等旧进程退出后 `DispatchEx` 新建；
+  ② Quit 后 3s 宽限仍不退出 → **强制结束 `/AUTOMATION` 实例**（无文档、文件已保存；用户手动打开的
+     PowerPoint 不带 `/AUTOMATION` 不会被误杀）；③ COM 反初始化后再等待进程消失。
+  实测单次 compat 转换 2–7s（修复前会被 60s 滞留拖到 60–80s）。
+
+**质量红线（违反即返工）**：不得用图片/视频冒充兼容版；不得重编码媒体/降分辨率；
+不得删除外链媒体/动画/备注等任何内容来「提高兼容性」；不得修改源文件、文件名、页数、版式。
+
 ---
 
 ## 7. 云端行为（agent）
@@ -235,20 +315,24 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install_agent.ps1 -Remove
 - **一轮**：心跳 → `GET status=eq.queued&deleted=eq.false&order=created_at.asc&limit=1` →
   **先查 PowerPoint 忙**（忙则跳过、deck 保持 queued）→ 认领（`PATCH ...&status=eq.queued` 条件更新，
   被抢则本轮放弃）→ 拉分片（每页 8 片，避免大响应）→ 校验 `source_size`/扩展名 →
-  上传原件 → **立即删分片** → 转换（心跳线程每 30s）→ 上传资产 → **最后** PATCH ready
-  （manifest/slide_count/step_count/aspect/cover_url/source_key/converter/converted_at）。
+  上传原件 → **立即删分片** → **compat 兼容性处理**（v2.0 默认，进度 10/30/55/75；心跳线程每 30s）
+  → 上传 compat/original/pdf/cover（85，单对象重试 2 次）→ **最后** PATCH ready（95→100；
+  manifest v2 / slide_count / step_count=0 / aspect / cover_url / source_key / converter / converted_at）。
 - **失败**：任何异常 PATCH `failed` + 中文 error（≤300 字，前端直接展示），并保证分片已删；
   用户在前端点「重试」→ `status=queued` 后下一轮再转。**失败不会自动重试**（避免坏文件死循环）。
-- **PowerPoint 安全**：只读打开临时副本；`DisplayAlerts=ppAlertsNone`；
+- **PowerPoint 安全**：只读/可写临时副本；`DisplayAlerts=ppAlertsNone`；
   若已有 POWERPNT 进程且 `Presentations.Count>0`（用户可能正在编辑）→ 本轮跳过；
-  空实例先 Quit 再新建；单任务 30min 截止（v1.2）；收尾只 Quit 无用户文档的实例。
+  空闲实例先 Quit（不复用）并等进程退出后新建；Quit 后 3s 仍滞留 → 强制结束 `/AUTOMATION` 实例；
+  单任务 30min 预算。
 - **重转换**：同一 deck 再次转换会生成新 buildId 路径（新目录），旧 build 目录不会自动删除
   （契约里写的是"可选删除"；需要清理由 Lead/运维手动删 `ppt/a/<deckId>/<旧buildId>/`）。
-- **`--video-only` 补视频**（v1.2，CONTRACT §11.2.3）：`GET` 该 deck → 校验 `status=ready` 且
-  `manifest.slides` 非空 → 用 `source_key` 从 OSS 下载原件（缺失则中文报错并退出码 1）→
-  `convert.export_video_only()`（不渲染图片、不抽媒体）→ 上传 `deck.mp4` 到**原 build 目录** →
-  `PATCH {manifest}`：`dict(manifest)` 浅拷贝后**只新增 `video`**，`slides/media/notes/base` 原样保留；
-  状态保持 `ready`（视频失败只记 warning/退出码，不把 deck 改 failed）。`--dry-run` 只下载+导出+打印。
+- **`--compat-only` 补兼容文件**（v2.0，CONTRACT §12.3）：`GET` 该 deck → 校验 `status=ready` 且
+  `manifest.base` 非空 → 用 `source_key` 从 OSS 下载原件（缺失则中文报错并退出码 1）→
+  `convert.convert_compat()`（不渲染旧预览资产）→ 上传 compat 资产到**原 build 目录**（重试 2 次）→
+  `PATCH {manifest}`：`dict(manifest)` 浅拷贝后**只新增/覆盖 `files`+`compat`**，
+  `slides/video/src/media/base` 原样保留；状态保持 `ready`（失败只报错/退出码，不把 deck 改 failed）。
+  `--dry-run` 只下载+转换+合并校验+打印，不上传/不写云端。
+- **`--video-only` 补视频**（v1.2 legacy）：同上，但只上传 `deck.mp4` 并只新增 `manifest.video`。
 
 ---
 
@@ -273,6 +357,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install_agent.ps1 -Remove
 | 视频太大（>40MB） | 已自动重编码（crf24/aac96k）。日志 `video: reencode X MB → Y MB`；仍偏大属内容本身（长视频），弱网端会回退分步 |
 | `--video-only` 报「源文件缺失」 | 该 deck 是早期数据（无 `source_key` 或 OSS 原件已清）。重新上传源文件后转换，或先 `PATCH status=queued` 让转换机重跑 |
 | `--video-only` 报「只有 ready 的 deck 才能补视频」 | 只对已 ready 的存量 deck 补视频；queued/processing/failed 走正常转换流程 |
+| **旧 deck 没有兼容文件**（manifest 无 `files`） | 用 `python agent.py --deck <id> --compat-only` 补；dry-run 可先本地验证。补完 manifest 只新增 files/compat，旧预览字段保留 |
+| `compat: 字体未嵌入（可能无 TrueType 字体或许可受限）` | 只是 warning，不失败；版式在其他设备可能变化。查看是否使用了许可禁止嵌入的字体 |
+| `WARN compat: 外链视频 N 处未随文件携带（第 X 页，路径尾 …）` | **正常告警**：外链媒体文件不在上传包内、不能随 PPT 携带；转换机不删除内容，客户端展示兼容提示 |
+| `保存兼容包失败` / `PDF 兼容副本导出失败` | deck PATCH `failed` + 中文 error；多为加密/损坏/PDF 引擎异常。用户重试或重传；OCR 无关 |
+| `compat: 兼容包媒体字节与原文件不一致（疑似重编码）` → 失败 | 质量红线保护：拒绝产出「疑似被重编码」的兼容包。重试一次；仍失败请升级/检查 PowerPoint |
+| `PowerPoint 自动化实例 Quit 后滞留 → 强制结束 N 个` | 正常兜底（Office RPC 清理卡顿，进程无文档、文件已保存）；不需要人工处理 |
 
 ---
 
@@ -284,21 +374,31 @@ cd C:\Users\Ko_Li\.openclaw\workspace\web\ppt
 # 1) 生成 fixture（首次/需要重生成时；会启动 PowerPoint COM）
 python tests\make_fixture_pptx.py
 
-# 2) 纯逻辑单测（无 COM/网络，秒级；97 项）
+# 2) 纯逻辑单测（无 COM/网络，秒级；123 项）
 python tests\test_pure_logic.py -v
 
-# 3) 真实 COM 转换集成（16:9 + 4:3 + 降级路径 + 真实 tuanri 16 页视频；约 30–75s）
+# 3) v2.0 compat 真实 COM 集成（19 项；约 1–3min，视 PowerPoint 冷启动/残留进程）
+python tests\test_compat_integration.py -v
+
+# 4) v1.2 legacy 真实 COM 集成（22 项；约 30–75s）
 python tests\test_convert_integration.py -v
 
-# 4) 云端契约 + 真实 OSS 链路（需要网络；会产生 2 个保留的 ready fixture deck 供网页验收）
+# 5) 云端契约 + 真实 OSS 链路（7 项；需要网络；会产生 2 个保留的 ready fixture deck 供网页验收）
 python tests\test_cloud_contract.py -v
+
+# 6) 存量真实 deck 补兼容文件演练（需要网络；不下发云端写入，本地产物保留供核对）
+python agent.py --deck dmwalrdlgevz90l --compat-only --dry-run
 ```
 
-> v1.2 集成测试覆盖：fixture 转换出 `manifest.video`（ffprobe 断言 **h264 + aac 音轨**、dur>0、
-> chapters 数==页数且单调）、**帧级验证**（媒体页视频段内**间隔 1s** 抽 3 帧、最大平均差 >2.0，
-> 证明真的播放而非海报）、CreateVideo 抛错的**降级路径**（仍 ready + manifest 无 video + warning）、
-> 真实 tuanri deck（16 页动画+切换）`export_video_only` 导出 chapters=16 / dur>0 / 记录耗时。
-> 真实用户 deck 的 `--video-only` 补转需网络 + 大文件下载，不放进自动化测试（运维手动跑）。
+> **v2.0 compat 集成测试覆盖**（`test_compat_integration.py`）：`manifest.v2` + `files.compat/pdf/source`
+> 存在且 size/sha256 正确；compat 页数 = 源页数；**PowerPoint 真打开 compat 校验页数**；
+> **compat 包内媒体 sha256 与源包逐字节一致（不重编码强断言）**；PDF `%PDF` + pypdf 页数；
+> cover.webp WebP/1600；字体部件 >0；外链媒体告警含页号/kind/路径尾且 compat 内**仍保留**外链；
+> `.ppt` fixture → ext=pptx / `converted_from=ppt` / 原件 sha256；失败路径（SaveAs/PDF/疑似重编码）
+> → 中文 `ConvertError`。真实 deck 的 `--compat-only` 走 dry-run 手动验（大文件下载不进自动化）。
+>
+> **v1.2 legacy 集成测试覆盖**：`manifest.video`（h264+aac、章节=页数、帧级真播放验证）、
+> CreateVideo 失败降级仍 ready、tuanri 16 页真实视频导出。
 
 - 测试账号：学号 `3260799999` / 姓名「测试账号」（RLS 冒烟用，token 不落日志）；
 - 集成测试每个转换类开始前会**等待残留 PowerPoint 退出**（最多 180s；`Quit()` 返回后
@@ -314,33 +414,53 @@ python tests\test_cloud_contract.py -v
 
 ## 10. 已知限制 / 取舍（务必如实转达）
 
+### 10.1 v2.0 compat（默认流程）
+
+1. **兼容包体积**：compat.pptx = 源 + 嵌入字体子集（user deck 38.0MB→39.1MB / +3%），
+   PDF 另计（16 页 1.22MB），原件副本 = 源大小。单个 deck OSS 占用 ≈ 2×源 + PDF。
+2. **字体**：只有 TrueType 字体可嵌入；字体许可禁止嵌入（如部分商业中文字体）时 PowerPoint 不写字体数据，
+   只记 warning 并在 `compat.warnings` 提示「版式可能在其他设备变化」——**不失败、不改内容**。
+3. **外链媒体**：`TargetMode=External` 的媒体文件不在上传包内，**无法随 PPT 携带**；转换机只如实告警
+   （每处 页号/kind/路径尾），不删除、不替换。下载到其他设备打开时该媒体仍可能「不可用」，客户端展示「兼容提示」。
+4. **`.ppt`→`.pptx`**：由 PowerPoint 自身 `SaveAs(ppOpenXMLPresentation)` 完成，版式/动画/备注语义保持；
+   97-2003 的个别特性（如某些 OLE 对象/旧版媒体）由 PowerPoint 决定，转换机不做额外有损处理。
+5. **PDF 页数**：隐藏页是否进 PDF 由 PowerPoint 导出策略决定；manifest `files.pdf.pages` 写 **pypdf 实测页数**，
+   与幻灯片数不一致时只 warning（不伪造页数）。
+6. **旧 deck 预览**：v2.0 列表以下载为主；旧 deck（manifest v1 有 slides/video）仍保留「在线预览」入口；
+   旧 deck 用 `--compat-only` 补文件后 manifest 只新增 `files`/`compat`，旧字段不动。
+7. **质量红线**：不做任何图片/视频重编码、不降分辨率、不渲染成图/视频冒充兼容版；compat 媒体 sha256
+   与源包不一致会**直接失败**（拒绝产出疑似有损包）。
+8. **PowerPoint 自动化**：单实例；用户正在编辑时本轮跳过；Quit 后进程偶发滞留 60s 已用「3s 宽限 +
+   强制结束 `/AUTOMATION` 实例」兜底（无文档、文件已保存）；机器需登录桌面会话（计划任务 InteractiveToken）。
+9. **转换机需开机**：离线时任务只排队；页面显示「转换机离线 · 排队中」。
+10. **旧 build 不自动删**：同 deck 重转换生成新 buildId 目录；`--compat-only` 写回原 build 目录
+    （manifest.base 不变），旧 build 目录需运维手动清理。
+
+### 10.2 v1.2 legacy（`--legacy` / 旧 deck 在线预览）
+
 1. **自动动画合并**：`afterPrevious/withPrevious` 动画并入当页最终态（契约 §6）。
-   真实中文教学 PPT 大量使用自动动画 → 网页上看到的是每页最终画面（**内容不丢**，但不是逐条出现）。
-   已确认不做 auto-step 模式（Lead 决策 2026-11-09）。**v1.2 原样播放视频可看到完整动画节奏**。
+   真实中文教学 PPT 大量使用自动动画 → 分步浏览看到的是每页最终画面（**内容不丢**，但不是逐条出现）。
+   已确认不做 auto-step 模式（Lead 决策 2026-11-09）。**原样播放视频可看到完整动画节奏**。
 2. **强调/运动路径**只取该步最终视觉状态，不是逐帧动画（分步模式）；原样视频里是完整逐帧动画。
 3. **隐藏幻灯片**仍会被转换（保证内容完整；不模拟"放映时跳过隐藏页"）。
-4. **外链媒体**跳过（PPT 里链接到本机/网络路径的视频无法在网页播放），manifest 该步媒体为空；
-   原样播放视频里该形状用**海报静态图**替代（避免 PowerPoint 导出时等待外链文件 ~90s/页）。
-5. **转换机需开机**：离线时任务只排队；页面显示「转换机离线 · 排队中」。
-6. **PowerPoint 窗口**：PowerPoint 16 不允许隐藏应用窗口，转换期间窗口会最小化出现；转换完 Quit。
-7. **单任务超时**：v1.2 转换预算 30min（含视频）；超时只影响视频时**跳过视频、分步照常 ready**；
+4. **外链媒体**在分步模式跳过、原样视频里用**海报静态图**替代（避免 PowerPoint 导出等待外链文件 ~90s/页）。
+5. **PowerPoint 窗口**：PowerPoint 16 不允许隐藏应用窗口，转换期间窗口会最小化出现；转换完 Quit。
+6. **单任务超时**：legacy 预算 30min（含视频）；超时只影响视频时**跳过视频、分步照常 ready**；
    若 PowerPoint COM 调用本身卡死（极端情况），计划任务 `ExecutionTimeLimit=PT45M` 会强制结束；
    下一轮重新开始（deck 已 failed 需用户重试）。
-8. **并发**：单实例锁 + PowerPoint 单实例 → 同一时刻只转一个 deck；队列按 `created_at asc` 串行。
-9. **单 deck 上限**：源 ≤64MiB、≤300 页、每页 step ≤12、整份图片 ≤260（超出降级为每页 1–2 步不丢内容）；
+7. **并发**：单实例锁 + PowerPoint 单实例 → 同一时刻只转一个 deck；队列按 `created_at asc` 串行。
+8. **单 deck 上限**：源 ≤64MiB、≤300 页、每页 step ≤12、整份图片 ≤260（超出降级为每页 1–2 步不丢内容）；
    媒体单文件 ≤200MB、总时长 ≤30min、单段 >30min 只转前 30min。
    **原样播放视频另有限制：>120 页或预估 >1800s 不生成视频**；单页最长 600s（超长媒体页章节会截断）。
-10. **旧 build 不自动删**：同 deck 重转换生成新 buildId 目录，旧目录需手动清理；`--video-only`
-    写回原 build 目录的 `deck.mp4`（manifest.base 不变）。
-11. **token 写回**：刷新后的管理员 token 会写回 `C:\briefdesk\secrets\class-token.json`（保持 `{token,exp}` 格式）。
-12. **视频章节 ±1s**：章节时间按探测公式计算（PowerPoint 把切换时长插在页之间），实测偏差
-   （fixture +0.22s、tuanri +1.12s、user deck +1.19s）；播放器 seek 后内容误差在 ±1s 量级。
+9. **token 写回**：刷新后的管理员 token 会写回 `C:\briefdesk\secrets\class-token.json`（保持 `{token,exp}` 格式）。
+10. **视频章节 ±1s**：章节时间按探测公式计算（PowerPoint 把切换时长插在页之间），实测偏差
+    （fixture +0.22s、tuanri +1.12s、user deck +1.19s）；播放器 seek 后内容误差在 ±1s 量级。
     若某 deck 出现明显漂移，日志会有 `实测时长与预估偏差` warning（可重转/降级分步）。
-13. **视频体积**：720p q80 原始导出可能很大（user deck 16 页含 225s 视频：raw 52.6MB）；≥40MB 自动
-   重编码（crf24/aac96k）后典型 **7–40MB**（user deck 13.7MB、tuanri 16 页 7.5MB、fixture 1.8MB）。
+11. **视频体积**：720p q80 原始导出可能很大（user deck 16 页含 225s 视频：raw 52.6MB）；≥40MB 自动
+    重编码（crf24/aac96k）后典型 **7–40MB**（user deck 13.7MB、tuanri 16 页 7.5MB、fixture 1.8MB）。
     弱网/节省流量时三端默认回退分步。
-14. **视频为自动节奏**：单击动画被合并为自动连续播放；需要自主控制节奏时切「分步浏览」。
-15. **降级不影响 ready**：`manifest.video` 是可选字段；缺失/加载失败三端回退分步，不是转换失败。
+12. **视频为自动节奏**：单击动画被合并为自动连续播放；需要自主控制节奏时切「分步浏览」。
+13. **降级不影响 ready**：`manifest.video` 是可选字段；缺失/加载失败三端回退分步，不是转换失败。
 
 ---
 

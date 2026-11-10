@@ -50,3 +50,7 @@ ppt/tests/_out/
 # 并行会话的网页端真实 E2E（含测试身份凭据，仅本机，不入库）
 deploy/_e2e_ppt_v12_web.py
 deploy/_shots_ppt_v12/
+# v2.0 PPT 真实 E2E 脚本/截图（含测试身份，仅本机，不入库）
+deploy/_e2e_ppt_dl_web.py
+deploy/_qa_ppt_compat.py
+deploy/_shots_ppt_dl/
