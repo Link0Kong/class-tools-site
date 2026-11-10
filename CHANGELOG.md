@@ -2,6 +2,19 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-10 22:2x · 大屏第二轮：重做布局（非四宫格）+ 换「墨夜雾青」配色
+
+> 用户需求（2026-11-10 22:06）：「重新优化布局，不要局限于四格的布局，同时调整配色」。配色用户拍板 **A · 墨夜雾青**（深墨黑底 + 雾青 + 暖沙，延续站点品牌色）。
+> 范围：仅网页 `tools/index.html` 大屏块 + `tools/tests/optim_v2_check.py`；行为/数据/契约不变（仍仅管理员、只读、UD v6 未动、APP_VER 2.0.0、零外部来源）。
+
+- **布局（非四宫格）**：`.opt2-stage` = 顶栏（左「大屏」+ 日期，右大时钟 + 全屏/退出图标）→ 主体 `grid`：左侧 **大「演示」放映台**（主位 deck 大标题 + 状态行 + 「开始放映/继续放映」主按钮；其余 deck 为底部紧凑列表，可滚）+ 右侧**竖排「计时 / 抽签」双 tile**（1.06fr/.94fr）；底部单行页脚。手机 ≤900px 时纵向堆叠（演示台在上、计时/抽签并排在下），≤560px 再收字号/间距。
+- **配色「墨夜雾青」**：深墨黑渐变底 + 顶部雾青辉光 + 左下暖沙微光；面板半透明渐变 + 1px 细边 + 顶部霓虹渐变高光；主色 `#5FA895`、点缀 `#C9A87C`；数字 `tabular-nums`；按钮雾青渐变（深色字）与 ghost 两种；装饰性大圆环（hero 右上）增加层次；入场 340ms 上浮淡入（`prefers-reduced-motion` 关闭）。
+- **交互保持**：点主位/列表任一 deck → `PPT.open(id)` 全屏播放器（z110 叠 z95），退出自动回大屏；上次放映置顶并显示「继续放映」；空库居中「还没有演示 + 去上传」；加载失败「重试」；计时 05:00 开始/重置（到 0 复位按钮）；抽签 1 人；关闭恢复滚动/inert；关闭时暂停计时并把按钮复位。
+- **选择器变更（测试/脚本注意）**：新增 `.opt2-top/.opt2-brand/.opt2-mark/.opt2-clock/.opt2-ibtn/.opt2-main/.opt2-hero/.opt2-hero-hd/.opt2-hero-deck/#o2sHero/.opt2-play/.opt2-rail/.opt2-tile/.opt2-num/.opt2-btn/.opt2-foot`；删除 `.opt2-stage-grid/.opt2-scard/.opt2-sbtn/.opt2-stage-top/.opt2-stage-foot/.opt2-time/.opt2-clockcard` 等；ID 保留 `o2sTime/o2sDate/o2sTimer/o2sPick/o2sDecks/o2sDeckEmpty/o2sDeckRefresh/o2sClose/o2sFs` 并新增 `o2sHero`。
+- **测试**：`optim_v2_check.py` 更新（mock 3 个 deck；断言「非四宫格布局（hero+rail）」「主位+列表」「时钟在顶栏」等）→ **main 16 + admin 29 + hash 3 全绿，0 JS 报错**；回归 `v2_ui_check` 27/27、`optim_v1_check` GREEN、`overflow_check 430` = **overflowCount=0**；本机 CDP 截图 1366×768 / 1920×1080 / 430×900 / 空库态，无横向溢出、0 报错（视觉：主标题 48–64px、计时数字 96–112px、右侧两 tile 纵向排布）。
+- **上线说明（含并行会话隔离）**：工作区 `tools/index.html` 当时含**并行会话未提交的 PPT 下载/标签 WIP**，为避免把未验收 WIP 上线，本次上线对象 = **HEAD + 仅本改造**的干净构建；线上 `index.html` **853,685 B / sha256 `9a158498806eb04ad2d75f437e112420afdb77ee5943b5b8122297edfc3aad83`**（OSS `oss_object.py sha` = 同值；ECS 从 OSS 同步后 `/` 返回同字节）。后续并行会话提交/部署其 WIP 时会覆盖为合并版。
+- **回滚**：重传 `tools/_backup/index_online_20261110-2215_preStageV2.html`（**847,026 B / `411354e1…`**，第一轮四宫格版）后 `sync_tools.py` + `ecs_site.py apply`。
+
 ## 2026-11-10 21:47 · 大屏改为团日主持台（去掉作业/下一节 · PPT 联动放映台 · 右上角实时时间）+ 合并 PPT v1.2 统一上线
 
 > 用户需求（2026-11-10 20:52）：「去除大屏功能的作业，下一节课功能，因为该功能最大的可能使用场景只有团日活动的时候用，所以加强与PPT播放功能的联动，右上角可替换为实时时间，接着请你搜集网上案例给出可做功能案例」。

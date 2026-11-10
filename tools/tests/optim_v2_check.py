@@ -63,7 +63,10 @@ window.fetch=function(u,o){
       if(s.indexOf("manifest")>=0)return ok([{id:"d1",title:"团日活动演示",slide_count:2,step_count:2,aspect:"16:9",cover_url:"",manifest:{slides:[
         {steps:[{img:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="}],tr:"fade"},
         {steps:[{img:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="}],tr:"fade"}]}}]);
-      return ok([{id:"d1",title:"团日活动演示",status:"ready",progress:100,slide_count:2,step_count:2,aspect:"16:9",cover_url:"",owner_name:"测试同学",source_name:"团日活动演示.pptx",created_at:1,converted_at:2}]);
+      return ok([
+        {id:"d1",title:"团日活动演示",status:"ready",progress:100,slide_count:2,step_count:2,aspect:"16:9",cover_url:"",owner_name:"测试同学",source_name:"团日活动演示.pptx",created_at:3,converted_at:4},
+        {id:"d2",title:"团支部年度工作总结",status:"ready",progress:100,slide_count:8,step_count:12,aspect:"16:9",cover_url:"",owner_name:"李同学",source_name:"总结.pptx",created_at:2,converted_at:3},
+        {id:"d3",title:"防诈骗主题班会",status:"ready",progress:100,slide_count:5,step_count:5,aspect:"16:9",cover_url:"",owner_name:"王同学",source_name:"班会.pptx",created_at:1,converted_at:2}]);
     }
     if(s.indexOf("/site_assets")>=0)return ok([{body:{seen_at:Date.now()},updated_at:Date.now()}]);
     return ok([]);
@@ -113,18 +116,19 @@ RUNNER = r"""
           T("大屏弹层可打开", !!st && st.style.display!=="none", st?st.style.display:"none");
           var t1=txt("#o2sTime");
           T("右上角实时时间（时:分:秒）", /\d{2}:\d{2}:\d{2}/.test(t1), t1);
-          T("右上角日期（年月日 + 星期）", /\d{4}年\d{1,2}月\d{1,2}日/.test(txt("#o2sDate")) && /周[日一二三四五六]/.test(txt("#o2sDate")), txt("#o2sDate"));
+          T("顶栏日期（年月日 + 星期）", /\d{4}年\d{1,2}月\d{1,2}日/.test(txt("#o2sDate")) && /周[日一二三四五六]/.test(txt("#o2sDate")), txt("#o2sDate"));
           await sleep(1200);
           T("实时时间每秒更新", txt("#o2sTime")!==t1, t1+" -> "+txt("#o2sTime"));
           T("已去掉「下一节」「作业」卡", !q("#o2sNext") && !q("#o2sHw") && txt("#opt2Stage").indexOf("下一节")<0 && txt("#opt2Stage").indexOf("作业")<0, "");
+          T("非四宫格布局（大放映台 + 计时/抽签侧栏）", !!q("#opt2Stage .opt2-hero") && !!q("#opt2Stage .opt2-rail") && !!q("#o2sHero .opt2-play") && !q("#opt2Stage .opt2-stage-grid"), "");
           T("大屏计时器存在", /05:00/.test(txt("#o2sTimer")), txt("#o2sTimer"));
           click('[data-o2timer="1"]'); await sleep(1300);
           T("计时器可开始倒计时", txt("#o2sTimer")!=="05:00", txt("#o2sTimer"));
           var pick=q('[data-o2pick="1"]'); if(pick)pick.click(); await sleep(120);
           T("抽签可点（无名单也不报错）", ["—","无名单"].indexOf(txt("#o2sPick"))>=0 || String(txt("#o2sPick")).length>0, txt("#o2sPick"));
-          await waitFor(function(){return !!q("#o2sDecks [data-o2deck]");},5000);
-          var rows=document.querySelectorAll("#o2sDecks [data-o2deck]");
-          T("大屏列出可放映演示", rows.length>=1 && txt("#o2sDecks").indexOf("团日活动")>=0, "rows="+rows.length+" ["+txt("#o2sDecks").slice(0,40)+"]");
+          await waitFor(function(){return !!q("#opt2Stage [data-o2deck]");},5000);
+          var rows=document.querySelectorAll("#opt2Stage [data-o2deck]");
+          T("大屏列出可放映演示（主位 + 列表）", rows.length>=2 && txt("#o2sHero").indexOf("团日活动")>=0, "decks="+rows.length+" hero=["+txt("#o2sHero").slice(0,40)+"]");
           var w=q(".wrap");
           T("大屏打开时背景 inert", !(w&&("inert" in w)&&w.inert===false), (w&&("inert" in w))?String(w.inert):"no-inert");
           if(rows.length)rows[0].click();
