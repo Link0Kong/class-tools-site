@@ -2613,3 +2613,32 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 小程序端同日修复（源码在 `mp-class-tools/`，非本仓库）：基础库 3.17 起 `openSync(path,'r')` 旧签名失效，
   导致分片读取全部失败（上传必然中断）；改为 `readFile({filePath,position,length})` 优先 + `pickChunkBuffer` 旧库切片 +
   对象/旧字符串签名 `openSync` 回退，分片请求超时 60s；`tool-ppt.png` 图标改为 96×96 白色实心「演示屏+播放」（与其它工具图标一致）。
+
+## 2026-11-10 21:0x–21:5x · 增量 30：PPT 演示 v1.2 高保真「原样播放」视频（转换机 + 网页/小程序/安卓）
+
+> 用户反馈（2026-11-10 20:39）：「网络良好时达到电脑本地文件的播放效果；目前 PPT 内动画全部消失、视频依然无法播放、各端操作都不够便捷」。
+> 方案：保留分步图片（弱网/精细翻页/热点播媒体），新增**原样播放**模式——本机 PowerPoint 直接导出**高保真视频**（入场/强调/路径动画、页切换、
+> 内嵌视频+AAC 声音），三端网络良好时默认播放该视频；契约见 `ppt/CONTRACT.md` §11。
+
+- **转换机**（`ppt/convert.py`/`agent.py`/`pptx_xml.py`/`oss_upload.py`/`install_agent.ps1`）：
+  - 同一 PowerPoint 会话内：逐页算动画结束时间/媒体时长 → 设 `AdvanceOnTime/AdvanceTime`（保留原页切换）→ 对媒体形状强制 `PlaySettings.PlayOnEntry=True`
+    （实测不设则导出的视频只有海报帧且无音轨）→ `CreateVideo(True, 5, 720, 30, 80)` → `>40MB` 用 ffmpeg 重编码（crf24/aac96k）否则 `-c copy -movflags +faststart`；
+  - `manifest` 增可选 `video {s,w,h,dur,chapters:[{i,t}],q}`；章节公式 = `Σ_{j<i}advance_j + Σ_{j<=i}transDur_j`（实测 3 色页/真实 deck ±1s）；
+  - 外链媒体（TargetMode=External）在临时副本上替换静态图后删除，避免 PowerPoint 导出时等待超时（用户 deck 第 7 页曾致 +87s）；
+  - 失败/超时/>120 页/预估 >1800s 仅跳过视频并 warning，不影响分步 ready；新增 `--video-only` 从 `source_key` 补转存量 deck（只新增 video）；
+  - 计划任务 ExecutionTimeLimit 改 **PT45M**（已重注册并启用；旧注册 PT20M 不会自动更新，需重跑 `install_agent.ps1 -NoRun -Disabled` 再启用）。
+- **网页**（`tools/index.html`，847,026 B / `411354e1…`，APP_VER 仍 2.0.0；已部署 OSS）：
+  原样播放（默认网络良好 + 自动播放；控制条：播放/暂停、mm:ss、章节上/下页 seek、章节刻度进度条、倍速 1×/1.25×/1.5×/2×、全屏、下载视频、模式胶囊）；
+  续播 localStorage（7 天）、列表「继续」徽标/整卡点播/「原样 m:ss」胶囊；分步热点时序 race 修复（img load/transitionend/resize/rAF 补算，64px+视频时长角标+脉冲）；
+  视频 error/卡顿自动回退分步 + toast；键盘 Space/←→/F/Esc/M；左右滑=章节、点舞台显隐。专项 `v2_ppt_video_check.py` **99/99** + 原 86/86；回归全绿。
+- **小程序**（源码在 `mp-class-tools/`，非本仓库；VERSION 仍 2.0.0）：原样播放 + 章节/倍速/续播/列表「继续」；降级链
+  `<video src=OSS>` → `wx.downloadFile` 临时文件播放（进度、看门狗、可 abort）→ 自动分步；`unit 337/0`、`ppt 40/0`、`sync 33/0`、`staticcheck/code_quality` 0、automator **38/0**。
+  **真机需用户在微信后台把 OSS 域名加入 request+downloadFile 合法域名，并上传发布后真机验图/视频**。
+- **安卓**（3.4.0 / versionCode 10）：`PptVideoPlayer`（MediaPlayer+SurfaceView 自建控制条/章节 seek/倍速/下载/续播/网络降级）；`testDebugUnitTest` **954/0**、`assembleRelease` 成功，
+  APK 2,724,998 B / sha256 `542943B4…7DCC0D`，预览 7 张见 `android-class-tools/artifacts/`。
+- **存量用户 deck**：`dmwalrdlgevz90l`（16 页/第 12 页内嵌 225.6s）已 `--video-only` 补转：`deck.mp4` **13,668,151 B / 303.6s / 1280x720 / h264+aac / 16 章**，manifest 只新增 video、slides 未动。
+- **真实 E2E**：网页（本地通道+headless Edge，真实云端 deck）**15/15 PASS**（默认原样、章节 seek、续播、切分步、热点、0 JS error）；小程序 automator 真机环境原样播放 `deck.mp4` 起播、章节/倍速/切分步通过。
+- **回滚**：网页重传 `tools/_backup/index_online_20261110-2055_prePPTv12.html`（802,355 B/`e40571d3…`）；转换机 `schtasks /Change /TN PptConvertAgent /DISABLE` 或 `ppt-agent.pause`；
+  manifest 可 PATCH 去掉 video（客户端自动回落分步）；已补转 deck 的 `deck.mp4` 删除即可。
+- **已知取舍**：原样播放把单击动画合并为自动节奏；外链媒体无法播放（视频中以其海报静态帧代替）；章节允许 ±1s；>120 页/30min 不生成视频；
+  小程序/安卓真机受 OSS 默认域名 force-download 头与微信域名白名单影响，失败会自动回退分步（详见 §11.4/§11.8）。
