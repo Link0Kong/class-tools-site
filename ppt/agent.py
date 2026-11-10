@@ -14,6 +14,8 @@
     python agent.py --once --dry-run       # 只打印：不认领/不写云端/不上传 OSS
     python agent.py --deck <deckId>        # 调试单个 deck（真实链路）
     python agent.py --deck <deckId> --dry-run
+    python agent.py --deck <deckId> --video-only           # 为已 ready deck 只补原样播放视频
+    python agent.py --deck <deckId> --video-only --dry-run # 本地导出视频并打印，不上传/不写云端
     python agent.py --scheduled            # ≡ --once
 
 身份：管理员 token 读 ``C:\\briefdesk\\secrets\\class-token.json``；
@@ -45,6 +47,7 @@ if HERE not in sys.path:
 
 import convert  # noqa: E402
 import oss_upload  # noqa: E402
+import pptx_xml  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # 常量 / 路径
@@ -71,6 +74,7 @@ AGENT_VERSION = "1.0"
 UA = "class-ppt-agent/1.0"
 HTTP_TIMEOUT = 60.0
 MAX_SOURCE_BYTES = 64 * 1024 * 1024          # 契约 §6：≤64MiB
+VIDEO_ONLY_TIMEOUT_S = 1800.0                 # --video-only 单任务预算（契约 §11.2.2 30min）
 CHUNK_PAGE_LIMIT = 8                          # 分片 GET 每页 8 片（约 5.5MB/响应，稳）
 HEARTBEAT_INTERVAL = 30.0
 LOG_KEEP_DAYS = 14
@@ -559,7 +563,7 @@ def upload_assets(uploader, deck_id, build_id, assets, log, progress=None,
 def format_error(exc, elapsed=None):
     """异常 → 云端 error 中文短句（≤300 字，脱敏）。"""
     if isinstance(exc, convert.ConvertTimeout):
-        text = "转换超时（超过 15 分钟）"
+        text = "转换超时（超过 30 分钟）"
     elif isinstance(exc, convert.ConvertBusyError):
         text = "PowerPoint 正被占用（用户正在编辑），稍后自动重试"
     elif isinstance(exc, convert.ConvertError):
@@ -674,7 +678,7 @@ class DeckJob(object):
             opts = {
                 "deck_id": deck_id,
                 "converter": self.host,
-                "timeout_s": 900.0,
+                "timeout_s": 1800.0,  # 契约 §11.2.2：单 deck 30min 预算（含原样播放视频）
                 "log": lambda msg: self.log("[convert] " + str(msg)),
                 "progress": lambda pct, phase="": self.patch_progress(
                     deck_id, 8 + int(72.0 * max(0, min(100, pct)) / 100.0), phase),
@@ -686,6 +690,20 @@ class DeckJob(object):
                         stats["media"], stats["elapsed_s"], result["build_id"]))
             for warning in result.get("warnings") or []:
                 self.log("convert warn: %s" % warning)
+            if stats.get("video"):
+                self.log("video: dur=%.2fs %dx%d audio=%s bytes=%d export=%.1fs "
+                         "chapters=%d reencoded=%s"
+                         % (stats.get("video_dur") or 0.0,
+                            int((result.get("video") or {}).get("w") or 0),
+                            int((result.get("video") or {}).get("h") or 0),
+                            stats.get("video_audio") or "无",
+                            int(stats.get("video_bytes") or 0),
+                            float(stats.get("video_export_s") or 0.0),
+                            int(stats.get("video_chapters") or 0),
+                            bool(stats.get("video_reencoded"))))
+            else:
+                self.log("video: 未生成原样播放视频（%s）；分步模式照常 ready"
+                         % (stats.get("video_skipped") or "无 video 输出"))
 
             # 5) 上传资产（先传资产再 PATCH ready，避免半成品可播）
             self.patch_progress(deck_id, 90, "上传资产")
@@ -771,7 +789,8 @@ class DeckJob(object):
 def find_deck_by_id(cloud, deck_id, log):
     status, rows = cloud.get(
         "ppt_decks?select=id,title,status,source_name,source_size,chunk_count,"
-        "owner_sid,progress,deleted&id=eq.%s" % _q(deck_id))
+        "owner_sid,progress,deleted,manifest,source_key,slide_count,aspect,"
+        "cover_url,converted_at&id=eq.%s" % _q(deck_id))
     if status != 200 or not isinstance(rows, list):
         raise CloudError("查询 deck 失败（HTTP %s）" % status)
     if not rows:
@@ -885,6 +904,139 @@ def run_once(cloud, uploader, log, host, deck_id=None, dry_run=False):
 
 
 # ---------------------------------------------------------------------------
+# --video-only：为已 ready 的 deck 只补「原样播放」视频（CONTRACT §11.2.3）
+# ---------------------------------------------------------------------------
+def _manifest_prefix(manifest, log):
+    """从 manifest.base 反推 OSS 前缀（ppt/a/<deckId>/<buildId>/）。"""
+    base = str((manifest or {}).get("base") or "")
+    oss_base = oss_upload.OSS_BASE
+    if not base.startswith(oss_base):
+        raise CloudError("manifest.base 非法，无法确定视频上传目录（请重新转换该 deck）")
+    prefix = base[len(oss_base):]
+    if not prefix.endswith("/"):
+        prefix += "/"
+    return prefix
+
+
+def run_video_only(cloud, uploader, log, host, deck_id, dry_run=False):
+    """只补视频：用 source_key 从 OSS 下载原件 → 导出视频 → 传进**原 build 目录** →
+    只新增 ``manifest.video``（slides/img/media/notes 原样保留），不重传图片/媒体。"""
+    t0 = time.monotonic()
+    summary = {"action": "none", "deck": str(deck_id or ""), "elapsed_s": 0.0,
+               "dry_run": bool(dry_run), "video_dur": 0.0, "video_bytes": 0,
+               "export_s": 0.0, "skipped": "", "error": ""}
+    deck = find_deck_by_id(cloud, deck_id, log)
+    if deck is None:
+        raise CloudError("deck 不存在：%s" % deck_id)
+    if deck.get("deleted"):
+        raise CloudError("deck 已删除：%s" % deck_id)
+    status = str(deck.get("status") or "")
+    if status != "ready":
+        raise CloudError("只有 ready 的 deck 才能补视频（当前 status=%s）"
+                         % (status or "空；如需转换请先 PATCH queued"))
+    manifest = deck.get("manifest")
+    if (not isinstance(manifest, dict) or not isinstance(manifest.get("slides"), list)
+            or not manifest["slides"]):
+        raise CloudError("该 deck 的 manifest 为空/不完整，无法补视频（请重新上传转换）")
+    if manifest.get("video"):
+        log("deck %s 已有 manifest.video，本次将重新导出并覆盖（旧视频对象保留）" % deck_id)
+    ext = source_ext_from_name(deck.get("source_name"), log)
+    source_key = str(deck.get("source_key") or "")
+    if not source_key:
+        source_key = "ppt/src/%s/source%s" % (deck_id, ext)
+        log("WARN 云端没有 source_key，按约定路径尝试：%s" % source_key)
+    log("=== deck %s 补视频开始（title=%r, slides=%s, status=%s）"
+        % (deck_id, (deck.get("title") or "")[:40], len(manifest["slides"]), status))
+    work_dir = new_work_dir(deck_id + "-video", log)
+    hb = None
+    try:
+        src_path = os.path.join(work_dir, "source" + ext)
+        log("下载源文件：%s → %s" % (source_key, os.path.basename(src_path)))
+        try:
+            got = uploader.download_to(source_key, src_path)
+        except Exception as exc:  # noqa: BLE001
+            log("WARN 下载源文件失败：%s" % sanitize(exc, 200))
+            raise convert.ConvertError(
+                "源文件缺失：OSS 上找不到 %s（无法补转视频，请重新上传源文件后转换）"
+                % source_key)
+        size = int(got.get("size") or os.path.getsize(src_path))
+        if size > MAX_SOURCE_BYTES:
+            raise convert.ConvertError("源文件过大（%dMB，上限 64MB）" % (size // (1024 * 1024)))
+        if not dry_run:
+            hb = HeartbeatThread(cloud, log, host)
+            hb.start()
+        t_export = time.monotonic()
+        opts = {
+            "deck_id": deck_id,
+            "timeout_s": VIDEO_ONLY_TIMEOUT_S,
+            "log": lambda msg: log("[convert] " + str(msg)),
+            "progress": lambda pct, phase="": log(
+                "[video] %d%% %s" % (max(0, min(100, int(pct))), phase)),
+        }
+        result = convert.export_video_only(src_path, work_dir, opts)
+        video = result.get("video")
+        stats = result.get("stats") or {}
+        summary["export_s"] = round(time.monotonic() - t_export, 2)
+        if not video:
+            reason = result.get("skipped") or "未生成视频（见日志 warning）"
+            log("补视频跳过：%s（deck 保持 ready，分步模式不受影响）" % reason)
+            for warning in result.get("warnings") or []:
+                log("convert warn: %s" % warning)
+            summary["action"] = "video-skip"
+            summary["skipped"] = str(reason)[:300]
+            return summary
+        for warning in result.get("warnings") or []:
+            log("convert warn: %s" % warning)
+        prefix = _manifest_prefix(manifest, log)
+        assets = result.get("assets") or []
+        asset = assets[0] if assets else {}
+        key = prefix + "deck.mp4"
+        video_bytes = int(asset.get("size") or 0)
+        new_manifest = dict(manifest)
+        new_manifest["video"] = video  # 只新增 video，其余字段原样保留
+        errors = pptx_xml.validate_manifest(new_manifest)
+        if errors:
+            raise convert.ConvertError("合并视频后的 manifest 校验失败：%s"
+                                       % "; ".join(errors[:4]))
+        if dry_run:
+            log("[dry-run] 跳过视频上传：%s (%d bytes)；manifest 校验通过（slides=%d 原样保留）；"
+                "manifest.video=%s"
+                % (key, video_bytes, len(manifest["slides"]),
+                   sanitize(json.dumps(video, ensure_ascii=False), 500)))
+            summary.update({"action": "dry-run",
+                            "video_dur": float(video.get("dur") or 0.0),
+                            "video_bytes": video_bytes})
+            return summary
+        log("上传 deck.mp4 → %s（%.2fMB）" % (key, video_bytes / 1048576.0))
+        uploader.put_file(key, asset["path"], content_type="video/mp4")
+        code, data = cloud.patch(
+            "ppt_decks?id=eq.%s" % _q(deck_id),
+            {"manifest": new_manifest, "updated_at": int(time.time() * 1000)},
+            prefer="return=minimal")
+        if code not in (200, 204):
+            raise CloudError("PATCH manifest 失败（HTTP %s）" % code)
+        log("补视频完成：deck %s 视频 %.1fs / %.2fMB / %dx%d / chapters=%d / audio=%s / "
+            "导出耗时 %.1fs；manifest 仅新增 video（slides=%d 未改动）"
+            % (deck_id, float(video.get("dur") or 0.0), video_bytes / 1048576.0,
+               int(video.get("w") or 0), int(video.get("h") or 0),
+               len(video.get("chapters") or []), stats.get("audio") or "无",
+               summary["export_s"], len(manifest["slides"])))
+        summary.update({"action": "video-added",
+                        "video_dur": float(video.get("dur") or 0.0),
+                        "video_bytes": video_bytes})
+        return summary
+    finally:
+        if hb is not None:
+            hb.stop()
+            try:
+                send_heartbeat(cloud, log, host, 0)
+            except Exception:  # noqa: BLE001
+                pass
+        cleanup_work_dir(work_dir, log)
+        summary["elapsed_s"] = summary.get("elapsed_s") or round(time.monotonic() - t0, 2)
+
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 def _parse_args(argv=None):
@@ -892,6 +1044,8 @@ def _parse_args(argv=None):
     parser.add_argument("--once", action="store_true", help="跑一轮（计划任务用）")
     parser.add_argument("--scheduled", action="store_true", help="≡ --once")
     parser.add_argument("--deck", default="", help="调试指定 deck id")
+    parser.add_argument("--video-only", action="store_true",
+                        help="为已 ready 的 deck 只补原样播放视频（需 --deck）")
     parser.add_argument("--dry-run", action="store_true",
                         help="只打印：不认领/不写云端/不上传 OSS")
     parser.add_argument("--verbose", action="store_true", help="同时打印到控制台")
@@ -900,6 +1054,9 @@ def _parse_args(argv=None):
 
 def main(argv=None):
     args = _parse_args(argv)
+    if args.video_only and not args.deck:
+        print("用法：python agent.py --deck <deckId> --video-only [--dry-run]")
+        return EXIT_CONFIG
     if not (args.once or args.scheduled or args.deck or args.dry_run):
         print("用法：python agent.py --once | --deck <id> | --dry-run（可组合）")
         return EXIT_CONFIG
@@ -920,10 +1077,18 @@ def main(argv=None):
         try:
             cloud = Cloud(log=log.log, dry_run=args.dry_run)
             uploader = oss_upload.OssUploader(log=log.log)
-            summary = run_once(cloud, uploader, log, host,
-                               deck_id=(args.deck or None), dry_run=args.dry_run)
+            if args.video_only:
+                summary = run_video_only(cloud, uploader, log, host, args.deck,
+                                         dry_run=args.dry_run)
+            else:
+                summary = run_once(cloud, uploader, log, host,
+                                   deck_id=(args.deck or None), dry_run=args.dry_run)
         except CloudError as exc:
             log.error("云端/配置错误：%s" % sanitize(exc, 300))
+            return EXIT_CONFIG
+        except convert.ConvertError as exc:
+            # --video-only 等补转/转换失败的明确中文错误（不写 ready deck 状态）
+            log.error("补视频失败：%s" % sanitize(exc, 300))
             return EXIT_CONFIG
         except Exception as exc:  # noqa: BLE001
             log.error("未捕获异常：%s" % sanitize(exc, 300))

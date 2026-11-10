@@ -355,3 +355,140 @@ PATCH /ppt_decks?id=eq.<id>  { "status":"queued", "progress":0, "error":"", "upd
 - 隐私：不上传班级名单/学号/手机号等个人数据；演示文件属班级内容，按 §1 已知取舍处理并在交付说明写明。
 - 版本号：网页 `APP_VER`、小程序 `VERSION` 在用户下次成功上传发布前**保持 2.0.0**；安卓版本号按现有规则处理。
 - 不要动 `web/tools/notice-board-live-demo.html`（6MB 演示文件）与 `_backup/`。
+
+---
+
+# 11. v1.2 高保真「原样播放」视频 + 便捷操作（2026-11-10 增量，用户反馈）
+
+> 用户反馈（2026-11-10 20:39）：「继续优化在各设备上的演示效果，我希望的是在网络良好时达到电脑本地文件的播放效果，
+> 目前 PPT 内动画全部消失，视频也依然无法播放，且各端操作都不够便捷」。
+>
+> 结论：分步图片模式保留（弱网/精细翻页/热点播视频），**新增「原样播放」模式**：本机 PowerPoint 直接导出一份
+> **高保真视频**（含入场/强调/路径动画、页切换、内嵌视频与声音），三端播放器在网络良好时默认播放该视频；
+> 网络差/无视频时回退分步模式。同时补便捷操作（章节跳页、续播、倍速、离线下载、热点修复）。
+
+## 11.1 `manifest.video`（可选字段；缺省=仅分步模式，旧客户端忽略）
+
+```jsonc
+{
+  "video": {
+    "s": "deck.mp4",              // 相对 base 的文件名
+    "w": 1280, "h": 720,          // 渲染分辨率（16:9/4:3 均按原比例 letterbox 到 1280x720? 见 11.2）
+    "dur": 342.5,                 // 视频总时长（秒，ffprobe 实测）
+    "chapters": [                 // 按页：i = slides 下标（0-based），t = 该页内容开始秒数（单调递增）
+      {"i": 0, "t": 0.0}, {"i": 1, "t": 8.7}, {"i": 2, "t": 15.2}
+    ],
+    "q": "720p"                   // 质量标签（展示用）
+  }
+}
+```
+
+- 兼容规则：三端**必须**在 `manifest.video` 缺失/加载失败时回退分步模式，不得报错白屏；旧版客户端忽略未知字段即可。
+- URL 解析同 §5（相对 base；http/https/data 直连）。
+- 视频编解码：**H.264 (yuv420p) + AAC（有音轨时）**，`+faststart`（moov 前置），OSS 长缓存。
+
+## 11.2 转换机要求（`web/ppt/`）
+
+1. **导出流程**（在原有分步图片/媒体抽取之后，同一 PowerPoint 会话内完成）：
+   - 对演示文稿内存副本（不保存源文件）：
+     - 逐页读取 `TimeLine.MainSequence` 计算**动画结束时间** `animEnd`：按顺序遍历 effect，`TriggerType` 1=单击 / 3=之后 / 2=与前一个同时；
+       `1/3` 串行（`start=prevEnd+TriggerDelayTime`，`end=start+Duration`），`2` 与上一个并行（取 max end）；`Exit` 同理；
+     - 逐页计算媒体时长（用已抽取的媒体 ffprobe 时长；同一页多段取 max）；
+     - `advance_i = clamp(max(3.0, animEnd + 1.5, mediaMaxDur + 1.5), 3.0, 600)` 秒；
+     - 设置 `SlideShowTransition.AdvanceOnClick=False / AdvanceOnTime=True / AdvanceTime=advance_i`（**保留原页切换效果**，不改成 none）；
+     - 对每个内嵌媒体形状（`Shape.Type==16`）设置 `AnimationSettings.PlaySettings.PlayOnEntry=True`（让视频/音频在视频里真正播放并带声；
+       实测不设置时 PowerPoint 导出视频只有海报帧且无音轨）；
+   - `Presentation.CreateVideo(FileName, UseTimingsAndNarrations=True, DefaultSlideDuration=5, VertResolution=720, FramesPerSecond=30, Quality=80)`；
+     轮询输出文件大小稳定（最长 30min）后视为完成；失败/超时则**跳过视频**（记 warning，其余照旧 ready，不得整体失败）。
+   - ffmpeg 后处理：`-c copy -movflags +faststart` 重封装为 `<build>/deck.mp4`；`ffprobe` 取 dur/w/h/音轨；音轨存在则保留。
+   - **章节时间**：`chapters[0].t = 0`；`i>0` 时 `t_i = Σ_{j<i} advance_j + Σ_{j<=i} transDur_j`（`transDur` 取 `SlideShowTransition.Duration`，
+     无切换记 0；PowerPoint 会把切换时长插在页之间，见探测结论）再 clamp 到 `[0, dur-0.1]` 且单调不减（若计算超出实测 dur，按比例压缩）。
+   - 上传 `deck.mp4` 到同 build 目录；manifest 增加 `video` 字段；`PATCH ready` 前确保视频已上传。
+2. **容量/降级上限**：slide_count > 120 或预估总时长 > 1800s → 跳过视频并记 warning「页数/时长超限，未生成原样播放视频」；
+   导出失败同样只跳过视频。单条 deck 总转换时间预算放宽到 30min（计划任务 ExecutionTimeLimit 同步 45min）。
+3. **向后补转**：`agent.py --deck <id>` 在源文件已存在于 `ppt/src/<id>/source.<ext>`（chunks 已删）时，应能从 OSS 下载源文件重新转换
+   （新增 `--reconvert` / `--video-only` 可选：`--video-only` 只补视频并合并进已 ready 的 manifest，不重传图片/媒体）。
+4. **统计/日志**：manifest.video 存在时日志记录「video: dur=… w=… h=… audio=…」与耗时；`tests` 覆盖率要求见 §11.7。
+
+## 11.3 三端播放器要求（共性；各端按自身风格落地）
+
+### 11.3.1 模式与默认值
+
+- 每个演示有 **2 种模式**：`原样播放`（video）与 `分步浏览`（现有图片/step/热点）。播放器内提供**明显的模式切换**（例如顶栏小胶囊「原样 / 分步」）。
+- 默认模式：
+  - `manifest.video` 存在且**网络良好** → 原样播放并自动开始（用户从列表点击进入属于用户手势，允许 autoplay；被系统拒绝时显示大播放按钮，不报错）；
+  - 无 video / 网络差（`saveData` 或 effectiveType ∈ {slow-2g,2g,3g}、mp `wx.getNetworkType` 2g/3g、Android `NET_CAPABILITY` 计量/慢网）→ 分步浏览；
+  - 用户手动切换后**记住该设备偏好**（下次优先用户选择；仍可切换）。
+- 视频加载失败/卡顿：重试 1 次；仍失败自动切分步并 toast「网络不佳，已切换分步浏览」，**不得白屏**。
+
+### 11.3.2 原样播放控制条（课堂可用）
+
+- 视频全屏 letterbox；控制条自动隐藏（3s，鼠标/触摸唤出）；包含：
+  - 播放/暂停、时间 `mm:ss / mm:ss`、**上一页/下一页（按 chapters seek，非 ±10s）**；
+  - 章节进度条（有 chapter 刻度点，点击 seek 到对应页）、倍速（1× / 1.25× / 1.5× / 2×，循环切换，默认 1×）；
+  - 全屏、**下载原样视频**（能力允许的端提供）、关闭；模式切换胶囊；
+  - 键盘（web/Android）：Space 播放暂停、←/→ 上/下一页、F 全屏、Esc 退出、M 切模式、↑/↓ 音量（系统默认即可）；
+  - 手势：左右滑 = 上/下一页（章节）；点击舞台 = 显示/隐藏控制条（不要用点击左右 1/3 翻页，避免与视频播放冲突；仅分步模式保留 1/3 点击）。
+- 章节跳页后：视频 seek 到 `chapters[i].t + 0.05`，播放状态保持（暂停则保持暂停）。
+
+### 11.3.3 分步浏览增强（保留原能力）
+
+- **修复热点时序 bug**：切页/过渡结束后必须重新计算热点（图片 `load/onload` 后 + transitionend + resize/orientation 三处触发），
+  不得出现「本页有视频但热点没渲染」的竞态；热点≈视频框居中，直径 ≥ 56px（手机 64px），带「视频 3:46」角标与轻微脉冲提示，
+  点击可播；失败置灰「视频不可用」不阻塞。
+- 顶部进度/页码/步点/缩略图/备注/黑屏/全屏/下载原件等保持现有行为。
+
+### 11.3.4 续播与列表便捷
+
+- 每个 deck 记住**上次位置**（模式 + 页/步 或 视频秒数 + 时间戳），本机保存（web localStorage / mp storage / Android SharedPreferences）。
+  - 列表卡片显示「继续」小徽标（7 天内有效）；
+  - 打开时若位置 >5s 且未到末尾（视频 <95% / 非末页），**自动续播**并在控制条/toast 显示「续播 12:34」；可在设置/控制条「从头播放」；
+- 列表交互：整卡点击=直接播放（默认模式）；封面大「▶」；卡片右上 `⋯` 保留删除/重命名/下载；**不增加**多余说明文字（红线）。
+- 视频下载：web 直接 `<a download>`；Android 用现有下载能力（DownloadManager）保存到系统下载；小程序若域名白名单允许，
+  提供「复制视频链接」并提示用浏览器下载/播放；不得阻塞其它操作。
+
+## 11.4 小程序媒体传输特别说明（实测依据）
+
+- 阿里云 OSS **默认域名**对新建 bucket（含本 bucket）会自动加 `x-oss-force-download: true` + `Content-Disposition: attachment`
+  （HTML/图片/视频等类型；官方文档结论）。Web `<img>/<video>` 实测可正常渲染/播放；**微信小程序 `<video>`/`downloadFile` 行为需真机验证**，
+  已知风险：部分基础库会把 `attachment` 当下载或不播放。
+- 因此小程序原样播放必须按以下顺序尝试并降级（不得卡死）：
+  1. `<video src=OSS直链 controls autoplay>` 直接播放（devtools urlCheck=false 可先验证）；
+  2. `binderror` 或 5s 内未起播 → `wx.downloadFile` 下载到临时文件后 `<video src=tempFilePath>` 播放（显示下载进度；需 OSS 域名在
+     **downloadFile 合法域名**中；失败给出「需在微信后台配置 OSS 域名」的短提示）；
+  3. 仍失败 → 自动切分步浏览并 toast（不阻塞）。
+- 在 http 页面（本地临时通道）上不要直接引用视频做“下载”逻辑；播放器自身按上述顺序处理。
+- 域名恢复/自定义域名可用后（无 force-download 头），直接播放路径应优先且无需下载。
+
+## 11.5 网页实现约束（保持单文件）
+
+- 仍全部在 `tools/index.html` 的 `__PPT_FEATURE_V1__` 块内增量实现；不引入外部库；`APP_VER` 仍 `2.0.0`；
+- 新增播放器 DOM/CSS/JS 收在块内（可用 `__PPT_VIDEO_V1__` 注释分隔），不改变现有工具行为；
+- 现有 `v2_ppt_check.py` 86 项必须继续全过；新增视频模式专项检查（默认模式、章节 seek、续播、下载、模式切换、
+  热点时序修复、视频失败回退），总断言数 ≥ 110；430px 无横向溢出、0 JS error。
+
+## 11.6 安卓实现约束
+
+- 复用现有 `VideoView/MediaPlayer`（无 ExoPlayer 时不新增重量级依赖），自定义控制条（播放/暂停、时间、上/下一页 seek、倍速可用 `PlaybackParams` API≥23、全屏、下载、模式切换）；
+- 续播位置用 SharedPreferences（按 deckId）；列表「继续」徽标；网络判断用 `ConnectivityManager`（计量/WiFi/移动网络）；
+- 版本按既有发布约定递增（本次 3.4.0 / versionCode 10）；单测新增视频模式/章节/续播/降级用例；`assembleRelease` 成功。
+
+## 11.7 测试与验收（v1.2 追加）
+
+1. 转换机：fixture（含内嵌视频+音轨）转换后 `manifest.video` 存在；`ffprobe` 断言 h264 + aac、dur>0、章节数==pages 且单调；
+   **帧级验证**：在第 12 页视频段内间隔 1s 抽帧内容不同（证明视频真的播放而不是海报）；真实 tuanri deck（16 页动画）导出视频
+   时长>0、章节数=16；跳过视频的降级路径（音/视频导出失败模拟）仍能 ready。
+2. Web：真实 user deck `dmwalrdlgevz90l` 打开→默认原样播放→章节跳页→续播→切分步→热点出现并播放 m0.mp4；
+   fixture 无 video 时默认分步；视频 URL 404 时降级提示。
+3. mp：unit 覆盖模式选择/章节/续播/下载降级链；devtools automator 打开真实 deck 视频模式（或 fixture），断言 video 组件有 src/加载成功/无报错（能测尽测）；
+4. Android：单测 + preview；release 构建。
+5. 旧数据兼容：`manifest.video` 缺失的现有 ready deck 仍可播放（分步）；转换机 `--video-only` 可为存量 deck 补视频（Lead 对用户 deck 执行）。
+
+## 11.8 已知取舍
+
+- 原样播放把「单击动画」合并为自动连续播放（视频是自动节奏）；需要自主控制节奏时用分步浏览；
+- 视频比图片体积大（720p q80；16 页约 10–40MB），弱网默认分步；可下载离线；
+- 页切换保留原切换效果（PowerPoint 渲染），章节时间按探测公式计算，允许 ±1s 误差；
+- OSS 默认域名的 force-download 头对小程序的影响需真机验证，已按 §11.4 降级链处理；
+- 长演示（>30min 或 >120 页）不生成视频。
+

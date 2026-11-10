@@ -11,7 +11,10 @@
   ``<a:xfrm>`` 热区归一化（0..1，相对整页）；
 * PowerPoint 切换 ``PpEntryEffect`` 数值 → manifest ``tr/trd``；
 * 动画效果列表 → 分步计划（每步的绝对可见性快照，含页 step 上限 12 的降级）；
-* buildId（资产名+大小+manifest 摘要的 sha1 前 10 位）。
+* buildId（资产名+大小+manifest 摘要的 sha1 前 10 位）；
+* **v1.2 原样播放视频**（CONTRACT §11.1/§11.2）纯计算：动画结束时间 ``anim_end``、
+  每页 ``advance``、章节时间 ``chapters``、页数/时长上限判断、ffprobe JSON 解析、
+  ``manifest.video`` 校验。
 
 切换家族映射由真实 PowerPoint 探测得出（设置 EntryEffect 后 SaveCopyAs 解包读取
 ``<p:transition>`` 子元素），见 ``_TRANSITION_FAMILY`` 注释；与 CONTRACT §7 的家族
@@ -603,4 +606,268 @@ def validate_manifest(manifest):
             errors.append("media[%d].s 非法" % k)
         if m.get("k") not in ("v", "a"):
             errors.append("media[%d].k 非法" % k)
+    # v1.2：manifest.video 是可选字段（缺失=仅分步模式，旧客户端忽略；不得报错）
+    video = manifest.get("video")
+    if video is not None:
+        slide_total = len(slides) if isinstance(slides, list) else None
+        errors.extend(validate_video(video, slide_total))
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# v1.2 原样播放视频（PowerPoint CreateVideo）纯计算
+# ---------------------------------------------------------------------------
+VIDEO_MIN_ADVANCE_S = 3.0        # 每页最短停留（没动画的页也留 3s，便于观看/章节跳转）
+VIDEO_ADVANCE_PAD_S = 1.5        # 动画/媒体结束后留白，避免章节边界贴边
+VIDEO_MAX_ADVANCE_S = 600.0      # 单页最长 10min（超长媒体页按 600s 截断）
+VIDEO_MAX_SLIDES = 120           # 页数上限（超过不生成原样播放视频，契约 §11.2.2）
+VIDEO_MAX_DURATION_S = 1800.0    # 预估总时长上限 30min
+VIDEO_TAG_DEFAULT = "720p"
+
+
+def compute_anim_end(effects):
+    """按 ``TimeLine.MainSequence`` 顺序估算一页动画全部结束的时间（秒）。
+
+    * ``trigger`` 1（单击）/ 4（点形状）/ 3（上一动画之后）：串行，
+      ``start = prevEnd + TriggerDelayTime``、``end = start + Duration``；
+    * ``trigger`` 2（与上一动画同时）：与上一个串行效果并行（``start = groupStart + delay``），
+      结束时间取 ``max(prevEnd, start + Duration)``。
+    """
+    prev_end = 0.0
+    group_start = 0.0
+    has_prev = False
+    for raw in effects or []:
+        get = raw.get if isinstance(raw, dict) else (lambda k, d=None: getattr(raw, k, d))
+        try:
+            trigger = int(get("trigger") or 0)
+        except (TypeError, ValueError):
+            trigger = 0
+        try:
+            duration = max(0.0, float(get("duration") or 0.0))
+        except (TypeError, ValueError):
+            duration = 0.0
+        try:
+            delay = max(0.0, float(get("delay") or 0.0))
+        except (TypeError, ValueError):
+            delay = 0.0
+        if trigger == 2 and has_prev:
+            end = group_start + delay + duration
+            if end > prev_end:
+                prev_end = end
+        else:
+            start = prev_end + delay
+            prev_end = start + duration
+            group_start = start
+            has_prev = True
+    return round(prev_end, 3)
+
+
+def compute_advance(anim_end, media_max_dur, min_s=VIDEO_MIN_ADVANCE_S,
+                    pad_s=VIDEO_ADVANCE_PAD_S, max_s=VIDEO_MAX_ADVANCE_S):
+    """每页自动换页时长（秒）：``clamp(max(3.0, animEnd+1.5, mediaMaxDur+1.5), 3.0, 600)``。"""
+    try:
+        anim = float(anim_end or 0.0)
+    except (TypeError, ValueError):
+        anim = 0.0
+    try:
+        media = float(media_max_dur or 0.0)
+    except (TypeError, ValueError):
+        media = 0.0
+    advance = max(float(min_s), anim + float(pad_s), media + float(pad_s))
+    return round(max(float(min_s), min(advance, float(max_s))), 3)
+
+
+def slide_media_max_dur(slide_count, hotspots, media_table):
+    """每页内嵌媒体最长时长（秒）：hotspots 引用 ``media_table`` 的 ``dur``，同页取 max。
+
+    ``hotspots`` 结构同 ``convert._extract_media_assets``：
+    ``[(slide_idx0, step_idx, {"s": "m0.mp4", ...}), ...]``。
+    """
+    durations = {}
+    for item in media_table or []:
+        try:
+            durations[str(item.get("s"))] = float(item.get("dur") or 0.0)
+        except (TypeError, ValueError, AttributeError):
+            continue
+    count = max(0, int(slide_count or 0))
+    out = [0.0] * count
+    for entry in hotspots or []:
+        try:
+            slide_idx0 = int(entry[0])
+            hotspot = entry[2]
+            dur = durations.get(str(hotspot.get("s")), 0.0)
+        except (TypeError, ValueError, IndexError, AttributeError):
+            continue
+        if 0 <= slide_idx0 < count and dur > out[slide_idx0]:
+            out[slide_idx0] = dur
+    return out
+
+
+def compute_chapters(advances, trans_durs, dur):
+    """章节时间列表（秒，与页数等长）。
+
+    ``chapters[0].t = 0``；``i>0`` 时
+    ``t_i = Σ_{j<i} advance_j + Σ_{j<=i} transDur_j``，
+    再 clamp 到 ``[0, dur-0.1]`` 且单调不减；计算值超出实测 ``dur`` 时按比例整体压缩。
+
+    PowerPoint 把切换时长插在页之间：``视频总时长 ≈ Σadvance + Σtrans``
+    （CONTRACT §11.2 探测结论）。
+    """
+    advances = [max(0.0, float(a or 0.0)) for a in (advances or [])]
+    count = len(advances)
+    if count <= 0:
+        return []
+    trans = []
+    for i in range(count):
+        try:
+            trans.append(max(0.0, float((trans_durs or [])[i] or 0.0)))
+        except (IndexError, TypeError, ValueError):
+            trans.append(0.0)
+    raw = []
+    advance_sum = 0.0
+    trans_sum = 0.0
+    for i in range(count):
+        if i > 0:
+            advance_sum += advances[i - 1]
+        trans_sum += trans[i]
+        raw.append(advance_sum + trans_sum)
+    try:
+        total = float(dur or 0.0)
+    except (TypeError, ValueError):
+        total = 0.0
+    limit = max(0.0, total - 0.1) if total > 0 else None
+    if limit is not None and raw[-1] > limit and raw[-1] > 0:
+        scale = limit / raw[-1]
+        raw = [value * scale for value in raw]
+    out = []
+    prev = 0.0
+    for i, value in enumerate(raw):
+        t = 0.0 if i == 0 else float(value)
+        if limit is not None:
+            t = min(t, limit)
+        if t < prev:
+            t = prev
+        out.append(round(t, 2))
+        prev = t
+    return out
+
+
+def video_skip_reason(slide_count, estimated_duration_s,
+                      max_slides=VIDEO_MAX_SLIDES,
+                      max_duration_s=VIDEO_MAX_DURATION_S):
+    """页数/预估时长超限 → 中文原因（空串=可用）。"""
+    try:
+        count = int(slide_count or 0)
+    except (TypeError, ValueError):
+        count = 0
+    if count > int(max_slides):
+        return "页数超限（%d 页 > %d 页），未生成原样播放视频" % (count, int(max_slides))
+    try:
+        total = float(estimated_duration_s or 0.0)
+    except (TypeError, ValueError):
+        total = 0.0
+    if total > float(max_duration_s):
+        return "预估时长超限（%.0fs > %.0fs），未生成原样播放视频" % (total, float(max_duration_s))
+    return ""
+
+
+def parse_ffprobe_json(text):
+    """ffprobe ``-show_streams -show_format -of json`` 输出 → 规范化媒体信息。
+
+    返回 ``{"w","h","dur","codec","has_audio","audio_codec","nb_streams"}``；
+    解析失败返回 ``None``。
+    """
+    try:
+        data = json.loads(text or "{}")
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    streams = data.get("streams") or []
+    if not isinstance(streams, list):
+        streams = []
+    video = {}
+    audio = {}
+    for stream in streams:
+        if not isinstance(stream, dict):
+            continue
+        kind = str(stream.get("codec_type") or "")
+        if kind == "video" and not video:
+            video = stream
+        elif kind == "audio" and not audio:
+            audio = stream
+
+    def _num(value, default=0.0):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _int(value):
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return 0
+
+    fmt = data.get("format") or {}
+    if not isinstance(fmt, dict):
+        fmt = {}
+    return {
+        "w": _int(video.get("width")),
+        "h": _int(video.get("height")),
+        "dur": _num(fmt.get("duration")),
+        "codec": str(video.get("codec_name") or ""),
+        "has_audio": bool(audio),
+        "audio_codec": str(audio.get("codec_name") or ""),
+        "nb_streams": len(streams),
+    }
+
+
+def validate_video(video, slide_count=None):
+    """校验 CONTRACT §11.1 的 ``manifest.video``，返回错误字符串列表（空 = 合法）。"""
+    errors = []
+    if not isinstance(video, dict):
+        return ["video 必须是对象"]
+    name = video.get("s")
+    if not isinstance(name, str) or not name:
+        errors.append("video.s 必须是非空字符串")
+    for key in ("w", "h"):
+        value = video.get(key)
+        if not isinstance(value, int) or value <= 0:
+            errors.append("video.%s 必须是正整数" % key)
+    dur = video.get("dur")
+    dur_ok = isinstance(dur, (int, float)) and float(dur) > 0
+    if not dur_ok:
+        errors.append("video.dur 必须是正数")
+    if video.get("q") is not None and not isinstance(video.get("q"), str):
+        errors.append("video.q 必须是字符串")
+    chapters = video.get("chapters")
+    if not isinstance(chapters, list) or not chapters:
+        errors.append("video.chapters 必须是非空数组")
+        return errors
+    if slide_count is not None and len(chapters) != int(slide_count):
+        errors.append("video.chapters 数量（%d）必须等于页数（%d）"
+                      % (len(chapters), int(slide_count)))
+    prev_t = -1.0
+    for k, chapter in enumerate(chapters):
+        if not isinstance(chapter, dict):
+            errors.append("video.chapters[%d] 不是对象" % k)
+            continue
+        if chapter.get("i") != k:
+            errors.append("video.chapters[%d].i 必须等于下标 %d" % (k, k))
+        value = chapter.get("t")
+        if not isinstance(value, (int, float)):
+            errors.append("video.chapters[%d].t 必须是数字" % k)
+            continue
+        t = float(value)
+        if t < 0:
+            errors.append("video.chapters[%d].t 不能为负" % k)
+        if k == 0 and t != 0:
+            errors.append("video.chapters[0].t 必须为 0")
+        if t < prev_t - 1e-6:
+            errors.append("video.chapters[%d].t 必须单调不减" % k)
+        prev_t = max(prev_t, t)
+        if dur_ok and t > float(dur) + 1e-6:
+            errors.append("video.chapters[%d].t（%.2f）超出视频时长（%.2f）"
+                          % (k, t, float(dur)))
     return errors

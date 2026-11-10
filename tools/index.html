@@ -1300,30 +1300,60 @@ body.rst-lock{overflow:hidden}
   pointer-events:auto;-webkit-touch-callout:default;user-select:auto}
 .opt2-hint{font-size:12.5px;color:var(--ink2);font-weight:700;margin-top:10px}
 .opt2-card .row{justify-content:center;margin-top:10px}
-/* 班会大屏 · 管理员演示 */
+/* 大屏（团日活动 · 仅管理员） */
 .opt2-stage{position:fixed;top:0;right:0;bottom:0;left:0;z-index:95;display:flex;flex-direction:column;
   background:linear-gradient(150deg,#1E2B28 0%,#23302E 55%,#2C3B36 100%);color:#F7F8F8;padding:18px 20px 14px}
 .opt2-stage-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.opt2-badge{font-size:11px;font-weight:800;letter-spacing:.12em;color:#1E2B28;background:var(--sd);border-radius:6px;padding:2px 8px}
 .opt2-stage-top b{font-size:16px;letter-spacing:.06em}
-.opt2-clock{margin-left:auto;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;opacity:.9}
+.opt2-stage-top .opt2-sbtn:first-of-type{margin-left:auto}
 .opt2-sbtn{appearance:none;border:1px solid rgba(247,248,248,.35);background:rgba(247,248,248,.08);color:#F7F8F8;
   border-radius:9px;min-height:34px;padding:5px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
-.opt2-stage-grid{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px;min-height:0}
+.opt2-stage-grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:14px;margin-top:16px;min-height:0}
 .opt2-scard{background:rgba(247,248,248,.06);border:1px solid rgba(247,248,248,.14);border-radius:16px;
   padding:14px 16px;display:flex;flex-direction:column;justify-content:center;min-height:0;overflow:hidden}
-.opt2-scard .opt2-sl{font-size:13px;font-weight:700;letter-spacing:.08em;color:#B9CEC7}
+.opt2-scard .opt2-sl{font-size:13px;font-weight:700;letter-spacing:.08em;color:#B9CEC7;display:flex;align-items:center;gap:8px}
 .opt2-scard .opt2-sv{font-size:clamp(26px,4.6vw,52px);font-weight:800;line-height:1.15;margin-top:6px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-.opt2-scard .opt2-ss{font-size:clamp(12px,1.5vw,15px);color:#B9CEC7;margin-top:6px;font-weight:600}
 .opt2-sbtns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .opt2-sbtns .opt2-sbtn{min-height:32px;font-size:12.5px;padding:4px 10px}
 .opt2-stage-foot{font-size:11.5px;color:rgba(247,248,248,.55);margin-top:12px;text-align:right}
+/* 右上角：实时时间（日期 + 星期 + 秒） */
+.opt2-clockcard{justify-content:center;align-items:flex-end;text-align:right}
+.opt2-date{font-size:clamp(13px,1.6vw,19px);font-weight:700;color:#B9CEC7;letter-spacing:.02em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.opt2-time{font-size:clamp(30px,7vw,100px);font-weight:800;line-height:1.02;margin-top:4px;
+  font-variant-numeric:tabular-nums;letter-spacing:.01em;max-width:100%}
+/* 左上角：PPT 放映台（列表可滚，点行即全屏放映） */
+.opt2-deckcard{justify-content:flex-start;align-items:stretch;padding-top:12px}
+.opt2-deckcard .opt2-sl .opt2-mini{margin-left:auto}
+.opt2-decklist{display:flex;flex-direction:column;gap:8px;margin-top:10px;min-height:0;overflow:auto;
+  -webkit-overflow-scrolling:touch;touch-action:pan-y}
+.opt2-decklist[hidden]{display:none}
+.opt2-empty[hidden]{display:none!important}
+.opt2-deckrow{appearance:none;display:flex;align-items:center;gap:10px;width:100%;min-height:46px;padding:8px 12px;
+  border:1px solid rgba(247,248,248,.16);border-radius:12px;background:rgba(247,248,248,.05);color:#F7F8F8;
+  font:inherit;text-align:left;cursor:pointer;flex:none}
+.opt2-deckrow:active{background:rgba(247,248,248,.13)}
+.opt2-deckrow .opt2-ic{font-size:11px;color:#4E9082;flex:none;font-weight:800;letter-spacing:.06em}
+.opt2-deckrow .opt2-dt{flex:1;min-width:0;font-size:clamp(14px,1.5vw,17px);font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.opt2-deckrow .opt2-dm{font-size:12px;font-weight:600;color:#B9CEC7;flex:none}
+.opt2-chip{font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.05em;color:#1E2B28;background:#B9CEC7;
+  border-radius:5px;padding:1px 5px;flex:none}
+.opt2-empty{font-size:clamp(13px,1.6vw,16px);color:#B9CEC7;font-weight:600;margin-top:12px;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.opt2-empty .opt2-sbtn{min-height:32px;font-size:12.5px;padding:4px 10px;flex:none}
+.opt2-empty.opt2-deckerr{color:#E0B48C}
+.opt2-mini{appearance:none;border:0;background:transparent;color:#B9CEC7;font:inherit;font-size:12px;font-weight:700;
+  cursor:pointer;padding:2px 4px;text-decoration:underline;text-underline-offset:2px}
 body.opt2-lock{overflow:hidden!important}
 @media (max-width:560px){
   .opt2-stage{padding:14px 12px 10px}
   .opt2-stage-grid{gap:9px;margin-top:10px}
   .opt2-scard{padding:10px 11px;border-radius:12px}
+  .opt2-deckrow{min-height:40px;padding:6px 9px;gap:7px}
+  .opt2-deckrow .opt2-dm{display:none}
+  .opt2-time{font-size:clamp(26px,7vw,40px)}
 }
 @media (prefers-reduced-motion:reduce){
   .opt2-stage *{animation:none!important;transition:none!important}
@@ -1362,6 +1392,13 @@ body.opt2-lock{overflow:hidden!important}
 .ppt-cv .ppt-cvplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:34px;height:34px;
   border:0;border-radius:50%;background:rgba(35,48,46,.66);color:#fff;font-size:12px;line-height:1;
   display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.ppt-cv .ppt-cvplay:active{transform:translate(-50%,-50%) scale(.94)}
+/* v1.2 列表便捷：继续徽标（7 天内有续播位置）/ 原样时长胶囊（曾打开过带视频的 deck，取自本机缓存） */
+.ppt-rsm{position:absolute;left:6px;top:6px;z-index:2;font-size:10.5px;font-weight:800;line-height:1.55;
+  padding:0 6px;border-radius:6px;background:rgba(78,144,130,.94);color:#fff;letter-spacing:.02em}
+.ppt-vcap{position:absolute;right:6px;bottom:6px;z-index:2;font-size:10.5px;font-weight:700;line-height:1.55;
+  padding:0 6px;border-radius:6px;background:rgba(18,20,20,.68);color:rgba(255,255,255,.94);
+  font-variant-numeric:tabular-nums}
 .ppt-bd{padding:9px 12px 10px;display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
 .ppt-tt{font-size:15px;font-weight:600;line-height:1.4;color:var(--ink);word-break:break-word;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1419,6 +1456,10 @@ body.ppt-lock{overflow:hidden!important}
 .ppt-hotbtn.a{width:32px;height:32px;font-size:13px;border-radius:50%}
 .ppt-hotbtn.bad{background:rgba(70,76,74,.55);border:1px solid rgba(255,255,255,.22);color:rgba(255,255,255,.5);cursor:default}
 .ppt-hotbtn:active{transform:scale(.96)}
+/* v1.2：视频热点轻微脉冲提示（不阻挡点击；prefers-reduced-motion 关闭） */
+.ppt-hotbtn:not(.bad):after{content:"";position:absolute;left:-7px;top:-7px;right:-7px;bottom:-7px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.42);animation:pptHotPulse 2.2s ease-out infinite;pointer-events:none}
+@keyframes pptHotPulse{0%{transform:scale(.82);opacity:.8}72%{transform:scale(1.16);opacity:0}100%{opacity:0}}
 .ppt-hotdur{font-style:normal;font-size:11px;line-height:1.4;color:rgba(255,255,255,.9);
   background:rgba(0,0,0,.55);border-radius:4px;padding:0 5px;white-space:nowrap}
 .ppt-hotbad{font-style:normal;font-size:11px;line-height:1.4;color:rgba(255,255,255,.62);white-space:nowrap}
@@ -1501,7 +1542,9 @@ body.ppt-lock{overflow:hidden!important}
   .ppt-cb.nav{width:36px;height:36px;font-size:20px}
   .ppt-idx{font-size:14px;margin:0 2px}
   .ppt-dots{max-width:56px}
-  .ppt-hotbtn{width:48px;height:48px;font-size:16px}
+  .ppt-hotbtn{width:64px;height:64px;font-size:20px}
+  .ppt-hotbtn.a{width:32px;height:32px;font-size:13px}
+  .ppt-hotdur{font-size:11.5px}
 }
 /* 媒体层：全屏黑、contain、× 在左上安全区 */
 .ppt-media-ov{position:absolute;left:0;top:0;right:0;bottom:0;z-index:30;background:rgba(0,0,0,.96);
@@ -1526,8 +1569,89 @@ body.ppt-lock{overflow:hidden!important}
 .ppt-confirm-btns button{flex:1;min-height:40px;border-radius:10px;border:1px solid rgba(255,255,255,.2);
   background:transparent;color:#F7F8F8;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
 .ppt-confirm-btns button[data-act="leave"]{background:var(--cy);border-color:var(--cy);color:#fff}
+/* ========== __PPT_VIDEO_V1__ 原样播放（manifest.video）v1.2 · 2026-11-10 ==========
+   契约：web/ppt/CONTRACT.md §11.1/§11.3.2/§11.3.4；视频层纯黑 letterbox，控制条 3s 自动隐藏。
+   层级：视频舞台 z15 / loading z16 / 大播放钮 z17 / 顶栏 z41 / 视频控制条 z42（抽屉遮罩 50 / 确认 60 之下）。 */
+.ppt-player.ppt-vmode .ppt-stage,.ppt-player.ppt-vmode .ppt-prog,.ppt-player.ppt-vmode .ppt-ctl,
+.ppt-player.ppt-vmode .ppt-imgerr,.ppt-player.ppt-vmode .ppt-name{display:none!important}
+/* 有原样视频的分步模式：左上文件名给右上模式胶囊让位 */
+.ppt-player.ppt-hasvideo:not(.ppt-vmode) .ppt-name{right:172px}
+.ppt-vwrap{position:absolute;left:0;top:0;right:0;bottom:0;z-index:15;background:#000;
+  display:flex;align-items:center;justify-content:center}
+.ppt-vwrap[hidden]{display:none}
+.ppt-video{width:100%;height:100%;object-fit:contain;background:#000;display:block}
+.ppt-vload{position:absolute;left:50%;top:50%;z-index:16;width:42px;height:42px;border-radius:50%;
+  border:2.5px solid rgba(255,255,255,.22);border-top-color:rgba(255,255,255,.92);
+  transform:translate(-50%,-50%);animation:pptVSpin .9s linear infinite;pointer-events:none}
+.ppt-vload[hidden]{display:none}
+@keyframes pptVSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.ppt-vbig{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:17;width:84px;height:84px;
+  border:0;border-radius:50%;background:rgba(18,20,20,.66);color:rgba(255,255,255,.95);font-size:30px;
+  line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;
+  box-shadow:0 8px 28px rgba(0,0,0,.5)}
+.ppt-vbig[hidden]{display:none}
+.ppt-vbig:active{transform:translate(-50%,-50%) scale(.96)}
+.ppt-vtop{position:absolute;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:41;
+  display:flex;align-items:center;gap:10px;pointer-events:none;transition:opacity .16s ease-out}
+.ppt-vtop[hidden]{display:none}
+.ppt-vtop.hide{opacity:0;pointer-events:none}
+.ppt-vpage{font-size:12.5px;font-weight:600;color:rgba(255,255,255,.88);background:rgba(18,20,20,.6);
+  border-radius:8px;padding:4px 9px;white-space:nowrap;font-variant-numeric:tabular-nums;pointer-events:none}
+.ppt-vpage[hidden]{display:none}
+.ppt-vseg{margin-left:auto;display:flex;gap:0;background:rgba(18,20,20,.72);border-radius:999px;padding:3px;
+  pointer-events:auto;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.ppt-vseg button{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:rgba(255,255,255,.66);
+  font:inherit;font-size:12.5px;font-weight:700;line-height:1;height:30px;padding:0 13px;border-radius:999px;
+  cursor:pointer;white-space:nowrap}
+.ppt-vseg button.on{background:rgba(247,248,248,.92);color:#151A19}
+/* 视频控制条：上一行章节进度条（刻度点可点）、下一行按钮（手机单行放得下） */
+.ppt-vctl{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:42;
+  width:min(760px,calc(100% - 24px));border-radius:14px;background:rgba(18,20,20,.82);padding:6px 10px 8px;
+  box-shadow:0 8px 26px rgba(0,0,0,.42);transition:opacity .16s ease-out,transform .16s ease-out}
+@supports ((-webkit-backdrop-filter:blur(14px)) or (backdrop-filter:blur(14px))){
+  .ppt-vctl{background:rgba(18,20,20,.72);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+}
+.ppt-vctl[hidden]{display:none}
+.ppt-vctl.hide{opacity:0;transform:translate(-50%,18px);pointer-events:none;
+  transition:opacity .2s ease-out,transform .2s ease-out}
+.ppt-vbar{position:relative;height:18px;margin:0 2px;cursor:pointer;touch-action:none}
+.ppt-vbar:before{content:"";position:absolute;left:0;right:0;top:8px;height:3px;border-radius:2px;
+  background:rgba(255,255,255,.22)}
+.ppt-vfill{position:absolute;left:0;top:8px;height:3px;width:0;border-radius:2px;
+  background:rgba(255,255,255,.92);pointer-events:none}
+.ppt-vticks{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none}
+.ppt-vtick{position:absolute;top:5px;width:9px;height:9px;margin-left:-4.5px;border:0;padding:0;
+  border-radius:50%;background:rgba(255,255,255,.55);pointer-events:auto;cursor:pointer}
+.ppt-vtick.on{background:#fff;box-shadow:0 0 0 2px rgba(78,144,130,.8)}
+.ppt-vrow{display:flex;align-items:center;gap:1px}
+.ppt-vtime{font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.9);
+  white-space:nowrap;margin:0 5px;flex:none}
+.ppt-vdl{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  color:#F7F8F8;text-decoration:none;font-size:16px;line-height:1;flex:none}
+.ppt-vdl:active{background:rgba(247,248,248,.16)}
+.ppt-cb.res{width:28px;font-size:14px}
+@media (max-width:560px){
+  .ppt-vctl{left:8px;right:8px;width:auto;transform:none;bottom:calc(8px + env(safe-area-inset-bottom,0px));
+    padding:5px 6px 6px;border-radius:12px}
+  .ppt-vctl.hide{transform:translateY(18px)}
+  .ppt-vtime{font-size:11.5px;margin:0 2px}
+  .ppt-vbig{width:72px;height:72px;font-size:26px}
+  .ppt-vseg button{height:28px;padding:0 10px;font-size:12px}
+  .ppt-vpage{font-size:11.5px;padding:3px 7px}
+  .ppt-vdl{width:32px;height:32px;font-size:15px}
+  .ppt-cb.res{width:24px;font-size:13px}
+  /* 分步续播时控制条多一个「从头」按钮：手机压缩其它控件，保证单行不溢出 */
+  .ppt-player.ppt-hasres .ppt-idx{font-size:13px;margin:0}
+  .ppt-player.ppt-hasres .ppt-cb{width:28px}
+  .ppt-player.ppt-hasres .ppt-cb.nav{width:32px;font-size:18px}
+  .ppt-player.ppt-hasres .ppt-dots{max-width:40px}
+  .ppt-player.ppt-hasres .ppt-cb.res{width:26px}
+  .ppt-player.ppt-hasres .ppt-div{margin:0 3px}
+}
 @media (prefers-reduced-motion:reduce){
-  .ppt-layer,.ppt-ctl,.ppt-drawer,.ppt-mask,.ppt-name,.ppt-prog i,.ppt-bar i,.ppt-hotbtn{transition:none!important}
+  .ppt-layer,.ppt-ctl,.ppt-drawer,.ppt-mask,.ppt-name,.ppt-prog i,.ppt-bar i,.ppt-hotbtn,
+  .ppt-vtop,.ppt-vctl,.ppt-vseg button{transition:none!important}
+  .ppt-hotbtn:not(.bad):after,.ppt-vload{animation:none!important}
 }
 </style>
 </head>
@@ -9985,12 +10109,31 @@ var PPT=(function(){
   var LIST_SELECT="id,title,owner_sid,owner_name,status,progress,error,slide_count,step_count,aspect,cover_url,source_name,source_size,created_at,converted_at,client";
   var MAN_SELECT="manifest,title,slide_count,step_count,aspect,cover_url,source_name,source_key,converted_at";
 
+  /* ============ __PPT_VIDEO_V1__ 原样播放 + 续播 v1.2 · 2026-11-10 ============
+     契约：web/ppt/CONTRACT.md §11.1（manifest.video）/ §11.3.1–11.3.4 / §11.5；设计：DESIGN.md §4.3–4.9。
+     - 默认模式：manifest.video 存在且网络良好 → 原样播放（自动播放；被拒显示大播放钮）；
+       无 video / saveData / effectiveType∈{slow-2g,2g,3g} → 分步；手动切换后本机记住偏好（zq_ppt_mode_v1）。
+     - 视频失败/卡顿：error 或 waiting 超 4s 连续 2 次 → 重试 1 次 → 自动分步 + toast，不白屏。
+     - 续播：zq_ppt_pos_<deckId> {mode,slide,step,t,at}（7 天）；列表「继续」徽标；看完到末尾/手动从头重置。
+     - 列表轻字段不含 manifest（§4.4），「原样 m:ss」胶囊来自本机缓存 zq_ppt_vmeta_<deckId>。 */
+  var LS_MODE="zq_ppt_mode_v1";
+  var LS_POS="zq_ppt_pos_";
+  var LS_VMETA="zq_ppt_vmeta_";
+  var POS_TTL=7*24*3600*1000;
+  var V_WAIT_MS=4000;
+  var V_MAX_STALL=2;
+  var SPEEDS=[1,1.25,1.5,2];
+
   var S={list:[],loaded:false,loading:false,pendingPull:null,err:"",offline:false,iv:0,up:null,
     pending:null,retryOld:null,agentSeen:0};
   var PL={open:false,root:null,stage:null,hot:null,layers:null,imgs:null,deck:null,man:null,slides:[],
     flat:[],idx:0,active:0,ctlTimer:0,nameTimer:0,preTimer:0,loadTimer:0,animTimer:0,peekTimer:0,
     finish:null,drawer:"",mediaEl:null,mediaUrl:"",bad:null,black:false,imm:false,pre:{},
-    savedY:0,focusEl:null,suppressClick:0};
+    savedY:0,focusEl:null,suppressClick:0,
+    /* v1.2：原样播放 / 续播 / 热点补算 */
+    video:null,mode:"step",vEl:null,vReady:0,vWantPlay:false,vAutoPending:false,vResumeT:0,
+    vRetries:0,vStalls:0,vWaitTimer:0,vSaveAt:0,vFallback:false,vBigReq:false,failCount:0,
+    chapters:[],speedIdx:0,resume:null,resumeActive:false,hotTimer:0,stepReady:false,ctlMoveAt:0};
 
   function el(id){return document.getElementById(id);}
   function num(v,d){v=Number(v);return isFinite(v)?v:(d||0);}
@@ -10063,6 +10206,11 @@ var PPT=(function(){
     var cover=d.cover_url
       ? '<img src="'+esc(d.cover_url)+'" alt="" loading="lazy" decoding="async">'
       : '<span class="ppt-cvph">演示</span>';
+    /* v1.2 列表便捷：续播徽标（7 天内且未到末尾）+ 原样时长胶囊（本机缓存过 manifest.video） */
+    var rsm=ready?posOf(d):null;
+    var vmeta=ready?vmetaOf(d):null;
+    if(rsm)cover+='<span class="ppt-rsm">继续</span>';
+    if(vmeta)cover+='<span class="ppt-vcap">原样 '+durText(num(vmeta.dur,0))+'</span>';
     var acts="";
     if(ready)acts+='<button class="btn sm pri" type="button" data-act="play" data-id="'+esc(d.id)+'">播放</button>';
     if(mine&&String(d.status||"")==="failed")acts+='<button class="btn sm" type="button" data-act="retry" data-id="'+esc(d.id)+'">重试</button>';
@@ -10329,6 +10477,12 @@ var PPT=(function(){
       var man=row&&row.manifest;
       if(typeof man==="string"){try{man=JSON.parse(man);}catch(e){man=null;}}
       if(!man||!(man.slides instanceof Array)||!man.slides.length){toast("还没转换完成");return;}
+      /* v1.2：列表轻字段不含 manifest（§4.4），播放前把「有无原样视频」缓存到本机供卡片胶囊展示 */
+      try{
+        var vm=videoMeta(man);
+        if(vm)lsSet(LS_VMETA+id,{dur:vm.dur,q:vm.q});
+        else lsDel(LS_VMETA+id);
+      }catch(e){}
       openPlayer(row,man);
     }).catch(function(){toast("加载失败");});
   }
@@ -10407,12 +10561,48 @@ var PPT=(function(){
     if(PL.loadTimer){clearTimeout(PL.loadTimer);PL.loadTimer=0;}
     if(PL.animTimer){clearTimeout(PL.animTimer);PL.animTimer=0;}
     if(PL.peekTimer){clearTimeout(PL.peekTimer);PL.peekTimer=0;}
+    if(PL.hotTimer){clearTimeout(PL.hotTimer);PL.hotTimer=0;}
+    if(PL.vWaitTimer){clearTimeout(PL.vWaitTimer);PL.vWaitTimer=0;}
     PL.finish=null;
   }
   function buildPlayer(){
     var r=document.createElement("div");
     r.className="ppt-player";r.id="pptPlayer";r.tabIndex=-1;
     r.setAttribute("role","dialog");r.setAttribute("aria-modal","true");r.setAttribute("aria-label","演示播放");
+    /* v1.2：仅在 manifest.video 有效时创建原样播放层（旧 deck 完全不受影响） */
+    var vh="";
+    if(PL.video){
+      vh=
+        '<div class="ppt-vwrap" id="pptVWrap" hidden>'+
+          '<video class="ppt-video" id="pptVideo" playsinline webkit-playsinline preload="metadata"></video>'+
+          '<div class="ppt-vload" id="pptVLoad" hidden></div>'+
+          '<button class="ppt-vbig" id="pptVBig" type="button" aria-label="播放">▶</button>'+
+        '</div>'+
+        '<div class="ppt-vtop" id="pptVTop" hidden>'+
+          '<span class="ppt-vpage" id="pptVPage" hidden></span>'+
+          '<div class="ppt-vseg" id="pptVSeg">'+
+            '<button type="button" data-vmode="video" class="on">原样</button>'+
+            '<button type="button" data-vmode="step">分步</button>'+
+          '</div>'+
+        '</div>'+
+        '<div class="ppt-vctl" id="pptVCtl" hidden>'+
+          '<div class="ppt-vbar" id="pptVBar">'+
+            '<i class="ppt-vfill" id="pptVFill"></i><span class="ppt-vticks" id="pptVTicks"></span>'+
+          '</div>'+
+          '<div class="ppt-vrow">'+
+            '<button class="ppt-cb nav" type="button" data-vact="prev" aria-label="上一页">‹</button>'+
+            '<button class="ppt-cb" type="button" data-vact="play" id="pptVPlayBtn" aria-label="播放">▶</button>'+
+            '<button class="ppt-cb nav" type="button" data-vact="next" aria-label="下一页">›</button>'+
+            '<span class="ppt-vtime" id="pptVTime">00:00 / 00:00</span>'+
+            '<span class="ppt-sp"></span>'+
+            '<button class="ppt-cb res" type="button" data-vact="restart" aria-label="从头播放">↺</button>'+
+            '<button class="ppt-cb" type="button" data-vact="speed" id="pptVSpeed" aria-label="倍速">1×</button>'+
+            '<button class="ppt-cb" type="button" data-vact="fs" aria-label="全屏">⛶</button>'+
+            '<a class="ppt-vdl" id="pptVDl" data-vact="dl" href="#" download aria-label="下载原样视频">↓</a>'+
+            '<button class="ppt-cb" type="button" data-vact="close" aria-label="退出演示">×</button>'+
+          '</div>'+
+        '</div>';
+    }
     r.innerHTML=
       '<div class="ppt-stage" id="pptStage">'+
         '<div class="ppt-layer" id="pptL0"><img alt=""></div>'+
@@ -10422,6 +10612,7 @@ var PPT=(function(){
         '<div class="ppt-media-ov" id="pptMediaOv" hidden></div>'+
         '<div class="ppt-black" id="pptBlack" hidden></div>'+
       '</div>'+
+      vh+
       '<div class="ppt-prog"><i id="pptProg"></i></div>'+
       '<div class="ppt-name" id="pptName"></div>'+
       '<div class="ppt-ctl" id="pptCtl">'+
@@ -10462,6 +10653,10 @@ var PPT=(function(){
     }
     bindPlayer(r);
     buildThumbs();
+    if(PL.video){
+      r.classList.add("ppt-hasvideo");
+      initVideoUi();
+    }
   }
   function bindPlayer(r){
     r.addEventListener("click",function(e){
@@ -10475,12 +10670,23 @@ var PPT=(function(){
         else if(act==="black")toggleBlack();
         else if(act==="fs")toggleFs();
         else if(act==="dl")downloadSrc();
+        else if(act==="restart")restartAll();
         else if(act==="close")requestClose();
         else if(act==="stay")hideConfirm();
         else if(act==="leave")closePlayer();
         if(act!=="stay"&&act!=="leave")showCtl();
         return;
       }
+      /* v1.2 原样播放控制条（data-vact / 模式胶囊 data-vmode） */
+      var vbs=(e.target&&e.target.closest)?e.target.closest("[data-vact]"):null;
+      if(vbs){
+        var va=vbs.getAttribute("data-vact");
+        if(va==="dl")showCtl(); /* <a download> 走原生下载，不拦截 */
+        else vAct(va);
+        return;
+      }
+      var vms=(e.target&&e.target.closest)?e.target.closest("[data-vmode]"):null;
+      if(vms){setMode(vms.getAttribute("data-vmode"),{manual:true});return;}
       var mi=(e.target&&e.target.closest)?e.target.closest("[data-mi]"):null;
       if(mi){
         var f=PL.flat[PL.idx],steps=f?PL.slides[f.s].steps:[];
@@ -10494,8 +10700,48 @@ var PPT=(function(){
       if(err){hideImgErr();renderAt(PL.idx,"none",0,false);return;}
     });
     if(PL.stage)PL.stage.addEventListener("click",onStageClick);
-    r.addEventListener("pointermove",function(){showCtl();},{passive:true});
-    r.addEventListener("touchstart",function(e){showCtl();if(e&&e.stopPropagation)e.stopPropagation();},{passive:true});
+    /* v1.2：原样播放层 —— 点舞台显隐控制条（1/3 点击翻页只保留给分步）、左右滑=章节翻页 */
+    var vw=el("pptVWrap");
+    if(vw){
+      vw.addEventListener("click",onVStageClick);
+      bindSwipe(vw);
+    }
+    var vbig=el("pptVBig");
+    if(vbig)vbig.addEventListener("click",function(e){if(e&&e.stopPropagation)e.stopPropagation();vPlay(true);});
+    var vt=el("pptVTicks");
+    if(vt)vt.addEventListener("click",function(e){
+      var tb=(e.target&&e.target.closest)?e.target.closest("[data-vtick]"):null;
+      if(!tb)return;
+      if(e.stopPropagation)e.stopPropagation();
+      vGoChapter(num(tb.getAttribute("data-vtick"),0));
+      showCtl();
+    });
+    var vbar=el("pptVBar");
+    if(vbar)vbar.addEventListener("click",function(e){
+      if(PL.mode!=="video"||!PL.vEl)return;
+      if(e.target&&e.target.closest&&e.target.closest("[data-vtick]"))return;
+      var br=vbar.getBoundingClientRect();
+      var ratio=Math.max(0,Math.min(1,(num(e.clientX,0)-br.left)/(br.width||1)));
+      vSeekTo(ratio*(num(PL.vEl.duration,0)||num(PL.video&&PL.video.dur,0)));
+      showCtl();
+    });
+    /* 热点时序修复（v1.2）：CSS 过渡结束、图片 load（捕获阶段）后重算热点 */
+    if(PL.stage)PL.stage.addEventListener("transitionend",function(){if(PL.open&&PL.mode==="step")syncHot();},true);
+    if(PL.stage)PL.stage.addEventListener("load",function(ev){
+      var t=ev.target;
+      if(t&&t.tagName==="IMG"&&PL.open&&PL.mode==="step"&&PL.imgs&&t===PL.imgs[PL.active])hotBurst();
+    },true);
+    r.addEventListener("pointermove",function(){
+      var c=el("pptVCtl");
+      if(!PL.ctlMoveAt||Date.now()-PL.ctlMoveAt>450)PL.ctlMoveWasHidden=!!(c&&c.classList.contains("hide"));
+      PL.ctlMoveAt=Date.now();showCtl();
+    },{passive:true});
+    r.addEventListener("touchstart",function(e){
+      var c=el("pptVCtl");
+      if(!PL.ctlMoveAt||Date.now()-PL.ctlMoveAt>450)PL.ctlMoveWasHidden=!!(c&&c.classList.contains("hide"));
+      PL.ctlMoveAt=Date.now();showCtl();
+      if(e&&e.stopPropagation)e.stopPropagation();
+    },{passive:true});
     r.addEventListener("dblclick",function(e){e.preventDefault();});
     r.addEventListener("contextmenu",function(e){e.preventDefault();});
     r.addEventListener("selectstart",function(e){e.preventDefault();});
@@ -10524,7 +10770,9 @@ var PPT=(function(){
       var w=(PL.stage&&PL.stage.clientWidth)||window.innerWidth||360;
       var th=Math.max(40,w*0.12);
       if(Math.abs(d.dx)>=th&&Math.abs(d.dx)>Math.abs(d.dy)*1.2){
-        if(d.dx<0)next();else prev();
+        /* v1.2：原样播放左右滑 = 章节翻页（不是 step）；分步保留原行为 */
+        if(PL.mode==="video")vGoPage(d.dx<0?1:-1);
+        else if(d.dx<0)next();else prev();
       }
     }
     if(window.PointerEvent){
@@ -10534,6 +10782,8 @@ var PPT=(function(){
         /* 指针捕获只在确认横向拖动后才设置：down 时就捕获会把后续 click 重定向到舞台，
            点视频热点/按钮会被误判成"点右 2/3 翻页"。 */
         p.pid=e.pointerId;p.cap=false;
+        /* 记录按下前控制条是否隐藏：点击切换以这个状态为准（pointerdown 本身会唤出控制条） */
+        var vc=el("pptVCtl");PL.ctlDownHidden=!!(vc&&vc.classList.contains("hide"));
         showCtl();
       },{passive:true});
       node.addEventListener("pointermove",function(e){
@@ -10553,7 +10803,9 @@ var PPT=(function(){
     }else{
       node.addEventListener("touchstart",function(e){
         if(!e.touches||e.touches.length!==1)return;
-        down(e.touches[0].clientX,e.touches[0].clientY);showCtl();
+        down(e.touches[0].clientX,e.touches[0].clientY);
+        var vc=el("pptVCtl");PL.ctlDownHidden=!!(vc&&vc.classList.contains("hide"));
+        showCtl();
       },{passive:true});
       node.addEventListener("touchmove",function(e){
         if(!p||!e.touches||!e.touches[0])return;
@@ -10612,6 +10864,12 @@ var PPT=(function(){
       inEl.style.zIndex="11";
       outEl.style.zIndex="10";
       inEl.style.visibility="visible";
+      /* v1.2 热点提前绘制：图片已解码、层已可见即可按新图矩形定位（同一份幻灯片内各图比例一致，
+         不必等 320ms 过渡结束才有热点）；过渡结束 done() 里还会再校准一次 */
+      var myIdx=idx;
+      requestAnimationFrame(function(){
+        if(PL.open&&PL.mode==="step"&&PL.idx===myIdx)paintHot(img);
+      });
       var done=function(){
         if(PL.animTimer){clearTimeout(PL.animTimer);PL.animTimer=0;}
         PL.finish=null;
@@ -10628,7 +10886,8 @@ var PPT=(function(){
         outEl.style.zIndex="10";
         try{PL.imgs[PL.active].removeAttribute("src");}catch(e){} /* 释放解码（常驻 ≤5 张） */
         PL.active=inc;
-        updIndex();syncHot();preload();buildThumbsHighlight();
+        PL.stepReady=true;
+        updIndex();syncHot();hotBurst();savePos(false);preload();buildThumbsHighlight();
       };
       if(first||tr==="none"||dur<=0){
         inEl.style.opacity="1";inEl.style.transform="none";inEl.style.clipPath="none";
@@ -10664,13 +10923,17 @@ var PPT=(function(){
       });
     }
     if(src&&img.getAttribute("src")!==src){
-      img.onload=function(){img.onload=null;img.onerror=null;start();};
+      /* v1.2 热点时序修复：图片真正加载完成后补算热点（此前在 6s 兜底 start 后仍可能读到 0x0 布局） */
+      img.onload=function(){
+        img.onload=null;img.onerror=null;start();
+        if(PL.layers[PL.active]===inEl)hotBurst(); /* 过渡已完成才补算，避免画在上一张图上 */
+      };
       img.onerror=function(){
         img.onload=null;img.onerror=null;failed=true;
         if(PL.loadTimer){clearTimeout(PL.loadTimer);PL.loadTimer=0;}
         showImgErr(); /* 保留上一张图，不白屏 */
       };
-      PL.loadTimer=setTimeout(start,6000);
+      PL.loadTimer=setTimeout(function(){start();hotBurst();},6000);
       img.setAttribute("src",src);
       if(img.complete)start();
     }else{
@@ -10740,24 +11003,25 @@ var PPT=(function(){
       if(nx)nx.disabled=PL.idx>=PL.flat.length-1;
     }
   }
-  function syncHot(){
-    rootResetScroll();
+  /* 热点渲染（v1.2 时序修复）：paintHot 返回是否已绘制定位；图未布局完成时由 hotBurst/hotWatch 补算。
+     触发点：切页 done + img.onload + stage transitionend + resize/orientationchange + rAF/定时补算，
+     保证「本页有视频则热点必现」（此前偶发 0 是因为同步时读到 0x0 布局后再无重算）。 */
+  function paintHot(forceImg){
     var hot=PL.hot;
-    if(!hot)return;
+    if(!hot)return false;
     var f=PL.flat[PL.idx];
-    hot.innerHTML="";
-    if(!f)return;
+    if(!f){hot.innerHTML="";return true;}
     var st=(PL.slides[f.s]&&PL.slides[f.s].steps&&PL.slides[f.s].steps[f.j])||{};
     var med=(st.media instanceof Array)?st.media:[];
-    var img=PL.imgs[PL.active],stage=PL.stage;
-    if(!img||!stage||!img.getBoundingClientRect)return;
+    var img=forceImg||PL.imgs[PL.active],stage=PL.stage;
+    if(!img||!stage||!img.getBoundingClientRect)return false;
     var ir=img.getBoundingClientRect(),sr=stage.getBoundingClientRect();
-    if(!ir.width||!ir.height)return;
+    if(!ir.width||!ir.height)return false;
     hot.style.left=(ir.left-sr.left)+"px";
     hot.style.top=(ir.top-sr.top)+"px";
     hot.style.width=ir.width+"px";
     hot.style.height=ir.height+"px";
-    if(!med.length)return;
+    if(!med.length){hot.innerHTML="";return true;}
     hot.innerHTML=med.map(function(m,i){
       var k=mediaKind(m);
       var g=mediaAt(m);
@@ -10771,6 +11035,34 @@ var PPT=(function(){
       else if(dur)inner+='<em class="ppt-hotdur">视频 '+dur+'</em>';
       return '<span class="ppt-hotwrap" style="left:'+cx+'%;top:'+cy+'%">'+inner+'</span>';
     }).join("");
+    return true;
+  }
+  function syncHot(){
+    rootResetScroll();
+    if(paintHot())return;
+    hotBurst();
+  }
+  function hotBurst(){
+    if(!PL.open||PL.mode!=="step")return;
+    var tries=0;
+    (function tick(){
+      if(!PL.open||PL.mode!=="step")return;
+      if(paintHot()){hotWatch();return;}
+      if(++tries>26){hotWatch();return;}
+      requestAnimationFrame(tick);
+    })();
+  }
+  function hotWatch(){
+    /* 慢图兜底：60/240/700/1500ms 再补算（正常到达即停；onload/transitionend 也会提前触发） */
+    if(!PL.open||PL.mode!=="step")return;
+    if(PL.hotTimer){clearTimeout(PL.hotTimer);PL.hotTimer=0;}
+    var delays=[60,240,700,1500],i=0;
+    (function step(){
+      if(!PL.open||PL.mode!=="step")return;
+      if(paintHot())return;
+      if(i>=delays.length)return;
+      PL.hotTimer=setTimeout(step,delays[i++]);
+    })();
   }
   function preload(){
     if(!PL.man)return;
@@ -10890,7 +11182,9 @@ var PPT=(function(){
   function showCtl(){
     rootResetScroll();
     var c=el("pptCtl");
-    if(c)c.classList.remove("hide");
+    if(c&&PL.mode!=="video")c.classList.remove("hide");
+    var vc=el("pptVCtl");if(vc)vc.classList.remove("hide");
+    var vt=el("pptVTop");if(vt)vt.classList.remove("hide");
     if(PL.root)PL.root.classList.remove("ppt-hidecur");
     if(PL.ctlTimer)clearTimeout(PL.ctlTimer);
     PL.ctlTimer=setTimeout(hideCtl,3000);
@@ -10899,6 +11193,8 @@ var PPT=(function(){
     if(PL.ctlTimer){clearTimeout(PL.ctlTimer);PL.ctlTimer=0;}
     var c=el("pptCtl");
     if(c)c.classList.add("hide");
+    var vc=el("pptVCtl");if(vc)vc.classList.add("hide");
+    var vt=el("pptVTop");if(vt)vt.classList.add("hide");
     if(PL.root)PL.root.classList.add("ppt-hidecur");
   }
   function markBad(m){
@@ -10979,6 +11275,8 @@ var PPT=(function(){
     if(ov&&!ov.hidden){closeMedia();return;}
     if(PL.drawer){closeDrawer();return;}
     if(PL.black){toggleBlack(false);return;}
+    /* v1.2：原样播放 Esc/关闭 —— 看到末尾直接退，否则站内确认（继续/退出） */
+    if(PL.mode==="video"){if(vAtEnd()){closePlayer();return;}showConfirm(true);return;}
     if(PL.idx>=PL.flat.length-1){closePlayer();return;}
     showConfirm(true);
   }
@@ -11047,6 +11345,21 @@ var PPT=(function(){
       else handled=false;
     }else if(PL.black){
       toggleBlack(false); /* 任意键恢复，不显示任何 UI */
+    }else if(PL.mode==="video"){
+      /* v1.2 原样播放键盘：Space 播放/暂停、←/→ 上/下一页（章节）、F 全屏、Esc 退出、M 切模式 */
+      if(k===" "||k==="Spacebar")vTogglePlay();
+      else if(k==="ArrowRight"||k==="PageDown"||k==="ArrowDown")vGoPage(1);
+      else if(k==="ArrowLeft"||k==="PageUp"||k==="ArrowUp")vGoPage(-1);
+      else if(k==="f"||k==="F"){toggleFs();showCtl();}
+      else if(k==="m"||k==="M")vToggleMode();
+      else if(k==="Escape")requestClose();
+      else if(k==="b"||k==="B"||k===".")toggleBlack();
+      else handled=false;
+      if(handled){
+        if(e.preventDefault)e.preventDefault();
+        if(e.stopPropagation)e.stopPropagation();
+      }
+      return;
     }else if(k==="Escape"){
       requestClose();
     }else if(k==="ArrowRight"||k===" "||k==="Spacebar"||k==="PageDown"||k==="ArrowDown"){
@@ -11059,6 +11372,8 @@ var PPT=(function(){
       return;
     }else if(k==="f"||k==="F"){
       toggleFs();showCtl();
+    }else if(k==="m"||k==="M"){
+      if(PL.video)setMode("video",{manual:true});else handled=false;
     }else if(k==="n"||k==="N"||k==="s"||k==="S"){
       toggleDrawer("notes");showCtl();
     }else if(k==="t"||k==="T"){
@@ -11085,7 +11400,506 @@ var PPT=(function(){
   }
   function onResize(){
     if(!PL.open)return;
-    syncHot();
+    /* v1.2：resize/orientationchange 后必须重算热点（原样播放则刷新进度/页码布局） */
+    if(PL.mode==="video"){vUpdateAll();return;}
+    syncHot();hotBurst();
+  }
+  /* ================= __PPT_VIDEO_V1__ 原样播放 / 续播 / 热点补算（v1.2 · 2026-11-10） =================
+     契约：web/ppt/CONTRACT.md §11.1（manifest.video）/ §11.3.1–11.3.4 / §11.5。
+     全部为增量函数：无 video 的旧 deck 不进任何视频分支（PL.video=null）。 */
+  function lsGet(k){try{var s=localStorage.getItem(k);if(!s)return null;try{return JSON.parse(s);}catch(e2){return s;}}catch(e){return null;}}
+  function lsSet(k,v){try{localStorage.setItem(k,typeof v==="string"?v:JSON.stringify(v));return true;}catch(e){return false;}}
+  function lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
+  /* 网络良好判定（§11.3.1）：saveData 或 effectiveType∈{slow-2g,2g,3g} → 差；无 API（Safari/老浏览器）→ 按 onLine */
+  function netGood(){
+    try{
+      if(navigator.onLine===false)return false;
+      var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+      if(c){
+        if(c.saveData)return false;
+        var et=String(c.effectiveType||"");
+        if(et==="slow-2g"||et==="2g"||et==="3g")return false;
+      }
+    }catch(e){}
+    return true;
+  }
+  function fmtClock(s){s=Math.max(0,num(s,0));var m=Math.floor(s/60),sec=Math.floor(s%60);return (m<10?"0":"")+m+":"+(sec<10?"0":"")+sec;}
+  function videoMeta(man){
+    var v=man&&man.video;
+    if(!v||typeof v!=="object"||!v.s)return null;
+    var dur=num(v.dur,0);
+    if(!(dur>0))return null;
+    return {s:String(v.s),dur:dur,w:num(v.w,0),h:num(v.h,0),q:String(v.q||""),
+      chapters:(v.chapters instanceof Array)?v.chapters:[]};
+  }
+  /* chapters 容错：缺失/不全/乱序都不报错；仅保留 0≤t<dur 的合法项，按 t 升序 */
+  function vChapters(V){
+    var out=[];
+    if(!V)return out;
+    var dur=num(V.dur,0);
+    (V.chapters||[]).forEach(function(c,i){
+      if(!c||typeof c!=="object")return;
+      var t=num(c.t,NaN);
+      if(!isFinite(t)||t<0)return;
+      if(dur>0&&t>=dur)return;
+      out.push({i:isFinite(num(c.i,NaN))?num(c.i,i):i,t:t});
+    });
+    out.sort(function(a,b){return a.t-b.t;});
+    return out;
+  }
+  function videoUrl(){return (PL.video&&PL.video.s)?resolveUrl(PL.man&&PL.man.base,PL.video.s):"";}
+  function dlName(){
+    var t=String((PL.deck&&PL.deck.title)||(PL.man&&PL.man.title)||"演示").replace(/[\\/:*?"<>|\s]+/g,"_").slice(0,60);
+    return (t||"演示")+".mp4";
+  }
+  /* ---- 续播（§11.3.4）：zq_ppt_pos_<deckId>，7 天；看完到末尾 / 手动从头 → 删除 ---- */
+  function readPos(id){
+    if(!id)return null;
+    var o=lsGet(LS_POS+id);
+    if(!o||typeof o!=="object")return null;
+    var at=num(o.at,0);
+    if(!at||Date.now()-at>POS_TTL)return null;
+    return o;
+  }
+  function posOf(d){
+    if(!d||!d.id||String(d.status||"")!=="ready")return null;
+    var o=readPos(d.id);
+    if(!o)return null;
+    var hasV=num(o.t,0)>5;
+    var hasS=num(o.slide,0)>0||num(o.step,0)>0;
+    return (hasV||hasS)?o:null;
+  }
+  function vmetaOf(d){
+    if(!d||!d.id||String(d.status||"")!=="ready")return null;
+    var m=lsGet(LS_VMETA+d.id);
+    return (m&&num(m.dur,0)>0)?m:null;
+  }
+  function vAtEnd(){
+    if(PL.mode==="video"&&PL.vEl){
+      var d=num(PL.vEl.duration,0)||num(PL.video&&PL.video.dur,0);
+      return d>0&&num(PL.vEl.currentTime,0)>=d*0.95;
+    }
+    return PL.flat.length>1&&PL.idx>=PL.flat.length-1;
+  }
+  function savePos(force){
+    var id=PL.deck&&PL.deck.id;
+    if(!id||!PL.flat.length)return;
+    if(!PL.open&&!force)return;
+    var f=PL.flat[PL.idx]||{s:0,j:0};
+    var o={mode:PL.mode,slide:num(f.s,0),step:num(f.j,0),at:Date.now()};
+    if(PL.mode==="video"&&PL.vEl){
+      o.t=num(PL.vEl.currentTime,0);
+      o.dur=num(PL.video&&PL.video.dur,0);
+      var pi=vPageIdx();
+      if(pi>=0){o.slide=pi;o.step=0;}
+    }
+    if(vAtEnd()){lsDel(LS_POS+id);return;}
+    if(PL.mode==="video"){
+      var t=num(o.t,0);
+      if(t<=5){lsDel(LS_POS+id);return;}
+      if(num(PL.video&&PL.video.dur,0)>0&&t>=num(PL.video.dur,0)*0.95){lsDel(LS_POS+id);return;}
+    }else if(!(num(o.slide,0)>0||num(o.step,0)>0)){
+      lsDel(LS_POS+id);return;
+    }
+    lsSet(LS_POS+id,o);
+  }
+  function vSaveTick(){
+    if(!PL.open||PL.mode!=="video")return;
+    var now=Date.now();
+    if(now-PL.vSaveAt<1500)return;
+    PL.vSaveAt=now;
+    savePos(false);
+  }
+  function resumeFlatIdx(){
+    var o=PL.resume;
+    if(!o)return 0;
+    var si=Math.max(0,Math.min(Math.max(0,PL.slides.length-1),num(o.slide,0)));
+    var sj=Math.max(0,num(o.step,0)),k;
+    for(k=0;k<PL.flat.length;k++){if(PL.flat[k].s===si&&PL.flat[k].j===sj)return k;}
+    for(k=0;k<PL.flat.length;k++){if(PL.flat[k].s===si)return k;}
+    return 0;
+  }
+  function chooseMode(V){
+    var pref="";
+    try{pref=String(lsGet(LS_MODE)||"");}catch(e){}
+    var mode="step";
+    if(V){mode=(pref==="step")?"step":(pref==="video")?"video":(netGood()?"video":"step");}
+    var res={mode:mode,resumeT:0,resumeIdx:0,resumeNotice:""};
+    var o=PL.resume;
+    if(!o)return res;
+    if(mode==="video"&&V){
+      var dur=num(V.dur,0),t=num(o.t,0);
+      if(t>5&&t<dur*0.95){res.resumeT=t;res.resumeNotice="续播 "+fmtClock(t);}
+      else{
+        var st=vTimeOfSlide(num(o.slide,0));
+        if(st!=null&&st>5&&st<dur*0.95){res.resumeT=st+0.05;res.resumeNotice="续播 "+fmtClock(st);}
+      }
+    }else{
+      var fi=resumeFlatIdx();
+      if(fi>0){res.resumeIdx=fi;res.resumeNotice="续播 第 "+(PL.flat[fi].s+1)+" 页";}
+    }
+    return res;
+  }
+  function vChapterAt(t){
+    var ch=PL.chapters;
+    if(!ch.length)return -1;
+    var best=0,i;
+    for(i=0;i<ch.length;i++){if(num(ch[i].t,0)<=t+0.001)best=i;else break;}
+    return best;
+  }
+  function vPageIdx(){
+    if(!PL.chapters.length)return -1;
+    var ci=vChapterAt(PL.vEl?num(PL.vEl.currentTime,0):0);
+    if(ci<0)ci=0;
+    var si=num(PL.chapters[ci].i,ci);
+    if(!isFinite(si))si=ci;
+    var last=Math.max(0,(PL.slides.length||1)-1);
+    return Math.max(0,Math.min(last,si));
+  }
+  function vTimeOfSlide(si){
+    var i;
+    for(i=0;i<PL.chapters.length;i++){if(num(PL.chapters[i].i,-1)===num(si,-2))return num(PL.chapters[i].t,0);}
+    return null;
+  }
+  /* ---- 视频 UI ---- */
+  function vSegActive(){
+    var seg=el("pptVSeg");if(!seg)return;
+    var bs=seg.querySelectorAll("[data-vmode]"),i;
+    for(i=0;i<bs.length;i++)bs[i].classList.toggle("on",bs[i].getAttribute("data-vmode")===PL.mode);
+  }
+  function vRenderTicks(){
+    var box=el("pptVTicks");if(!box)return;
+    var dur=num(PL.video&&PL.video.dur,0);
+    if(!PL.chapters.length||!(dur>0)){box.innerHTML="";return;}
+    var h="";
+    PL.chapters.forEach(function(c,k){
+      var p=Math.max(0,Math.min(100,num(c.t,0)/dur*100));
+      h+='<button type="button" class="ppt-vtick" data-vtick="'+k+'" style="left:'+p.toFixed(3)+
+        '%" aria-label="第 '+(num(c.i,k)+1)+' 页"></button>';
+    });
+    box.innerHTML=h;
+  }
+  function initVideoUi(){
+    if(!PL.video)return;
+    var top=el("pptVTop");if(top)top.hidden=false;
+    var dl=el("pptVDl");
+    if(dl){
+      var u=videoUrl();
+      if(u){dl.href=u;dl.setAttribute("download",dlName());}
+      else dl.hidden=true;
+    }
+    vRenderTicks();
+    vSegActive();
+  }
+  function vLoading(on){var l=el("pptVLoad");if(l)l.hidden=!on;}
+  function vBig(on){var b=el("pptVBig");if(b)b.hidden=!on;}
+  function vUpdatePlay(){
+    var v=PL.vEl,playing=!!(v&&!v.paused&&!v.ended);
+    var b=el("pptVPlayBtn");
+    if(b){b.textContent=playing?"❚❚":"▶";b.setAttribute("aria-label",playing?"暂停":"播放");}
+    if(playing){vBig(false);return;}
+    if(v&&PL.vWantPlay&&!PL.vFallback&&v.readyState>=2&&num(v.currentTime,0)<=0.05)vBig(true);
+  }
+  function vUpdateAll(){
+    var v=PL.vEl;if(!v)return;
+    var dur=num(v.duration,0)||num(PL.video&&PL.video.dur,0);
+    var t=num(v.currentTime,0);
+    var tm=el("pptVTime");
+    if(tm)tm.textContent=fmtClock(t)+" / "+fmtClock(dur);
+    var fill=el("pptVFill");
+    if(fill)fill.style.width=(dur>0?Math.max(0,Math.min(1,t/dur))*100:0).toFixed(2)+"%";
+    var ci=vChapterAt(t);
+    var page=el("pptVPage");
+    if(page){
+      if(ci>=0&&PL.chapters.length){
+        var si=num(PL.chapters[ci].i,ci);
+        if(!isFinite(si))si=ci;
+        var last=Math.max(0,(PL.slides.length||1)-1);
+        si=Math.max(0,Math.min(last,si));
+        page.hidden=false;
+        page.textContent="第 "+(si+1)+"/"+(PL.slides.length||1)+" 页";
+      }else{page.hidden=true;}
+    }
+    var ticks=el("pptVTicks");
+    if(ticks){
+      var ts=ticks.querySelectorAll("[data-vtick]"),i;
+      for(i=0;i<ts.length;i++)ts[i].classList.toggle("on",i===ci);
+    }
+    var ctl=el("pptVCtl");
+    if(ctl){
+      var pv=ctl.querySelector('[data-vact="prev"]'),nx=ctl.querySelector('[data-vact="next"]');
+      if(pv)pv.disabled=!(ci>0);
+      if(nx)nx.disabled=!(PL.chapters.length&&ci<PL.chapters.length-1);
+    }
+    vUpdatePlay();
+  }
+  function vSeekTo(t){
+    var v=PL.vEl;if(!v)return;
+    var dur=num(v.duration,0)||num(PL.video&&PL.video.dur,0);
+    if(dur>0)t=Math.max(0,Math.min(dur,t));
+    else t=Math.max(0,t);
+    try{v.currentTime=t;}catch(e){}
+    vUpdateAll();
+  }
+  function vGoChapter(k){
+    if(PL.mode!=="video"||!PL.vEl)return;
+    if(k<0||k>=PL.chapters.length)return;
+    /* 章节 seek 到 t+0.05，播放状态保持（暂停则保持暂停） */
+    vSeekTo(num(PL.chapters[k].t,0)+0.05);
+  }
+  function vGoPage(dir){
+    if(PL.mode!=="video"||!PL.vEl||!PL.chapters.length)return;
+    var ci=vChapterAt(num(PL.vEl.currentTime,0));
+    if(ci<0)ci=0;
+    var n=ci+dir;
+    if(n<0||n>=PL.chapters.length)return;
+    vGoChapter(n);
+  }
+  function vPlay(user){
+    var v=PL.vEl;if(!v)return;
+    PL.vWantPlay=true;PL.vAutoPending=false;vBig(false);
+    var p;
+    try{p=v.play();}catch(e){vBig(true);return;}
+    if(p&&p.catch)p.catch(function(){if(PL.open&&PL.mode==="video")vBig(true);}); /* 自动播放被拒：大播放钮，不报错 */
+  }
+  function vTogglePlay(){
+    var v=PL.vEl;if(!v)return;
+    if(v.paused)vPlay(true);else try{v.pause();}catch(e){}
+    showCtl();
+  }
+  function vCycleSpeed(){
+    var v=PL.vEl;if(!v)return;
+    PL.speedIdx=(PL.speedIdx+1)%SPEEDS.length;
+    var r=SPEEDS[PL.speedIdx];
+    try{v.playbackRate=r;}catch(e){}
+    var b=el("pptVSpeed");
+    if(b)b.textContent=(r===1?"1":String(r))+"×";
+    showCtl();
+  }
+  function vLoad(seekT){
+    var v=el("pptVideo");if(!v)return;
+    PL.vEl=v;
+    var url=videoUrl();
+    if(!url)return;
+    if(typeof seekT==="number"&&isFinite(seekT))PL.vResumeT=seekT;
+    PL.vLoadAt=Date.now();
+    vLoading(true);vBig(false);
+    try{v.pause();}catch(e){}
+    /* 重试：重设同一 src 并 load()（不要先 removeAttribute：空 src 的 load 会再抛一次 error） */
+    v.src=url;
+    try{v.load();}catch(e){}
+    vUpdateAll();
+  }
+  function vStallCheck(){
+    if(PL.vWaitTimer)return;
+    PL.vWaitTimer=setTimeout(function(){
+      PL.vWaitTimer=0;
+      if(!PL.open||PL.mode!=="video"||!PL.vEl)return;
+      var v=PL.vEl;
+      if(v.readyState>=3&&!v.paused){PL.vStalls=0;vLoading(false);return;}
+      PL.vStalls++;
+      if(PL.vStalls>=V_MAX_STALL){vTrouble("stall");return;}
+      vStallCheck();
+    },V_WAIT_MS);
+  }
+  function vTrouble(kind){
+    if(!PL.open||PL.mode!=="video"||PL.vFallback)return;
+    if(PL.vRetries<1){
+      /* 重试 1 次（保留已看位置） */
+      PL.vRetries++;
+      PL.vStalls=0;
+      if(PL.vWaitTimer){clearTimeout(PL.vWaitTimer);PL.vWaitTimer=0;}
+      var keep=0;
+      try{keep=num(PL.vEl&&PL.vEl.currentTime,0);}catch(e){}
+      PL.vAutoPending=true; /* 重试成功后恢复播放 */
+      vLoad(keep>1?keep:0);
+      return;
+    }
+    vFallbackToStep();
+  }
+  function vFallbackToStep(){
+    if(PL.mode!=="video")return;
+    PL.vFallback=true;PL.vStalls=0;
+    var page=vPageIdx();
+    try{toast("网络不佳，已切换分步浏览","error");}catch(e){}
+    setMode("step",{page:page});
+    PL.vRetries=0; /* 用户再手动切回原样时允许重新尝试一次 */
+    vLoading(false);
+  }
+  function vOnEnded(){
+    lsDel(LS_POS+(PL.deck&&PL.deck.id||""));
+    vUpdateAll();vBig(false);showCtl();
+  }
+  function vBind(){
+    var v=PL.vEl||el("pptVideo");
+    if(!v)return;
+    PL.vEl=v;
+    if(v.__pptBind)return;
+    v.__pptBind=1;
+    v.addEventListener("loadedmetadata",function(){
+      var dur=num(v.duration,0)||num(PL.video&&PL.video.dur,0);
+      if(PL.vResumeT>0){
+        var t=Math.min(PL.vResumeT,Math.max(0,dur-0.1));
+        try{v.currentTime=t;}catch(e){}
+        PL.vResumeT=0;
+      }
+      PL.vStalls=0;
+      vUpdateAll();
+    });
+    v.addEventListener("canplay",function(){
+      PL.vStalls=0;
+      if(PL.vWaitTimer){clearTimeout(PL.vWaitTimer);PL.vWaitTimer=0;}
+      vLoading(false);
+      /* 自动播放只消费一次（初始化/模式切换）；后续 seek 触发的 canplay 不得把用户暂停状态改回播放 */
+      if(PL.vAutoPending){PL.vAutoPending=false;vPlay();}
+      vUpdateAll();
+    });
+    v.addEventListener("playing",function(){vLoading(false);vUpdatePlay();showCtl();});
+    v.addEventListener("play",function(){vUpdatePlay();showCtl();});
+    v.addEventListener("pause",function(){vUpdatePlay();savePos(false);});
+    v.addEventListener("timeupdate",function(){vUpdateAll();vSaveTick();});
+    v.addEventListener("seeked",function(){PL.vStalls=0;vUpdateAll();});
+    v.addEventListener("waiting",function(){vLoading(true);vStallCheck();});
+    v.addEventListener("stalled",function(){vLoading(true);vStallCheck();});
+    v.addEventListener("error",function(){
+      if(!PL.vEl||PL.vEl!==v||!v.getAttribute("src"))return;
+      vTrouble("error");
+    });
+    v.addEventListener("ended",function(){vOnEnded();});
+  }
+  function activateVideo(opts){
+    opts=opts||{};
+    if(!PL.video)return;
+    PL.mode="video";PL.vFallback=false;PL.stepReady=false;
+    if(PL.root)PL.root.classList.add("ppt-vmode");
+    var wrap=el("pptVWrap");if(wrap)wrap.hidden=false;
+    var top=el("pptVTop");if(top)top.hidden=false;
+    var ctl=el("pptVCtl");if(ctl)ctl.hidden=false;
+    closeDrawer();hideConfirm();hideImgErr();
+    vSegActive();vBind();
+    if(!PL.vReady){
+      PL.vReady=1;
+      PL.vWantPlay=(opts.autoplay!==false);
+      PL.vAutoPending=(opts.autoplay!==false);
+      PL.vResumeT=num(opts.resumeT,0);
+      vLoad();
+    }else{
+      if(num(opts.resumeT,0)>0)vSeekTo(opts.resumeT);
+      if(opts.autoplay!==false)vPlay(true);
+    }
+    vUpdateAll();showCtl();
+  }
+  function setMode(m,opts){
+    opts=opts||{};
+    if(m===PL.mode)return;
+    if(m==="video"){
+      if(!PL.video)return;
+      var t0=0,f0=PL.flat[PL.idx];
+      if(f0){var tt=vTimeOfSlide(f0.s);if(tt!=null)t0=tt+0.05;}
+      savePos(true);
+      if(PL.vFallback){PL.vReady=0;PL.vRetries=0;PL.vFallback=false;} /* 失败回退后再手动切回：重新加载一次 */
+      activateVideo({autoplay:true,resumeT:t0});
+      if(opts.manual)lsSet(LS_MODE,"video");
+      return;
+    }
+    /* 视频 → 分步：定位到当前视频章节页 */
+    var page=(num(opts.page,-1)>=0)?num(opts.page,0):vPageIdx();
+    savePos(true);
+    PL.mode="step";
+    vLoading(false);
+    if(PL.vEl){try{PL.vEl.pause();}catch(e){}}
+    if(PL.root)PL.root.classList.remove("ppt-vmode");
+    var wrap=el("pptVWrap");if(wrap)wrap.hidden=true;
+    var ctl=el("pptVCtl");if(ctl)ctl.hidden=true;
+    hideConfirm();
+    if(page<0)page=0;
+    if(page>Math.max(0,(PL.slides.length||1)-1))page=Math.max(0,(PL.slides.length||1)-1);
+    var f=PL.flat[PL.idx]||{s:0,j:0};
+    if(!PL.stepReady){
+      /* 之前只在视频层、从未渲染过步图（如视频加载失败回退 / 冷启动切分步）→ 必须强制渲染首帧，避免白屏 */
+      var target=-1,k;
+      for(k=0;k<PL.flat.length;k++){if(PL.flat[k].s===page&&PL.flat[k].j===0){target=k;break;}}
+      if(target<0)target=0;
+      abortAnim();
+      PL.idx=target;
+      renderAt(target,"fade",120,false);
+    }else if(f.s===page&&f.j===0){updIndex();syncHot();hotBurst();}
+    else jumpPage(page);
+    vSegActive();
+    if(opts.manual)lsSet(LS_MODE,"step");
+    showCtl();
+  }
+  function vToggleMode(){
+    if(!PL.video)return;
+    setMode(PL.mode==="video"?"step":"video",{manual:true});
+  }
+  function onVStageClick(e){
+    if(Date.now()<PL.suppressClick)return;
+    var cf=el("pptConfirm");if(cf&&!cf.hidden)return;
+    var t=e.target;
+    if(t&&t.closest&&(t.closest("[data-vact]")||t.closest("[data-vmode]")||t.closest("#pptVBig")||
+       t.closest(".ppt-vctl")||t.closest(".ppt-vtop")||t.closest(".ppt-drawer")||t.closest(".ppt-media-ov")))return;
+    var c=el("pptVCtl");
+    /* 以 pointerdown 前状态为准：原隐藏 → 点击后保持显示（pointerdown 已唤出）；原显示 → 隐藏 */
+    var wasHidden=PL.ctlDownHidden;
+    PL.ctlDownHidden=!!(c&&c.classList.contains("hide"));
+    if(wasHidden){showCtl();return;}
+    if(c&&c.classList.contains("hide"))showCtl();else hideCtl();
+  }
+  function vAct(act){
+    if(act==="prev")vGoPage(-1);
+    else if(act==="next")vGoPage(1);
+    else if(act==="play")vTogglePlay();
+    else if(act==="speed")vCycleSpeed();
+    else if(act==="fs")toggleFs();
+    else if(act==="restart")restartAll();
+    else if(act==="close")requestClose();
+    showCtl();
+  }
+  function addStepRestart(){
+    var c=el("pptCtl");if(!c)return;
+    if(PL.root)PL.root.classList.add("ppt-hasres");
+    if(c.querySelector('[data-act="restart"]'))return;
+    var b=document.createElement("button");
+    b.type="button";b.className="ppt-cb res";b.setAttribute("data-act","restart");
+    b.setAttribute("aria-label","从头播放");b.textContent="↺";
+    var nx=c.querySelector('[data-act="next"]');
+    if(nx&&nx.nextSibling)c.insertBefore(b,nx.nextSibling);else c.insertBefore(b,c.firstChild);
+  }
+  function hideStepRestart(){
+    if(PL.root)PL.root.classList.remove("ppt-hasres");
+    var c=el("pptCtl");if(!c)return;
+    var b=c.querySelector('[data-act="restart"]');
+    if(b&&b.parentNode)b.parentNode.removeChild(b);
+  }
+  function restartAll(){
+    if(!PL.open)return;
+    /* 手动从头 = 重置条件之一：清续播记录 */
+    lsDel(LS_POS+(PL.deck&&PL.deck.id||""));
+    if(PL.mode==="video"){
+      PL.vRetries=0;PL.vStalls=0;PL.vFallback=false;
+      PL.speedIdx=0;
+      var sb=el("pptVSpeed");if(sb)sb.textContent="1×";
+      if(PL.vEl){try{PL.vEl.playbackRate=1;}catch(e){}}
+      vSeekTo(0);vPlay(true);
+    }else{
+      abortAnim();
+      PL.idx=0;
+      renderAt(0,"none",0,false);
+      hideStepRestart();
+    }
+    showCtl();
+  }
+  function vTeardown(){
+    if(PL.vWaitTimer){clearTimeout(PL.vWaitTimer);PL.vWaitTimer=0;}
+    var v=PL.vEl;
+    if(v){
+      try{v.pause();}catch(e){}
+      try{v.removeAttribute("src");}catch(e){}
+      try{v.load();}catch(e){}
+    }
+    PL.vEl=null;PL.video=null;PL.chapters=[];PL.vReady=0;PL.vWantPlay=false;PL.vAutoPending=false;
+    PL.vResumeT=0;PL.vRetries=0;PL.vStalls=0;PL.vFallback=false;PL.vSaveAt=0;PL.speedIdx=0;PL.mode="step";
   }
   function openPlayer(row,man){
     try{
@@ -11103,7 +11917,18 @@ var PPT=(function(){
       slides.forEach(function(sl,si){
         sl.steps.forEach(function(st,ji){PL.flat.push({s:si,j:ji});});
       });
-      PL.idx=0;PL.active=0;PL.pre={};PL.drawer="";PL.mediaEl=null;PL.black=false;PL.imm=false;
+      /* v1.2：模式选择（有 video 且网络良好 → 原样播放；手动偏好优先）+ 续播定位 */
+      PL.video=videoMeta(man);
+      PL.chapters=vChapters(PL.video);
+      PL.resume=readPos(PL.deck.id);
+      PL.resumeActive=false;
+      var dm=chooseMode(PL.video);
+      PL.mode=dm.mode;
+      PL.idx=(dm.mode==="step")?num(dm.resumeIdx,0):0;
+      PL.active=0;PL.pre={};PL.drawer="";PL.mediaEl=null;PL.black=false;PL.imm=false;
+      PL.vEl=null;PL.vReady=0;PL.vWantPlay=false;PL.vAutoPending=false;PL.vResumeT=0;
+      PL.vRetries=0;PL.vStalls=0;
+      PL.vWaitTimer=0;PL.vSaveAt=0;PL.vFallback=false;PL.speedIdx=0;PL.stepReady=false;
       PL.savedY=Math.max(0,Math.round(window.pageYOffset||document.documentElement.scrollTop||0));
       PL.focusEl=document.activeElement;
       buildPlayer();
@@ -11113,23 +11938,31 @@ var PPT=(function(){
       document.addEventListener("keydown",onKey,true);
       document.addEventListener("keyup",onKeyUp,true);
       window.addEventListener("resize",onResize,true);
+      window.addEventListener("orientationchange",onResize,true);
       document.addEventListener("fullscreenchange",onFsChange,true);
       document.addEventListener("webkitfullscreenchange",onFsChange,true);
-      /* 首帧：cover_url 立即铺底，steps[0].img 到位后 120ms 淡入替换（不出现"加载中"） */
-      var cover=PL.deck&&PL.deck.cover_url?String(PL.deck.cover_url):"";
-      if(cover){
-        try{
-          PL.layers[0].style.visibility="visible";
-          PL.layers[0].style.opacity="1";
-          PL.imgs[0].setAttribute("src",cover);
-        }catch(e){}
+      if(dm.mode==="video"){
+        activateVideo({autoplay:true,resumeT:num(dm.resumeT,0)});
+        if(dm.resumeNotice){PL.resumeActive=true;}
+      }else{
+        /* 首帧：cover_url 立即铺底，目标步图到位后 120ms 淡入替换（不出现"加载中"） */
+        var cover=PL.deck&&PL.deck.cover_url?String(PL.deck.cover_url):"";
+        if(cover){
+          try{
+            PL.layers[0].style.visibility="visible";
+            PL.layers[0].style.opacity="1";
+            PL.imgs[0].setAttribute("src",cover);
+          }catch(e){}
+        }
+        renderAt(PL.idx,"fade",120,false);
+        if(dm.resumeNotice){PL.resumeActive=true;addStepRestart();}
       }
-      renderAt(0,"fade",120,false);
       showCtl();
       PL.nameTimer=setTimeout(function(){
         var nm=el("pptName");
         if(nm)nm.classList.add("out");
       },3000);
+      if(dm.resumeNotice){try{toast(dm.resumeNotice);}catch(e){}}
       try{PL.root.focus({preventScroll:true});}catch(e){try{PL.root.focus();}catch(e2){}}
     }catch(err){
       try{closePlayer();}catch(e){}
@@ -11139,6 +11972,8 @@ var PPT=(function(){
   function closePlayer(){
     if(!PL.open&&!PL.root)return;
     PL.open=false;
+    savePos(true); /* v1.2：关闭前落盘续播位置（看完/从头已删除） */
+    vTeardown();
     clearTimers();
     closeMedia(true);
     closeDrawer();
@@ -11152,11 +11987,13 @@ var PPT=(function(){
     document.removeEventListener("keydown",onKey,true);
     document.removeEventListener("keyup",onKeyUp,true);
     window.removeEventListener("resize",onResize,true);
+    window.removeEventListener("orientationchange",onResize,true);
     document.removeEventListener("fullscreenchange",onFsChange,true);
     document.removeEventListener("webkitfullscreenchange",onFsChange,true);
     if(PL.root&&PL.root.parentNode)PL.root.parentNode.removeChild(PL.root);
     PL.root=null;PL.stage=null;PL.hot=null;PL.layers=null;PL.imgs=null;
     PL.man=null;PL.slides=[];PL.flat=[];PL.deck=null;PL.pre={};PL.bad=null;
+    PL.resume=null;PL.resumeActive=false;
     document.body.classList.remove("ppt-lock");
     try{window.scrollTo(0,PL.savedY);}catch(e){}
     if(PL.focusEl&&PL.focusEl.focus){try{PL.focusEl.focus({preventScroll:true});}catch(e){try{PL.focusEl.focus();}catch(e2){}}}
@@ -11201,7 +12038,10 @@ var PPT=(function(){
     try{if((typeof CURTAB!=="undefined")&&CURTAB==="ppt"&&mySid())enter();}catch(e){}
   }
   try{init();}catch(e){}
-  return {enter:enter,leave:leave,pull:pull,render:render,open:play};
+  return {enter:enter,leave:leave,pull:pull,render:render,open:play,
+    list:function(){return (S.list||[]).slice();},
+    loaded:function(){return !!S.loaded;},
+    err:function(){return S.err;}};
 })();
 try{window.PPT=PPT;}catch(e){}
 /* ============================================================
@@ -11449,7 +12289,7 @@ try{window.PPT=PPT;}catch(e){}
    8) 打印 / 存 PDF（仅桌面浏览器）
    9) 弹层打开时背景 inert
    10) 抽签参数预设（3 套，本机）
-   11) 管理员可见「大屏演示」
+   11) 大屏（2026-11-10 定位团日活动：去掉下一节/作业；右上角实时时间；演示放映台与 PPT 播放联动）
    不改 UD v6 契约、不新增外部请求。
    ============================================================ */
 function rndInt(n){
@@ -11755,8 +12595,9 @@ function optSaveCanvas(c,o){
     });
   }
 
-  /* ---------- 11. 管理员可见「大屏演示」 ---------- */
+  /* ---------- 11. 大屏（团日活动 · 仅管理员） ---------- */
   var STAGE={timer:300, iv:0, stageIv:0, running:false};
+  var STAGE_DECK_KEY="zq_stage_deck_v1";
   function opt2StageNames(){
     try{
       if(typeof rollList==="function"){ var a=rollList(); if(a&&a.length)return a; }
@@ -11771,55 +12612,134 @@ function optSaveCanvas(c,o){
     }catch(e){}
     return [];
   }
-  function opt2StageNext(){
-    try{
-      if(typeof ttData!=="function"||typeof ttNowInfo!=="function")return {v:"—",s:""};
-      var d=ttData(); if(!d||!d.c||!d.c.length)return {v:"暂无课表",s:""};
-      var info=ttNowInfo(d.c,ttNowWeek());
-      if(!info||info.dayoff!==0)return {v:"今天没有课",s:""};
-      var c=info.c;
-      return {v:(info.kind==="now"?"正在上 · ":"下一节 · ")+c.name, s:(c.room?c.room+" · ":"")+"第"+c.start+"-"+c.end+"节"};
-    }catch(e){ return {v:"—",s:""}; }
+  function opt2StageLastDeck(){
+    try{ return String(localStorage.getItem(STAGE_DECK_KEY)||""); }catch(e){ return ""; }
   }
-  function opt2StageHw(){
-    try{ if(typeof hwArr!=="function")return "—"; var a=hwArr(); return a.length?String(a.length):"0"; }catch(e){ return "—"; }
+  function opt2StageSetLastDeck(id){
+    try{ if(id)localStorage.setItem(STAGE_DECK_KEY,String(id)); }catch(e){}
+  }
+  function opt2StageDeckMeta(d){
+    var parts=[],n=Number(d&&d.slide_count)||0,who=String((d&&d.owner_name)||"");
+    if(n)parts.push(n+" 页");
+    if(who)parts.push(who);
+    return parts.join(" · ");
+  }
+  /* 演示库 → 大屏放映台：只取 ready，上次放映置顶并标「上次」；点行=PPT.open（全屏播放器叠在大屏上，退出即回大屏） */
+  function opt2StageDeckRows(){
+    var wrap=el("o2sDecks"), empty=el("o2sDeckEmpty");
+    if(!wrap||!empty)return;
+    var api=window.PPT, all=[], ready=[], i, loaded=false, err="";
+    try{ all=(api&&api.list)?api.list():[]; }catch(e){ all=[]; }
+    try{ loaded=(api&&api.loaded)?!!api.loaded():false; }catch(e){ loaded=false; }
+    try{ err=(api&&api.err)?String(api.err()||""):""; }catch(e){ err=""; }
+    for(i=0;i<all.length;i++){ if(all[i]&&String(all[i].status||"")==="ready")ready.push(all[i]); }
+    var last=opt2StageLastDeck(), head=null, rest=[];
+    for(i=0;i<ready.length;i++){
+      if(last&&String(ready[i].id)===last)head=ready[i]; else rest.push(ready[i]);
+    }
+    if(head)ready=[head].concat(rest);
+    if(!ready.length){
+      wrap.innerHTML=""; wrap.hidden=true; empty.hidden=false;
+      if(!api){
+        empty.className="opt2-empty opt2-deckerr";
+        empty.textContent="演示功能不可用";
+      }else if(err){
+        empty.className="opt2-empty opt2-deckerr";
+        empty.innerHTML='<span>演示加载失败</span><button type="button" class="opt2-mini" id="o2sDeckRetry">重试</button>';
+        var rt=el("o2sDeckRetry");
+        if(rt)rt.addEventListener("click",opt2StageRefreshDecks);
+      }else if(!loaded){
+        empty.className="opt2-empty";
+        empty.textContent="加载中…";
+      }else{
+        empty.className="opt2-empty";
+        empty.innerHTML='<span>还没有演示</span><button type="button" class="opt2-sbtn" id="o2sDeckUp">去上传</button>';
+        var up=el("o2sDeckUp");
+        if(up)up.addEventListener("click",function(){ opt2StageClose(); try{gotoTab("ppt");}catch(e){} });
+      }
+      return;
+    }
+    wrap.hidden=false; empty.hidden=true;
+    var h="";
+    for(i=0;i<ready.length;i++){
+      var d=ready[i], isLast=!!(head&&String(d.id)===String(head.id));
+      h+='<button type="button" class="opt2-deckrow" data-o2deck="'+esc(String(d.id))+'">'+
+        '<span class="opt2-ic" aria-hidden="true">▶</span>'+
+        '<span class="opt2-dt">'+esc(String(d.title||d.source_name||"演示"))+'</span>'+
+        (isLast?'<em class="opt2-chip">上次</em>':'')+
+        '<span class="opt2-dm">'+esc(opt2StageDeckMeta(d))+'</span></button>';
+    }
+    wrap.innerHTML=h;
+  }
+  function opt2StageRefreshDecks(){
+    var api=window.PPT;
+    if(!api||!api.pull){ opt2StageDeckRows(); return; }
+    var p=null;
+    try{ p=api.pull(); }catch(e){ p=null; }
+    opt2StageDeckRows();
+    if(p&&p.then)p.then(function(){ try{opt2StageDeckRows();}catch(e){} }).catch(function(){});
+  }
+  function opt2StagePlayDeck(id){
+    if(!id)return;
+    opt2StageSetLastDeck(id);
+    try{ opt2StageDeckRows(); }catch(e){}
+    try{
+      if(window.PPT&&window.PPT.open)window.PPT.open(id);
+      else toast("演示功能不可用","error");
+    }catch(e){ try{toast("播放器打开失败","error");}catch(e2){} }
+  }
+  function opt2StageDateText(){
+    var d=new Date(),w="日一二三四五六".charAt(d.getDay());
+    return d.getFullYear()+"年"+(d.getMonth()+1)+"月"+d.getDate()+"日 · 周"+w;
   }
   function opt2StageTick(){
     try{
-      var cl=el("o2sClock"); if(cl)cl.textContent=clockText();
-      var nx=opt2StageNext(); var nv=el("o2sNext"), ns=el("o2sNextS");
-      if(nv)nv.textContent=nx.v; if(ns)ns.textContent=nx.s;
-      var hv=el("o2sHw"); if(hv)hv.textContent=opt2StageHw();
+      var tm=el("o2sTime"); if(tm)tm.textContent=clockText();
+      var dt=el("o2sDate"); if(dt)dt.textContent=opt2StageDateText();
       var tv=el("o2sTimer");
       if(tv){
         if(STAGE.running&&STAGE.timer>0)STAGE.timer--;
         if(STAGE.timer<0)STAGE.timer=0;
         tv.textContent=pad2(Math.floor(STAGE.timer/60))+":"+pad2(STAGE.timer%60);
-        if(STAGE.running&&STAGE.timer===0){ STAGE.running=false; }
+        if(STAGE.running&&STAGE.timer===0){
+          STAGE.running=false;
+          var stg=el("opt2Stage"), sb=stg?stg.querySelector('[data-o2timer="1"]'):null;
+          if(sb)sb.textContent="开始";
+        }
       }
     }catch(e){}
   }
   function opt2StageOpen(){
     try{
       if(!canManage())return;
-      if(el("opt2Stage")){ el("opt2Stage").style.display="flex"; O2.inert.stage=true; opt2SyncInert(); return; }
-      var ov=document.createElement("div"); ov.id="opt2Stage"; ov.className="opt2-stage";
-      ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true"); ov.setAttribute("aria-label","班会大屏演示");
-      ov.innerHTML='<div class="opt2-stage-top"><span class="opt2-badge">演示</span><b>班会大屏</b>'+
-        '<span class="opt2-clock" id="o2sClock">'+clockText()+'</span>'+
+      var ov=el("opt2Stage");
+      if(ov){
+        ov.style.display="flex"; O2.inert.stage=true; opt2SyncInert();
+        try{ document.body.classList.add("opt2-lock"); }catch(e){}
+        opt2StageTick(); opt2StageRefreshDecks();
+        clearInterval(STAGE.stageIv);
+        STAGE.stageIv=setInterval(opt2StageTick,1000);
+        return;
+      }
+      ov=document.createElement("div"); ov.id="opt2Stage"; ov.className="opt2-stage";
+      ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true"); ov.setAttribute("aria-label","大屏");
+      ov.innerHTML='<div class="opt2-stage-top"><b>大屏</b>'+
         '<button type="button" class="opt2-sbtn" id="o2sFs">全屏</button>'+
         '<button type="button" class="opt2-sbtn" id="o2sClose">退出</button></div>'+
         '<div class="opt2-stage-grid">'+
-        '<section class="opt2-scard"><div class="opt2-sl">下一节</div><div class="opt2-sv" id="o2sNext">—</div><div class="opt2-ss" id="o2sNextS"></div></section>'+
-        '<section class="opt2-scard"><div class="opt2-sl">作业</div><div class="opt2-sv" id="o2sHw">—</div><div class="opt2-ss">未完成</div></section>'+
+        '<section class="opt2-scard opt2-deckcard"><div class="opt2-sl">演示<button type="button" class="opt2-mini" id="o2sDeckRefresh">刷新</button></div>'+
+        '<div class="opt2-decklist" id="o2sDecks"></div><div class="opt2-empty" id="o2sDeckEmpty" hidden></div></section>'+
+        '<section class="opt2-scard opt2-clockcard"><div class="opt2-date" id="o2sDate">'+opt2StageDateText()+'</div>'+
+        '<div class="opt2-time" id="o2sTime">'+clockText()+'</div></section>'+
         '<section class="opt2-scard"><div class="opt2-sl">计时</div><div class="opt2-sv" id="o2sTimer">05:00</div>'+
         '<div class="opt2-sbtns"><button type="button" class="opt2-sbtn" data-o2timer="1">开始</button>'+
         '<button type="button" class="opt2-sbtn" data-o2timer="0">重置</button></div></section>'+
-        '<section class="opt2-scard"><div class="opt2-sl">抽签演示</div><div class="opt2-sv" id="o2sPick">?</div>'+
+        '<section class="opt2-scard"><div class="opt2-sl">抽签</div><div class="opt2-sv" id="o2sPick">?</div>'+
         '<div class="opt2-sbtns"><button type="button" class="opt2-sbtn" data-o2pick="1">抽 1 人</button></div></section>'+
-        '</div><div class="opt2-stage-foot">仅管理员可见 · 演示不改动任何数据</div>';
+        '</div><div class="opt2-stage-foot">仅管理员 · 团日活动</div>';
       document.body.appendChild(ov);
       el("o2sClose").addEventListener("click",opt2StageClose);
+      el("o2sDeckRefresh").addEventListener("click",opt2StageRefreshDecks);
       el("o2sFs").addEventListener("click",function(){
         try{
           if(!document.fullscreenElement&&ov.requestFullscreen)ov.requestFullscreen();
@@ -11827,12 +12747,17 @@ function optSaveCanvas(c,o){
         }catch(e){ try{toast("当前浏览器不支持全屏","error");}catch(e2){} }
       });
       ov.addEventListener("click",function(e){
-        var t=e.target; if(!t)return;
-        if(t.getAttribute&&t.getAttribute("data-o2timer")!==null){
-          if(t.getAttribute("data-o2timer")==="1"){ STAGE.running=!STAGE.running; t.textContent=STAGE.running?"暂停":"继续"; }
-          else { STAGE.running=false; STAGE.timer=300; var b=ov.querySelector('[data-o2timer="1"]'); if(b)b.textContent="开始"; }
+        var t=e.target; if(!t||!t.closest)return;
+        var row=t.closest("[data-o2deck]");
+        if(row){ opt2StagePlayDeck(row.getAttribute("data-o2deck")); return; }
+        var tb=t.closest("[data-o2timer]");
+        if(tb){
+          if(tb.getAttribute("data-o2timer")==="1"){ STAGE.running=!STAGE.running; tb.textContent=STAGE.running?"暂停":"继续"; }
+          else { STAGE.running=false; STAGE.timer=300; var b=ov.querySelector('[data-o2timer="1"]'); if(b)b.textContent="开始"; opt2StageTick(); }
+          return;
         }
-        if(t.getAttribute&&t.getAttribute("data-o2pick")){
+        var pb=t.closest("[data-o2pick]");
+        if(pb){
           var names=opt2StageNames(); var pv=el("o2sPick");
           if(!names.length){ if(pv)pv.textContent="无名单"; }
           else { var nm=names[rndInt(names.length)]; if(pv)pv.textContent=nm; }
@@ -11843,6 +12768,7 @@ function optSaveCanvas(c,o){
       opt2StageTick();
       clearInterval(STAGE.stageIv);
       STAGE.stageIv=setInterval(opt2StageTick,1000);
+      opt2StageRefreshDecks();
     }catch(e){}
   }
   function opt2StageClose(){
@@ -11861,7 +12787,7 @@ function optSaveCanvas(c,o){
       if(!canManage()){ if(row&&row.parentNode)row.parentNode.removeChild(row); return; }
       if(row)return;
       row=document.createElement("div"); row.id="opt2StageRow"; row.className="opt-backup-row";
-      var b=document.createElement("button"); b.type="button"; b.id="opt2StageBtn"; b.className="btn ghost sm"; b.textContent="大屏演示";
+      var b=document.createElement("button"); b.type="button"; b.id="opt2StageBtn"; b.className="btn ghost sm"; b.textContent="大屏";
       row.appendChild(b);
       if(all.parentNode)all.parentNode.insertBefore(row,all.nextSibling);
       b.addEventListener("click",opt2StageOpen);

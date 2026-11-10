@@ -15,6 +15,7 @@ import tempfile
 import time
 import unittest
 import zipfile
+from unittest import mock
 from xml.etree import ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -587,6 +588,393 @@ class TestConvertOptions(unittest.TestCase):
     def test_none_ignored(self):
         opts = convert.normalize_options({"deck_id": "d1", "timeout_s": None})
         self.assertEqual(opts["timeout_s"], convert.DEFAULT_OPTIONS["timeout_s"])
+
+
+# ---------------------------------------------------------------------------
+# 7. v1.2 原样播放视频纯逻辑：animEnd / advance / chapters / 限流 / ffprobe / video 校验
+# ---------------------------------------------------------------------------
+class TestAnimEnd(unittest.TestCase):
+    def test_no_effects(self):
+        self.assertEqual(pptx_xml.compute_anim_end([]), 0.0)
+
+    def test_click_serial(self):
+        effects = [{"trigger": 1, "duration": 0.5},
+                   {"trigger": 1, "duration": 0.75}]
+        self.assertAlmostEqual(pptx_xml.compute_anim_end(effects), 1.25, places=3)
+
+    def test_after_previous_with_delay(self):
+        effects = [{"trigger": 3, "duration": 0.5, "delay": 0.2},
+                   {"trigger": 3, "duration": 0.4, "delay": 0.1}]
+        self.assertAlmostEqual(pptx_xml.compute_anim_end(effects), 1.2, places=3)
+
+    def test_with_previous_parallel(self):
+        effects = [{"trigger": 1, "duration": 1.0},
+                   {"trigger": 2, "duration": 2.0}]
+        self.assertAlmostEqual(pptx_xml.compute_anim_end(effects), 2.0, places=3)
+
+    def test_with_previous_does_not_extend_serial_start(self):
+        effects = [{"trigger": 1, "duration": 1.0},
+                   {"trigger": 2, "duration": 0.5},
+                   {"trigger": 1, "duration": 0.5}]
+        # 并行组结束于 1.0，串行下一步从 1.0 开始 → 1.5
+        self.assertAlmostEqual(pptx_xml.compute_anim_end(effects), 1.5, places=3)
+
+    def test_shape_click_is_serial(self):
+        effects = [{"trigger": 4, "duration": 1.0},
+                   {"trigger": 4, "duration": 1.0}]
+        self.assertAlmostEqual(pptx_xml.compute_anim_end(effects), 2.0, places=3)
+
+    def test_first_with_previous_acts_serial(self):
+        self.assertAlmostEqual(
+            pptx_xml.compute_anim_end([{"trigger": 2, "duration": 0.8}]), 0.8, places=3)
+
+    def test_invalid_and_negative_ignored(self):
+        effects = [{"trigger": "x", "duration": "bad", "delay": -1},
+                   {"trigger": 1, "duration": -2.0}]
+        self.assertEqual(pptx_xml.compute_anim_end(effects), 0.0)
+
+
+class TestComputeAdvance(unittest.TestCase):
+    def test_minimum_3s(self):
+        self.assertEqual(pptx_xml.compute_advance(0.0, 0.0), 3.0)
+        self.assertEqual(pptx_xml.compute_advance(1.0, 1.0), 3.0)
+
+    def test_animation_extends_with_pad(self):
+        self.assertAlmostEqual(pptx_xml.compute_advance(2.0, 0.0), 3.5, places=3)
+
+    def test_media_extends_with_pad(self):
+        self.assertAlmostEqual(pptx_xml.compute_advance(0.0, 10.0), 11.5, places=3)
+
+    def test_max_clamp_600(self):
+        self.assertEqual(pptx_xml.compute_advance(0.0, 5000.0), 600.0)
+
+    def test_media_wins_over_animation(self):
+        self.assertAlmostEqual(pptx_xml.compute_advance(5.0, 8.0), 9.5, places=3)
+
+    def test_invalid_inputs(self):
+        self.assertEqual(pptx_xml.compute_advance("bad", None), 3.0)
+
+    def test_custom_parameters(self):
+        self.assertEqual(pptx_xml.compute_advance(2.0, 0.0, min_s=1.0, pad_s=0.5,
+                                                  max_s=10.0), 2.5)
+
+
+class TestChapters(unittest.TestCase):
+    def test_basic_formula(self):
+        # i>0: t_i = Σ_{j<i}advance_j + Σ_{j<=i}trans_j
+        chapters = pptx_xml.compute_chapters([3.0, 4.0], [0.0, 1.0], 20.0)
+        self.assertEqual(chapters, [0.0, 4.0])
+
+    def test_first_always_zero(self):
+        self.assertEqual(pptx_xml.compute_chapters([5.0], [2.0], 10.0), [0.0])
+
+    def test_monotonic_even_with_transition_gaps(self):
+        chapters = pptx_xml.compute_chapters([3.0, 3.0, 3.0], [0.5, 0.5, 0.5], 30.0)
+        self.assertEqual(chapters[0], 0.0)
+        for a, b in zip(chapters, chapters[1:]):
+            self.assertLessEqual(a, b)
+
+    def test_clamped_when_expected_exceeds_real_duration(self):
+        chapters = pptx_xml.compute_chapters([3.0, 3.0], [0.0, 0.0], 2.0)
+        self.assertEqual(chapters[0], 0.0)
+        self.assertLessEqual(chapters[-1], 2.0 - 0.1 + 1e-9)
+
+    def test_proportional_compression(self):
+        # raw = [2, 9, 16] > dur-0.1=12.9 → 整体按比例压缩
+        chapters = pptx_xml.compute_chapters([5.0, 5.0, 5.0], [2.0, 2.0, 2.0], 13.0)
+        self.assertEqual(chapters[0], 0.0)
+        self.assertAlmostEqual(chapters[-1], 12.9, places=2)
+        self.assertAlmostEqual(chapters[1], 9.0 * 12.9 / 16.0, places=2)
+        self.assertLess(chapters[1], chapters[2])
+
+    def test_empty(self):
+        self.assertEqual(pptx_xml.compute_chapters([], [], 10.0), [])
+
+    def test_missing_transition_list_tolerated(self):
+        self.assertEqual(pptx_xml.compute_chapters([3.0, 3.0], None, 20.0), [0.0, 3.0])
+
+
+class TestVideoLimits(unittest.TestCase):
+    def test_ok(self):
+        self.assertEqual(pptx_xml.video_skip_reason(16, 302.4), "")
+
+    def test_slides_over_limit(self):
+        reason = pptx_xml.video_skip_reason(121, 100.0)
+        self.assertIn("页数超限", reason)
+        self.assertIn("120", reason)
+
+    def test_duration_over_limit(self):
+        reason = pptx_xml.video_skip_reason(10, 1801.0)
+        self.assertIn("预估时长超限", reason)
+
+    def test_boundary_values_ok(self):
+        self.assertEqual(pptx_xml.video_skip_reason(120, 1800.0), "")
+
+    def test_custom_limits(self):
+        self.assertIn("页数超限", pptx_xml.video_skip_reason(51, 10.0, max_slides=50))
+        self.assertIn("预估时长超限",
+                      pptx_xml.video_skip_reason(10, 61.0, max_duration_s=60))
+
+
+class TestParseFfprobe(unittest.TestCase):
+    SAMPLE = json.dumps({
+        "streams": [
+            {"codec_type": "video", "codec_name": "h264", "width": 1280, "height": 720},
+            {"codec_type": "audio", "codec_name": "aac"},
+        ],
+        "format": {"duration": "23.219932"},
+    })
+
+    def test_video_and_audio(self):
+        info = pptx_xml.parse_ffprobe_json(self.SAMPLE)
+        self.assertEqual((info["w"], info["h"]), (1280, 720))
+        self.assertAlmostEqual(info["dur"], 23.219932, places=5)
+        self.assertEqual(info["codec"], "h264")
+        self.assertTrue(info["has_audio"])
+        self.assertEqual(info["audio_codec"], "aac")
+        self.assertEqual(info["nb_streams"], 2)
+
+    def test_no_audio_track(self):
+        info = pptx_xml.parse_ffprobe_json(json.dumps({
+            "streams": [{"codec_type": "video", "codec_name": "h264",
+                         "width": 960, "height": 720}],
+            "format": {"duration": "5.0"},
+        }))
+        self.assertFalse(info["has_audio"])
+        self.assertEqual(info["audio_codec"], "")
+
+    def test_invalid_json(self):
+        self.assertIsNone(pptx_xml.parse_ffprobe_json("not json"))
+        self.assertIsNone(pptx_xml.parse_ffprobe_json("[]"))
+
+    def test_empty_streams(self):
+        info = pptx_xml.parse_ffprobe_json("{}")
+        self.assertEqual((info["w"], info["h"], info["dur"]), (0, 0, 0.0))
+        self.assertFalse(info["has_audio"])
+
+
+def _min_manifest(video=None):
+    manifest = {
+        "v": 1, "base": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/ppt/a/d1/b1/",
+        "src": "", "w": 1600, "h": 900, "media": [],
+        "slides": [{"tr": "none", "trd": 0, "notes": "", "thumb": "t1.webp",
+                    "steps": [{"img": "s1-1.webp", "media": []}]}],
+    }
+    if video is not None:
+        manifest["video"] = video
+    return manifest
+
+
+def _min_video(**overrides):
+    video = {"s": "deck.mp4", "w": 1280, "h": 720, "dur": 12.5,
+             "chapters": [{"i": 0, "t": 0.0}], "q": "720p"}
+    video.update(overrides)
+    return video
+
+
+class TestValidateVideo(unittest.TestCase):
+    def test_valid(self):
+        self.assertEqual(pptx_xml.validate_video(_min_video(), 1), [])
+        self.assertEqual(pptx_xml.validate_manifest(_min_manifest(_min_video())), [])
+
+    def test_manifest_without_video_still_valid(self):
+        # 旧数据兼容：没有 manifest.video 的 ready deck 仍合法（仅分步模式）
+        self.assertEqual(pptx_xml.validate_manifest(_min_manifest()), [])
+
+    def test_not_object(self):
+        self.assertIn("video 必须是对象", pptx_xml.validate_video("x"))
+
+    def test_bad_name_size_duration(self):
+        errors = pptx_xml.validate_video({"s": "", "w": 0, "h": -1, "dur": 0,
+                                          "chapters": [{"i": 0, "t": 0.0}]})
+        text = "; ".join(errors)
+        self.assertIn("video.s", text)
+        self.assertIn("video.w", text)
+        self.assertIn("video.h", text)
+        self.assertIn("video.dur", text)
+
+    def test_chapters_count_must_equal_slides(self):
+        errors = pptx_xml.validate_video(_min_video(), 2)
+        self.assertTrue(any("数量" in e for e in errors))
+
+    def test_chapters_non_monotonic_and_wrong_index(self):
+        video = _min_video(chapters=[{"i": 0, "t": 0.0}, {"i": 5, "t": 9.0},
+                                     {"i": 2, "t": 8.0}])
+        errors = pptx_xml.validate_video(video, 3)
+        text = "; ".join(errors)
+        self.assertIn("必须等于下标", text)
+        self.assertIn("单调不减", text)
+
+    def test_chapter_exceeds_duration_and_first_not_zero(self):
+        video = _min_video(chapters=[{"i": 0, "t": 0.5}, {"i": 1, "t": 99.0}])
+        errors = pptx_xml.validate_video(video, 2)
+        text = "; ".join(errors)
+        self.assertIn("chapters[0].t 必须为 0", text)
+        self.assertIn("超出视频时长", text)
+
+    def test_empty_chapters(self):
+        errors = pptx_xml.validate_video(_min_video(chapters=[]))
+        self.assertTrue(any("非空数组" in e for e in errors))
+
+
+# ---------------------------------------------------------------------------
+# 8. agent --video-only：源文件缺失中文错误 / 只新增 video / 保留原 manifest
+# ---------------------------------------------------------------------------
+class FakeVideoCloud(object):
+    def __init__(self, deck):
+        self.deck = deck
+        self.gets = []
+        self.patches = []
+        self.upserts = []
+
+    def get(self, path, timeout=None):
+        self.gets.append(path)
+        return 200, [dict(self.deck)]
+
+    def patch(self, path, body, prefer=None):
+        self.patches.append((path, body, prefer))
+        return 204, None
+
+    def delete(self, path):
+        return 204, None
+
+    def upsert(self, table, rows, on_conflict="id"):
+        self.upserts.append((table, rows))
+        return 204, None
+
+
+class FakeVideoUploader(object):
+    def __init__(self, fail=False):
+        self.fail = fail
+        self.puts = []
+        self.downloads = []
+
+    def download_to(self, key, path):
+        self.downloads.append(key)
+        if self.fail:
+            raise RuntimeError("NoSuchKey")
+        with open(path, "wb") as fh:
+            fh.write(b"fake pptx bytes")
+        return {"key": key, "path": path, "size": len(b"fake pptx bytes")}
+
+    def put_file(self, key, path, content_type=None, cache_control=None):
+        self.puts.append((key, content_type, path))
+        return {"key": key, "size": os.path.getsize(path)}
+
+
+class _FakeHeartbeat(object):
+    def __init__(self, *a, **k):
+        self.queued = 0
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+
+class TestVideoOnlyMerge(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ppt_video_only_")
+        self.asset_path = os.path.join(self.tmp, "deck.mp4")
+        with open(self.asset_path, "wb") as fh:
+            fh.write(b"fake mp4")
+        self.deck = {
+            "id": "d1", "title": "测试", "status": "ready", "deleted": False,
+            "source_name": "a.pptx", "source_key": "ppt/src/d1/source.pptx",
+            "manifest": _min_manifest(),
+        }
+        self.video = {"s": "deck.mp4", "w": 1280, "h": 720, "dur": 12.5,
+                      "chapters": [{"i": 0, "t": 0.0}], "q": "720p"}
+        self.result = {
+            "video": self.video,
+            "assets": [{"name": "deck.mp4", "path": self.asset_path, "size": 8,
+                        "content_type": "video/mp4", "kind": "video"}],
+            "stats": {"audio": "aac", "export_s": 1.0},
+            "warnings": [],
+            "skipped": "",
+        }
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _run(self, deck=None, uploader=None, dry_run=False, result=None):
+        cloud = FakeVideoCloud(deck or self.deck)
+        uploader = uploader or FakeVideoUploader()
+        log = lambda msg: None
+        with mock.patch.object(agent, "new_work_dir",
+                               return_value=tempfile.mkdtemp(prefix="ppt_w_")), \
+                mock.patch.object(agent, "cleanup_work_dir", return_value=None), \
+                mock.patch.object(agent, "HeartbeatThread", _FakeHeartbeat), \
+                mock.patch.object(agent.convert, "export_video_only",
+                                  return_value=result or self.result):
+            summary = agent.run_video_only(cloud, uploader, log, "host1", "d1",
+                                           dry_run=dry_run)
+        return summary, cloud, uploader
+
+    def test_merge_only_adds_video_and_uploads_to_same_build(self):
+        summary, cloud, uploader = self._run()
+        self.assertEqual(summary["action"], "video-added")
+        self.assertEqual(len(uploader.puts), 1)
+        key, content_type, path = uploader.puts[0]
+        self.assertEqual(key, "ppt/a/d1/b1/deck.mp4")
+        self.assertEqual(content_type, "video/mp4")
+        self.assertTrue(path.endswith("deck.mp4"))
+        self.assertEqual(uploader.downloads, ["ppt/src/d1/source.pptx"])
+        self.assertEqual(len(cloud.patches), 1)
+        _path, body, _prefer = cloud.patches[0]
+        self.assertEqual(set(body.keys()), {"manifest", "updated_at"})
+        merged = body["manifest"]
+        self.assertEqual(merged["video"], self.video)
+        # 原有 slides/media/notes/base 原样保留
+        self.assertEqual(merged["slides"], self.deck["manifest"]["slides"])
+        self.assertEqual(merged["media"], [])
+        self.assertEqual(merged["base"], self.deck["manifest"]["base"])
+
+    def test_source_missing_gives_chinese_error(self):
+        uploader = FakeVideoUploader(fail=True)
+        with self.assertRaises(convert.ConvertError) as ctx:
+            self._run(uploader=uploader)
+        text = str(ctx.exception)
+        self.assertIn("源文件缺失", text)
+        self.assertIn("重新上传", text)
+
+    def test_not_ready_rejected(self):
+        deck = dict(self.deck)
+        deck["status"] = "queued"
+        with self.assertRaises(agent.CloudError) as ctx:
+            self._run(deck=deck)
+        self.assertIn("只有 ready", str(ctx.exception))
+
+    def test_empty_manifest_rejected(self):
+        deck = dict(self.deck)
+        deck["manifest"] = {}
+        with self.assertRaises(agent.CloudError) as ctx:
+            self._run(deck=deck)
+        self.assertIn("manifest 为空", str(ctx.exception))
+
+    def test_video_skipped_keeps_ready_and_no_patch(self):
+        result = dict(self.result)
+        result["video"] = None
+        result["skipped"] = "页数超限（121 页 > 120 页），未生成原样播放视频"
+        summary, cloud, uploader = self._run(result=result)
+        self.assertEqual(summary["action"], "video-skip")
+        self.assertEqual(uploader.puts, [])
+        self.assertEqual(cloud.patches, [])
+        self.assertIn("页数超限", summary["skipped"])
+
+    def test_dry_run_no_upload_no_patch(self):
+        summary, cloud, uploader = self._run(dry_run=True)
+        self.assertEqual(summary["action"], "dry-run")
+        self.assertEqual(uploader.puts, [])
+        self.assertEqual(cloud.patches, [])
+        self.assertEqual(summary["video_dur"], 12.5)
+
+    def test_manifest_prefix_requires_oss_base(self):
+        manifest = {"base": "https://example.com/abc/"}
+        with self.assertRaises(agent.CloudError):
+            agent._manifest_prefix(manifest, lambda m: None)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """convert.py — PowerPoint COM 转换核心（本机）
 
-契约唯一真源：``web/ppt/CONTRACT.md``（§5 manifest / §6 转换机 / §7 切换映射）。
+契约唯一真源：``web/ppt/CONTRACT.md``（§5 manifest / §6 转换机 / §7 切换映射 /
+§11 v1.2 原样播放视频）。
 
 职责（不碰网络、不碰云端；OSS 上传在 agent.py）：
 
@@ -15,16 +16,29 @@
 4. ``SaveCopyAs`` 临时 .pptx → 解包 ``<a:videoFile>/<a:audioFile>`` + ``<a:xfrm>``
    归一化热区 → ffmpeg 转 H.264 MP4 / AAC m4a（失败重试 remux，仍失败跳过并记日志）；
 5. Pillow 转 WebP（display 最长边 ≤1600 q72；thumb 宽 400 q65）；
-6. 组装 CONTRACT §5 manifest + 资产清单，计算 buildId（base 目录前置）。
+6. **v1.2 原样播放视频**（CONTRACT §11.2）：在**临时副本**（绝不保存用户源文件）上
+   计算每页 ``animEnd``/``mediaMaxDur`` → ``advance``，设置
+   ``SlideShowTransition.AdvanceOnClick=False/AdvanceOnTime=True/AdvanceTime=advance``，
+   内嵌媒体 ``AnimationSettings.PlaySettings.PlayOnEntry=True`` → ``CreateVideo(...)``
+   轮询完成 → ffmpeg remux/faststart（≥40MB 重编码控体积）→ ``deck.mp4`` + ``manifest.video``
+   （含按页章节时间）；失败/超时/超限只跳过视频并记 warning，**不影响分步模式 ready**；
+7. 组装 CONTRACT §5 manifest + 资产清单，计算 buildId（base 目录前置）。
 
-不变量：单任务 15 分钟（``timeout_s``，分步检查）；只结束本函数自己创建的
+不变量：单任务 30 分钟（``timeout_s``，分步检查）；只结束本函数自己创建的
 PowerPoint 实例（开始前若已有实例且 Presentations.Count>0 直接跳过）。
 
 ``convert_deck(src_path, work_dir, opts)`` 返回::
 
     {"manifest": {...}, "assets": [{"name","path","size","content_type","kind"}...],
      "build_id": "...", "stats": {...}, "warnings": [...], "aspect": "16:9",
-     "slide_count": n, "step_count": n, "cover": "t1.webp", "src_ext": ".pptx"}
+     "slide_count": n, "step_count": n, "cover": "t1.webp", "src_ext": ".pptx",
+     "video": {...}|None}
+
+``export_video_only(src_path, work_dir, opts)``（``agent.py --video-only`` 用）只导出
+原样播放视频，不渲染图片、不抽取/上传媒体资产；返回::
+
+    {"video": {...}|None, "assets": [deck.mp4 asset], "stats": {...},
+     "warnings": [...], "skipped": "原因", "export_s": 1.2}
 """
 import json
 import os
@@ -55,12 +69,29 @@ DEFAULT_OPTIONS = {
     "max_images": 260,
     "max_slides": 300,
     "export_format": "JPG",
-    "timeout_s": 900.0,
+    "timeout_s": 1800.0,               # CONTRACT §11.2.2：单 deck 转换预算放宽到 30min
     "with_media": True,
     "max_media_file_bytes": 200 * 1024 * 1024,
     "max_media_total_duration_s": 30 * 60,
     "max_media_trim_s": 30 * 60,       # 单段过长只转前 30min（DESIGN §5.1）
     "max_media_files": 60,
+    # v1.2 原样播放视频（CONTRACT §11.1/§11.2）：PowerPoint CreateVideo 高保真导出
+    "video": True,                     # False=跳过原样播放视频（只留分步模式）
+    "video_resolution": 720,           # CreateVideo VertResolution（720p）
+    "video_fps": 30,
+    "video_quality": 80,               # CreateVideo Quality（0-100）
+    "video_default_slide_duration": 5, # CreateVideo 默认页时长（我们逐页覆盖 advance）
+    "video_export_timeout_s": 1800.0,  # 轮询 CreateVideo 完成的最长时间（契约 30min）
+    "video_timeout_reserve_s": 45.0,   # 为 PowerPoint 收尾预留的秒数
+    "video_max_slides": 120,           # 超过页数不生成视频（契约 §11.2.2）
+    "video_max_duration_s": 1800.0,    # 预估总时长上限 30min
+    "video_min_advance_s": 3.0,        # 每页最短停留
+    "video_advance_pad_s": 1.5,        # 动画/媒体结束后留白
+    "video_max_advance_s": 600.0,      # 单页最长
+    "video_faststart_only_bytes": 40 * 1024 * 1024,  # <40MB 只 remux；≥40MB 重编码控体积
+    "video_reencode_crf": 24,          # 重编码 CRF（720p 保持）
+    "video_reencode_audio_kbps": 96,   # 重编码 AAC 码率
+    "video_tag": "720p",               # manifest.video.q 展示标签
     # DESIGN §5.1 性能预算：主图 1600 长边 ≤200KB（超了降 q62 重试一次），
     # 缩略图 400 宽 ≤25KB（超了再降一次 quality）
     "image_max_bytes": 200 * 1024,
@@ -212,7 +243,13 @@ def powerpoint_busy():
 
 
 def _acquire_powerpoint(ctx):
-    """确保拿到一个**没有文档**的 PowerPoint 实例（为空实例则先 Quit 再新建）。"""
+    """确保拿到一个**没有文档**的 PowerPoint 实例（为空实例则先 Quit 再新建）。
+
+    实测（2026-11-10）：``Quit()`` 返回后 POWERPNT.EXE 可能还要数秒~数十秒才真正退出
+    （视频/CreateVideo 结束后尤慢）。连续转换（测试、``--video-only`` 连跑）时下一轮会看到
+    「进程存在但 ROT 不可连接」。这里先**等待它退出**（最多 25s），避免误判 busy；
+    用户正在编辑的实例通常可连接 → 立刻判忙。
+    """
     app = _existing_powerpoint()
     if app is not None:
         try:
@@ -228,7 +265,32 @@ def _acquire_powerpoint(ctx):
             pass
         time.sleep(0.6)
     elif _powerpnt_process_count() > 0:
-        raise ConvertBusyError("PowerPoint 进程存在但无法连接，本轮跳过")
+        ctx.log("检测到 POWERPNT 进程但暂时无法连接（可能正在退出），最多等待 25s ...")
+        deadline = time.monotonic() + 25.0
+        while time.monotonic() < deadline:
+            app = _existing_powerpoint()
+            if app is not None:
+                try:
+                    count = int(app.Presentations.Count)
+                except Exception:  # noqa: BLE001
+                    raise ConvertBusyError("PowerPoint 无响应（COM RPC 繁忙），本轮跳过")
+                if count > 0:
+                    raise ConvertBusyError("PowerPoint 正打开 %d 个文档（用户占用），本轮跳过"
+                                           % count)
+                try:
+                    app.Quit()
+                except Exception:  # noqa: BLE001
+                    pass
+                break
+            if _powerpnt_process_count() == 0:
+                break
+            time.sleep(1.0)
+        # 刚 Quit 的实例可能仍在退出；再给它最多 10s
+        gone_deadline = time.monotonic() + 10.0
+        while time.monotonic() < gone_deadline and _powerpnt_process_count() > 0:
+            time.sleep(0.5)
+        if _powerpnt_process_count() > 0:
+            raise ConvertBusyError("PowerPoint 进程存在但无法连接，本轮跳过")
 
     import win32com.client as win32
 
@@ -295,7 +357,9 @@ def _quiet_shutdown(holder, ctx):
                 app.Quit()
                 ctx.log("PowerPoint 退出 %.0fms" % ((time.monotonic() - t1) * 1000))
             else:
-                ctx.warn("退出时检测到 PowerPoint 有 %d 个文档（用户新开），保留实例" % count)
+                ctx.warn("退出时检测到 PowerPoint 有 %d 个文档（用户新开或上次崩溃残留），保留实例；"
+                         "若列表一直排队且日志出现 PowerPoint busy，请先确认无人编辑后结束 "
+                         "POWERPNT.EXE" % count)
         except Exception:  # noqa: BLE001
             pass
     app = None
@@ -360,7 +424,7 @@ def _slide_effects(slide, ctx):
         try:
             eff = seq.Item(j)
             item = {"i": j, "effect_type": 0, "exit": False, "shape_name": "",
-                    "shape_id": -1, "trigger": 1, "duration": 0.0}
+                    "shape_id": -1, "trigger": 1, "duration": 0.0, "delay": 0.0}
             try:
                 item["effect_type"] = int(eff.EffectType)
             except Exception:  # noqa: BLE001
@@ -380,6 +444,10 @@ def _slide_effects(slide, ctx):
                 item["trigger"] = 1
             try:
                 item["duration"] = float(eff.Timing.Duration)
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                item["delay"] = float(eff.Timing.TriggerDelayTime)
             except Exception:  # noqa: BLE001
                 pass
             out.append(item)
@@ -528,25 +596,17 @@ def _run_ffmpeg(cmd, timeout=300):
 
 
 def _ffprobe_info(ffprobe, path):
-    """返回 {"w","h","dur"}；失败返回 None。"""
+    """返回 ``{"w","h","dur","codec","has_audio","audio_codec",...}``；失败返回 None。"""
     try:
         proc = _run_ffmpeg([ffprobe, "-v", "error",
-                            "-select_streams", "v:0",
-                            "-show_entries", "stream=codec_name,width,height",
-                            "-show_entries", "format=duration",
-                            "-of", "json", path], timeout=60)
+                            "-show_streams", "-show_format", "-of", "json", path],
+                           timeout=60)
         if proc.returncode != 0:
             return None
-        data = json.loads(proc.stdout or "{}")
-        streams = data.get("streams") or []
-        stream = streams[0] if streams else {}
-        fmt = data.get("format") or {}
-        try:
-            dur = float(fmt.get("duration") or 0.0)
-        except (TypeError, ValueError):
-            dur = 0.0
-        return {"w": int(stream.get("width") or 0), "h": int(stream.get("height") or 0),
-                "dur": dur, "codec": str(stream.get("codec_name") or "")}
+        info = pptx_xml.parse_ffprobe_json(proc.stdout or "")
+        if info is None:
+            return None
+        return info
     except Exception:  # noqa: BLE001
         return None
 
@@ -617,6 +677,661 @@ def _transcode_media(ffmpeg, ffprobe, src_path, kind, dst_path, ctx, opts):
 
 def _media_ext(kind):
     return ".mp4" if kind == "v" else ".m4a"
+
+
+# ---------------------------------------------------------------------------
+# v1.2 原样播放视频（CONTRACT §11.1/§11.2）
+# ---------------------------------------------------------------------------
+CREATEVIDEO_STATUS_DONE = 3
+CREATEVIDEO_STATUS_FAILED = 4
+
+
+def _collect_video_slide_effects(ctx, pres):
+    """只读每页 ``TimeLine.MainSequence``（视频-only 模式需要的最少信息）。"""
+    try:
+        slide_count = int(pres.Slides.Count)
+    except Exception as exc:  # noqa: BLE001
+        raise ConvertError("无法读取页数：%s" % exc.__class__.__name__)
+    if slide_count <= 0:
+        raise ConvertError("演示文稿没有幻灯片")
+    max_slides = int(ctx.opts["max_slides"])
+    if slide_count > max_slides:
+        raise ConvertError("页数过多（%d 页，上限 %d 页）" % (slide_count, max_slides))
+    effects_per_slide = []
+    for i in range(1, slide_count + 1):
+        ctx.check("读取第 %d 页动画" % i)
+        try:
+            slide = pres.Slides(i)
+        except Exception as exc:  # noqa: BLE001
+            raise ConvertError("读取第 %d 页失败：%s" % (i, exc.__class__.__name__))
+        effects_per_slide.append(_slide_effects(slide, ctx))
+    return slide_count, effects_per_slide
+
+
+def _probe_media_durations(ctx, copy_path, slide_count, tmp_dir, opts):
+    """内嵌媒体**原始时长**（SaveCopyAs 包 → ffprobe，不转码）→ 每页最长秒数列表。
+
+    用于 ``advance = mediaMaxDur + 1.5`` 的媒体页延长，避免 PowerPoint 自动延长
+    破坏章节公式（CONTRACT §11.2）。
+    """
+    durations = [0.0] * max(0, int(slide_count or 0))
+    try:
+        media_shapes = pptx_xml.read_media_shapes(copy_path)
+    except Exception as exc:  # noqa: BLE001
+        ctx.warn("video: 媒体包解析失败（媒体时长按 0 计）：%s" % exc.__class__.__name__)
+        return durations
+    if not media_shapes:
+        ctx.log("video: 未发现内嵌媒体")
+        return durations
+    ffprobe = _find_tool("ffprobe", opts.get("ffprobe"))
+    max_bytes = int(opts.get("max_media_file_bytes") or 0)
+    cache = {}
+    for shape in media_shapes:
+        if shape.get("external"):
+            ctx.log("video: 外链媒体跳过时长探测：%s" % str(shape.get("media"))[:120])
+            continue
+        key = (shape.get("kind"), shape.get("media"))
+        if key in cache:
+            dur = cache[key]
+        else:
+            dur = 0.0
+            try:
+                data = pptx_xml.read_media_bytes(copy_path, shape["media"])
+            except Exception:  # noqa: BLE001
+                data = None
+            if data is None:
+                ctx.warn("video: 媒体文件缺失，时长按 0 计：%s" % str(shape.get("media"))[:120])
+            elif max_bytes and len(data) > max_bytes:
+                ctx.warn("video: 媒体文件过大（>%dMB），跳过时长探测：%s"
+                         % (max_bytes // (1024 * 1024), str(shape.get("media"))[:120]))
+            else:
+                src = os.path.join(tmp_dir, "probe_" + os.path.basename(str(shape["media"])))
+                try:
+                    with open(src, "wb") as fh:
+                        fh.write(data)
+                    info = _ffprobe_info(ffprobe, src)
+                    if info:
+                        dur = max(0.0, float(info.get("dur") or 0.0))
+                finally:
+                    try:
+                        os.remove(src)
+                    except OSError:
+                        pass
+            cache[key] = dur
+        try:
+            idx = int(shape.get("slide") or 0) - 1
+        except (TypeError, ValueError):
+            continue
+        if 0 <= idx < len(durations) and dur > durations[idx]:
+            durations[idx] = dur
+    if any(d > 0 for d in durations):
+        ctx.log("video: 每页媒体最长时长 %s"
+                % ", ".join("%d:%.1fs" % (i + 1, d) for i, d in enumerate(durations) if d > 0))
+    return durations
+
+
+def _collect_video_plan(ctx, pres, effects_per_slide, media_max_durs, opts):
+    """计算每页 ``advance`` / 切换时长 / 预估总时长（只读 COM 属性，不改文档）。"""
+    slide_count = len(effects_per_slide or [])
+    advances = []
+    trans_durs = []
+    anim_ends = []
+    media_durs = []
+    for i in range(1, slide_count + 1):
+        ctx.check("读取第 %d 页动画/切换时序" % i)
+        try:
+            slide = pres.Slides(i)
+        except Exception as exc:  # noqa: BLE001
+            raise ConvertError("读取第 %d 页时序失败：%s" % (i, exc.__class__.__name__))
+        entry_effect = 0
+        trans_dur = 0.0
+        try:
+            transition = slide.SlideShowTransition
+            entry_effect = int(transition.EntryEffect)
+            if entry_effect != 0:  # 无切换记 0（CONTRACT §11.2）
+                trans_dur = max(0.0, float(transition.Duration))
+        except Exception as exc:  # noqa: BLE001
+            ctx.warn("video: 读取第 %d 页切换时长失败（按 0 计）：%s"
+                     % (i, exc.__class__.__name__))
+        try:
+            anim_end = pptx_xml.compute_anim_end(effects_per_slide[i - 1])
+        except Exception:  # noqa: BLE001
+            anim_end = 0.0
+        try:
+            media_max = max(0.0, float(media_max_durs[i - 1] or 0.0))
+        except (IndexError, TypeError, ValueError):
+            media_max = 0.0
+        advance = pptx_xml.compute_advance(
+            anim_end, media_max,
+            float(opts.get("video_min_advance_s") or pptx_xml.VIDEO_MIN_ADVANCE_S),
+            float(opts.get("video_advance_pad_s") or pptx_xml.VIDEO_ADVANCE_PAD_S),
+            float(opts.get("video_max_advance_s") or pptx_xml.VIDEO_MAX_ADVANCE_S))
+        advances.append(advance)
+        trans_durs.append(round(trans_dur, 3))
+        anim_ends.append(round(anim_end, 3))
+        media_durs.append(round(media_max, 3))
+        ctx.log("video: slide %d/%d animEnd=%.2fs media=%.2fs trans=%.2fs → advance=%.2fs"
+                % (i, slide_count, anim_end, media_max, trans_dur, advance))
+    estimated = sum(advances) + sum(trans_durs)
+    return {"advances": advances, "trans_durs": trans_durs, "anim_ends": anim_ends,
+            "media_durs": media_durs, "estimated_s": round(estimated, 2)}
+
+
+def _open_writable_video_copy(ctx, app, pres, tmp_dir, reuse_path=""):
+    """在**临时副本**上以可写方式打开演示文稿（绝不保存用户源文件）。返回 (pres, path)。"""
+    copy_path = reuse_path or os.path.join(tmp_dir, "video_deck.pptx")
+    if not (reuse_path and os.path.exists(reuse_path)):
+        try:
+            pres.SaveCopyAs(copy_path)
+        except Exception as exc:  # noqa: BLE001
+            raise ConvertError("保存视频导出临时副本失败：%s" % exc.__class__.__name__)
+    if not os.path.exists(copy_path) or os.path.getsize(copy_path) <= 0:
+        raise ConvertError("视频导出临时副本为空")
+    try:
+        # ReadOnly=False → 可写；Untitled=False、WithWindow=False
+        return app.Presentations.Open(copy_path, False, False, False), copy_path
+    except Exception as exc:  # noqa: BLE001
+        raise ConvertError("打开视频导出临时副本失败：%s" % exc.__class__.__name__)
+
+
+def _delete_shape_effects(slide, shape_id):
+    """删除某形状在 MainSequence 里的动画效果（删形状前清理，避免残留 timing）。"""
+    try:
+        seq = slide.TimeLine.MainSequence
+        count = int(seq.Count)
+    except Exception:  # noqa: BLE001
+        return 0
+    removed = 0
+    for j in range(count, 0, -1):
+        try:
+            if int(seq.Item(j).Shape.Id) == int(shape_id):
+                seq.Item(j).Delete()
+                removed += 1
+        except Exception:  # noqa: BLE001
+            continue
+    return removed
+
+
+def _strip_external_media(ctx, pres, copy_path, tmp_dir):
+    """移除**外链媒体**形状（CONTRACT §6：外链无法在网页播放）。
+
+    实测（2026-11-10）：外链文件在本机不存在时，PowerPoint CreateVideo 会在该页
+    等待约 90s 才继续，导致视频总时长与章节公式严重不符。这里在**临时副本**上把
+    外链媒体形状导出为静态图（保留画面）后删除，避免导出被拖住。
+    """
+    try:
+        shapes_info = pptx_xml.read_media_shapes(copy_path)
+    except Exception as exc:  # noqa: BLE001
+        ctx.warn("video: 读取媒体形状失败（外链媒体未清理）：%s" % exc.__class__.__name__)
+        return 0
+    externals = [item for item in shapes_info if item.get("external")]
+    if not externals:
+        return 0
+    removed = 0
+    for item in externals:
+        try:
+            slide_no = int(item.get("slide") or 0)
+            shape_name = str(item.get("name") or "")
+            slide = pres.Slides(slide_no)
+            count = int(slide.Shapes.Count)
+        except Exception:  # noqa: BLE001
+            continue
+        target = None
+        for j in range(1, count + 1):
+            try:
+                shape = slide.Shapes(j)
+                if int(shape.Type) != 16:  # msoMedia
+                    continue
+                if shape_name and str(shape.Name) == shape_name:
+                    target = shape
+                    break
+            except Exception:  # noqa: BLE001
+                continue
+        if target is None:
+            ctx.warn("video: 外链媒体形状未找到（第 %d 页 %r），无法清理"
+                     % (slide_no, shape_name))
+            continue
+        pic_path = os.path.join(tmp_dir, "extmedia_%d_%d.png" % (slide_no, removed + 1))
+        exported = False
+        try:
+            target.Export(pic_path, 3)  # ppShapeFormatPNG=3
+            exported = os.path.exists(pic_path) and os.path.getsize(pic_path) > 0
+        except Exception:  # noqa: BLE001
+            exported = False
+        try:
+            left, top = float(target.Left), float(target.Top)
+            width, height = float(target.Width), float(target.Height)
+            shape_id = int(target.Id)
+        except Exception:  # noqa: BLE001
+            left = top = width = height = 0.0
+            shape_id = -1
+        try:
+            _delete_shape_effects(slide, shape_id)
+            target.Delete()
+        except Exception as exc:  # noqa: BLE001
+            ctx.warn("video: 外链媒体形状删除失败（第 %d 页 %r）：%s"
+                     % (slide_no, shape_name, exc.__class__.__name__))
+            continue
+        if exported and width > 0 and height > 0:
+            try:
+                slide.Shapes.AddPicture(pic_path, False, True, left, top, width, height)
+            except Exception:  # noqa: BLE001
+                pass
+        removed += 1
+        ctx.log("video: 清理外链媒体（第 %d 页 %r，%s；外链文件不在本机时导出会等待约 90s）"
+                % (slide_no, shape_name, "已用静态图替代" if exported else "直接删除"))
+    return removed
+
+
+def _apply_video_settings(ctx, pres, plan):
+    """逐页设置自动换页时长 + 内嵌媒体 PlayOnEntry（让视频真的播放并带音轨）。"""
+    slide_count = len(plan["advances"])
+    media_shapes = 0
+    for i in range(1, slide_count + 1):
+        ctx.check("设置第 %d 页视频时序" % i)
+        try:
+            slide = pres.Slides(i)
+            transition = slide.SlideShowTransition
+        except Exception as exc:  # noqa: BLE001
+            raise ConvertError("读取第 %d 页失败：%s" % (i, exc.__class__.__name__))
+        advance = float(plan["advances"][i - 1])
+        try:
+            transition.AdvanceOnClick = False
+            transition.AdvanceOnTime = True
+            transition.AdvanceTime = advance
+        except Exception as exc:  # noqa: BLE001
+            raise ConvertError("设置第 %d 页自动换页失败：%s" % (i, exc.__class__.__name__))
+        readback = None
+        try:
+            readback = float(transition.AdvanceTime)
+        except Exception:  # noqa: BLE001
+            pass
+        if readback is None or abs(readback - advance) > 0.05:
+            raise ConvertError("第 %d 页自动换页时间设置失败（期望 %.2fs，实际 %s）"
+                               % (i, advance, readback))
+        try:
+            shapes_count = int(slide.Shapes.Count)
+        except Exception:  # noqa: BLE001
+            shapes_count = 0
+        for j in range(1, shapes_count + 1):
+            try:
+                shape = slide.Shapes(j)
+                if int(shape.Type) != 16:  # msoMedia
+                    continue
+            except Exception:  # noqa: BLE001
+                continue
+            try:
+                shape.AnimationSettings.PlaySettings.PlayOnEntry = True
+            except Exception as exc:  # noqa: BLE001
+                # 不设置时 PowerPoint 导出的视频只有海报帧且没有音轨（实测）→ 直接跳过视频
+                raise ConvertError("第 %d 页内嵌媒体 PlayOnEntry 设置失败：%s"
+                                   % (i, exc.__class__.__name__))
+            media_shapes += 1
+    ctx.log("video: 已设置 %d 页自动换页 / %d 个内嵌媒体 PlayOnEntry"
+            % (slide_count, media_shapes))
+    return media_shapes
+
+
+def _call_create_video(pres, path, opts):
+    """``Presentation.CreateVideo`` 调用（独立函数便于测试注入失败）。"""
+    pres.CreateVideo(path, True,
+                     int(opts.get("video_default_slide_duration") or 5),
+                     int(opts.get("video_resolution") or 720),
+                     int(opts.get("video_fps") or 30),
+                     int(opts.get("video_quality") or 80))
+
+
+def _wait_create_video(ctx, pres, path, timeout_s):
+    """轮询 CreateVideo 完成（优先 CreateVideoStatus，兜底文件大小稳定）；超时返回 False。"""
+    started = time.monotonic()
+    limit = max(1.0, float(timeout_s))
+    last_size = -1
+    stable = 0
+    while True:
+        elapsed = time.monotonic() - started
+        if elapsed >= limit:
+            ctx.warn("video: PowerPoint 导出视频超时（%.0fs）" % elapsed)
+            return False
+        time.sleep(1.0)
+        status = None
+        try:
+            status = int(pres.CreateVideoStatus)
+        except Exception:  # noqa: BLE001
+            status = None
+        if status == CREATEVIDEO_STATUS_FAILED:
+            ctx.warn("video: PowerPoint 导出视频失败（CreateVideoStatus=Failed）")
+            return False
+        size = 0
+        try:
+            if os.path.exists(path):
+                size = os.path.getsize(path)
+        except OSError:
+            size = 0
+        if size > 0 and size == last_size:
+            stable += 1
+        else:
+            stable = 0
+        last_size = size
+        if status == CREATEVIDEO_STATUS_DONE and size > 0 and stable >= 1:
+            ctx.log("video: PowerPoint 导出完成 %.1fs（%d bytes）"
+                    % (time.monotonic() - started, size))
+            return True
+        if (status is None or status == 0) and size > 0 and stable >= 3:
+            # 老版本无 CreateVideoStatus：文件大小连续 3s 不变视为完成
+            ctx.log("video: PowerPoint 导出完成（文件大小稳定）%.1fs（%d bytes）"
+                    % (time.monotonic() - started, size))
+            return True
+
+
+def _package_video(ctx, raw_path, dst_path, ffmpeg, ffprobe, opts):
+    """PowerPoint 视频 → deck.mp4：<40MB 只 remux；≥40MB（或非 h264）重编码控体积。"""
+    try:
+        raw_size = os.path.getsize(raw_path)
+    except OSError:
+        ctx.warn("video: PowerPoint 导出文件不存在")
+        return None
+    raw_info = _ffprobe_info(ffprobe, raw_path) or {}
+    if not raw_info.get("dur"):
+        ctx.warn("video: PowerPoint 导出文件无法解析（ffprobe 无时长），跳过原样播放视频")
+        return None
+    threshold = int(opts.get("video_faststart_only_bytes") or 40 * 1024 * 1024)
+    remux_cmd = [ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", raw_path,
+                 "-c", "copy", "-movflags", "+faststart", dst_path]
+    reencode_cmd = [ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", raw_path,
+                    "-c:v", "libx264", "-preset", "veryfast",
+                    "-crf", str(int(opts.get("video_reencode_crf") or 24)),
+                    "-pix_fmt", "yuv420p"]
+    if raw_info.get("has_audio"):
+        reencode_cmd += ["-c:a", "aac", "-b:a",
+                         "%dk" % int(opts.get("video_reencode_audio_kbps") or 96)]
+    else:
+        reencode_cmd += ["-an"]
+    reencode_cmd += ["-movflags", "+faststart", dst_path]
+    need_reencode = raw_size >= threshold or str(raw_info.get("codec") or "") != "h264"
+    attempts = [("reencode", reencode_cmd), ("remux", remux_cmd)] if need_reencode \
+        else [("remux", remux_cmd), ("reencode", reencode_cmd)]
+    used = ""
+    for label, cmd in attempts:
+        try:
+            proc = _run_ffmpeg(cmd, timeout=1800)
+        except subprocess.TimeoutExpired:
+            ctx.warn("video: ffmpeg %s 超时" % label)
+            continue
+        if (proc.returncode == 0 and os.path.exists(dst_path)
+                and os.path.getsize(dst_path) > 0):
+            used = label
+            break
+        err = (proc.stderr or "").strip().splitlines()
+        ctx.warn("video: ffmpeg %s 失败：%s"
+                 % (label, (err[-1] if err else "rc=%s" % proc.returncode)[:200]))
+        try:
+            if os.path.exists(dst_path):
+                os.remove(dst_path)
+        except OSError:
+            pass
+    if not used:
+        return None
+    info = _ffprobe_info(ffprobe, dst_path)
+    if info is None or not info.get("dur"):
+        ctx.warn("video: deck.mp4 无法解析（ffprobe 失败）")
+        return None
+    if str(info.get("codec") or "") != "h264":
+        ctx.warn("video: deck.mp4 编码不是 h264（%s），跳过原样播放视频"
+                 % (info.get("codec") or "unknown"))
+        return None
+    if raw_info.get("has_audio") and not info.get("has_audio"):
+        ctx.warn("video: deck.mp4 丢失音轨（源媒体有音轨）")
+    info["size"] = os.path.getsize(dst_path)
+    info["raw_bytes"] = raw_size
+    info["reencoded"] = used == "reencode"
+    ctx.log("video: %s %.2fMB → %.2fMB（%dx%d %.1fs codec=%s audio=%s）"
+            % (used, raw_size / 1048576.0, info["size"] / 1048576.0,
+               int(info.get("w") or 0), int(info.get("h") or 0),
+               float(info["dur"]), info.get("codec") or "?",
+               info.get("audio_codec") or "无"))
+    return info
+
+
+def _export_video(ctx, app, pres, effects_per_slide, media_max_durs, assets_dir,
+                  tmp_dir, opts, reuse_copy=""):
+    """导出原样播放视频（任何失败只跳过视频 + warning，绝不抛给调用方）。"""
+    result = {"video": None, "asset": None, "stats": {}, "skipped": ""}
+    dst_path = os.path.join(assets_dir, "deck.mp4")
+    raw_path = os.path.join(tmp_dir, "deck_raw.mp4")
+    if not bool(opts.get("video", True)):
+        result["skipped"] = "opts.video=False"
+        ctx.log("video: 跳过（opts.video=False）")
+        return result
+    t0 = time.monotonic()
+    try:
+        slide_count = len(effects_per_slide or [])
+        plan = _collect_video_plan(ctx, pres, effects_per_slide or [], media_max_durs or [], opts)
+        reason = pptx_xml.video_skip_reason(
+            slide_count, plan["estimated_s"],
+            int(opts.get("video_max_slides") or pptx_xml.VIDEO_MAX_SLIDES),
+            float(opts.get("video_max_duration_s") or pptx_xml.VIDEO_MAX_DURATION_S))
+        if reason:
+            result["skipped"] = reason
+            ctx.warn("video: " + reason)
+            return result
+        reserve = float(opts.get("video_timeout_reserve_s") or 45.0)
+        remaining = ctx.deadline.remaining() - reserve
+        export_timeout = min(float(opts.get("video_export_timeout_s") or 1800.0), remaining)
+        if export_timeout < 60:
+            result["skipped"] = "剩余转换时间不足"
+            ctx.warn("video: 剩余转换时间不足（%.0fs < 60s），跳过原样播放视频"
+                     % max(0.0, remaining))
+            return result
+        ctx.progress(82, "导出原样播放视频（%d 页 / 预估 %.0fs）"
+                     % (slide_count, plan["estimated_s"]))
+        ctx.log("video: 开始导出（%d 页，预估 %.1fs + 切换 %.1fs = %.1fs；超时预算 %.0fs）"
+                % (slide_count, sum(plan["advances"]), sum(plan["trans_durs"]),
+                   plan["estimated_s"], export_timeout))
+        pres2 = None
+        ok = False
+        stripped_external = 0
+        try:
+            pres2, copy_path_used = _open_writable_video_copy(
+                ctx, app, pres, tmp_dir, reuse_copy)
+            # 外链媒体（本机无源文件）会让 PowerPoint 导出时等待 ~90s/个 → 清理后重算时序
+            stripped_external = _strip_external_media(ctx, pres2, copy_path_used, tmp_dir)
+            if stripped_external:
+                effects2 = []
+                for i in range(1, slide_count + 1):
+                    ctx.check("清理后重读第 %d 页动画" % i)
+                    effects2.append(_slide_effects(pres2.Slides(i), ctx))
+                plan = _collect_video_plan(ctx, pres2, effects2, media_max_durs or [], opts)
+                ctx.log("video: 清理 %d 个外链媒体后重算时序（预估 %.1fs）"
+                        % (stripped_external, plan["estimated_s"]))
+            _apply_video_settings(ctx, pres2, plan)
+            _call_create_video(pres2, raw_path, opts)
+            ok = _wait_create_video(ctx, pres2, raw_path, export_timeout)
+        finally:
+            if pres2 is not None:
+                try:
+                    pres2.Close()
+                except Exception:  # noqa: BLE001
+                    pass
+                pres2 = None
+        if not ok:
+            result["skipped"] = "PowerPoint 导出未完成（超时/失败）"
+            return result
+        try:
+            raw_size = os.path.getsize(raw_path)
+        except OSError:
+            raw_size = 0
+        if raw_size <= 0:
+            result["skipped"] = "PowerPoint 导出文件为空"
+            ctx.warn("video: PowerPoint 导出文件为空，跳过原样播放视频")
+            return result
+        ffmpeg = _find_tool("ffmpeg", opts.get("ffmpeg"))
+        ffprobe = _find_tool("ffprobe", opts.get("ffprobe"))
+        info = _package_video(ctx, raw_path, dst_path, ffmpeg, ffprobe, opts)
+        if info is None:
+            result["skipped"] = "视频后处理失败"
+            return result
+        chapters = pptx_xml.compute_chapters(plan["advances"], plan["trans_durs"],
+                                             float(info["dur"]))
+        # 实测时长 vs 公式预估：偏差过大说明有页被 PowerPoint 自动延长（章节可能漂移）
+        duration_drift = round(float(info["dur"]) - float(plan["estimated_s"]), 2)
+        drift_limit = max(3.0, 0.02 * float(plan["estimated_s"]))
+        if abs(duration_drift) > drift_limit:
+            ctx.warn("video: 实测时长与预估偏差 %.1fs（实测 %.1fs / 预估 %.1fs），"
+                     "章节时间可能漂移；原因多为媒体页自动延长或外链媒体"
+                     % (duration_drift, float(info["dur"]), float(plan["estimated_s"])))
+        video = {
+            "s": "deck.mp4",
+            "w": int(info.get("w") or 0),
+            "h": int(info.get("h") or 0),
+            "dur": round(float(info["dur"]), 2),
+            "chapters": [{"i": i, "t": t} for i, t in enumerate(chapters)],
+            "q": str(opts.get("video_tag") or pptx_xml.VIDEO_TAG_DEFAULT),
+        }
+        errors = pptx_xml.validate_video(video, slide_count)
+        if errors:
+            result["skipped"] = "manifest.video 校验失败"
+            ctx.warn("video: manifest.video 校验失败（已跳过）：%s" % "; ".join(errors[:4]))
+            return result
+        asset = {"name": "deck.mp4", "path": dst_path, "size": int(info["size"]),
+                 "content_type": "video/mp4", "kind": "video"}
+        elapsed = round(time.monotonic() - t0, 2)
+        stats = {
+            "export_s": elapsed,
+            "dur": video["dur"],
+            "bytes": int(info["size"]),
+            "raw_bytes": int(info.get("raw_bytes") or 0),
+            "w": video["w"],
+            "h": video["h"],
+            "audio": str(info.get("audio_codec") or ""),
+            "chapters": len(chapters),
+            "last_chapter_t": chapters[-1] if chapters else 0.0,
+            "estimated_s": plan["estimated_s"],
+            "duration_drift": duration_drift,
+            "stripped_external": int(stripped_external),
+            "reencoded": bool(info.get("reencoded")),
+        }
+        ctx.log("video: 完成 dur=%.2fs %dx%d audio=%s size=%.1fMB 耗时 %.1fs"
+                "（预估 %.1fs，chapters=%d，末章 t=%.1fs，重编码=%s）"
+                % (video["dur"], video["w"], video["h"], stats["audio"] or "无",
+                   stats["bytes"] / 1048576.0, elapsed, plan["estimated_s"],
+                   len(chapters), stats["last_chapter_t"], stats["reencoded"]))
+        result.update({"video": video, "asset": asset, "stats": stats})
+        return result
+    except ConvertTimeout as exc:
+        result["skipped"] = "整体转换预算用尽"
+        ctx.warn("video: 导出超时/整体预算用尽，跳过原样播放视频（%s）" % exc)
+        _remove_quiet(dst_path)
+        return result
+    except Exception as exc:  # noqa: BLE001
+        result["skipped"] = exc.__class__.__name__
+        ctx.warn("video: 导出失败，跳过原样播放视频（%s: %s）"
+                 % (exc.__class__.__name__, str(exc)[:160]))
+        ctx.log(traceback.format_exc()[-1200:])
+        _remove_quiet(dst_path)
+        return result
+
+
+def _remove_quiet(path):
+    try:
+        if path and os.path.exists(path):
+            os.remove(path)
+    except OSError:
+        pass
+
+
+def export_video_only(src_path, work_dir, opts=None):
+    """只导出「原样播放」视频（不渲染图片、不抽取/不上传媒体资产）。
+
+    ``agent.py --video-only`` 用：对已 ready 的 deck 从 OSS 下载源文件后补视频，
+    合并进现有 manifest（只新增 ``video`` 字段，不动 slides/img/media/notes）。
+    """
+    opts = normalize_options(opts)
+    log = opts.pop("log", None) if isinstance(opts, dict) else None
+    ctx = _Ctx(opts, log=log, progress=opts.get("progress"))
+    t0 = time.monotonic()
+    src_path = os.path.abspath(str(src_path))
+    out = {"video": None, "assets": [], "stats": {"slides": 0, "elapsed_s": 0.0},
+           "warnings": ctx.warnings, "skipped": "", "export_s": 0.0}
+    if not os.path.exists(src_path):
+        raise ConvertError("源文件不存在：%s" % os.path.basename(src_path))
+    src_ext = os.path.splitext(src_path)[1].lower()
+    if src_ext not in (".ppt", ".pptx"):
+        raise ConvertError("不支持的文件类型：%s（仅 .ppt/.pptx）" % (src_ext or "无扩展名"))
+    work_dir = os.path.abspath(str(work_dir))
+    assets_dir = os.path.join(work_dir, "assets")
+    tmp_dir = os.path.join(work_dir, "tmp")
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+    os.makedirs(assets_dir, exist_ok=True)
+    os.makedirs(tmp_dir, exist_ok=True)
+    com = {"app": None, "pres": None}
+    pythoncom = None
+    try:
+        ctx.progress(2, "准备源文件")
+        local_copy = os.path.join(tmp_dir, "source" + src_ext)
+        try:
+            shutil.copyfile(src_path, local_copy)
+        except OSError as exc:
+            raise ConvertError("读取源文件失败：%s" % exc.__class__.__name__)
+        try:
+            import pythoncom as _pythoncom  # noqa: F401
+            pythoncom = _pythoncom
+            pythoncom.CoInitialize()
+        except ImportError:  # pragma: no cover
+            raise ConvertError("缺少 pywin32（pythoncom）")
+        com["app"] = _acquire_powerpoint(ctx)
+        ctx.log("PowerPoint 就绪（视频-only，%.0fms）"
+                % (1000 * (time.monotonic() - t0)))
+        ctx.progress(8, "打开演示文稿")
+        try:
+            com["pres"] = com["app"].Presentations.Open(local_copy, True, False, False)
+        except Exception as exc:  # noqa: BLE001
+            raise ConvertError("PowerPoint 无法打开该文件（可能加密/损坏）：%s"
+                               % exc.__class__.__name__)
+        pres = com["pres"]
+        slide_count, effects_per_slide = _collect_video_slide_effects(ctx, pres)
+        out["stats"]["slides"] = slide_count
+        ctx.progress(20, "探测内嵌媒体时长")
+        copy_path = os.path.join(tmp_dir, "video_deck.pptx")
+        media_durs = [0.0] * slide_count
+        try:
+            pres.SaveCopyAs(copy_path)
+            if zipfile.is_zipfile(copy_path):
+                media_durs = _probe_media_durations(ctx, copy_path, slide_count,
+                                                    tmp_dir, opts)
+        except Exception as exc:  # noqa: BLE001
+            ctx.warn("video: 保存临时副本失败（媒体时长按 0 计）：%s"
+                     % exc.__class__.__name__)
+            copy_path = ""
+        ctx.progress(40, "导出原样播放视频")
+        result = _export_video(ctx, com["app"], pres, effects_per_slide, media_durs,
+                               assets_dir, tmp_dir, opts,
+                               reuse_copy=copy_path if copy_path and os.path.exists(copy_path) else "")
+        out["video"] = result.get("video")
+        out["assets"] = [result["asset"]] if result.get("asset") else []
+        out["skipped"] = str(result.get("skipped") or "")
+        out["export_s"] = float((result.get("stats") or {}).get("export_s") or 0.0)
+        out["stats"].update(result.get("stats") or {})
+        return out
+    finally:
+        try:
+            del pres
+        except NameError:
+            pass
+        _quiet_shutdown(com, ctx)
+        try:
+            import gc
+
+            gc.collect()
+        except Exception:  # noqa: BLE001
+            pass
+        if pythoncom is not None:
+            try:
+                pythoncom.CoUninitialize()
+            except Exception:  # noqa: BLE001
+                pass
+        _cleanup_tmp(tmp_dir, bool(opts.get("keep_intermediate")))
+        out["stats"]["elapsed_s"] = round(time.monotonic() - t0, 2)
+        out["warnings"] = ctx.warnings
 
 
 # ---------------------------------------------------------------------------
@@ -1021,8 +1736,21 @@ def convert_deck(src_path, work_dir, opts=None):
             ctx, pres, slides_meta, kept_steps, assets_dir, tmp_dir, opts)
         for asset in media_assets.values():
             assets.append(asset)
+        # v1.2 原样播放视频（CONTRACT §11.2）：同一 PowerPoint 会话内导出（失败只跳过视频）
+        media_max_durs = pptx_xml.slide_media_max_dur(
+            len(slides_meta), hotspots, media_table)
+        video_result = _export_video(
+            ctx, com["app"], pres, [meta["effects"] for meta in slides_meta],
+            media_max_durs, assets_dir, tmp_dir, opts)
+        video_manifest = video_result.get("video")
+        video_stats = video_result.get("stats") or {}
+        if video_result.get("asset") is not None:
+            assets.append(video_result["asset"])
+        ctx.progress(89, "原样播放视频完成" if video_manifest else "跳过原样播放视频")
         manifest = _build_manifest(opts, slides_meta, kept_steps, media_table,
                                    hotspots, render_w, render_h, src_ext)
+        if video_manifest:
+            manifest["video"] = video_manifest
         # buildId：资产名+大小 + manifest（不含 base）
         build_id = pptx_xml.compute_build_id(assets, manifest)
         prefix = "%s%s/%s/" % (ASSET_PREFIX, opts["deck_id"], build_id)
@@ -1044,10 +1772,20 @@ def convert_deck(src_path, work_dir, opts=None):
             "planned_steps": sum(len(m["plan"]["steps"]) for m in slides_meta),
             "degraded_slides": sum(1 for m in slides_meta if m.get("degraded")),
             "warnings": len(ctx.warnings),
+            # v1.2 原样播放视频（缺省/失败时全部为 0/false，不影响分步模式）
+            "video": bool(video_manifest),
+            "video_dur": round(float(video_stats.get("dur") or 0.0), 2),
+            "video_bytes": int(video_stats.get("bytes") or 0),
+            "video_export_s": float(video_stats.get("export_s") or 0.0),
+            "video_audio": str(video_stats.get("audio") or ""),
+            "video_chapters": int(video_stats.get("chapters") or 0),
+            "video_reencoded": bool(video_stats.get("reencoded")),
+            "video_skipped": str(video_result.get("skipped") or ""),
         }
         ctx.progress(90, "转换完成")
-        ctx.log("完成：%d 页 / %d 步 / %d 图片 / %d 媒体，耗时 %s，build=%s"
+        ctx.log("完成：%d 页 / %d 步 / %d 图片 / %d 媒体 / %s，耗时 %s，build=%s"
                 % (stats["slides"], stats["steps"], stats["images"], stats["media"],
+                   ("视频 %.1fs" % stats["video_dur"]) if stats["video"] else "无视频",
                    _fmt_seconds(stats["elapsed_s"]), build_id))
         return {
             "manifest": manifest,
@@ -1063,6 +1801,7 @@ def convert_deck(src_path, work_dir, opts=None):
             "source_key": "%s%s%s/source%s" % (SRC_PREFIX, opts["deck_id"], "", src_ext),
             "render_w": int(render_w),
             "render_h": int(render_h),
+            "video": video_manifest,
         }
     finally:
         # 关键：先把局部 pres 引用放进 holder，再统一清理；否则调用方局部变量
@@ -1094,12 +1833,16 @@ def convert_deck(src_path, work_dir, opts=None):
 def _main(argv=None):
     import argparse
 
-    parser = argparse.ArgumentParser(description="PPT → 分步图片/媒体/manifest 转换（本机）")
+    parser = argparse.ArgumentParser(description="PPT → 分步图片/媒体/manifest/原样播放视频（本机）")
     parser.add_argument("src", help="源 .ppt/.pptx 路径")
     parser.add_argument("--work-dir", default="", help="工作目录（默认 web/ppt/work/<basename>）")
     parser.add_argument("--deck-id", default="testdeck")
-    parser.add_argument("--timeout", type=float, default=900.0)
+    parser.add_argument("--timeout", type=float, default=1800.0,
+                        help="单任务预算秒数（默认 1800=30min）")
     parser.add_argument("--no-media", action="store_true", help="跳过媒体抽取")
+    parser.add_argument("--no-video", action="store_true", help="跳过原样播放视频导出")
+    parser.add_argument("--video-only", action="store_true",
+                        help="只导出原样播放视频（不渲染图片/不抽媒体，调试 --video-only 用）")
     parser.add_argument("--keep-intermediate", action="store_true")
     parser.add_argument("--json-out", default="", help="把结果摘要写到该文件")
     parser.add_argument("--opts-json", default="", help="从 JSON 文件加载全部转换选项")
@@ -1122,11 +1865,20 @@ def _main(argv=None):
         "deck_id": args.deck_id,
         "timeout_s": args.timeout,
         "with_media": not args.no_media,
+        "video": not args.no_video,
         "keep_intermediate": args.keep_intermediate,
         "log": opts.get("log") or (lambda msg: print("[convert] " + msg, flush=True)),
     })
     t0 = time.time()
     try:
+        if args.video_only:
+            result = export_video_only(src, work, opts)
+            print(json.dumps({"video": result.get("video"),
+                              "stats": result.get("stats"),
+                              "skipped": result.get("skipped"),
+                              "warnings": result.get("warnings")},
+                             ensure_ascii=False, indent=2))
+            return 0 if result.get("video") else 3
         result = convert_deck(src, work, opts)
     except ConvertBusyError as exc:
         print("[convert] BUSY: %s" % exc)
@@ -1148,6 +1900,7 @@ def _main(argv=None):
         "source_key": result["source_key"],
         "render_w": result["render_w"],
         "render_h": result["render_h"],
+        "video": result.get("video"),
         "assets": [{"name": a["name"], "path": a["path"], "size": a["size"],
                     "content_type": a.get("content_type"), "kind": a.get("kind")}
                    for a in result["assets"]],

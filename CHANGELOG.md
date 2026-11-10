@@ -2,6 +2,44 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-10 21:47 · 大屏改为团日主持台（去掉作业/下一节 · PPT 联动放映台 · 右上角实时时间）+ 合并 PPT v1.2 统一上线
+
+> 用户需求（2026-11-10 20:52）：「去除大屏功能的作业，下一节课功能，因为该功能最大的可能使用场景只有团日活动的时候用，所以加强与PPT播放功能的联动，右上角可替换为实时时间，接着请你搜集网上案例给出可做功能案例」。
+> 用户拍板：布局 B（原「作业」卡位换大时钟，2×2 = 演示 / 实时时间 / 计时 / 抽签）、PPT 联动 A（大屏内放映台）、可见范围保持仅管理员。
+> 范围：仅网页 `tools/index.html` 的 OPTIM V2 §11 大屏块 + `tools/tests/optim_v2_check.py`；未改 UD v6 / 云端表 / 小程序 / 安卓；`APP_VER` 仍 2.0.0。本快照同时合并并行会话的「PPT v1.2 网页端」（其条目见下一条），**统一部署**。
+
+- **去掉「下一节」「作业」两卡**：连同 `opt2StageNext/opt2StageHw` 数据函数一起删除（站点其它地方的课表/作业功能未动），大屏只留团日活动用得到的信息。
+- **PPT 联动（左上「演示」放映台）**：`window.PPT` 新增只读访问器 `list()/loaded()/err()`；大屏列出共享演示库 `status=ready` 的 deck（上次放映置顶并标「上次」，本机键 `zq_stage_deck_v1`，不进 UD 同步）；点行 → `PPT.open(id)` 全屏播放器（z110 叠在大屏 z95 上），退出放映自动回到大屏、不跳页；空库显示「还没有演示 · 去上传」（关闭大屏并切到演示页）；加载失败有「刷新/重试」；打开大屏时同轮拉一次演示列表（只读 GET `ppt_decks`/`site_assets`，无新增外部来源）。
+- **右上角实时时间**：大号 `HH:MM:SS` + `2026年11月10日 · 周二`，每秒走；顶部栏不再放小钟，「全屏/退出」移到右侧；计时到 00:00 后按钮复位「开始」。
+- **文案/入口**：全部页入口「大屏演示」→「大屏」；标题「大屏」，页脚「仅管理员 · 团日活动」；`body.opt2-lock` / `.wrap inert` 关闭恢复不变。
+- **测试**：`optim_v2_check.py` 大屏断言同步更新（实时时间每秒变、无「下一节/作业」、演示列表渲染、点演示打开播放器、退出回大屏、计时器、抽签、关闭后解锁）——**main 16 + admin 27 + hash 3 = 46/46 PASS，0 JS 报错 / 0 console.error**；回归 `v2_ppt_check` **86/86**、`v2_ppt_video_check` **99/99**、`v2_ui_check` 27/27、`optim_v1_check` GREEN、`overflow_check 430` = **overflowCount=0**；本机 CDP 截图（1366×768 / 430×900 / 空库态）无横向溢出、0 报错。
+- **独立验收**（fresh context teammate，未复用本实现断言）：**67/67 PASS、0 FAIL、0 JS error**，覆盖管理员全流程/空库/500 失败/非管理员/1366×768+430×900 布局/代码事实/回归，报告 `验收报告/团日大屏_改造验收_20261110.md`（证据 `tools/tests/_stageqa/`）；遗留 P2：计时到底文案（已在本版修）、`overflow_check` headless 实际视口 492px（另用 CDP 真 430 复核）。
+- **调研**：`验收报告/团日大屏_案例与可做功能_20261110.md`（19 个网上案例 + 16 条交互模式 + 12 项可做功能 P0/P1/P2 + 11 条不建议做），供后续排期（推荐下一批：F2 团日议程 rundown、F5 抽签大屏版、F10 播放器团日 HUD）。
+- **并行合并说明**：同批包含并行会话的 PPT v1.2 网页端改动（`ppt/` 契约/转换机/测试 + `tools/index.html` PPT 块）与 `v2_ppt_video_check.py`；已在其自测 99/99 基础上由 Lead 复跑本机 99/99 后统一部署。
+- **上线（2026-11-10 21:47，Lead 统一部署）**：`index.html` **847,026 B / sha256 `411354e1997db1cc77bf272f873d38bd409f0668181b2d1ea7a39431906feebc`**；`sync_tools.py index.html` 后 `oss_object.py check` = **MATCH**；`ecs_site.py apply` 后 ECS `/` 同字节（本地=ECS **MATCH**），`/board`、`/api/status`、`/tt.json` 200。DNS 暂停期以 OSS/ECS 字节为准，恢复解析后生效。
+- **回滚**：整批改前线上对象 `tools/_backup/index_online_20261110-2121_preBigScreen.html`（802,355 B / `e40571d3…`，今日两增量之前，最干净）；仅回退 PPT v1.2 = `tools/_backup/index_online_20261110-2146_prePPTv12.html`（845,241 B / `10167956…`，含大屏不含 v1.2 定稿）。回滚＝用对应备份覆盖 `tools/index.html` 后重传 OSS + `ecs_site.py apply`。
+
+## 2026-11-10 21:3x · PPT 演示 v1.2（网页端）：原样播放（高保真视频）+ 续播 + 列表便捷 + 热点时序修复（**已上线：2026-11-10 21:47 由 Lead 统一部署**）
+
+> 用户反馈（2026-11-10 20:39）：「继续优化在各设备上的演示效果，我希望的是在网络良好时达到电脑本地文件的播放效果，目前 PPT 内动画全部消失，视频也依然无法播放，且各端操作都不够便捷」。
+> 契约唯一真源：`web/ppt/CONTRACT.md` §11（v1.2，§11.1 manifest.video / §11.3 播放器 / §11.5 网页约束）；设计参考：`web/ppt/DESIGN.md` §4.3–4.9。
+> 本条只记**网页端**（`tools/index.html` + 专项测试）；转换机 `manifest.video` 导出、小程序/安卓由其它实现者交付。`APP_VER` 仍 `2.0.0`；单文件零依赖、无新增外部请求/字体/CDN。
+
+- **原样播放模式（`manifest.video`）**：新增视频层（全屏黑底 letterbox `<video playsinline>` + 自定义控制条），**仅当 manifest.video 有效（s + dur>0）时创建该层 DOM**，旧 deck 完全不受影响；视频 URL 仍按 §5 相对 `manifest.base` 解析（http/https/data 直连）。`chapters` 缺失/不全/乱序都不报错：无章节时隐藏页码/禁用上下页，进度条仍可 seek。
+- **视频控制条（3s 自动隐藏，鼠标/触摸唤出）**：播放/暂停、`mm:ss / mm:ss`、**上一页/下一页按 chapters seek 到 `t+0.05` 且保持播放/暂停状态**、章节进度条（刻度点可点 seek、条上点击也可 seek）、倍速 1×/1.25×/1.5×/2× 循环、全屏、**下载原样视频（`<a download>`）**、退出、顶栏「原样 / 分步」模式胶囊（分步模式下也显示胶囊，便于随时切回）；页面顶部显示「第 3/16 页」（当前页 = 最大的 `chapters[i].t ≤ currentTime`）。缓冲/加载态：`loadedmetadata/canplay` 前显示轻量 spinner，`waiting/stalled` 时显示，恢复即撤，不白屏。
+- **默认模式/偏好**：`manifest.video` 存在且网络良好（`navigator.connection`：非 `saveData` 且 `effectiveType` 非 `slow-2g/2g/3g`；无 API 时看 `onLine`）→ 原样播放 + 自动播放（列表进入属用户手势；被拒时显示大播放按钮、不报错不弹错）；无 video / 弱网 → 分步浏览。用户手动切换写入本机偏好 `zq_ppt_mode_v1`，下次优先（仍可切换；弱网也尊重手动选择）。
+- **键盘/手势**：Space 播放暂停、`←/→` 上一页/下一页（章节）、F 全屏、Esc 退出（未看完为站内「退出演示？/继续/退出」）、M 切模式；左右滑 = 章节翻页；点击舞台 = 显示/隐藏控制条（**视频模式不做左右 1/3 点击翻页**，1/3 点击仅保留分步）；点按舞台与鼠标移动都会先唤出控制条，点击切换以 pointerdown 前状态为准，避免「鼠标动一下就点不出去」。
+- **失败/卡顿降级**：`error` 或 `waiting` 连续 2 次超过 4s → 重试 1 次（保留已看位置）→ 仍失败自动切分步 + toast「网络不佳，已切换分步浏览」，播放器不关闭、分步主图随后渲染，不白屏；失败回退后再手动切回原样允许重新尝试一次。
+- **续播（§11.3.4）**：按 deckId 保存 `zq_ppt_pos_<deckId> = {mode,slide,step,t,at}`（仅 localStorage，7 天有效）；打开时自动续播（视频 seek 到 t / 分步到 slide+step），并 toast「续播 mm:ss / 第 N 页」；视频模式每 1.5s 节流落盘、暂停/切换模式/关闭时立即落盘；**看完到末尾（`ended` / t≥95%）或手动「从头播放」清除记录**；分步模式续播时控制条动态插入「从头播放 ↺」（手机自动压缩控件保证单行不溢出）。列表卡片显示「继续」小徽标（7 天内且未到末尾；过期/已看完不显示）。
+- **列表便捷**：整卡点击 = 按默认模式直接播放（原有封面大「▶」保留）；本机缓存过 `manifest.video` 的 deck 在封面右下显示「原样 m:ss」短胶囊（列表查询仍按 §4.4 **不带 manifest**，不新增请求）；删除/重试/空态/状态胶囊等既有行为与文案不变（网页 v1 无重命名入口，未新增）。
+- **分步模式增强 · 热点时序 bug 修复**：根因是切页时 `syncHot()` 可能在图片解码/布局完成前读到 0×0 矩形，且旧代码在「6s 兜底 start」之后 `onload` 不再重算 → 图片晚到时热点永久为 0。修复：新增 `paintHot/syncHot/hotBurst/hotWatch`，在 **图片 `load`（onload + 捕获阶段）/ CSS `transitionend` / resize+orientationchange / 过渡刚开始（图片解码后 rAF 提前绘制）/ 60-240-700-1500ms 定时补算** 全部重算，图片晚到（含 >6s 兜底路径）热点也必现；热点直径 ≥56px（手机 64px，音频热点仍 32px）、保留「视频 m:ss」角标、新增轻微脉冲环（`prefers-reduced-motion` 关闭）；点击播放逻辑/媒体层生命周期不变。页码/步点/缩略图/备注/黑屏/全屏/下载原件/退出确认全部保持原行为。
+- **代码位置（保持单文件）**：CSS 追加在 `</style>` 前、以 `/* __PPT_VIDEO_V1__ */` 分隔；JS 全部在 `var PPT=(function(){…})()` 块内（视频/续播函数新增约 600 行，既有函数内增量）；未新增任何全局 API 名（仅 `PPT` 现有导出）；`__PPT_FEATURE_V1__` 标记仍 CSS+JS 各一。
+- **验收（本机真跑，真实输出；最终文件 847,026 B）**：新增 [`v2_ppt_video_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_video_check.py) **99 项全过 / 0 FAIL**（88.0s；CDP mock 复用 `v2_ppt_check` 基座 + 自建慢图服务器；假 token，非 mock 写请求全部拦截 → 0 真实云端写；覆盖默认模式网络判断/控制条与章节 seek/倍速/下载/模式切换与偏好/键盘/滑动/点舞台显隐/弱网默认分步/error→重试→分步回退+toast/自动播放被拒→大播放钮/续播恢复+「继续」徽标+原样时长胶囊+从头/看完重置/**热点 700ms 慢图**与**6.5s 超兜底慢图历史 bug 复现**/resize+orientation+快速连切/430px 无横向溢出/0 JS error/0 console.error）。既有 [`v2_ppt_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_check.py) **86/86**（连续 3 次全过）；合并统计 **86+99=185 项 ≥110**。回归（真实输出）：`overflow_check 430` = overflowCount 0、`v2_ui_check` 27/27、`v2_pos_restore_check` 12/12、`v2_x5_anim_check` 28/28、`v2_drag_check` 56/56。真实 deck `dmwalrdlgevz90l`（16 页、第 12 页内嵌 225.6s 视频，当前 manifest 尚无 video）：headless Edge 实跑，第 12 页主图 `s12-1.webp` 网络 2.7–6.6s 才到时热点**自动出现**（n=1、「视频 3:46」、页码 12/16，无需重试/resize），点击热点打开媒体层读到真实视频 `dur=225.58s · 1024×576 · err=0`，全程 0 JS error/0 console.error。
+- **已知限制（如实）**：① 列表「原样 m:ss」胶囊首见需该 deck 在本机被打开过一次（列表轻字段禁带 manifest，遵守 §4.4；若需首次即显示，应改契约加 `has_video`/`video_dur` 轻字段，三端同步）；② `waiting` 超 4s×2 的自动回退路径按契约实现，自动化只覆盖 `error` 路径（实时等 8s 不划算；代码路径已按同一 `vTrouble` 分支）；③ 真实用户 deck 当前 `manifest.video` 尚未生成（转换机 v1.2 补转后自动生效，网页端无需再改）；④ 自动播放被系统策略拒绝时显示大播放按钮（不静默、不报错），iOS/微信内可能需再点一次；⑤ 视频下载用 `<a download>`，移动浏览器/微信可能改为预览或拦截（能力允许的端提供）；⑥ 分步图/视频转场沿用原有限制（分步=每步最终态；视频±1s 章节误差由转换机公式决定）。
+- **回滚**：改前线上对象备份 `tools/_backup/index_online_20261110-2055_prePPTv12.html`（**802,355 B / sha256 `e40571d395f32af735243673f7e93c6d008788143b046a7b15df2ec0c4142c50`**，与 ECS 当前 `index.html` 一致）；回滚 = 用该文件覆盖 `tools/index.html` 后重传。本次**未部署**；交付时工作区 `tools/index.html` **847,026 B / sha256 `411354e1997db1cc77bf272f873d38bd409f0668181b2d1ea7a39431906feebc`**（含另一路并发改动 `opt2StageLastDeck` 等「大屏演示入口」代码，非本条目；部署前由 Lead 确认合并状态、以最终文件重算哈希）。
+- **测试稳定性补丁（仅测试文件、语义不变）**：[`v2_ppt_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_check.py) 里 2 处键盘「←/PageUp 后退」断言原为 `sleep(0.5)` 后立即比对（本 fixture 转场 `trd=450` + 40ms → 只有 10ms 余量，负载高时偶发读数早于 idx 更新），改为等 idx 到达目标值（≤2s）再断言；断言内容/覆盖不变。改后本机连续 3 次运行 `v2_ppt_check` 均 **86/86**（改前同样代码在本机 3 连 85/86 抖动，实测与功能无关）。
+- **上线（2026-11-10 21:47，Lead 统一部署）**：合并后 `tools/index.html` **847,026 B / sha256 `411354e1997db1cc77bf272f873d38bd409f0668181b2d1ea7a39431906feebc`**（含同批「大屏团日改造」）；OSS `oss_object.py check` = **MATCH**、ECS `ecs_site.py verify` = **MATCH**。本条目原「本次未部署」状态已由该次统一部署解除；整批回滚点 = `tools/_backup/index_online_20261110-2121_preBigScreen.html`（802,355 B / `e40571d3…`）。
+
 ## 2026-11-10 18:5x · 迁移 ①ECS 备案落点 + ②通知附件外置（签名 URL）+ ③同源/缓存（网页已上线；三端附件兼容改造中）
 
 > 背景：ICP 备案尚未通过（`furina.fun` 6 条 DNS 记录仍 DISABLE），本步先把内地落点与三端兼容能力做好，备案后一键切换。

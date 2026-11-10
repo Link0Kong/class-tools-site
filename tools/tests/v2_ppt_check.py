@@ -835,17 +835,19 @@ def scenario_main(sess):
           player_idx(page) == "1 / 3 · 2/2", player_idx(page))
 
     # 键盘
+    # 注：v1.2 起跨页转场按 manifest.trd（本 fixture 450ms）执行，固定的 0.5s 睡眠只有 10ms 余量，
+    # 负载高时 idx 更新会晚于断言；这里改为「等 idx 到达目标值（≤2s）」的等价断言，语义不变、消除抖动。
     press(page, "ArrowRight", "ArrowRight", 39)
-    sess.sleep(0.5)
+    sess.wait("(function(){return (document.getElementById('pptIdx')||{}).textContent==='2 / 3';})()", 2)
     R.add("播放器：键盘 → 下一步", player_idx(page) == "2 / 3", player_idx(page))
     press(page, "ArrowLeft", "ArrowLeft", 37)
-    sess.sleep(0.5)
+    sess.wait("(function(){return (document.getElementById('pptIdx')||{}).textContent==='1 / 3 · 2/2';})()", 2)
     R.add("播放器：键盘 ← 上一步（step 粒度）", player_idx(page) == "1 / 3 · 2/2", player_idx(page))
     press(page, " ", "Space", 32)
-    sess.sleep(0.5)
+    sess.wait("(function(){return (document.getElementById('pptIdx')||{}).textContent==='2 / 3';})()", 2)
     R.add("播放器：键盘 Space 下一步", player_idx(page) == "2 / 3", player_idx(page))
     press(page, "ArrowLeft", "ArrowLeft", 37)
-    sess.sleep(0.5)
+    sess.wait("(function(){return (document.getElementById('pptIdx')||{}).textContent==='1 / 3 · 2/2';})()", 2)
     R.add("播放器：键盘 PageUp/← 后退可用（→← 已经覆盖，此处回到上页末步）",
           player_idx(page) == "1 / 3 · 2/2", player_idx(page))
 

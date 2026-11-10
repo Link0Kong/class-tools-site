@@ -133,8 +133,9 @@ $xml = @"
     <Hidden>true</Hidden>
     <RunOnlyIfIdle>false</RunOnlyIfIdle>
     <WakeToRun>false</WakeToRun>
-    <!-- 单任务上限 15min + 收尾余量；多个实例策略 IgnoreNew + 脚本单实例锁 -->
-    <ExecutionTimeLimit>PT20M</ExecutionTimeLimit>
+    <!-- 单任务上限 45min：转换预算 30min（CONTRACT §11.2.2，含原样播放视频）+ 收尾/排队余量；
+         多个实例策略 IgnoreNew + 脚本单实例锁 -->
+    <ExecutionTimeLimit>PT45M</ExecutionTimeLimit>
     <Priority>7</Priority>
     <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
   </Settings>

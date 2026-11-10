@@ -84,6 +84,26 @@ class OssUploader(object):
         self.bucket().put_object(key, data, headers=headers)
         return {"key": key, "url": self.base + key, "size": len(data), "content_type": ctype}
 
+    def download_to(self, key, path):
+        """下载 OSS 对象到本地文件（``--video-only`` 补转视频时取回原件）。
+
+        失败抛异常（调用方转成中文错误）；不打印任何凭据。
+        """
+        key = key.lstrip("/").replace("\\", "/")
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        self.bucket().get_object_to_file(key, path)
+        size = os.path.getsize(path)
+        self.log("oss get %s (%d bytes)" % (key, size))
+        return {"key": key, "path": path, "size": size}
+
+    def head_size(self, key):
+        """HEAD 对象大小；不存在/失败返回 -1。"""
+        try:
+            meta = self.bucket().head_object(key.lstrip("/").replace("\\", "/"))
+            return int(getattr(meta, "content_length", 0) or 0)
+        except Exception:  # noqa: BLE001
+            return -1
+
     def head_ok(self, key):
         """HEAD 对象存在性校验（测试/验收用）。"""
         try:

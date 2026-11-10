@@ -44,3 +44,9 @@ tools/tests/frozen/
 
 # 本地临时通道自检截图（过程文件，不入库）
 deploy/_shots_local_channel/
+# 过程截图 / 转换测试产物（不入库）
+deploy/_shots_ecs/
+ppt/tests/_out/
+# 并行会话的网页端真实 E2E（含测试身份凭据，仅本机，不入库）
+deploy/_e2e_ppt_v12_web.py
+deploy/_shots_ppt_v12/
