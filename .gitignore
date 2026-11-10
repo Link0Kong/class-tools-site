@@ -41,3 +41,6 @@ ppt/work/
 tools/tests/frozen/
 *.pptx
 
+
+# 本地临时通道自检截图（过程文件，不入库）
+deploy/_shots_local_channel/
