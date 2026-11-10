@@ -34,6 +34,7 @@ OUT_DIR = os.path.join(HERE, "_out")
 MEDIA_DIR = os.path.join(OUT_DIR, "media")
 DEFAULT_OUT = os.path.join(OUT_DIR, "fixture_deck.pptx")
 DEFAULT_OUT_43 = os.path.join(OUT_DIR, "fixture_deck_43.pptx")
+DEFAULT_OUT_PPT = os.path.join(OUT_DIR, "fixture_legacy.ppt")
 
 CLIP_PATH = os.path.join(MEDIA_DIR, "clip.mp4")
 FFMPEG_FALLBACK = os.path.join(os.path.expanduser("~"), "bin", "ffmpeg.exe")
@@ -234,6 +235,47 @@ def build_4x3(out_path):
             pass
 
 
+def build_legacy_ppt(out_path):
+    """v2.0 compat 测试用：生成一份 **.ppt（97-2003）** fixture（3 页，含动画/切换/备注）。"""
+    log("生成 .ppt fixture：%s" % out_path)
+    if os.path.exists(out_path):
+        os.remove(out_path)
+    app = _get_app()
+    pres = app.Presentations.Add()
+    try:
+        pres.PageSetup.SlideWidth = 960
+        pres.PageSetup.SlideHeight = 540
+        s1 = _blank(pres)
+        _add_textbox(s1, 60, 200, 840, 100, "PPT compat 测试 · 旧格式 .ppt", size=40, bold=True)
+        s2 = _blank(pres)
+        _add_textbox(s2, 60, 40, 840, 60, "第 2 页：单击动画", size=28, bold=True)
+        _add_rect(s2, 120, 200, 240, 140, "P1", 0x3366CC)
+        _add_rect(s2, 600, 200, 240, 140, "P2", 0x2E8B57)
+        seq = s2.TimeLine.MainSequence
+        seq.AddEffect(s2.Shapes("P1"), 10, 0, 1)
+        seq.AddEffect(s2.Shapes("P2"), 10, 0, 3)  # afterPrevious
+        s2.SlideShowTransition.EntryEffect = 3849  # fade
+        s3 = _blank(pres)
+        _add_textbox(s3, 60, 40, 840, 60, "第 3 页：备注", size=28, bold=True)
+        try:
+            s3.NotesPage.Shapes.Placeholders(2).TextFrame.TextRange.Text = ".ppt fixture 备注文本。"
+        except Exception as exc:  # noqa: BLE001
+            log("WARN .ppt 备注写入失败：%r" % (exc,))
+        s3.SlideShowTransition.EntryEffect = 2817  # wipe
+        if os.path.exists(out_path):
+            os.remove(out_path)
+        pres.SaveAs(out_path, 1)  # ppSaveAsPresentation（.ppt 97-2003）
+        log("已保存 %s（%d 页, %d bytes）"
+            % (out_path, pres.Slides.Count, os.path.getsize(out_path)))
+        return {"path": out_path, "slides": int(pres.Slides.Count),
+                "bytes": os.path.getsize(out_path)}
+    finally:
+        try:
+            pres.Close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
 _APP = None
 
 
@@ -262,17 +304,20 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="生成 PPT 转换 fixture（PowerPoint COM）")
     parser.add_argument("--out", default=DEFAULT_OUT)
     parser.add_argument("--out-43", default=DEFAULT_OUT_43)
-    parser.add_argument("--only", choices=("16", "43"), default="")
+    parser.add_argument("--out-ppt", default=DEFAULT_OUT_PPT)
+    parser.add_argument("--only", choices=("16", "43", "ppt"), default="")
     args = parser.parse_args(argv)
 
     os.makedirs(OUT_DIR, exist_ok=True)
     t0 = time.time()
     result = {}
     try:
-        if args.only != "43":
+        if args.only != "43" and args.only != "ppt":
             result["fixture_16x9"] = build_16x9(os.path.abspath(args.out))
-        if args.only != "16":
+        if args.only != "16" and args.only != "ppt":
             result["fixture_4x3"] = build_4x3(os.path.abspath(args.out_43))
+        if args.only != "16" and args.only != "43":
+            result["fixture_ppt"] = build_legacy_ppt(os.path.abspath(args.out_ppt))
     finally:
         if _APP is not None:
             try:

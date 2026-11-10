@@ -40,6 +40,7 @@ PowerPoint 实例（开始前若已有实例且 Presentations.Count>0 直接跳�
     {"video": {...}|None, "assets": [deck.mp4 asset], "stats": {...},
      "warnings": [...], "skipped": "原因", "export_s": 1.2}
 """
+import hashlib
 import json
 import os
 import shutil
@@ -92,6 +93,12 @@ DEFAULT_OPTIONS = {
     "video_reencode_crf": 24,          # 重编码 CRF（720p 保持）
     "video_reencode_audio_kbps": 96,   # 重编码 AAC 码率
     "video_tag": "720p",               # manifest.video.q 展示标签
+    # v2.0 compat 兼容性处理（CONTRACT §12）：不降质标准化 + 字体嵌入 + PDF + 封面
+    "compat_embed_fonts": True,        # SaveAs(...,EmbedFonts=msoTrue) 嵌入 TrueType 字体
+    "compat_pdf": True,                # 导出 preview.pdf（SaveAs ppSaveAsPDF）
+    "compat_cover_width": 1600,        # cover.webp 渲染宽（最长边 1600）
+    "compat_filename_max": 80,         # 下载文件名最大字符数
+    "compat_pdf_pages_fallback": True, # pypdf 不可用时 PDF 页数按幻灯片数填写（记 warning）
     # DESIGN §5.1 性能预算：主图 1600 长边 ≤200KB（超了降 q62 重试一次），
     # 缩略图 400 宽 ≤25KB（超了再降一次 quality）
     "image_max_bytes": 200 * 1024,
@@ -242,13 +249,102 @@ def powerpoint_busy():
     return False, ""
 
 
-def _acquire_powerpoint(ctx):
-    """确保拿到一个**没有文档**的 PowerPoint 实例（为空实例则先 Quit 再新建）。
+def _wait_powerpoint_exit(ctx, timeout_s=120.0, stage=""):
+    """等待 POWERPNT 进程完全退出（Quit 后可能延迟数秒~数分钟）。超时返回 False。"""
+    started = time.monotonic()
+    while time.monotonic() - started < float(timeout_s):
+        if _powerpnt_process_count() == 0:
+            ctx.log("PowerPoint 进程已退出（等待 %.1fs%s）"
+                    % (time.monotonic() - started, "，" + stage if stage else ""))
+            return True
+        time.sleep(1.0)
+    return False
 
-    实测（2026-11-10）：``Quit()`` 返回后 POWERPNT.EXE 可能还要数秒~数十秒才真正退出
-    （视频/CreateVideo 结束后尤慢）。连续转换（测试、``--video-only`` 连跑）时下一轮会看到
-    「进程存在但 ROT 不可连接」。这里先**等待它退出**（最多 25s），避免误判 busy；
-    用户正在编辑的实例通常可连接 → 立刻判忙。
+
+def _automation_powerpoint_pids():
+    """返回 ``/AUTOMATION`` 启动的 POWERPNT 进程 PID 列表（只清理 COM 自动化实例）。"""
+    try:
+        proc = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             "Get-CimInstance Win32_Process -Filter \"Name='POWERPNT.EXE'\" | "
+             "Where-Object { $_.CommandLine -like '*AUTOMATION*' } | "
+             "ForEach-Object { $_.ProcessId }"],
+            capture_output=True, text=True, timeout=20,
+            creationflags=CREATE_NO_WINDOW)
+        return [int(token) for token in (proc.stdout or "").split() if token.strip().isdigit()]
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _kill_lingering_powerpoint(ctx, grace_s=3.0):
+    """``Quit()`` 后 PowerShell 自动化实例偶发滞留 ~60s（Office RPC 清理卡顿）。
+
+    先给 ``grace_s`` 秒自然退出；仍滞留则**强制结束 /AUTOMATION 实例**（无文档、
+    文件已保存，不会丢数据；用户手动打开的 PowerPoint 不带 /AUTOMATION，不会被误杀）。
+    返回强制结束的进程数（0=自然退出，-1=未找到可清理实例）。
+    """
+    deadline = time.monotonic() + max(0.0, float(grace_s))
+    while time.monotonic() < deadline:
+        if _powerpnt_process_count() == 0:
+            return 0
+        time.sleep(0.2)
+    if _powerpnt_process_count() == 0:
+        return 0
+    pids = _automation_powerpoint_pids()
+    killed = 0
+    for pid in pids:
+        try:
+            subprocess.run(["taskkill", "/F", "/PID", str(pid)],
+                           capture_output=True, timeout=20,
+                           creationflags=CREATE_NO_WINDOW)
+            killed += 1
+        except Exception:  # noqa: BLE001
+            pass
+    if killed:
+        ctx.log("PowerPoint 自动化实例 Quit 后滞留 → 强制结束 %d 个"
+                "（无文档，Office RPC 清理卡顿兜底）" % killed)
+        _wait_powerpoint_exit(ctx, 10.0, "强制结束后")
+        return killed
+    ctx.warn("PowerPoint 进程滞留且未找到 /AUTOMATION 实例，保留（下一轮等待/跳过）")
+    return -1
+
+
+def _probe_idle_app(ctx, app):
+    """探测「空闲实例」是否真的可用：Add 一个临时空白演示文稿再关掉。
+
+    实测（2026-11-10）：``Quit()`` 后进程仍在慢退出时，ROT 可能返回一个
+    ``Presentations.Count==0`` 的**半断开**实例；它能读 Count 但后续
+    ``Presentations.Open`` 会报「接口未知」。这种实例不能复用，必须等它退出后重建。
+    """
+    pres = None
+    try:
+        pres = app.Presentations.Add()
+        count = int(app.Presentations.Count)
+        try:
+            pres.Close()
+        except Exception:  # noqa: BLE001
+            pass
+        pres = None
+        return count > 0
+    except Exception as exc:  # noqa: BLE001
+        ctx.log("空闲 PowerPoint 实例探测失败（%s），等待其退出后重建"
+                % exc.__class__.__name__)
+        if pres is not None:
+            try:
+                pres.Close()
+            except Exception:  # noqa: BLE001
+                pass
+        return False
+
+
+def _acquire_powerpoint(ctx):
+    """确保拿到一个**没有文档且可用**的 PowerPoint 实例（空实例先 Quit 再重建）。
+
+    实测（2026-11-10）：
+    * ``Quit()`` 返回后 POWERPNT.EXE 可能还要数秒~数分钟才真正退出（视频/PDF 导出后尤慢），
+      期间 ROT 可能返回半断开的空闲实例（能读 Count，但 ``Presentations.Open`` 报「接口未知」）；
+    * 因此**不复用**空闲实例：先 Quit，再等旧进程彻底退出，才 DispatchEx 新建，
+      避免「孤儿实例被复用后 app 中途失效」与「Quit/DispatchEx 竞态崩溃」。
     """
     app = _existing_powerpoint()
     if app is not None:
@@ -258,38 +354,25 @@ def _acquire_powerpoint(ctx):
             raise ConvertBusyError("PowerPoint 无响应（COM RPC 繁忙），本轮跳过")
         if count > 0:
             raise ConvertBusyError("PowerPoint 正打开 %d 个文档（用户占用），本轮跳过" % count)
-        ctx.log("发现空 PowerPoint 实例 → Quit 后新建专用实例")
+        ctx.log("发现空闲 PowerPoint 实例 → Quit 后重建（不复用，避免半断开实例）")
         try:
             app.Quit()
         except Exception:  # noqa: BLE001
             pass
-        time.sleep(0.6)
-    elif _powerpnt_process_count() > 0:
-        ctx.log("检测到 POWERPNT 进程但暂时无法连接（可能正在退出），最多等待 25s ...")
-        deadline = time.monotonic() + 25.0
-        while time.monotonic() < deadline:
-            app = _existing_powerpoint()
-            if app is not None:
-                try:
-                    count = int(app.Presentations.Count)
-                except Exception:  # noqa: BLE001
-                    raise ConvertBusyError("PowerPoint 无响应（COM RPC 繁忙），本轮跳过")
-                if count > 0:
-                    raise ConvertBusyError("PowerPoint 正打开 %d 个文档（用户占用），本轮跳过"
-                                           % count)
-                try:
-                    app.Quit()
-                except Exception:  # noqa: BLE001
-                    pass
-                break
-            if _powerpnt_process_count() == 0:
-                break
-            time.sleep(1.0)
-        # 刚 Quit 的实例可能仍在退出；再给它最多 10s
-        gone_deadline = time.monotonic() + 10.0
-        while time.monotonic() < gone_deadline and _powerpnt_process_count() > 0:
-            time.sleep(0.5)
-        if _powerpnt_process_count() > 0:
+        app = None
+        try:
+            import gc
+
+            gc.collect()  # 释放代理
+        except Exception:  # noqa: BLE001
+            pass
+        _kill_lingering_powerpoint(ctx, grace_s=5.0)
+        if not _wait_powerpoint_exit(ctx, 15.0, "旧空闲实例"):
+            raise ConvertBusyError("PowerPoint 进程存在但无法连接，本轮跳过")
+    if _powerpnt_process_count() > 0:
+        ctx.log("检测到 POWERPNT 进程但暂时无法连接（可能正在退出），等待并清理 ...")
+        _kill_lingering_powerpoint(ctx, grace_s=10.0)
+        if not _wait_powerpoint_exit(ctx, 15.0, "等待残留进程"):
             raise ConvertBusyError("PowerPoint 进程存在但无法连接，本轮跳过")
 
     import win32com.client as win32
@@ -347,6 +430,7 @@ def _quiet_shutdown(holder, ctx):
     except Exception:  # noqa: BLE001
         pass
     t1 = time.monotonic()
+    quit_called = False
     if app is not None:
         try:
             try:
@@ -355,6 +439,7 @@ def _quiet_shutdown(holder, ctx):
                 count = 0
             if count == 0:
                 app.Quit()
+                quit_called = True
                 ctx.log("PowerPoint 退出 %.0fms" % ((time.monotonic() - t1) * 1000))
             else:
                 ctx.warn("退出时检测到 PowerPoint 有 %d 个文档（用户新开或上次崩溃残留），保留实例；"
@@ -367,6 +452,10 @@ def _quiet_shutdown(holder, ctx):
         gc.collect()
     except Exception:  # noqa: BLE001
         pass
+    # 官方 Quit 后 Office 自动化实例偶发滞留 ~60s（RPC 清理卡顿）→ 先给 3s 自然退出，
+    # 仍滞留则强制结束 /AUTOMATION 实例（无文档、文件已保存，不丢数据）
+    if quit_called:
+        _kill_lingering_powerpoint(ctx, grace_s=3.0)
 
 
 # ---------------------------------------------------------------------------
@@ -1329,9 +1418,415 @@ def export_video_only(src_path, work_dir, opts=None):
                 pythoncom.CoUninitialize()
             except Exception:  # noqa: BLE001
                 pass
+        # COM 完全反初始化后 PowerPoint 自动化实例才会真正退出（否则可能挂 60s 等 RPC 超时）
+        _wait_powerpoint_exit(ctx, 60.0, "COM 反初始化后")
         _cleanup_tmp(tmp_dir, bool(opts.get("keep_intermediate")))
         out["stats"]["elapsed_s"] = round(time.monotonic() - t0, 2)
         out["warnings"] = ctx.warnings
+
+
+# ---------------------------------------------------------------------------
+# v2.0 compat 兼容性处理（CONTRACT §12）：不降质格式标准化 + 字体嵌入 + PDF + 封面
+# ---------------------------------------------------------------------------
+PP_SAVEAS_PRESENTATION = 1        # ppSaveAsPresentation（.ppt 97-2003）
+PP_SAVEAS_OPENXML = 24            # ppSaveAsOpenXMLPresentation（.pptx）
+PP_SAVEAS_PDF = 32                # ppSaveAsPDF（与 ExportAsFixedFormat 同一个 PDF 引擎）
+MIME_PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+MIME_PPT = "application/vnd.ms-powerpoint"
+MIME_PDF = "application/pdf"
+MIME_WEBP = "image/webp"
+
+
+def sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _pdf_page_count(ctx, path):
+    """PDF 页数：优先 pypdf；不可用返回 0（调用方按幻灯片数兜底并记 warning）。"""
+    try:
+        from pypdf import PdfReader  # 延迟导入（本机已装；不装也能跑）
+        return len(PdfReader(path).pages)
+    except Exception as exc:  # noqa: BLE001
+        if ctx is not None:
+            ctx.warn("compat: PDF 页数读取失败（pypdf 未装或 PDF 异常）：%s"
+                     % exc.__class__.__name__)
+        return 0
+
+
+def _save_compat_package(ctx, pres, path, opts):
+    """``SaveAs(ppSaveAsOpenXMLPresentation)`` 规范化包 + 嵌入 TrueType 字体。
+
+    实测（2026-11-10）：本机 PowerPoint 16 的 Presentation **没有**可写的
+    ``EmbedTrueTypeFonts``/``SaveSubsetFonts`` 属性（COM 对象模型未暴露）；
+    官方等价入口是 ``SaveAs(FileName, FileFormat, EmbedFonts)`` 的第 3 参数
+    （MsoTriState，-1=嵌入）。实测生成 ``ppt/fonts/*.fntdata`` 且
+    presentation.xml 带 ``embedTrueTypeFonts="1" saveSubsetFonts="1"``。
+    ``.ppt`` 源同样一次 SaveAs 完成「转 pptx + 规范化 + 字体嵌入」。
+    """
+    embed = bool(opts.get("compat_embed_fonts", True))
+    if embed:
+        try:
+            pres.SaveAs(path, PP_SAVEAS_OPENXML, -1)
+            return
+        except Exception as exc:  # noqa: BLE001
+            ctx.warn("compat: 字体嵌入保存失败（回退为不嵌入字体的兼容包）：%s"
+                     % str(exc)[:160])
+    try:
+        pres.SaveAs(path, PP_SAVEAS_OPENXML, 0)
+    except Exception as exc:  # noqa: BLE001
+        raise ConvertError("保存兼容包失败（PowerPoint SaveAs）：%s：%s"
+                           % (exc.__class__.__name__, str(exc)[:160]))
+
+
+def _inspect_compat_package(ctx, path):
+    """检查兼容包：页数 / 包内媒体 sha256 / 字体部件数 / presentation.xml 嵌入属性。"""
+    try:
+        zf = zipfile.ZipFile(path)
+    except (OSError, zipfile.BadZipFile) as exc:
+        raise ConvertError("兼容包不是有效 pptx（%s）" % exc.__class__.__name__)
+    try:
+        names = zf.namelist()
+        fonts = [n for n in names if n.startswith("ppt/fonts/") and not n.endswith("/")]
+        try:
+            xml = zf.read("ppt/presentation.xml").decode("utf-8", "replace")
+        except KeyError:
+            xml = ""
+        slides = len(pptx_xml.slide_part_names(zf))
+        media = pptx_xml.media_sha256_map(zf)
+    finally:
+        zf.close()
+    embed_attr = ('embedTrueTypeFonts="1"' in xml or 'embedTrueTypeFonts="true"' in xml)
+    subset_attr = ("saveSubsetFonts" in xml)
+    return {"slides": slides, "fonts": len(fonts), "embed_attr": embed_attr,
+            "subset_attr": subset_attr, "media": media}
+
+
+def _export_compat_pdf_and_cover(ctx, app, compat_path, tmp_dir, pdf_path,
+                                 cover_jpg, cover_path, opts):
+    """重开兼容包副本 → 封面 JPG→WebP + ``SaveAs(ppSaveAsPDF)`` 导出 PDF。
+
+    实测：pywin32 动态绑定调用 ``ExportAsFixedFormat`` 会报
+    ``TypeError: The Python instance can not be converted to a COM object``；
+    改用同一 PDF 引擎的 ``SaveAs(FileName, ppSaveAsPDF=32)``，输出
+    ``%PDF-1.7`` 且页数与幻灯片一致、导出前后 compat.pptx 字节不变。
+    """
+    pdf_src = os.path.join(tmp_dir, "pdf_src.pptx")
+    shutil.copyfile(compat_path, pdf_src)
+    pres = None
+    try:
+        pres = app.Presentations.Open(pdf_src, False, False, False)
+        slides = int(pres.Slides.Count)
+        cover_ok = False
+        try:
+            page_w = float(pres.PageSetup.SlideWidth)
+            page_h = float(pres.PageSetup.SlideHeight)
+            render_w = max(1, int(opts.get("compat_cover_width") or 1600))
+            render_h = max(1, int(round(render_w * page_h / page_w)))
+            pres.Slides(1).Export(cover_jpg, "JPG", render_w, render_h)
+            cw, ch, csize, _q = _save_webp(cover_jpg, cover_path, opts, width=render_w)
+            cover_ok = True
+            ctx.log("compat: cover.webp %dx%d %d bytes" % (cw, ch, csize))
+        except Exception as exc:  # noqa: BLE001
+            ctx.warn("compat: 封面导出失败（列表可用默认样式）：%s"
+                     % exc.__class__.__name__)
+        try:
+            if os.path.exists(pdf_path):
+                os.remove(pdf_path)
+            pres.SaveAs(pdf_path, PP_SAVEAS_PDF)
+        except Exception as exc:  # noqa: BLE001
+            raise ConvertError("PDF 兼容副本导出失败：%s：%s"
+                               % (exc.__class__.__name__, str(exc)[:160]))
+    finally:
+        if pres is not None:
+            try:
+                pres.Close()
+            except Exception:  # noqa: BLE001
+                pass
+            pres = None
+    if not os.path.exists(pdf_path) or os.path.getsize(pdf_path) <= 0:
+        raise ConvertError("PDF 兼容副本导出失败（文件为空）")
+    with open(pdf_path, "rb") as fh:
+        head = fh.read(8)
+    if not head.startswith(b"%PDF"):
+        raise ConvertError("PDF 兼容副本文件头非法（%r）" % head[:8])
+    pages = _pdf_page_count(ctx, pdf_path)
+    return {"slides": slides, "pages": pages, "cover": cover_ok}
+
+
+def _compat_file_entry(path, name, content_type=None, **extra):
+    entry = {"s": os.path.basename(path), "size": os.path.getsize(path),
+             "sha256": sha256_file(path)}
+    if name:
+        entry["name"] = name
+    if content_type:
+        entry["_content_type"] = content_type  # 内部用，写 manifest 前剔除
+    entry.update(extra)
+    return entry
+
+
+def convert_compat(src_path, work_dir, opts=None):
+    """v2.0 兼容性处理（CONTRACT §12.1）：返回 compat.pptx/original.<ext>/preview.pdf/
+    cover.webp 资产 + manifest v2（files/compat）。
+
+    **不改变内容质量**：不渲染成图/视频、不重编码媒体、不降分辨率、不动动画/母版/字体样式；
+    所有操作都在**临时副本**上（绝不修改源文件），源文件另存一份 ``original.<ext>`` 供下载。
+    """
+    opts = normalize_options(opts)
+    log = opts.pop("log", None) if isinstance(opts, dict) else None
+    ctx = _Ctx(opts, log=log, progress=opts.get("progress"))
+    t0 = time.monotonic()
+    src_path = os.path.abspath(str(src_path))
+    if not os.path.exists(src_path):
+        raise ConvertError("源文件不存在：%s" % os.path.basename(src_path))
+    src_ext = os.path.splitext(src_path)[1].lower()
+    if src_ext not in (".ppt", ".pptx"):
+        raise ConvertError("不支持的文件类型：%s（仅 .ppt/.pptx）" % (src_ext or "无扩展名"))
+    work_dir = os.path.abspath(str(work_dir))
+    assets_dir = os.path.join(work_dir, "assets")
+    tmp_dir = os.path.join(work_dir, "tmp")
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+    os.makedirs(assets_dir, exist_ok=True)
+    os.makedirs(tmp_dir, exist_ok=True)
+    com = {"app": None, "pres": None}
+    pythoncom = None
+    stats = {"slides": 0, "elapsed_s": 0.0}
+    try:
+        ctx.progress(2, "准备源文件")
+        local_copy = os.path.join(tmp_dir, "source" + src_ext)
+        try:
+            shutil.copyfile(src_path, local_copy)  # 只读源 → 临时副本（绝不改源文件）
+        except OSError as exc:
+            raise ConvertError("读取源文件失败：%s" % exc.__class__.__name__)
+        try:
+            import pythoncom as _pythoncom  # noqa: F401
+            pythoncom = _pythoncom
+            pythoncom.CoInitialize()
+        except ImportError:  # pragma: no cover
+            raise ConvertError("缺少 pywin32（pythoncom）")
+        com["app"] = _acquire_powerpoint(ctx)
+        ctx.progress(10, "打开源文件")
+        try:
+            com["pres"] = com["app"].Presentations.Open(local_copy, False, False, False)
+        except Exception as exc:  # noqa: BLE001
+            raise ConvertError("PowerPoint 无法打开该文件（可能加密/损坏）：%s"
+                               % exc.__class__.__name__)
+        pres = com["pres"]
+        try:
+            slide_count = int(pres.Slides.Count)
+            slide_w = float(pres.PageSetup.SlideWidth)
+            slide_h = float(pres.PageSetup.SlideHeight)
+        except Exception as exc:  # noqa: BLE001
+            raise ConvertError("读取演示文稿信息失败：%s" % exc.__class__.__name__)
+        if slide_count <= 0:
+            raise ConvertError("演示文稿没有幻灯片")
+        if slide_count > int(opts["max_slides"]):
+            raise ConvertError("页数过多（%d 页，上限 %d 页）"
+                               % (slide_count, int(opts["max_slides"])))
+        stats["slides"] = slide_count
+        ctx.log("compat: 源 %s（%d 页，页面 %.0fx%.0f pt，%.1fMB）"
+                % (os.path.basename(src_path), slide_count, slide_w, slide_h,
+                   os.path.getsize(src_path) / 1048576.0))
+        # 30 PowerPoint 处理：标准化 + 字体嵌入（一次 SaveAs 完成，源文件不动）
+        ctx.progress(30, "PowerPoint 规范化/嵌入字体")
+        compat_path = os.path.join(assets_dir, "compat.pptx")
+        t_save = time.monotonic()
+        _save_compat_package(ctx, pres, compat_path, opts)
+        ctx.log("compat: 兼容包已生成 %.1fs（%.2fMB）"
+                % (time.monotonic() - t_save,
+                   os.path.getsize(compat_path) / 1048576.0))
+        try:
+            pres.Close()
+        except Exception:  # noqa: BLE001
+            pass
+        com["pres"] = None
+        pres = None
+        pkg = _inspect_compat_package(ctx, compat_path)
+        if pkg["slides"] != slide_count:
+            raise ConvertError("兼容包页数与原文件不一致（%d / %d）"
+                               % (pkg["slides"], slide_count))
+        # 不降质证据：源包内媒体 sha256 必须全部出现在兼容包（PowerPoint 不得重编码）
+        src_media = pptx_xml.media_sha256_map(src_path) if src_ext == ".pptx" else {}
+        if src_media:
+            src_values = set(src_media.values())
+            changed = [n for n, sha in pkg["media"].items() if sha not in src_values]
+            if changed:
+                raise ConvertError("兼容包媒体字节与原文件不一致（疑似重编码）：%s"
+                                   % ", ".join(changed[:3]))
+            ctx.log("compat: 内嵌媒体 sha256 与源包逐字节一致（%d 个，未重编码）"
+                    % len(pkg["media"]))
+        else:
+            ctx.log("compat: 源为 .ppt（OLE 包），跳过包内媒体 sha 对比（PowerPoint 转换，不重采样）")
+        ctx.log("compat: 字体部件 %d 个（embedTrueTypeFonts=%s, saveSubsetFonts=%s）"
+                % (pkg["fonts"], pkg["embed_attr"], pkg["subset_attr"]))
+        # 55 生成兼容包：原始文件副本 + 外链媒体告警 + 封面
+        ctx.progress(55, "生成兼容包/原始副本")
+        source_asset_path = os.path.join(assets_dir, "original" + src_ext)
+        # 直接从**调用方给的源文件**复制（PPT 打开副本后可能改写副本元数据，
+        # 必须保证 original.<ext> 与上传原件逐字节一致）
+        shutil.copyfile(src_path, source_asset_path)
+        try:
+            media_shapes = pptx_xml.read_media_shapes(compat_path)
+        except Exception as exc:  # noqa: BLE001
+            ctx.warn("compat: 兼容包媒体结构解析失败（外链告警为空）：%s"
+                     % exc.__class__.__name__)
+            media_shapes = []
+        ext_warnings, external_media = pptx_xml.compat_external_media(media_shapes)
+        warnings_text = list(ext_warnings)
+        for text in ext_warnings:
+            ctx.warn("compat: " + text)
+        if bool(opts.get("compat_embed_fonts", True)) and pkg["fonts"] == 0:
+            text = "字体未嵌入（可能无 TrueType 字体或许可受限），版式可能在其他设备变化"
+            warnings_text.append(text)
+            ctx.warn("compat: " + text)
+        # 75 导出 PDF + 封面
+        ctx.progress(75, "导出 PDF/封面")
+        pdf_path = os.path.join(assets_dir, "preview.pdf")
+        cover_jpg = os.path.join(tmp_dir, "cover.jpg")
+        cover_path = os.path.join(assets_dir, "cover.webp")
+        exported = _export_compat_pdf_and_cover(ctx, com["app"], compat_path, tmp_dir,
+                                                pdf_path, cover_jpg, cover_path, opts)
+        if exported["slides"] != slide_count:
+            raise ConvertError("兼容包重开页数异常（%d / %d）"
+                               % (exported["slides"], slide_count))
+        pages = int(exported["pages"] or 0)
+        if pages <= 0:
+            pages = slide_count
+            ctx.warn("compat: PDF 页数读取不可用，按幻灯片数 %d 填写" % pages)
+        elif pages != slide_count:
+            ctx.warn("compat: PDF 页数（%d）与幻灯片数（%d）不一致（可能导出设置跳过隐藏页），"
+                     "以 PDF 实测为准" % (pages, slide_count))
+        ctx.log("compat: preview.pdf %.2fMB / %d 页；cover=%s"
+                % (os.path.getsize(pdf_path) / 1048576.0, pages,
+                   "cover.webp" if exported["cover"] else "无"))
+        # 资产 + manifest v2
+        title = str(opts.get("title") or "").strip()
+        source_name = str(opts.get("source_name") or os.path.basename(src_path))
+        max_len = int(opts.get("compat_filename_max") or 80)
+        safe_title = pptx_xml.sanitize_filename(
+            title or os.path.splitext(os.path.basename(source_name))[0],
+            fallback="演示", max_len=max_len)
+        safe_source = pptx_xml.sanitize_filename(os.path.basename(source_name),
+                                                 fallback="original" + src_ext,
+                                                 max_len=max_len)
+        if not safe_source.lower().endswith(src_ext):
+            safe_source += src_ext
+        compat_entry = _compat_file_entry(compat_path, safe_title + ".pptx",
+                                          content_type=MIME_PPTX, ext="pptx")
+        pdf_entry = _compat_file_entry(pdf_path, safe_title + ".pdf",
+                                       content_type=MIME_PDF, pages=pages)
+        source_entry = _compat_file_entry(source_asset_path, safe_source,
+                                          content_type=(MIME_PPT if src_ext == ".ppt"
+                                                        else MIME_PPTX),
+                                          ext=src_ext.lstrip("."))
+        for entry in (compat_entry, pdf_entry, source_entry):
+            entry.pop("_content_type", None)
+        files = {"compat": compat_entry, "pdf": pdf_entry, "source": source_entry}
+        compat_meta = {
+            "warnings": warnings_text,
+            "fonts_embedded": int(pkg["fonts"]),
+            "converted_from": ("ppt" if src_ext == ".ppt" else None),
+            "external_media": external_media,
+        }
+        manifest = {
+            "v": pptx_xml.COMPAT_MANIFEST_VERSION,
+            "w": int(round(slide_w)),
+            "h": int(round(slide_h)),
+            "slides": [],  # compat 模式不再生成分步图（CONTRACT §12.2）
+            "files": files,
+            "compat": compat_meta,
+        }
+        assets = [
+            {"name": "compat.pptx", "path": compat_path, "size": compat_entry["size"],
+             "content_type": MIME_PPTX, "kind": "compat"},
+            {"name": os.path.basename(source_asset_path), "path": source_asset_path,
+             "size": source_entry["size"],
+             "content_type": (MIME_PPT if src_ext == ".ppt" else MIME_PPTX),
+             "kind": "source"},
+            {"name": "preview.pdf", "path": pdf_path, "size": pdf_entry["size"],
+             "content_type": MIME_PDF, "kind": "pdf"},
+        ]
+        cover_name = ""
+        if exported["cover"] and os.path.exists(cover_path) and os.path.getsize(cover_path) > 0:
+            cover_name = "cover.webp"
+            assets.append({"name": cover_name, "path": cover_path,
+                           "size": os.path.getsize(cover_path),
+                           "content_type": MIME_WEBP, "kind": "cover"})
+        build_id = pptx_xml.compute_build_id(assets, manifest)
+        prefix = "%s%s/%s/" % (ASSET_PREFIX, opts["deck_id"], build_id)
+        manifest["base"] = str(opts["oss_base"]) + prefix
+        errors = pptx_xml.validate_manifest(manifest)
+        if errors:
+            raise ConvertError("manifest 校验失败：%s" % "; ".join(errors[:4]))
+        stats.update({
+            "slides": slide_count,
+            "elapsed_s": round(time.monotonic() - t0, 2),
+            "compat_size": int(compat_entry["size"]),
+            "compat_sha256": compat_entry["sha256"],
+            "pdf_size": int(pdf_entry["size"]),
+            "pdf_pages": pages,
+            "source_size": int(source_entry["size"]),
+            "source_sha256": source_entry["sha256"],
+            "fonts_embedded": int(pkg["fonts"]),
+            "external_media": len(external_media),
+            "warnings": len(ctx.warnings),
+            "converted_from": compat_meta["converted_from"],
+            "build_prefix": prefix,
+        })
+        ctx.progress(80, "兼容性处理完成")
+        ctx.log("compat 完成：%d 页 / compat %.2fMB sha=%s / pdf %d 页 %.2fMB / "
+                "字体 %d / 外链媒体 %d 处 / 耗时 %.1fs / build=%s"
+                % (slide_count, stats["compat_size"] / 1048576.0,
+                   compat_entry["sha256"][:12], pages, stats["pdf_size"] / 1048576.0,
+                   stats["fonts_embedded"], len(external_media), stats["elapsed_s"],
+                   build_id))
+        return {
+            "manifest": manifest,
+            "assets": assets,
+            "build_id": build_id,
+            "stats": stats,
+            "warnings": ctx.warnings,
+            "aspect": pptx_xml.aspect_label(slide_w, slide_h),
+            "slide_count": slide_count,
+            "step_count": 0,
+            "cover": cover_name,
+            "src_ext": src_ext,
+            "source_key": "%s%s%s/source%s" % (SRC_PREFIX, opts["deck_id"], "", src_ext),
+            "files": files,
+            "compat": compat_meta,
+            "render_w": int(round(slide_w)),
+            "render_h": int(round(slide_h)),
+        }
+    finally:
+        try:
+            del pres
+        except NameError:
+            pass
+        _t_fin = time.monotonic()
+        _quiet_shutdown(com, ctx)
+        ctx.log("DBG finally shutdown %.1fs" % (time.monotonic() - _t_fin))
+        try:
+            import gc
+
+            gc.collect()
+        except Exception:  # noqa: BLE001
+            pass
+        ctx.log("DBG finally gc %.1fs" % (time.monotonic() - _t_fin))
+        if pythoncom is not None:
+            _t_un = time.monotonic()
+            try:
+                pythoncom.CoUninitialize()
+            except Exception:  # noqa: BLE001
+                pass
+            ctx.log("DBG finally couninit %.1fs" % (time.monotonic() - _t_un))
+        ctx.log("DBG finally pre-wait %.1fs" % (time.monotonic() - _t_fin))
+        # COM 完全反初始化后 PowerPoint 自动化实例才会真正退出（否则可能挂 60s 等 RPC 超时）
+        _wait_powerpoint_exit(ctx, 60.0, "COM 反初始化后")
+        _cleanup_tmp(tmp_dir, bool(opts.get("keep_intermediate")))
+        stats["elapsed_s"] = round(time.monotonic() - t0, 2)
 
 
 # ---------------------------------------------------------------------------
@@ -1824,6 +2319,8 @@ def convert_deck(src_path, work_dir, opts=None):
             except Exception:  # noqa: BLE001
                 pass
             ctx.log("COM 反初始化 %.0fms" % ((time.monotonic() - t_un) * 1000))
+        # COM 完全反初始化后 PowerPoint 自动化实例才会真正退出（否则可能挂 60s 等 RPC 超时）
+        _wait_powerpoint_exit(ctx, 60.0, "COM 反初始化后")
         _cleanup_tmp(tmp_dir, bool(opts.get("keep_intermediate")))
 
 
@@ -1843,6 +2340,9 @@ def _main(argv=None):
     parser.add_argument("--no-video", action="store_true", help="跳过原样播放视频导出")
     parser.add_argument("--video-only", action="store_true",
                         help="只导出原样播放视频（不渲染图片/不抽媒体，调试 --video-only 用）")
+    parser.add_argument("--compat", action="store_true",
+                        help="v2.0 兼容性处理（compat.pptx/original/preview.pdf/cover.webp，"
+                             "不降质；调试 convert_compat 用）")
     parser.add_argument("--keep-intermediate", action="store_true")
     parser.add_argument("--json-out", default="", help="把结果摘要写到该文件")
     parser.add_argument("--opts-json", default="", help="从 JSON 文件加载全部转换选项")
@@ -1879,6 +2379,15 @@ def _main(argv=None):
                               "warnings": result.get("warnings")},
                              ensure_ascii=False, indent=2))
             return 0 if result.get("video") else 3
+        if args.compat:
+            result = convert_compat(src, work, opts)
+            summary = {k: v for k, v in result.items() if k != "assets"}
+            summary["assets"] = [{"name": a["name"], "path": a["path"],
+                                  "size": a["size"], "content_type": a.get("content_type"),
+                                  "kind": a.get("kind")} for a in result["assets"]]
+            summary["total_s"] = round(time.time() - t0, 2)
+            print(json.dumps(summary, ensure_ascii=False, indent=2))
+            return 0
         result = convert_deck(src, work, opts)
     except ConvertBusyError as exc:
         print("[convert] BUSY: %s" % exc)

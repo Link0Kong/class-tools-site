@@ -75,6 +75,7 @@ UA = "class-ppt-agent/1.0"
 HTTP_TIMEOUT = 60.0
 MAX_SOURCE_BYTES = 64 * 1024 * 1024          # 契约 §6：≤64MiB
 VIDEO_ONLY_TIMEOUT_S = 1800.0                 # --video-only 单任务预算（契约 §11.2.2 30min）
+COMPAT_TIMEOUT_S = 1800.0                     # v2.0 compat 单任务预算（契约 §12.3 ≥20min）
 CHUNK_PAGE_LIMIT = 8                          # 分片 GET 每页 8 片（约 5.5MB/响应，稳）
 HEARTBEAT_INTERVAL = 30.0
 LOG_KEEP_DAYS = 14
@@ -542,8 +543,11 @@ def upload_source(cloud, uploader, deck_id, src_path, ext, log, dry_run=False):
 
 
 def upload_assets(uploader, deck_id, build_id, assets, log, progress=None,
-                  dry_run=False):
-    """上传转换资产（先图片后媒体，key 带 buildId 目录）；返回 key 列表。"""
+                  dry_run=False, retries=0):
+    """上传转换资产（key 带 buildId 目录）；返回 key 列表。
+
+    ``retries``：单个对象失败后的重试次数（v2.0 compat 上传要求重试 2 次）。
+    """
     prefix = "ppt/a/%s/%s/" % (deck_id, build_id)
     uploaded = []
     total = max(1, len(assets))
@@ -552,11 +556,44 @@ def upload_assets(uploader, deck_id, build_id, assets, log, progress=None,
         if dry_run:
             log("[dry-run] 跳过资产上传：%s (%d bytes)" % (key, asset.get("size") or 0))
         else:
-            uploader.put_file(key, asset["path"],
-                              content_type=asset.get("content_type"))
+            _put_with_retry(uploader, key, asset, log, retries=retries)
         uploaded.append(key)
         if progress:
             progress(90 + int(8.0 * (i + 1) / total), "上传资产 %d/%d" % (i + 1, total))
+    return uploaded
+
+
+def _put_with_retry(uploader, key, asset, log, retries=2):
+    """OSS 单对象上传 + 重试（``retries`` 次，指数退避 1s/2s）；最终失败抛中文错误。"""
+    attempts = max(0, int(retries)) + 1
+    last_exc = None
+    for attempt in range(attempts):
+        try:
+            return uploader.put_file(key, asset["path"],
+                                     content_type=asset.get("content_type"))
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            if attempt < attempts - 1:
+                wait = 1.0 * (2 ** attempt)
+                log("WARN OSS 上传失败（%s），%.1fs 后重试 %d/%d：%s"
+                    % (os.path.basename(key), wait, attempt + 1, attempts - 1,
+                       sanitize(exc, 120)))
+                time.sleep(wait)
+    raise convert.ConvertError("上传 %s 失败（已重试 %d 次）：%s"
+                               % (os.path.basename(key), attempts - 1,
+                                  sanitize(last_exc, 160)))
+
+
+def upload_compat_assets(uploader, prefix, assets, log, retries=2):
+    """把 v2.0 compat 资产上传到**指定前缀**（新 deck 的 build 目录 / 旧 deck 原 build 目录）。"""
+    if not prefix.endswith("/"):
+        prefix += "/"
+    uploaded = []
+    for i, asset in enumerate(assets):
+        key = prefix + asset["name"]
+        _put_with_retry(uploader, key, asset, log, retries=retries)
+        uploaded.append(key)
+        log("oss put %s/%d（%d bytes）" % (key, len(assets), asset.get("size") or 0))
     return uploaded
 
 
@@ -579,13 +616,16 @@ def format_error(exc, elapsed=None):
 # 单个 deck 处理
 # ---------------------------------------------------------------------------
 class DeckJob(object):
-    def __init__(self, cloud, uploader, log, host, dry_run=False, queued_hint=0):
+    def __init__(self, cloud, uploader, log, host, dry_run=False, queued_hint=0,
+                 mode="compat", source_name=""):
         self.cloud = cloud
         self.uploader = uploader
         self.log = log
         self.host = host
         self.dry_run = bool(dry_run)
         self.queued_hint = int(queued_hint or 0)
+        self.mode = "legacy" if str(mode) == "legacy" else "compat"
+        self.source_name = str(source_name or "")
         self._last_progress = {"pct": -100, "ts": 0.0}
 
     # -- 云端小的辅助 ------------------------------------------------------
@@ -612,6 +652,76 @@ class DeckJob(object):
             self.log("[dry-run] 跳过 PATCH：%s" % sanitize(json.dumps(body, ensure_ascii=False), 300))
             return 200, [{"id": deck_id}]
         return self.cloud.patch("ppt_decks?id=eq.%s" % _q(deck_id), body, prefer=prefer)
+
+    # -- v2.0 compat 默认流程（CONTRACT §12.3）------------------------------
+    def _run_compat(self, deck_id, src_path, ext, source_key, work_dir, job, t0):
+        """新 deck 默认流程：不降质兼容性处理 + 上传 compat/original/pdf/cover + ready。"""
+        copy_path = os.path.join(work_dir, "input" + ext)
+        try:
+            import shutil
+            shutil.copyfile(src_path, copy_path)
+        except OSError:
+            copy_path = src_path
+        self.patch_progress(deck_id, 10, "下载源文件")
+        opts = {
+            "deck_id": deck_id,
+            "title": job.get("title") or "",
+            "source_name": self.source_name or os.path.basename(src_path),
+            "converter": self.host,
+            "timeout_s": COMPAT_TIMEOUT_S,
+            "log": lambda msg: self.log("[compat] " + str(msg)),
+            "progress": lambda pct, phase="": self.patch_progress(
+                deck_id, max(10, min(95, int(pct))), phase),
+        }
+        t_conv = time.monotonic()
+        result = convert.convert_compat(copy_path, work_dir, opts)
+        stats = result["stats"]
+        self.log("compat 完成：%d 页 / compat %.2fMB sha=%s / pdf %d 页 %.2fMB / "
+                 "字体 %d / 外链媒体 %d / 耗时 %.1fs / build=%s"
+                 % (stats["slides"], stats["compat_size"] / 1048576.0,
+                    (stats.get("compat_sha256") or "")[:12], stats["pdf_pages"],
+                    stats["pdf_size"] / 1048576.0, stats["fonts_embedded"],
+                    stats["external_media"], time.monotonic() - t_conv,
+                    result["build_id"]))
+        for warning in result.get("warnings") or []:
+            self.log("compat warn: %s" % warning)
+        if self.dry_run:
+            self.log("[dry-run] 资产 %d 个（未上传）；manifest: %s"
+                     % (len(result["assets"]),
+                        sanitize(json.dumps(result["manifest"], ensure_ascii=False), 600)))
+            job["action"] = "dry-run"
+            job["elapsed_s"] = round(time.monotonic() - t0, 2)
+            return job
+        self.patch_progress(deck_id, 85, "上传兼容文件")
+        upload_assets(self.uploader, deck_id, result["build_id"], result["assets"],
+                      self.log,
+                      progress=lambda p, ph="": self.patch_progress(deck_id, p, ph),
+                      dry_run=False, retries=2)
+        self.patch_progress(deck_id, 95, "写入 ready")
+        manifest = result["manifest"]
+        cover = result.get("cover") or ""
+        body = {
+            "status": "ready",
+            "progress": 100,
+            "error": "",
+            "manifest": manifest,
+            "slide_count": int(result["slide_count"]),
+            "step_count": int(result.get("step_count") or 0),
+            "aspect": result["aspect"],
+            "cover_url": (manifest["base"] + cover) if cover else "",
+            "source_key": source_key or result.get("source_key") or "",
+            "converter": self.host,
+            "converted_at": int(time.time() * 1000),
+        }
+        status, data = self.patch_deck(deck_id, body)
+        if status not in (200, 204, 201):
+            raise CloudError("PATCH ready 失败（HTTP %s）" % status)
+        self.log("PATCH ready 成功（compat）：%s（%d 页 / %d 文件 / compat %.2fMB / PDF %d 页）"
+                 % (deck_id, result["slide_count"], len(result["assets"]),
+                    stats["compat_size"] / 1048576.0, stats["pdf_pages"]))
+        job["action"] = "converted"
+        job["elapsed_s"] = round(time.monotonic() - t0, 2)
+        return job
 
     # -- 主流程 ------------------------------------------------------------
     def run(self, deck):
@@ -667,7 +777,10 @@ class DeckJob(object):
                 hb.queued = max(0, int(self.queued_hint or 0))
                 hb.start()
 
-            # 4) 转换
+            # 4) 转换：v2.0 默认走 compat（--legacy 保留旧分步图片/视频流程）
+            if self.mode == "compat":
+                return self._run_compat(deck_id, src_path, ext, source_key,
+                                        work_dir, job, t0)
             self.patch_progress(deck_id, 8, "转换中")
             copy_path = os.path.join(work_dir, "input" + ext)
             try:
@@ -824,8 +937,12 @@ def force_status_processing(cloud, deck_id, host, log):
     return True
 
 
-def run_once(cloud, uploader, log, host, deck_id=None, dry_run=False):
-    """跑一轮；返回 summary dict。"""
+def run_once(cloud, uploader, log, host, deck_id=None, dry_run=False, legacy=False):
+    """跑一轮；返回 summary dict。
+
+    v2.0：默认走 **compat 兼容性处理**（不降质 + 多端下载）；``legacy=True`` 仅运维调试，
+    保留旧「分步图片 + 原样播放视频」流程。
+    """
     t0 = time.monotonic()
     summary = {"action": "none", "deck": "", "queued": 0, "busy": False,
                "elapsed_s": 0.0, "dry_run": bool(dry_run)}
@@ -891,7 +1008,9 @@ def run_once(cloud, uploader, log, host, deck_id=None, dry_run=False):
             force_status_processing(cloud, deck_id, host, log)
 
     job = DeckJob(cloud, uploader, log, host, dry_run=dry_run,
-                  queued_hint=max(0, queued - 1))
+                  queued_hint=max(0, queued - 1),
+                  mode=("legacy" if legacy else "compat"),
+                  source_name=str(deck.get("source_name") or ""))
     result = job.run(deck)
     summary.update(result)
     summary["elapsed_s"] = round(time.monotonic() - t0, 2)
@@ -1037,15 +1156,146 @@ def run_video_only(cloud, uploader, log, host, deck_id, dry_run=False):
 
 
 # ---------------------------------------------------------------------------
+# --compat-only：为存量 ready deck 补 v2.0 兼容文件并合并 manifest（CONTRACT §12.3）
+# ---------------------------------------------------------------------------
+def run_compat_only(cloud, uploader, log, host, deck_id, dry_run=False):
+    """用 source_key 从 OSS 下载原件 → compat 兼容性处理 → 传进**原 build 目录** →
+    合并 manifest（只新增 ``files``/``compat``，保留旧 ``slides``/``video``/``src`` 等）。"""
+    t0 = time.monotonic()
+    summary = {"action": "none", "deck": str(deck_id or ""), "elapsed_s": 0.0,
+               "dry_run": bool(dry_run), "compat_bytes": 0, "compat_sha256": "",
+               "pdf_bytes": 0, "pdf_pages": 0, "fonts_embedded": 0,
+               "warnings": 0, "skipped": "", "error": ""}
+    deck = find_deck_by_id(cloud, deck_id, log)
+    if deck is None:
+        raise CloudError("deck 不存在：%s" % deck_id)
+    if deck.get("deleted"):
+        raise CloudError("deck 已删除：%s" % deck_id)
+    status = str(deck.get("status") or "")
+    if status != "ready":
+        raise CloudError("只有 ready 的 deck 才能补兼容文件（当前 status=%s）"
+                         % (status or "空；如需转换请先 PATCH queued"))
+    manifest = deck.get("manifest")
+    if not isinstance(manifest, dict) or not manifest.get("base"):
+        raise CloudError("该 deck 的 manifest 为空/不完整，无法补兼容文件（请重新上传转换）")
+    if manifest.get("files"):
+        log("deck %s 已有 manifest.files，本次将重新生成并覆盖" % deck_id)
+    ext = source_ext_from_name(deck.get("source_name"), log)
+    source_key = str(deck.get("source_key") or "")
+    if not source_key:
+        source_key = "ppt/src/%s/source%s" % (deck_id, ext)
+        log("WARN 云端没有 source_key，按约定路径尝试：%s" % source_key)
+    log("=== deck %s 补兼容文件开始（title=%r, status=%s, 已有 slides=%s, video=%s）"
+        % (deck_id, (deck.get("title") or "")[:40], status,
+           len(manifest.get("slides") or []), bool(manifest.get("video"))))
+    work_dir = new_work_dir(deck_id + "-compat", log)
+    hb = None
+    try:
+        src_path = os.path.join(work_dir, "source" + ext)
+        log("下载源文件：%s → %s" % (source_key, os.path.basename(src_path)))
+        try:
+            got = uploader.download_to(source_key, src_path)
+        except Exception as exc:  # noqa: BLE001
+            log("WARN 下载源文件失败：%s" % sanitize(exc, 200))
+            raise convert.ConvertError(
+                "源文件缺失：OSS 上找不到 %s（无法补转兼容文件，请重新上传源文件后转换）"
+                % source_key)
+        size = int(got.get("size") or os.path.getsize(src_path))
+        if size > MAX_SOURCE_BYTES:
+            raise convert.ConvertError("源文件过大（%dMB，上限 64MB）"
+                                       % (size // (1024 * 1024)))
+        if not dry_run:
+            hb = HeartbeatThread(cloud, log, host)
+            hb.start()
+        t_conv = time.monotonic()
+        opts = {
+            "deck_id": deck_id,
+            "title": deck.get("title") or "",
+            "source_name": deck.get("source_name") or "",
+            "timeout_s": COMPAT_TIMEOUT_S,
+            "log": lambda msg: log("[compat] " + str(msg)),
+            "progress": lambda pct, phase="": log(
+                "[compat] %d%% %s" % (max(0, min(100, int(pct))), phase)),
+        }
+        result = convert.convert_compat(src_path, work_dir, opts)
+        files = result["files"]
+        compat_meta = result["compat"]
+        stats = result["stats"]
+        for warning in result.get("warnings") or []:
+            log("compat warn: %s" % warning)
+        merged = dict(manifest)
+        merged["files"] = files
+        merged["compat"] = compat_meta  # 只新增/覆盖 files+compat，其余字段原样保留
+        errors = pptx_xml.validate_manifest(merged)
+        if errors:
+            raise convert.ConvertError("合并兼容文件后的 manifest 校验失败：%s"
+                                       % "; ".join(errors[:4]))
+        prefix = _manifest_prefix(manifest, log)
+        summary.update({
+            "compat_bytes": int(stats.get("compat_size") or 0),
+            "compat_sha256": str(stats.get("compat_sha256") or ""),
+            "pdf_bytes": int(stats.get("pdf_size") or 0),
+            "pdf_pages": int(stats.get("pdf_pages") or 0),
+            "fonts_embedded": int(stats.get("fonts_embedded") or 0),
+            "warnings": len(compat_meta.get("warnings") or []),
+        })
+        if dry_run:
+            log("[dry-run] 跳过上传/写云端：目标前缀 %s；compat %.2fMB sha=%s / PDF %d 页 "
+                "%.2fMB / 字体 %d / 外链告警 %d 条；manifest 合并校验通过"
+                "（保留 slides=%d, keys=%s）"
+                % (prefix, summary["compat_bytes"] / 1048576.0,
+                   summary["compat_sha256"][:16], summary["pdf_pages"],
+                   summary["pdf_bytes"] / 1048576.0, summary["fonts_embedded"],
+                   summary["warnings"], len(manifest.get("slides") or []),
+                   ",".join(sorted(merged.keys()))))
+            summary["action"] = "dry-run"
+            summary["export_s"] = round(time.monotonic() - t_conv, 2)
+            return summary
+        log("上传兼容文件 %d 个 → %s（单对象重试 2 次）"
+            % (len(result["assets"]), prefix))
+        upload_compat_assets(uploader, prefix, result["assets"], log, retries=2)
+        code, data = cloud.patch(
+            "ppt_decks?id=eq.%s" % _q(deck_id),
+            {"manifest": merged, "updated_at": int(time.time() * 1000)},
+            prefer="return=minimal")
+        if code not in (200, 204):
+            raise CloudError("PATCH manifest 失败（HTTP %s）" % code)
+        log("补兼容文件完成：deck %s compat %.2fMB sha=%s / PDF %d 页 / 字体 %d / "
+            "外链告警 %d 条 / 耗时 %.1fs；manifest 仅新增 files+compat"
+            "（slides=%d, video=%s 原样保留）"
+            % (deck_id, summary["compat_bytes"] / 1048576.0,
+               summary["compat_sha256"][:16], summary["pdf_pages"],
+               summary["fonts_embedded"], summary["warnings"],
+               time.monotonic() - t_conv, len(manifest.get("slides") or []),
+               bool(manifest.get("video"))))
+        summary["action"] = "compat-added"
+        return summary
+    finally:
+        if hb is not None:
+            hb.stop()
+            try:
+                send_heartbeat(cloud, log, host, 0)
+            except Exception:  # noqa: BLE001
+                pass
+        cleanup_work_dir(work_dir, log)
+        summary["elapsed_s"] = summary.get("elapsed_s") or round(time.monotonic() - t0, 2)
+
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 def _parse_args(argv=None):
-    parser = argparse.ArgumentParser(description="PPT 转换机（本机）")
+    parser = argparse.ArgumentParser(description="PPT 转换机（本机，v2.0 compat）")
     parser.add_argument("--once", action="store_true", help="跑一轮（计划任务用）")
     parser.add_argument("--scheduled", action="store_true", help="≡ --once")
     parser.add_argument("--deck", default="", help="调试指定 deck id")
     parser.add_argument("--video-only", action="store_true",
-                        help="为已 ready 的 deck 只补原样播放视频（需 --deck）")
+                        help="为已 ready 的 deck 只补原样播放视频（需 --deck；旧 v1.2 功能）")
+    parser.add_argument("--compat-only", action="store_true",
+                        help="为已 ready 的 deck 只补 v2.0 兼容文件/PDF/原件并合并 manifest"
+                             "（需 --deck）")
+    parser.add_argument("--legacy", action="store_true",
+                        help="运维调试：走旧「分步图片+原样播放视频」流程（默认 compat）")
     parser.add_argument("--dry-run", action="store_true",
                         help="只打印：不认领/不写云端/不上传 OSS")
     parser.add_argument("--verbose", action="store_true", help="同时打印到控制台")
@@ -1056,6 +1306,12 @@ def main(argv=None):
     args = _parse_args(argv)
     if args.video_only and not args.deck:
         print("用法：python agent.py --deck <deckId> --video-only [--dry-run]")
+        return EXIT_CONFIG
+    if args.compat_only and not args.deck:
+        print("用法：python agent.py --deck <deckId> --compat-only [--dry-run]")
+        return EXIT_CONFIG
+    if args.compat_only and args.video_only:
+        print("--compat-only 与 --video-only 不能同时使用")
         return EXIT_CONFIG
     if not (args.once or args.scheduled or args.deck or args.dry_run):
         print("用法：python agent.py --once | --deck <id> | --dry-run（可组合）")
@@ -1080,22 +1336,28 @@ def main(argv=None):
             if args.video_only:
                 summary = run_video_only(cloud, uploader, log, host, args.deck,
                                          dry_run=args.dry_run)
+            elif args.compat_only:
+                summary = run_compat_only(cloud, uploader, log, host, args.deck,
+                                          dry_run=args.dry_run)
             else:
                 summary = run_once(cloud, uploader, log, host,
-                                   deck_id=(args.deck or None), dry_run=args.dry_run)
+                                   deck_id=(args.deck or None), dry_run=args.dry_run,
+                                   legacy=bool(args.legacy))
         except CloudError as exc:
             log.error("云端/配置错误：%s" % sanitize(exc, 300))
             return EXIT_CONFIG
         except convert.ConvertError as exc:
-            # --video-only 等补转/转换失败的明确中文错误（不写 ready deck 状态）
-            log.error("补视频失败：%s" % sanitize(exc, 300))
+            # --video-only / --compat-only 等补转/转换失败的明确中文错误（不写 ready deck 状态）
+            log.error("补转失败：%s" % sanitize(exc, 300))
             return EXIT_CONFIG
         except Exception as exc:  # noqa: BLE001
             log.error("未捕获异常：%s" % sanitize(exc, 300))
             log.error(traceback.format_exc()[-2500:])
             return EXIT_OK
-        log.log("round done：action=%s deck=%s elapsed=%.1fs%s"
+        log.log("round done：action=%s deck=%s compat=%s pdf=%s elapsed=%.1fs%s"
                 % (summary.get("action"), summary.get("deck"),
+                   summary.get("compat_bytes") or 0,
+                   summary.get("pdf_pages") or 0,
                    summary.get("elapsed_s") or 0.0,
                    " error=" + summary.get("error") if summary.get("error") else ""))
         return EXIT_OK

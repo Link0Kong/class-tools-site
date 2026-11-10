@@ -412,7 +412,7 @@ class TestE2EFixtures(unittest.TestCase):
         self.assertIn(status, (200, 201), "提交转换失败：%s %s" % (status, out))
 
         summary = agent.run_once(self.admin, self.uploader, log, self.host,
-                                 deck_id=deck_id, dry_run=False)
+                                 deck_id=deck_id, dry_run=False, legacy=True)
         self.assertEqual(summary["action"], "converted", "E2E 转换失败：%s" % summary)
         status, rows = self.admin.get(
             "ppt_decks?select=id,title,status,progress,error,slide_count,step_count,"

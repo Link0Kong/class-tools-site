@@ -8,6 +8,7 @@ PPTX 包解析（真实 zip 结构）、分片拼装、token 刷新、心跳字�
 
     python tests/test_pure_logic.py -v
 """
+import hashlib
 import json
 import os
 import sys
@@ -975,6 +976,330 @@ class TestVideoOnlyMerge(unittest.TestCase):
         manifest = {"base": "https://example.com/abc/"}
         with self.assertRaises(agent.CloudError):
             agent._manifest_prefix(manifest, lambda m: None)
+
+
+# ---------------------------------------------------------------------------
+# 9. v2.0 compat 纯逻辑：文件名清洗 / 外链告警 / 媒体 sha / manifest v2 / 上传重试
+# ---------------------------------------------------------------------------
+class TestSanitizeFilename(unittest.TestCase):
+    def test_removes_illegal_chars(self):
+        out = pptx_xml.sanitize_filename('报告/2026:草稿*?"<>|')
+        self.assertNotIn("/", out)
+        self.assertNotIn(":", out)
+        self.assertNotIn("*", out)
+        for ch in '*?"<>|':
+            self.assertNotIn(ch, out)
+        self.assertIn("报告", out)
+
+    def test_empty_and_fallback(self):
+        self.assertEqual(pptx_xml.sanitize_filename(""), "演示")
+        self.assertEqual(pptx_xml.sanitize_filename(None, fallback="兼容版"), "兼容版")
+        self.assertEqual(pptx_xml.sanitize_filename(" . ", fallback="标题"), "标题")
+
+    def test_length_cap(self):
+        out = pptx_xml.sanitize_filename("长" * 200, max_len=20)
+        self.assertLessEqual(len(out), 20)
+
+    def test_chinese_and_spaces_preserved(self):
+        out = pptx_xml.sanitize_filename("  班会   演示  ")
+        self.assertEqual(out, "班会 演示")
+
+
+class TestPathTail(unittest.TestCase):
+    def test_basename(self):
+        self.assertEqual(pptx_xml.path_tail("file:///C:/a/b/v.mp4"), "v.mp4")
+        self.assertEqual(pptx_xml.path_tail("C:\\Users\\x\\视频一.mp4"), "视频一.mp4")
+
+    def test_truncated(self):
+        tail = pptx_xml.path_tail("C:/a/" + "x" * 100 + ".mp4", max_len=20)
+        self.assertTrue(tail.startswith("…"))
+        self.assertEqual(len(tail), 20)
+
+    def test_empty(self):
+        self.assertEqual(pptx_xml.path_tail(""), "")
+
+
+class TestCompatExternalMedia(unittest.TestCase):
+    def test_video_and_audio_grouped(self):
+        shapes = [
+            {"slide": 5, "kind": "v", "external": True,
+             "media": "file:///C:/a/clip.mp4"},
+            {"slide": 7, "kind": "v", "external": True,
+             "media": "C:/b/视频一_播放.mp4"},
+            {"slide": 9, "kind": "a", "external": True, "media": "C:/c/a.mp3"},
+            {"slide": 2, "kind": "v", "external": False, "media": "media1.mp4"},
+        ]
+        warnings, places = pptx_xml.compat_external_media(shapes)
+        self.assertEqual(len(warnings), 2)  # 视频 / 音频 各一条
+        video_warning = [w for w in warnings if "外链视频" in w][0]
+        self.assertIn("2 处", video_warning)
+        self.assertIn("第 5 页", video_warning)
+        self.assertIn("第 7 页", video_warning)
+        self.assertIn("clip.mp4", video_warning)
+        audio_warning = [w for w in warnings if "外链音频" in w][0]
+        self.assertIn("第 9 页", audio_warning)
+        self.assertEqual(len(places), 3)
+        self.assertEqual(places[0]["slide"], 5)
+        self.assertEqual(places[0]["kind"], "v")
+
+    def test_no_external(self):
+        warnings, places = pptx_xml.compat_external_media(
+            [{"slide": 1, "kind": "v", "external": False, "media": "x.mp4"}])
+        self.assertEqual((warnings, places), ([], []))
+
+
+class TestMediaSha(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ppt_sha_")
+        self.path = make_min_pptx(os.path.join(self.tmp, "m.pptx"),
+                                  [{"pic": "", "rels": []}])
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_media_sha_map_and_set(self):
+        sha_map = pptx_xml.media_sha256_map(self.path)
+        expected = hashlib.sha256(b"fake mp4 bytes").hexdigest()
+        self.assertEqual(sha_map.get("ppt/media/media1.mp4"), expected)
+        self.assertIn(expected, pptx_xml.media_sha256_set(self.path))
+
+    def test_non_zip_returns_empty(self):
+        bad = os.path.join(self.tmp, "legacy.ppt")
+        with open(bad, "wb") as fh:
+            fh.write(b"OLE fake")
+        self.assertEqual(pptx_xml.media_sha256_map(bad), {})
+        self.assertEqual(pptx_xml.media_sha256_set(bad), set())
+
+
+def _compat_files(sha="a" * 64, size=1234):
+    return {
+        "compat": {"s": "compat.pptx", "size": size, "sha256": sha,
+                   "ext": "pptx", "name": "班会.pptx"},
+        "pdf": {"s": "preview.pdf", "size": size, "sha256": sha,
+                "pages": 5, "name": "班会.pdf"},
+        "source": {"s": "original.pptx", "size": size, "sha256": sha,
+                   "ext": "pptx", "name": "原文件.pptx"},
+    }
+
+
+def _compat_manifest(**overrides):
+    manifest = {
+        "v": 2, "w": 960, "h": 540, "slides": [],
+        "files": _compat_files(),
+        "compat": {"warnings": [], "fonts_embedded": 0, "converted_from": None},
+        "base": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/ppt/a/d1/b1/",
+    }
+    manifest.update(overrides)
+    return manifest
+
+
+class TestManifestV2(unittest.TestCase):
+    def test_valid_compat_manifest(self):
+        self.assertEqual(pptx_xml.validate_manifest(_compat_manifest()), [])
+
+    def test_v2_requires_files(self):
+        errors = pptx_xml.validate_manifest(_compat_manifest(files=None))
+        self.assertTrue(any("files" in e for e in errors))
+
+    def test_v2_requires_compat_and_pdf(self):
+        files = _compat_files()
+        del files["compat"]
+        del files["pdf"]
+        errors = pptx_xml.validate_manifest(_compat_manifest(files=files))
+        text = "; ".join(errors)
+        self.assertIn("files.compat", text)
+        self.assertIn("files.pdf", text)
+
+    def test_bad_sha_and_size(self):
+        files = _compat_files(sha="xyz", size=0)
+        errors = pptx_xml.validate_files(files)
+        text = "; ".join(errors)
+        self.assertIn("sha256", text)
+        self.assertIn("size", text)
+
+    def test_old_v1_manifest_with_files_ok(self):
+        manifest = {
+            "v": 1, "base": "https://x/ppt/a/d1/b1/", "w": 1600, "h": 900,
+            "media": [], "files": _compat_files(),
+            "slides": [{"tr": "none", "trd": 0, "notes": "", "thumb": "t1.webp",
+                        "steps": [{"img": "s1-1.webp", "media": []}]}],
+        }
+        self.assertEqual(pptx_xml.validate_manifest(manifest), [])
+
+    def test_v1_without_files_still_valid(self):
+        manifest = {
+            "v": 1, "base": "https://x/ppt/a/d1/b1/", "w": 1600, "h": 900,
+            "media": [],
+            "slides": [{"tr": "none", "trd": 0, "notes": "", "thumb": "t1.webp",
+                        "steps": [{"img": "s1-1.webp", "media": []}]}],
+        }
+        self.assertEqual(pptx_xml.validate_manifest(manifest), [])
+
+    def test_compat_meta_type(self):
+        errors = pptx_xml.validate_manifest(_compat_manifest(compat="bad"))
+        self.assertTrue(any("compat" in e for e in errors))
+
+
+class FakeRetryUploader(object):
+    def __init__(self, failures=0):
+        self.failures = failures
+        self.calls = []
+
+    def put_file(self, key, path, content_type=None, cache_control=None):
+        self.calls.append((key, content_type))
+        if len(self.calls) <= self.failures:
+            raise RuntimeError("模拟 OSS 失败")
+        return {"key": key, "size": 1}
+
+
+class TestUploadRetry(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ppt_retry_")
+        self.path = os.path.join(self.tmp, "a.bin")
+        with open(self.path, "wb") as fh:
+            fh.write(b"x")
+        self.asset = {"name": "compat.pptx", "path": self.path, "size": 1,
+                      "content_type": "application/x-test"}
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_retry_then_success(self):
+        uploader = FakeRetryUploader(failures=2)
+        agent._put_with_retry(uploader, "ppt/a/d1/b1/x.bin", self.asset,
+                              lambda m: None, retries=2)
+        self.assertEqual(len(uploader.calls), 3)
+
+    def test_final_failure_raises_chinese_error(self):
+        uploader = FakeRetryUploader(failures=3)
+        with self.assertRaises(convert.ConvertError) as ctx:
+            agent._put_with_retry(uploader, "ppt/a/d1/b1/x.bin", self.asset,
+                                  lambda m: None, retries=2)
+        text = str(ctx.exception)
+        self.assertIn("上传", text)
+        self.assertIn("已重试 2 次", text)
+        self.assertEqual(len(uploader.calls), 3)
+
+    def test_upload_compat_assets_uses_prefix(self):
+        uploader = FakeRetryUploader(failures=0)
+        keys = agent.upload_compat_assets(uploader, "ppt/a/d1/b1/",
+                                          [self.asset], lambda m: None, retries=2)
+        self.assertEqual(keys, ["ppt/a/d1/b1/compat.pptx"])
+        self.assertEqual(uploader.calls[0][1], "application/x-test")
+
+
+class TestCompatOnlyMerge(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ppt_compat_only_")
+        self.compat_path = os.path.join(self.tmp, "compat.pptx")
+        self.pdf_path = os.path.join(self.tmp, "preview.pdf")
+        self.source_path = os.path.join(self.tmp, "original.pptx")
+        for path in (self.compat_path, self.pdf_path, self.source_path):
+            with open(path, "wb") as fh:
+                fh.write(b"data")
+        self.old_manifest = {
+            "v": 1, "base": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/"
+                            "ppt/a/d1/b1/",
+            "src": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/"
+                   "ppt/src/d1/source.pptx",
+            "w": 1600, "h": 900, "media": [],
+            "slides": [{"tr": "none", "trd": 0, "notes": "", "thumb": "t1.webp",
+                        "steps": [{"img": "s1-1.webp", "media": []}]}],
+            "video": {"s": "deck.mp4", "w": 1280, "h": 720, "dur": 10.0,
+                      "chapters": [{"i": 0, "t": 0.0}], "q": "720p"},
+        }
+        self.deck = {"id": "d1", "title": "旧演示", "status": "ready",
+                     "deleted": False, "source_name": "旧演示.pptx",
+                     "source_key": "ppt/src/d1/source.pptx",
+                     "manifest": self.old_manifest}
+        self.result = {
+            "files": _compat_files(),
+            "compat": {"warnings": ["外链视频 1 处未随文件携带（第 7 页，路径尾 v.mp4）"],
+                       "fonts_embedded": 3, "converted_from": None,
+                       "external_media": [{"slide": 7, "kind": "v",
+                                           "path_tail": "v.mp4"}]},
+            "stats": {"compat_size": 1234, "compat_sha256": "a" * 64,
+                      "pdf_size": 100, "pdf_pages": 5, "fonts_embedded": 3},
+            "warnings": [],
+            "assets": [
+                {"name": "compat.pptx", "path": self.compat_path, "size": 4,
+                 "content_type": "application/x", "kind": "compat"},
+                {"name": "preview.pdf", "path": self.pdf_path, "size": 4,
+                 "content_type": "application/pdf", "kind": "pdf"},
+                {"name": "original.pptx", "path": self.source_path, "size": 4,
+                 "content_type": "application/x", "kind": "source"},
+            ],
+        }
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _run(self, deck=None, dry_run=False, uploader=None, result=None):
+        cloud = FakeVideoCloud(deck or self.deck)
+        uploader = uploader or FakeVideoUploader()
+        with mock.patch.object(agent, "new_work_dir",
+                               return_value=tempfile.mkdtemp(prefix="ppt_w_")), \
+                mock.patch.object(agent, "cleanup_work_dir", return_value=None), \
+                mock.patch.object(agent, "HeartbeatThread", _FakeHeartbeat), \
+                mock.patch.object(agent.convert, "convert_compat",
+                                  return_value=result or self.result):
+            summary = agent.run_compat_only(cloud, uploader, lambda m: None, "host1",
+                                            "d1", dry_run=dry_run)
+        return summary, cloud, uploader
+
+    def test_merge_keeps_old_fields_and_only_adds_files_compat(self):
+        summary, cloud, uploader = self._run()
+        self.assertEqual(summary["action"], "compat-added")
+        self.assertEqual(len(uploader.puts), 3)
+        keys = [k for k, _c, _p in uploader.puts]
+        self.assertEqual(keys, ["ppt/a/d1/b1/compat.pptx",
+                                "ppt/a/d1/b1/preview.pdf",
+                                "ppt/a/d1/b1/original.pptx"])
+        self.assertEqual(uploader.downloads, ["ppt/src/d1/source.pptx"])
+        self.assertEqual(len(cloud.patches), 1)
+        _path, body, _prefer = cloud.patches[0]
+        self.assertEqual(set(body.keys()), {"manifest", "updated_at"})
+        merged = body["manifest"]
+        # 旧字段原样保留
+        self.assertEqual(merged["slides"], self.old_manifest["slides"])
+        self.assertEqual(merged["video"], self.old_manifest["video"])
+        self.assertEqual(merged["src"], self.old_manifest["src"])
+        self.assertEqual(merged["v"], 1)
+        self.assertEqual(merged["base"], self.old_manifest["base"])
+        # 新增 files/compat
+        self.assertEqual(merged["files"], self.result["files"])
+        self.assertEqual(merged["compat"], self.result["compat"])
+
+    def test_dry_run_no_upload_no_patch(self):
+        summary, cloud, uploader = self._run(dry_run=True)
+        self.assertEqual(summary["action"], "dry-run")
+        self.assertEqual(uploader.puts, [])
+        self.assertEqual(cloud.patches, [])
+        self.assertEqual(summary["pdf_pages"], 5)
+
+    def test_not_ready_rejected(self):
+        deck = dict(self.deck)
+        deck["status"] = "queued"
+        with self.assertRaises(agent.CloudError) as ctx:
+            self._run(deck=deck)
+        self.assertIn("只有 ready", str(ctx.exception))
+
+    def test_manifest_missing_rejected(self):
+        deck = dict(self.deck)
+        deck["manifest"] = {}
+        with self.assertRaises(agent.CloudError):
+            self._run(deck=deck)
+
+    def test_source_missing_chinese_error(self):
+        uploader = FakeVideoUploader(fail=True)
+        with self.assertRaises(convert.ConvertError) as ctx:
+            self._run(uploader=uploader)
+        text = str(ctx.exception)
+        self.assertIn("源文件缺失", text)
+        self.assertIn("重新上传", text)
 
 
 if __name__ == "__main__":

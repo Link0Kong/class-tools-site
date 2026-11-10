@@ -1459,10 +1459,6 @@ body.opt2-lock{overflow:hidden!important}
 .ppt-cv img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;display:block;background:#E4E9E7}
 .ppt-cv .ppt-cvph{position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;
   font-size:11px;font-weight:800;letter-spacing:.2em;color:#B3C0BC}
-.ppt-cv .ppt-cvplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:34px;height:34px;
-  border:0;border-radius:50%;background:rgba(35,48,46,.66);color:#fff;font-size:12px;line-height:1;
-  display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
-.ppt-cv .ppt-cvplay:active{transform:translate(-50%,-50%) scale(.94)}
 /* v1.2 列表便捷：继续徽标（7 天内有续播位置）/ 原样时长胶囊（曾打开过带视频的 deck，取自本机缓存） */
 .ppt-rsm{position:absolute;left:6px;top:6px;z-index:2;font-size:10.5px;font-weight:800;line-height:1.55;
   padding:0 6px;border-radius:6px;background:rgba(78,144,130,.94);color:#fff;letter-spacing:.02em}
@@ -1717,6 +1713,60 @@ body.ppt-lock{overflow:hidden!important}
   .ppt-player.ppt-hasres .ppt-dots{max-width:40px}
   .ppt-player.ppt-hasres .ppt-cb.res{width:26px}
   .ppt-player.ppt-hasres .ppt-div{margin:0 3px}
+}
+/* ========== __PPT_DL_V1__ v2.0 下载中心（下载详情弹层 / 文件行 / 兼容提示 / 列表标签）· 2026-11-10 ==========
+   契约：web/ppt/CONTRACT.md §12.4.1；点击卡片 = 打开下载详情（不再默认进播放器），
+   在线播放降为旧 deck 的次要「在线预览」入口；列表页仍为暖白卡片，详情弹层同风格。 */
+.ppt-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:1px}
+.ppt-tag{display:inline-flex;align-items:center;font-size:10.5px;font-weight:800;line-height:1.6;
+  padding:0 6px;border-radius:6px;background:#F1F7F5;color:var(--cy);white-space:nowrap}
+.ppt-tag.pdf{background:#F7F3EC;color:#9A7B45}
+.ppt-dl-ov{position:fixed;left:0;top:0;right:0;bottom:0;z-index:108;display:flex;align-items:center;
+  justify-content:center;padding:16px;background:rgba(18,20,20,.42)}
+.ppt-dl-ov[hidden]{display:none}
+body.ppt-dl-lock{overflow:hidden!important}
+.ppt-dl-card{width:min(560px,100%);max-height:min(84vh,760px);background:#fff;border-radius:16px;
+  box-shadow:0 20px 50px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden;
+  animation:pptDlIn .16s ease-out}
+@keyframes pptDlIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.ppt-dl-hd{display:flex;align-items:center;gap:8px;padding:14px 14px 6px}
+.ppt-dl-hd b{flex:1;min-width:0;font-size:16px;font-weight:700;color:var(--ink);line-height:1.4;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ppt-dl-x{flex:none;width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:var(--ink3);
+  font-size:20px;line-height:1;cursor:pointer;padding:0}
+.ppt-dl-x:active{background:#F0F2F2}
+.ppt-dl-meta{padding:0 14px 8px;font-size:12px;color:#8A8F8C;line-height:1.5;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ppt-dl-body{padding:2px 14px 10px;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.ppt-file{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);
+  border-radius:12px;background:#FBFCFC;margin-bottom:9px;min-height:56px}
+.ppt-file-d{flex:1;min-width:0}
+.ppt-file-d b{display:block;font-size:14px;font-weight:600;color:var(--ink);line-height:1.4}
+.ppt-file-d em{display:block;font-style:normal;font-size:12px;color:#8A8F8C;line-height:1.5;margin-top:1px;
+  font-variant-numeric:tabular-nums}
+.ppt-file .btn{flex:none;min-height:34px;height:34px;padding:0 14px;border-radius:9px;font-size:13px;
+  display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.ppt-file .ppt-file-no{flex:none;font-size:12px;color:#A6ABA8}
+.ppt-warn{background:#FBF4E9;border:1px solid #F0E2C8;border-radius:12px;padding:10px 12px;margin:4px 0 10px}
+.ppt-warn b{display:block;font-size:12.5px;font-weight:800;color:#9A7B45;line-height:1.5}
+.ppt-warn ul{margin:5px 0 0 16px;padding:0}
+.ppt-warn li{font-size:12.5px;line-height:1.6;color:#7A6A4E;word-break:break-word}
+.ppt-dl-empty{font-size:13px;color:#6E7370;line-height:1.6;padding:8px 2px 2px}
+.ppt-dl-acts{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 8px}
+.ppt-dl-acts .btn{min-height:36px;height:36px;padding:0 16px;border-radius:10px;font-size:13px}
+.ppt-dl-st{padding:6px 2px 8px}
+.ppt-dl-err{font-size:12px;color:var(--danger);line-height:1.5;word-break:break-word;margin:2px 0 8px}
+.ppt-dl-foot{padding:8px 14px calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:8px}
+.ppt-dl-foot .btn{flex:1;min-height:40px;border-radius:10px}
+.ppt-dl-skel{height:56px;border-radius:12px;background:#F0F1F1;margin-bottom:9px;
+  animation:pptDlSkel 1.2s ease-in-out infinite}
+@keyframes pptDlSkel{0%,100%{opacity:1}50%{opacity:.55}}
+@media (max-width:560px){
+  .ppt-dl-ov{padding:0;align-items:flex-end}
+  .ppt-dl-card{width:100%;max-height:88vh;border-radius:16px 16px 0 0}
+}
+@media (prefers-reduced-motion:reduce){
+  .ppt-dl-card,.ppt-dl-skel{animation:none!important}
 }
 @media (prefers-reduced-motion:reduce){
   .ppt-layer,.ppt-ctl,.ppt-drawer,.ppt-mask,.ppt-name,.ppt-prog i,.ppt-bar i,.ppt-hotbtn,
@@ -9602,6 +9652,7 @@ var DIAG=(function(){
   function resolveStart(t){
     if(animating)return null;
   if(closest(t,"#pptPlayer"))return null; /* PPT 播放器内滑动只切页，不切工具 */
+    if(closest(t,"#pptDl"))return null; /* v2.0 下载详情弹层内滑动不切工具 */
     if(closest(t,"#rosterModal"))return null; /* 名单弹层内滑动不切页 */
     if(closest(t,".modal.on,.nt-modal.on,#ntModal"))return null; /* 弹层/暗层内滑动不切页 */
     if(excluded(t))return null;
@@ -10178,6 +10229,13 @@ var PPT=(function(){
   })();
   var LIST_SELECT="id,title,owner_sid,owner_name,status,progress,error,slide_count,step_count,aspect,cover_url,source_name,source_size,created_at,converted_at,client";
   var MAN_SELECT="manifest,title,slide_count,step_count,aspect,cover_url,source_name,source_key,converted_at";
+  /* __PPT_DL_V1__ v2.0 下载中心（契约 §12.4.1）：
+     - 列表轻字段（§4.4）不含 manifest → 标签/大小用**一次轻量子查询**只取 manifest->files（不含 slides），
+       失败自动忽略（旧网关/旧数据均不报错）；detail 打开时再懒拉整份 manifest。
+     - 点击卡片 = 下载详情（兼容版 PPTX / PDF / 原始文件）；旧 deck 无 files → 兼容版未生成 + 在线预览 + 重新处理；
+       在线播放器代码保留，作为旧 deck 的「在线预览」入口（PPT.open 仍直接开播放器，供大屏演示等既有调用）。 */
+  var HINT_SELECT="id,files:manifest->files";
+  var LS_FILES="zq_ppt_files_";
 
   /* ============ __PPT_VIDEO_V1__ 原样播放 + 续播 v1.2 · 2026-11-10 ============
      契约：web/ppt/CONTRACT.md §11.1（manifest.video）/ §11.3.1–11.3.4 / §11.5；设计：DESIGN.md §4.3–4.9。
@@ -10195,7 +10253,9 @@ var PPT=(function(){
   var SPEEDS=[1,1.25,1.5,2];
 
   var S={list:[],loaded:false,loading:false,pendingPull:null,err:"",offline:false,iv:0,up:null,
-    pending:null,retryOld:null,agentSeen:0};
+    pending:null,retryOld:null,agentSeen:0,
+    /* v2.0：deckId → manifest.files（{compat,pdf,source} 元数据），来自轻量子查询/详情/预览，供列表标签与大小 */
+    hints:{}};
   var PL={open:false,root:null,stage:null,hot:null,layers:null,imgs:null,deck:null,man:null,slides:[],
     flat:[],idx:0,active:0,ctlTimer:0,nameTimer:0,preTimer:0,loadTimer:0,animTimer:0,peekTimer:0,
     finish:null,drawer:"",mediaEl:null,mediaUrl:"",bad:null,black:false,imm:false,pre:{},
@@ -10213,6 +10273,33 @@ var PPT=(function(){
   function fmtSize(n){n=num(n,0);if(n>=1048576)return (n/1048576).toFixed(n>=10485760?0:1)+"MB";return Math.max(1,Math.round(n/1024))+"KB";}
   function durText(s){s=num(s,0);var m=Math.floor(s/60),sec=Math.round(s%60);if(sec===60){m++;sec=0;}return m+":"+(sec<10?"0":"")+sec;}
   function findDeck(id){var i,list=S.list||[];for(i=0;i<list.length;i++)if(String(list[i].id)===String(id))return list[i];return null;}
+  /* ---- v2.0 下载中心：manifest.files 元数据（兼容版/PDF/原始） ---- */
+  function filesMeta(man){
+    var f=man&&man.files;
+    if(!f||typeof f!=="object")return null;
+    var out={compat:null,pdf:null,source:null};
+    ["compat","pdf","source"].forEach(function(k){
+      var v=f[k];
+      if(v&&typeof v==="object"&&v.s)out[k]={s:String(v.s),size:num(v.size,0),name:String(v.name||""),
+        sha256:String(v.sha256||""),ext:String(v.ext||""),pages:num(v.pages,0)};
+    });
+    return (out.compat||out.pdf||out.source)?out:null;
+  }
+  function cacheFiles(id,files){
+    if(!id||!files)return;
+    try{S.hints[String(id)]=files;}catch(e){}
+    try{lsSet(LS_FILES+id,files);}catch(e){}
+  }
+  function filesOf(d){
+    if(!d||!d.id)return null;
+    var id=String(d.id);
+    if(S.hints&&S.hints[id])return S.hints[id];
+    var f=lsGet(LS_FILES+id);
+    if(f&&typeof f==="object"){try{S.hints[id]=f;}catch(e){}return f;}
+    return null;
+  }
+  function hasCompat(d){var f=filesOf(d);return !!(f&&f.compat);}
+  function hasPdf(d){var f=filesOf(d);return !!(f&&f.pdf);}
   function apiGet(path){return fetch(CB+path,{headers:cbH(false),cache:"no-store"}).then(function(r){
     if(!r.ok)throw new Error("http"+r.status);return r.json();});}
   function patchDeck(id,obj){
@@ -10264,8 +10351,13 @@ var PPT=(function(){
     var parts=[];
     var pages=num(d.slide_count,0),steps=num(d.step_count,0);
     if(pages)parts.push(pages+" 页");
+    /* v2.0：大小优先取 manifest.files（兼容版 ≈ 原始大小；无 files 的旧 deck 用 source_size） */
+    var f=filesOf(d),size=0;
+    if(f&&f.compat&&num(f.compat.size,0))size=num(f.compat.size,0);
+    else if(f&&f.source&&num(f.source.size,0))size=num(f.source.size,0);
+    else size=num(d.source_size,0);
+    if(size)parts.push(fmtSize(size));
     if(steps)parts.push(steps+" 步");
-    if(!pages&&!steps&&num(d.source_size,0))parts.push(fmtSize(d.source_size));
     parts.push(esc(d.owner_name||"同学"));
     return parts.join(" · ");
   }
@@ -10276,20 +10368,30 @@ var PPT=(function(){
     var cover=d.cover_url
       ? '<img src="'+esc(d.cover_url)+'" alt="" loading="lazy" decoding="async">'
       : '<span class="ppt-cvph">演示</span>';
-    /* v1.2 列表便捷：续播徽标（7 天内且未到末尾）+ 原样时长胶囊（本机缓存过 manifest.video） */
+    /* v1.2 列表便捷：续播徽标（7 天内且未到末尾）+ 原样时长胶囊（本机缓存过 manifest.video，旧 deck 才有预览） */
     var rsm=ready?posOf(d):null;
     var vmeta=ready?vmetaOf(d):null;
     if(rsm)cover+='<span class="ppt-rsm">继续</span>';
     if(vmeta)cover+='<span class="ppt-vcap">原样 '+durText(num(vmeta.dur,0))+'</span>';
+    /* v2.0 下载中心：兼容版 / PDF 小标签（不写长句；来源＝轻量子查询或本机缓存） */
+    var tags="";
+    if(ready){
+      var fh=filesOf(d);
+      if(fh&&(fh.compat||fh.pdf)){
+        tags='<div class="ppt-tags">'+
+          (fh.compat?'<span class="ppt-tag">兼容版</span>':'')+
+          (fh.pdf?'<span class="ppt-tag pdf">PDF</span>':'')+'</div>';
+      }
+    }
     var acts="";
-    if(ready)acts+='<button class="btn sm pri" type="button" data-act="play" data-id="'+esc(d.id)+'">播放</button>';
     if(mine&&String(d.status||"")==="failed")acts+='<button class="btn sm" type="button" data-act="retry" data-id="'+esc(d.id)+'">重试</button>';
     if(mine)acts+='<button class="btn sm ghost danger" type="button" data-act="del" data-id="'+esc(d.id)+'">删除</button>';
     return '<div class="ppt-card" data-deck="'+esc(d.id)+'">'+
-      '<div class="ppt-cv">'+cover+(ready?'<button class="ppt-cvplay" type="button" data-act="play" data-id="'+esc(d.id)+'" aria-label="播放">▶</button>':'')+'</div>'+
+      '<div class="ppt-cv">'+cover+'</div>'+
       '<div class="ppt-bd">'+
         '<div class="ppt-tt">'+esc(d.title||d.source_name||"演示")+'</div>'+
         '<div class="ppt-meta">'+metaText(d)+'</div>'+
+        tags+
         (String(d.status||"")==="failed"&&d.error?'<div class="ppt-err">'+esc(d.error)+'</div>':'')+
         '<div class="ppt-foot">'+(st?'<span class="ppt-st '+st.cls+'">'+esc(st.txt)+'</span>':'')+
           '<span class="ppt-acts">'+acts+'</span></div>'+
@@ -10347,7 +10449,28 @@ var PPT=(function(){
         S.offline=!seen||(Date.now()-seen>OFFLINE_MS);
       })
       .catch(function(){/* 心跳失败不改既有判定，不报错 */});
-    S.pendingPull=Promise.all([p1,p2]).then(function(){
+    /* v2.0：轻量补拉 manifest->files（只有文件元数据，不含 slides；§4.4 列表主体仍不带 manifest）。
+       失败（旧网关/不支持 JSON 子查询）静默忽略，列表照常。 */
+    var p3=apiGet("ppt_decks?select="+encodeURIComponent(HINT_SELECT)+"&deleted=eq.false&limit=100")
+      .then(function(rows){
+        (rows instanceof Array?rows:[]).forEach(function(r){
+          if(!r||!r.id)return;
+          var files=null;
+          var raw=(r.files!==undefined)?r.files:r["manifest->files"];
+          if(typeof raw==="string"){try{raw=JSON.parse(raw);}catch(e){raw=null;}}
+          if(raw&&typeof raw==="object"){
+            files={};
+            ["compat","pdf","source"].forEach(function(k){
+              var v=raw[k];
+              if(v&&typeof v==="object"&&v.s)files[k]={s:String(v.s),size:num(v.size,0),
+                name:String(v.name||""),sha256:String(v.sha256||""),ext:String(v.ext||""),pages:num(v.pages,0)};
+            });
+            if(files.compat||files.pdf||files.source)cacheFiles(r.id,files);
+          }
+        });
+      })
+      .catch(function(){});
+    S.pendingPull=Promise.all([p1,p2,p3]).then(function(){
       S.loading=false;S.pendingPull=null;
       if((typeof CURTAB!=="undefined")&&CURTAB==="ppt")render();
     });
@@ -10542,17 +10665,25 @@ var PPT=(function(){
 
   /* ---------------- 卡片操作 ---------------- */
   function play(id){
+    /* 直接播放（仅「在线预览」/PPT.open 外部调用使用；点击列表卡片改为打开下载详情） */
+    if(D.open)closeDetail();
     apiGet("ppt_decks?select="+MAN_SELECT+"&id=eq."+encodeURIComponent(id)).then(function(rows){
       var row=(rows instanceof Array&&rows[0])?rows[0]:null;
       var man=row&&row.manifest;
       if(typeof man==="string"){try{man=JSON.parse(man);}catch(e){man=null;}}
-      if(!man||!(man.slides instanceof Array)||!man.slides.length){toast("还没转换完成");return;}
+      if(!man||!(man.slides instanceof Array)||!man.slides.length){
+        /* v2.0：新兼容版 deck（manifest.files、slides=[]）没有在线画面 → 直接打开下载详情，
+           既服务「大屏演示」等旧调用，也避免误报「还没转换完成」 */
+        try{var fm0=filesMeta(man);if(fm0){openDetail(id);return;}}catch(e){}
+        toast("还没转换完成");return;
+      }
       /* v1.2：列表轻字段不含 manifest（§4.4），播放前把「有无原样视频」缓存到本机供卡片胶囊展示 */
       try{
         var vm=videoMeta(man);
         if(vm)lsSet(LS_VMETA+id,{dur:vm.dur,q:vm.q});
         else lsDel(LS_VMETA+id);
       }catch(e){}
+      try{var fm=filesMeta(man);if(fm)cacheFiles(id,fm);}catch(e){}
       openPlayer(row,man);
     }).catch(function(){toast("加载失败");});
   }
@@ -10586,16 +10717,209 @@ var PPT=(function(){
     if(b){
       var act=b.getAttribute("data-act"),id=b.getAttribute("data-id");
       if(!id)return;
-      if(act==="play")play(id);
-      else if(act==="retry")retryDeck(id);
+      if(act==="retry")retryDeck(id);
       else if(act==="del")delDeck(id);
       return;
     }
+    /* v2.0：点击卡片 = 打开下载详情（不再默认进播放器；播放器只从详情「在线预览」进入/PPT.open 外部调用） */
     var card=(e.target&&e.target.closest)?e.target.closest("[data-deck]"):null;
     if(card){
       var d=findDeck(card.getAttribute("data-deck"));
-      if(d&&String(d.status||"")==="ready")play(d.id);
+      if(d)openDetail(d.id);
     }
+  }
+
+  /* ================= __PPT_DL_V1__ v2.0 下载中心详情（契约 §12.4.1） =================
+     点击列表卡片 = 懒拉 `manifest` 打开下载详情：
+       - 新 deck：兼容版 PPTX / PDF / 原始文件 三行 <a download>（OSS 直链 base+files.s），显示人类可读大小；
+       - compat.warnings：橙色「兼容提示」逐条；
+       - 旧 deck（无 files）：兼容版未生成 + 原始文件（旧 manifest.src）+ 在线预览（有 slides 时）+ 重新处理；
+       - 状态非 ready：只显示状态/进度，不显示下载；failed 显示 error + 重试。
+     不新增任何外部请求（只复用 PostgREST 单 deck manifest GET）。 */
+  var D={open:false,root:null,id:"",deck:null,man:null,loading:false,lastFocus:null};
+
+  function dlSrcOf(man){
+    if(!man||!man.src)return null;
+    var s=String(man.src);
+    var nm=s.split("?")[0].split("/").pop()||"original.pptx";
+    return {s:s,size:num(D.deck&&D.deck.source_size,0),name:nm,pages:0};
+  }
+  function dlFallbackName(kind){
+    var t=String((D.deck&&(D.deck.title||D.deck.source_name))||"演示").replace(/\s+/g," ").trim().slice(0,80)||"演示";
+    return t+"."+(kind==="pdf"?"pdf":"pptx");
+  }
+  function fileRow(kind,label,f,man){
+    if(!f){
+      return '<div class="ppt-file ppt-file-'+kind+'"><div class="ppt-file-d"><b>'+esc(label)+
+        '</b><em>未生成</em></div><span class="ppt-file-no">—</span></div>';
+    }
+    var href=resolveUrl(man&&man.base,f.s);
+    var name=String(f.name||dlFallbackName(kind));
+    var size=num(f.size,0);
+    var sub=((kind==="pdf"&&num(f.pages,0))?(num(f.pages,0)+" 页 · "):"")+(size?fmtSize(size):"—");
+    return '<div class="ppt-file ppt-file-'+kind+'">'+
+      '<div class="ppt-file-d"><b>'+esc(label)+'</b><em>'+esc(sub)+'</em></div>'+
+      '<a class="btn pri" href="'+esc(href)+'" download="'+esc(name)+'" rel="noopener">下载</a></div>';
+  }
+  function hasPreview(man){
+    if(!man||typeof man!=="object")return false;
+    return (man.slides instanceof Array)&&man.slides.length>0; /* 旧播放器需要 steps 图；video-only 无独立播放器 */
+  }
+  function dlMetaSmall(d){
+    var parts=[];
+    if(num(d&&d.slide_count,0))parts.push(num(d.slide_count,0)+" 页");
+    else if(d&&d.source_name)parts.push(String(d.source_name));
+    parts.push(String((d&&d.owner_name)||"同学"));
+    return parts.join(" · ");
+  }
+  function buildDetail(){
+    if(D.root)return D.root;
+    var r=document.createElement("div");
+    r.className="ppt-dl-ov";r.id="pptDl";r.hidden=true;
+    r.setAttribute("role","dialog");r.setAttribute("aria-modal","true");r.setAttribute("aria-label","下载");
+    r.innerHTML='<div class="ppt-dl-card" id="pptDlCard">'+
+      '<div class="ppt-dl-hd"><b id="pptDlTitle">下载</b>'+
+        '<button class="ppt-dl-x" type="button" data-dlact="close" aria-label="关闭">×</button></div>'+
+      '<div class="ppt-dl-meta" id="pptDlMeta"></div>'+
+      '<div class="ppt-dl-body" id="pptDlBody"></div>'+
+      '<div class="ppt-dl-foot"><button class="btn ghost" type="button" data-dlact="close">关闭</button></div>'+
+    '</div>';
+    document.body.appendChild(r);
+    r.addEventListener("click",function(e){
+      var t=e.target;
+      if(!t)return;
+      if(t===r){closeDetail();return;}
+      var b=(t.closest)?t.closest("[data-dlact]"):null;
+      if(!b)return;
+      var act=b.getAttribute("data-dlact");
+      if(act==="close")closeDetail();
+      else if(act==="preview")openPreview();
+      else if(act==="retry")dlRetry();
+      else if(act==="reload")loadDetail();
+    });
+    D.root=r;
+    return r;
+  }
+  function onDlKey(e){
+    if(!D.open)return;
+    if((e.key||"")==="Escape"){
+      if(e.preventDefault)e.preventDefault();
+      if(e.stopPropagation)e.stopPropagation();
+      closeDetail();
+    }
+  }
+  function openDetail(id){
+    id=String(id||"");if(!id)return;
+    D.id=id;D.deck=findDeck(id)||{id:id};D.man=null;D.loading=true;
+    buildDetail();
+    D.lastFocus=document.activeElement;
+    var tt=el("pptDlTitle"),mt=el("pptDlMeta"),bd=el("pptDlBody");
+    if(tt)tt.textContent=String(D.deck.title||D.deck.source_name||"下载");
+    if(mt)mt.textContent=dlMetaSmall(D.deck);
+    if(bd)bd.innerHTML='<div class="ppt-dl-skel"></div><div class="ppt-dl-skel"></div><div class="ppt-dl-skel"></div>';
+    D.root.hidden=false;D.open=true;
+    document.body.classList.add("ppt-dl-lock");
+    document.addEventListener("keydown",onDlKey,true);
+    loadDetail();
+  }
+  function loadDetail(){
+    var id=D.id;
+    if(!D.open||!id)return;
+    var bd=el("pptDlBody");
+    if(bd)bd.innerHTML='<div class="ppt-dl-skel"></div><div class="ppt-dl-skel"></div><div class="ppt-dl-skel"></div>';
+    apiGet("ppt_decks?select="+MAN_SELECT+"&id=eq."+encodeURIComponent(id)).then(function(rows){
+      if(!D.open||D.id!==id)return;
+      var row=(rows instanceof Array&&rows[0])?rows[0]:null;
+      if(row){
+        if(row.title&&!D.deck.title)D.deck.title=String(row.title);
+        var mk=el("pptDlTitle");if(mk&&row.title)mk.textContent=String(row.title);
+      }
+      var man=row&&row.manifest;
+      if(typeof man==="string"){try{man=JSON.parse(man);}catch(e){man=null;}}
+      D.man=(man&&typeof man==="object")?man:{};
+      D.loading=false;
+      try{
+        var fm=filesMeta(D.man);
+        if(fm)cacheFiles(id,fm);else lsDel(LS_FILES+id);
+      }catch(e){}
+      renderDetail();
+    }).catch(function(){
+      if(!D.open||D.id!==id)return;
+      D.loading=false;
+      var e2=el("pptDlBody");
+      if(e2)e2.innerHTML='<div class="ppt-dl-empty">加载失败</div><div class="ppt-dl-acts">'+
+        '<button class="btn" type="button" data-dlact="reload">重试</button></div>';
+    });
+  }
+  function renderDetail(){
+    var body=el("pptDlBody");if(!body)return;
+    var d=D.deck||{},man=D.man||{};
+    var status=String(d.status||"");
+    if(status!=="ready"){
+      var st=statusOf(d),h='<div class="ppt-dl-st">';
+      if(st)h+='<span class="ppt-st '+st.cls+'">'+esc(st.txt)+'</span>';
+      else h+='<span class="ppt-st">'+esc(status||"处理中")+'</span>';
+      h+='</div>';
+      if(status==="failed"&&d.error)h+='<div class="ppt-dl-err">'+esc(d.error)+'</div>';
+      if(status==="failed")h+='<div class="ppt-dl-acts"><button class="btn pri" type="button" data-dlact="retry">重试</button></div>';
+      body.innerHTML=h;
+      return;
+    }
+    var files=filesMeta(man),h2="";
+    if(files){
+      h2+=fileRow("compat","兼容版 PPTX",files.compat,man);
+      h2+=fileRow("pdf","PDF",files.pdf,man);
+      h2+=fileRow("source","原始文件",files.source,man);
+    }else{
+      h2+='<div class="ppt-dl-empty">兼容版未生成</div>';
+      var src=dlSrcOf(man);
+      if(src)h2+=fileRow("source","原始文件",src,man);
+    }
+    var warns=((man.compat&&man.compat.warnings instanceof Array)?man.compat.warnings:[]).filter(function(w){
+      return w&&String(w).trim();
+    });
+    if(warns.length){
+      h2+='<div class="ppt-warn"><b>兼容提示</b><ul>';
+      warns.forEach(function(w){h2+='<li>'+esc(String(w))+'</li>';});
+      h2+='</ul></div>';
+    }
+    if(!files){
+      var pv=hasPreview(man);
+      h2+='<div class="ppt-dl-acts">';
+      if(pv)h2+='<button class="btn pri" type="button" data-dlact="preview">在线预览</button>';
+      h2+='<button class="btn" type="button" data-dlact="retry">重新处理</button></div>';
+    }
+    body.innerHTML=h2;
+  }
+  function openPreview(){
+    var man=D.man,deck=D.deck||{};
+    if(!hasPreview(man))return;
+    var row={id:deck.id,title:deck.title,cover_url:deck.cover_url,source_name:deck.source_name};
+    try{var vm=videoMeta(man);if(vm)lsSet(LS_VMETA+deck.id,{dur:vm.dur,q:vm.q});}catch(e){}
+    try{var fm=filesMeta(man);if(fm)cacheFiles(deck.id,fm);}catch(e){}
+    var mid=String(deck.id||"");
+    closeDetail();
+    try{openPlayer(row,man);}catch(e){toast("播放器打开失败");}
+    return mid;
+  }
+  function dlRetry(){
+    var id=D.id;
+    if(!id)return;
+    closeDetail();
+    retryDeck(id);
+  }
+  function closeDetail(){
+    if(!D.open&&!D.root)return;
+    D.open=false;D.id="";D.man=null;D.deck=null;D.loading=false;
+    document.removeEventListener("keydown",onDlKey,true);
+    document.body.classList.remove("ppt-dl-lock");
+    if(D.root){
+      D.root.hidden=true;
+      var b=el("pptDlBody");if(b)b.innerHTML="";
+      var m=el("pptDlMeta");if(m)m.textContent="";
+    }
+    if(D.lastFocus&&D.lastFocus.focus){try{D.lastFocus.focus({preventScroll:true});}catch(e){try{D.lastFocus.focus();}catch(e2){}}}
+    D.lastFocus=null;
   }
 
   /* ---------------- 播放器 ---------------- */
@@ -12079,6 +12403,7 @@ var PPT=(function(){
   }
   function leave(){
     stopPoll();
+    if(D.open)closeDetail();
   }
   function init(){
     var up=el("pptUp"),up2=el("pptUp2"),file=el("pptFile");

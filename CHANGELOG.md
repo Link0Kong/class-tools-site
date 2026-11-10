@@ -2,6 +2,32 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-10 22:4x · PPT v2.0（网页端）：功能重定义为「兼容性处理 + 多端下载中心」（**已上线：2026-11-10 22:53 由 Lead 统一部署**）
+
+> 用户原话（2026-11-10 22:05）：「重新定义该功能，不再已在线播放为主要功能，而是以上传ppt，自动对内容进行兼容性处理，并提供多端下载的方式，不改变ppt本身质量」。
+> 契约唯一真源：`web/ppt/CONTRACT.md` **§12**（§12.2 manifest v2 `files.compat/pdf/source` + `compat.warnings` + `slides:[]`；§12.4.1 列表/详情 UI；§12.6 红线）。本条只记**网页端**（`tools/index.html` + 专项测试）；转换机 compat 兼容包/PDF 与小程序/安卓下载中心由其它实现者交付。`APP_VER` 仍 `2.0.0`；单文件零依赖、无新增外部请求（仅复用 PostgREST 读接口）。
+
+- **列表：点击卡片 = 打开「下载」详情（不再默认进播放器）**。卡片保留封面/标题/`页数 · 大小 · 步数 · 上传者`/状态胶囊；有 `files.compat` 的 deck 显示小标签「兼容版」「PDF」（不写长句），大小优先取 `manifest.files.compat.size`（旧 deck 用 `source_size`）；整卡点击打开详情，失败卡保留「重试」、本人卡保留「删除」；上传/轮询/离线提示/软删除/重试逻辑全不变。
+- **下载详情（懒拉单 deck manifest：`GET ppt_decks?select=manifest&id=eq.<id>`）**：
+  - 三行下载：**兼容版 PPTX / PDF / 原始文件**，每行 `<a href=base+files.s download=files.name>` 直连 OSS（含 `size` 人类可读大小；PDF 额外显示 `pages 页`；缺项显示「未生成 · —」）；
+  - `manifest.compat.warnings` → 橙色「兼容提示」区逐条显示（外链媒体、字体未嵌入等，仅告警不删内容）；
+  - `slides: []` 的 manifest v2 正常渲染（无在线预览按钮，不报错）；`cover_url` 仍按原逻辑显示；
+  - 状态非 ready：只显示状态/进度（上传 N%/排队转换/转换中 p%），不显示下载；`failed` 显示 error 原文 + 「重试」（PATCH `status=queued`）；
+  - 旧 deck（无 files）：显示「兼容版未生成」+ **原始文件下载**（旧 `manifest.src`）+「在线预览」（仅当有旧 `slides`）+「重新处理」（复用 `retryDeck`）；
+  - 弹层底部安全区适配、Esc / × / 点遮罩关闭、打开时锁页面滚动、弹层内滑动不切工具（`resolveStart` 排除 `#pptDl`）。
+- **旧播放器保留为「在线预览」入口**：点击详情「在线预览」进入原 v1.2 播放器（分步/原样播放、续播、热点等全部逻辑原样保留）；`PPT.open(id)` 仍直接开播放器（大屏演示等既有调用不变）；若对**新兼容版 deck**（无 slides）调用 `PPT.open`，自动转为打开下载详情（不报错、不进空播放器）。列表不再有列表级「播放」按钮/封面 ▶。
+- **列表标签数据**：§4.4 仍禁止列表主查询带 manifest；为显示「兼容版/PDF」与大小，新增**一次轻量子查询** `GET ppt_decks?select=id,files:manifest->files&deleted=eq.false&limit=100`（PostgREST JSON 子字段选择，只含文件元数据、不含 slides；**生产网关已实测 200**）。失败（旧网关/不支持）静默忽略不报错；详情/预览时也会把 files 缓存到本机 `zq_ppt_files_<deckId>` 兜底。
+- **代码位置（保持单文件）**：CSS 追加在 `</style>` 前、以 `/* __PPT_DL_V1__ */` 分隔（下载弹层/文件行/兼容提示/列表标签）；JS 全部在 `var PPT=(function(){…})()` 块内新增下载详情段（`filesMeta/filesOf/cacheFiles/openDetail/renderDetail/openPreview/...`）；`__PPT_FEATURE_V1__` 标记仍 CSS+JS 各一；无新增外部请求/字体/CDN。
+- **测试（真实输出，最终文件 870,349 B / sha256 `ea799a2892809b4e08b6dffe59f7aaddff99066f11b50147381534ee28771dc3`）**：
+  - 新增 [`v2_ppt_download_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_download_check.py) **41 项全过 / 0 FAIL**（6.9–11.0s，多次实跑；含：新 v2 deck 列表标签+大小→点卡片进详情（不进播放器）→三行下载 href=base+s/download=name/size/PDF 页数→兼容提示橙色逐条→无预览→Esc/×关闭→430px 无溢出；旧 deck「兼容版未生成+原始文件+在线预览+重新处理」→在线预览进旧播放器；无 slides 旧 deck 无预览；queued 详情只状态无下载；failed 详情 error+重试→真实 PATCH status=queued；外部 `PPT.open`（大屏调用）对兼容版 deck 转打开下载详情；0 JS 报错/0 console.error/0 真实云端写）
+  - 改造 [`v2_ppt_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_check.py) **92/92 PASS**（原 86 项语义保留，播放器用例改经「卡片→详情→在线预览」入口；+4 静态 v2.0 断言 +2 详情入口断言；mock 支持 `manifest->files` 轻量子查询）
+  - 改造 [`v2_ppt_video_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_video_check.py) **100/100 PASS**（原 99 项保留；打开路径改为详情→在线预览；新增详情三态断言）
+  - 回归（真实输出）：`overflow_check 430`=**0**；`v2_ui_check` **27/27**；`v2_pos_restore_check` **12/12**；`v2_x5_anim_check` **28/28**；`v2_drag_check` **56/56**
+  - 真实 deck `dmwalrdlgevz90l`（旧 v1 manifest，无 files，16 页/36MB）：headless Edge 实跑——列表卡片「16 页 · 36MB · 16 步 · 陈子麒」、无标签无列表播放按钮；点击卡片 0.08s 内打开详情：「兼容版未生成 + 原始文件 36MB（OSS `ppt/src/.../source.pptx`，download=source.pptx）+ 在线预览 + 重新处理」；点在线预览进原播放器（`ppt-vmode`、真实 deck.mp4 `readyState=4、paused=false、err=0`），0 JS error；生产轻量标签查询实际 URL `ppt_decks?select=id%2Cfiles%3Amanifest-%3Efiles&deleted=eq.false&limit=100` 返回 200。
+- **已知限制（如实）**：① 列表标签/大小依赖上面的 JSON 子字段轻查询（已实测线上 200）；若未来网关/表结构不支持会静默无标签（功能仍可用），彻底稳的方案是后端加 `has_compat/video_dur` 等轻字段（需契约 §4.4 与三端同改，本次未做）；② 旧 deck「在线预览」仅当旧 manifest 有 `slides`（v1 实际都有；video-only 旧 manifest 无独立播放器入口）；③ 网页下载为 `<a download>` 直连 OSS，移动浏览器/微信内可能改为预览或拦截（契约 12.4.2 已注），大文件不显示下载进度（只显示大小）；④ 详情打开期间列表 10s 轮询刷新不会实时重绘详情，状态变化需关闭重开；⑤ 「长按/右上 ⋯」菜单未做，保留原内联「重试/删除」按钮；⑥ 兼容版 deck 调用 `PPT.open` 会转为下载详情（大屏演示暂无直接放映兼容版能力，需转分步/视频旧模式才行）。
+- **回滚**：本次未部署；回滚 = 用改前线上对象覆盖 `tools/index.html` 后重传（本机参考备份 `tools/_backup/index_online_20261110-2215_preStageV2.html`，**847,026 B / sha256 `411354e1…`**；注意该备份不含并行「大屏演示 V2」改动，回退会一并回退）；本次改动只在 PPT 块内（列表/详情 + 播放器保留），不影响其它工具逻辑。交付时工作区 `tools/index.html` **870,349 B / sha256 `ea799a2892809b4e08b6dffe59f7aaddff99066f11b50147381534ee28771dc3`**（含并行大屏改动，部署前请 Lead 以最终文件重算哈希）。
+> **上线（2026-11-10 22:53，Lead 统一部署）**：`index.html` **870,349 B / sha256 `ea799a2892809b4e08b6dffe59f7aaddff99066f11b50147381534ee28771dc3`**（含同批「大屏 V2」）；`sync_tools.py index.html` 后 `oss_object.py check` = **MATCH**，`ecs_site.py apply` 后 ECS `/` 同字节（**MATCH**）。回滚点：`tools/_backup/index_online_20261110-2253_prePPTv2.html`（853,685 B / `9a158498…`，含大屏 V2、不含本 v2.0）；或再往前 `…2215_preStageV2.html`（847,026 B / `411354e1…`，两项改动之前）。
+
 ## 2026-11-10 22:2x · 大屏第二轮：重做布局（非四宫格）+ 换「墨夜雾青」配色
 
 > 用户需求（2026-11-10 22:06）：「重新优化布局，不要局限于四格的布局，同时调整配色」。配色用户拍板 **A · 墨夜雾青**（深墨黑底 + 雾青 + 暖沙，延续站点品牌色）。
@@ -12,7 +38,7 @@
 - **交互保持**：点主位/列表任一 deck → `PPT.open(id)` 全屏播放器（z110 叠 z95），退出自动回大屏；上次放映置顶并显示「继续放映」；空库居中「还没有演示 + 去上传」；加载失败「重试」；计时 05:00 开始/重置（到 0 复位按钮）；抽签 1 人；关闭恢复滚动/inert；关闭时暂停计时并把按钮复位。
 - **选择器变更（测试/脚本注意）**：新增 `.opt2-top/.opt2-brand/.opt2-mark/.opt2-clock/.opt2-ibtn/.opt2-main/.opt2-hero/.opt2-hero-hd/.opt2-hero-deck/#o2sHero/.opt2-play/.opt2-rail/.opt2-tile/.opt2-num/.opt2-btn/.opt2-foot`；删除 `.opt2-stage-grid/.opt2-scard/.opt2-sbtn/.opt2-stage-top/.opt2-stage-foot/.opt2-time/.opt2-clockcard` 等；ID 保留 `o2sTime/o2sDate/o2sTimer/o2sPick/o2sDecks/o2sDeckEmpty/o2sDeckRefresh/o2sClose/o2sFs` 并新增 `o2sHero`。
 - **测试**：`optim_v2_check.py` 更新（mock 3 个 deck；断言「非四宫格布局（hero+rail）」「主位+列表」「时钟在顶栏」等）→ **main 16 + admin 29 + hash 3 全绿，0 JS 报错**；回归 `v2_ui_check` 27/27、`optim_v1_check` GREEN、`overflow_check 430` = **overflowCount=0**；本机 CDP 截图 1366×768 / 1920×1080 / 430×900 / 空库态，无横向溢出、0 报错（视觉：主标题 48–64px、计时数字 96–112px、右侧两 tile 纵向排布）。
-- **上线说明（含并行会话隔离）**：工作区 `tools/index.html` 当时含**并行会话未提交的 PPT 下载/标签 WIP**，为避免把未验收 WIP 上线，本次上线对象 = **HEAD + 仅本改造**的干净构建；线上 `index.html` **853,685 B / sha256 `9a158498806eb04ad2d75f437e112420afdb77ee5943b5b8122297edfc3aad83`**（OSS `oss_object.py sha` = 同值；ECS 从 OSS 同步后 `/` 返回同字节）。后续并行会话提交/部署其 WIP 时会覆盖为合并版。
+- **上线说明（含并行会话隔离）**：工作区 `tools/index.html` 当时含**并行会话未提交的 PPT 下载/标签 WIP**，为避免把未验收 WIP 上线，本次上线对象 = **HEAD + 仅本改造**的干净构建；线上 `index.html` **853,685 B / sha256 `9a158498806eb04ad2d75f437e112420afdb77ee5943b5b8122297edfc3aad83`**（OSS `oss_object.py sha` = 同值；ECS 从 OSS 同步后 `/` 返回同字节）。后续并行会话提交/部署其 WIP 时会覆盖为合并版；实际已于 2026-11-10 22:53 与 PPT v2.0 合并统一部署（线上 870,349 B / `ea799a28…`，见上一条）。
 - **回滚**：重传 `tools/_backup/index_online_20261110-2215_preStageV2.html`（**847,026 B / `411354e1…`**，第一轮四宫格版）后 `sync_tools.py` + `ecs_site.py apply`。
 
 ## 2026-11-10 21:47 · 大屏改为团日主持台（去掉作业/下一节 · PPT 联动放映台 · 右上角实时时间）+ 合并 PPT v1.2 统一上线

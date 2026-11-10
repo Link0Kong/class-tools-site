@@ -492,3 +492,110 @@ PATCH /ppt_decks?id=eq.<id>  { "status":"queued", "progress":0, "error":"", "upd
 - OSS 默认域名的 force-download 头对小程序的影响需真机验证，已按 §11.4 降级链处理；
 - 长演示（>30min 或 >120 页）不生成视频。
 
+---
+
+# 12. v2.0 功能重定义：上传 PPT → 自动兼容性处理 → 多端下载（2026-11-10 22:05，用户新要求）
+
+> 用户原话（2026-11-10 22:05）：「重新定义该功能，不再已在线播放为主要功能，而是以上传ppt，自动对内容进行兼容性处理，
+> 并提供多端下载的方式，不改变ppt本身质量」。
+>
+> **新定位**：本工具 = **PPT 兼容性处理与多端下载中心**。在线播放降级为旧 deck 的可选「预览」入口（不再作为主流程）。
+> 核心价值：任何人上传 PPT → 本机转换机自动做**不降质**的兼容性处理 → 网页/小程序/安卓都能**下载处理后的文件**，
+> 在教室电脑/自己电脑/手机上用 PowerPoint/WPS/系统查看器打开，动画、媒体、版式与清晰度保持原样。
+
+## 12.1 兼容性处理（转换机；**不改变 PPT 内容质量**）
+
+对上传的 `.ppt/.pptx`，在临时副本上（绝不修改 `ppt/src/` 原件）执行：
+
+1. **格式标准化**：`.ppt` → `.pptx`（`ppSaveAsOpenXMLPresentation`，便于 2007+/WPS/手机 Office 打开；转换由 PowerPoint 完成，不重采样图片/视频）；
+2. **包修复/规范化**：通过 PowerPoint `SaveAs` 重写一次包（修复异常 rels/损坏结构；不改变内容）；
+3. **字体嵌入**：`Presentation.EmbedTrueTypeFonts = True` 后保存（可选 `SaveSubsetFonts=True`），让没有该字体的设备版式不跑版；
+   许可受限字体无法嵌入时只记 warning；
+4. **外链媒体如实告警**：`TargetMode=External` 的视频/音频**不能随文件携带**（源文件不在上传包内），保持原链接并统计：
+   每处记 `{slide, kind, path 尾部}`；`manifest.compat.warnings` 同时给中文提示（客户端展示「兼容提示」），**不得自行删除内容**；
+5. **PDF 兼容副本**：`ExportAsFixedFormat` 导出 `preview.pdf`（矢量文字/图片，版式不变；给没有 PowerPoint/WPS 的设备查看）；
+6. **封面**：导出第 1 页小图（WebP，1600 宽内）写 `cover.webp`，供列表使用（这是唯一"图片化"产物，不冒充 PPT 内容）。
+
+禁止：把 PPT 渲染成图片集/视频来当"兼容版"；对图片/视频重编码或降分辨率；修改动画/切换/母版/字体样式；修改 `ppt/src` 原件。
+
+## 12.2 `manifest` v2（新 deck；旧 deck 保持原 v1 字段）
+
+```jsonc
+{
+  "v": 2,
+  "w": 960, "h": 540,                    // 原比例（与源一致）
+  "slides": [],                          // **compat 模式不再生成分步图**；旧 deck 保留原 slides 数组
+  "files": {
+    "compat": {"s":"compat.pptx", "size":12345678, "sha256":"…", "ext":"pptx", "name":"<安全标题>.pptx"},
+    "pdf":    {"s":"preview.pdf", "size":1234567,  "sha256":"…", "pages":16, "name":"<安全标题>.pdf"},
+    "source": {"s":"original.pptx","size":12345678,"sha256":"…", "ext":"pptx", "name":"<原文件名>"}
+  },
+  "compat": {
+    "warnings": ["外链视频 1 处未随文件携带（第 7 页，路径尾 …/v.mp4）"],
+    "fonts_embedded": 0,
+    "converted_from": "ppt"              // 源是 .ppt 时才有，否则 null
+  }
+}
+```
+
+- `name` 为建议下载文件名（UTF-8；客户端下载时可用）；`s` 相对 `manifest.base`。
+- `files.source`：转换机在 build 目录上传一份原文件副本（`original.<ext>`），保证三端无需知道 `source_key`/根路径也能下载；
+- 旧 deck（无 `files`）：客户端展示「兼容版未生成 · 可在线预览」并提供「重试/重新处理」入口（`retryDeck` 触发重转）；
+- `cover_url` 列仍写绝对 OSS URL（来自 cover.webp）。
+- `validate_manifest`：compat 模式要求 `files.compat` 存在且 sha256/size>0、`files.pdf` 存在；`slides` 可为空数组；`video` 可选（仅旧 deck/旧模式）。
+
+## 12.3 转换机行为（默认流程改为 compat）
+
+- `agent.py --once` 新领取的 deck 默认走 **compat 兼容处理**（替换原"分步图+视频"默认流程）；原分步/视频代码保留但不再默认执行（`--legacy` 仅运维调试）。
+- 转换进度：`10 下载源文件→30 PowerPoint 处理→55 生成兼容包→75 导出 PDF→85 上传→95 PATCH ready`；耗时预算 ≥ 20min；
+- 失败：保留分片清理/失败中文 error；compat 失败（如加密/损坏）→ `failed`；
+- 上传失败重试 2 次（OSS），失败 error 写清；
+- `--compat-only --deck <id>`：为存量 ready deck 补 compat/PDF/source 副本并合并 manifest（保留原 slides/video 字段，旧 deck 仍可预览），用于本次存量迁移；
+- 日志：兼容包/PDF 大小、字体嵌入数、外链媒体清单、sha256、耗时。
+
+## 12.4 三端 UI：下载中心（在线播放降为次要）
+
+### 12.4.1 列表
+- 卡片仍展示：封面、标题、上传者、页数、大小、状态胶囊（上传中/排队/转换中/完成/失败，沿用 §8.1 文案与 % 进度）；
+- 有 `files.compat` 的 deck 显示小标签「兼容版」/「PDF」（不写长句）；
+- **点击卡片 = 打开「下载」详情**（不再直接进播放器）；长按/右上 `⋯` 保留删除/重试；
+- 详情需拉取单 deck manifest（`GET /ppt_decks?select=manifest&id=eq.<id>`），展示：
+  - 文件行：`兼容版 PPTX (size)` / `PDF (pages 页, size)` / `原始文件 (size)`，每行一个下载按钮；
+  - 「在线预览」次级按钮：仅当该 deck 有旧版 `slides`（或 `manifest.video`）时显示；
+  - 若有 `compat.warnings`：橙色「兼容提示」区逐条显示（如外链媒体、字体未嵌入）；
+  - 状态非 ready 时只显示状态与进度（完成前不显示下载）。
+- 上传入口/轮询/离线提示/软删保持不变。
+
+### 12.4.2 各端下载方式
+| 端 | 兼容版 PPTX / PDF / 原始 | 打开方式 |
+|---|---|---|
+| 网页 | `<a href=… download="name">` 直接下载（OSS 直链；base+files.s） | 浏览器下载后用本机 PowerPoint/WPS/PDF 打开；PDF 可原生预览也可下载 |
+| 小程序 | `wx.downloadFile`（显示进度、可取消）→ `wx.openDocument({fileType:'pptx'/'pdf', showMenu:true})` 打开；或 `wx.shareFileMessage` 转发到聊天/电脑；另提供复制链接 | OSS 域名需加入 request+downloadFile 合法域名（沿用 §11.4 真机风险说明） |
+| 安卓 | `DownloadManager`/现有下载能力保存到系统「下载」（通知可用），完成后 `ACTION_VIEW`（FileProvider）用 PowerPoint/WPS/PDF 查看器打开；或分享 Intent | 已安装查看器即可 |
+
+- 下载链接继续由转换机写 manifest，客户端只读 OSS；不得在前端出现 OSS 写凭据。
+- 文件较大（兼容包可能 = 源约 30–60MB）时下载入口显示大小并给进度；小程序/安卓**不得**把整个文件读进内存。
+
+### 12.4.3 旧 deck 兼容
+- 旧 manifest（无 files）：显示「兼容版未生成」+「在线预览」+「重新处理」（调用 `retryDeck`，服务端重转 compat；若 OSS 源仍有 `source_key` 则转换机可补，见 §12.3）；
+- 旧播放器代码保留可用（预览入口），不再作为点击卡片默认行为；其视频/分步逻辑不删除（避免回归）。
+
+## 12.5 测试与验收（v2.0）
+
+1. **转换机**：fixture 转换后 `files.compat/pdf/source` 均存在；compat.pptx 可被 PowerPoint 打开、页数=源；**内嵌媒体字节与源包内媒体逐字节一致（sha256 相等）**，证明不降质；
+   PDF `%PDF` 头 + 页数=source slide_count（有工具则查）；`.ppt` fixture → compat ext=pptx；外链 media fixture → warning 含页号且不失败；字体嵌入尝试不报错；
+   `--compat-only` 对存量 deck 合并 manifest 且保留旧 slides/video 字段；失败/上传重试路径。
+2. **网页**：列表→详情（manifest mock）→三个下载按钮 href/size/name 正确、兼容提示展示、旧 deck「未生成+预览+重新处理」、状态未 ready 无下载、在线预览仅旧 deck 可见；0 JS error；430px 无溢出；原 86 项中与旧"点击卡片进播放器"相关的断言需同步改为「预览入口」；新增 ≥25 项断言。
+3. **小程序**：详情/下载流程单测（mock `wx.downloadFile/openDocument/shareFileMessage`：进度、取消、失败 toast、复制链接）；旧 deck 处理；`unit.js` 全绿；automator 至少验证列表点击=详情、下载按钮调用链（可用 mock 文件）；
+4. **安卓**：下载/打开/分享/兼容提示/旧 deck 单测；`testDebugUnitTest` 全绿；`assembleRelease` 成功；预览渲图；
+5. **验收**：真实用户 deck `dmwalrdlgevz90l` 跑 `--compat-only`（保留旧预览字段）→ 网页/小程序/安卓都能拿到 compat.pptx/pdf/source 并下载/打开；质量断言：compat 内嵌媒体 sha256 与源一致；
+   **真实下载**：Lead 用浏览器真实下载 compat.pptx 并校验 sha256 = manifest；小程序 devtools 下载到临时文件并 `openDocument`（能测尽测）；安卓下载模拟或单测。
+
+## 12.6 红线（v2.0 追加）
+
+- **不得**用「渲染图片/视频」冒充兼容版；**不得**对内容做有损转换；**不得**删除外链媒体/动画/备注等任何内容来"提高兼容性"（只能如实告警）。
+- 不得改变原 PPT 文件名/内容/页数/版式；compat 包只允许增加字体/修复结构。
+- 网页仍单文件零依赖、APP_VER 2.0.0；小程序 VERSION 2.0.0；安卓版本按发布规则（3.5.0 / versionCode 11）。
+- 旧在线播放器代码/旧 deck 兼容不得破坏（旧 deck 仍可预览/下载原始）。
+
+

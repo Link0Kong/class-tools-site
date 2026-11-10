@@ -237,7 +237,7 @@ CARDSTATE = r"""
 (function(){
   var c=document.querySelector('#pptList [data-deck="__DECK__"]');
   if(!c)return null;
-  var rsm=c.querySelector('.ppt-rsm'), vc=c.querySelector('.ppt-vcap'), play=c.querySelector('.ppt-cvplay');
+  var rsm=c.querySelector('.ppt-rsm'), vc=c.querySelector('.ppt-vcap'), play=c.querySelector('[data-act="play"]');
   return {txt:(c.innerText||'').replace(/\n/g,' | '), rsm:!!rsm, rsmTxt:rsm?rsm.textContent:'',
     vcap:!!vc, vcapTxt:vc?vc.textContent:'', play:!!play};
 })()
@@ -410,11 +410,28 @@ class Session(object):
                        "catch(e){return [];})()")
 
     # ---------- PPT ----------
-    def open_card(self, did):
+    def open_detail(self, did):
+        """v2.0：点击列表卡片 = 下载详情（懒拉 manifest），不再直接进播放器。"""
         ok = self.js("(function(){var c=document.querySelector('#pptList [data-deck=\"%s\"] .ppt-bd');"
                      "if(!c)return false;c.click();return true;})()" % did)
         if not ok:
             return False
+        return self.wait("(function(){var d=document.getElementById('pptDl');"
+                         "return !!d&&!d.hidden;})()", 6)
+
+    def close_detail(self):
+        self.js("(function(){var b=document.querySelector('#pptDl [data-dlact=\"close\"]');"
+                "if(b)b.click();return true;})()")
+        self.sleep(0.25)
+
+    def open_card(self, did):
+        """v2.0：卡片 → 下载详情 → 「在线预览」进入旧播放器（旧播放器覆盖保留）。"""
+        if not self.open_detail(did):
+            return False
+        if not self.wait("!!document.querySelector('#pptDl [data-dlact=\"preview\"]')", 8):
+            return False
+        self.js("(function(){var b=document.querySelector('#pptDl [data-dlact=\"preview\"]');"
+                "if(b)b.click();return true;})()")
         return self.wait("!!document.getElementById('pptPlayer')", 8)
 
     def open_via_api(self, did):
@@ -512,11 +529,34 @@ def scenario_video_controls(server):
         page = sess.page
         et = sess.set_conn({"effectiveType": "4g", "saveData": False})
         R.add("网络：mock navigator.connection 生效（effectiveType=4g）", et == "4g", str(et))
-        R.add("列表：整卡点击 = 直接播放（封面大 ▶ 存在）",
-              bool(js(page, "(function(){var c=document.querySelector('#pptList [data-deck=\"dtestvideo1\"]');"
-                            "return !!(c&&c.querySelector('.ppt-cvplay'));})()")))
-        ok = sess.open_card("dtestvideo1")
-        R.add("默认模式：网络良好 + manifest.video → 打开即原样播放（≤2 步）", ok, "")
+        det = sess.open_detail("dtestvideo1")
+        # 详情是懒拉 manifest：等骨架消失再断言（旧 deck 出现「未生成/预览/重新处理」）
+        if det:
+            sess.wait("(function(){var b=document.getElementById('pptDlBody');"
+                      "return !!b&&b.querySelectorAll('.ppt-dl-skel').length===0;})()", 8)
+        det_state = js(page, r"""(function(){
+          var o=document.getElementById('pptDl');
+          if(!o||o.hidden)return null;
+          var b=document.getElementById('pptDlBody');
+          return {open:!o.hidden,txt:b?b.innerText:'',
+            preview:!!o.querySelector('[data-dlact="preview"]'),
+            retry:!!o.querySelector('[data-dlact="retry"]'),
+            files:o.querySelectorAll('.ppt-file').length,
+            player:!!document.getElementById('pptPlayer')};})()""")
+        R.add("v2.0 列表：整卡点击 = 下载详情（不再直接进播放器、无列表播放按钮/封面 ▶）",
+              det and bool(det_state) and det_state.get("open") and not det_state.get("player")
+              and not bool(js(page, "(function(){var c=document.querySelector('#pptList [data-deck=\"dtestvideo1\"]');"
+                                   "return !!(c&&(c.querySelector('.ppt-cvplay')||c.querySelector('[data-act=\"play\"]')));})()")),
+              json.dumps(det_state, ensure_ascii=False)[:220])
+        R.add("v2.0 详情：旧 deck 显示「兼容版未生成」+「在线预览」+「重新处理」",
+              bool(det_state) and "兼容版未生成" in str(det_state.get("txt") or "")
+              and det_state.get("preview") and det_state.get("retry"),
+              json.dumps(det_state, ensure_ascii=False)[:220])
+        # 经「在线预览」进入旧播放器（原 v1.2 播放器覆盖全部保留）
+        js(page, "(function(){var b=document.querySelector('#pptDl [data-dlact=\"preview\"]');"
+                 "if(b)b.click();return true;})()")
+        ok = sess.wait("!!document.getElementById('pptPlayer')", 8)
+        R.add("默认模式：经「在线预览」后（网络良好 + manifest.video）原样播放", ok, "")
         started = sess.wait_video(10)
         sess.sleep(0.6)
         st = sess.vstate()
@@ -821,7 +861,7 @@ def scenario_resume(server):
         card = js(page, CARDSTATE.replace("__DECK__", "dtestvideo1")) or {}
         R.add("列表：7 天内有续播位置 → 卡片显示「继续」徽标", card.get("rsm") is True,
               json.dumps(card, ensure_ascii=False)[:240])
-        R.add("列表：整卡仍保留封面大 ▶", card.get("play") is True)
+        R.add("列表：整卡可点击（v2.0 进下载详情；无列表播放按钮）", card.get("play") is False)
         stale = js(page, CARDSTATE.replace("__DECK__", "dtestready1")) or {}
         R.add("列表：过期（>7 天）续播记录不显示「继续」徽标", stale.get("rsm") is False,
               json.dumps(stale, ensure_ascii=False)[:240])

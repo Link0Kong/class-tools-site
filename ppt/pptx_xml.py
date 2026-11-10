@@ -14,7 +14,9 @@
 * buildId（资产名+大小+manifest 摘要的 sha1 前 10 位）；
 * **v1.2 原样播放视频**（CONTRACT §11.1/§11.2）纯计算：动画结束时间 ``anim_end``、
   每页 ``advance``、章节时间 ``chapters``、页数/时长上限判断、ffprobe JSON 解析、
-  ``manifest.video`` 校验。
+  ``manifest.video`` 校验；
+* **v2.0 compat**（CONTRACT §12.2）：下载文件名清洗、包内媒体 sha256 图/集合、
+  外链媒体告警（页/kind/路径尾）、``manifest.files/compat`` 校验。
 
 切换家族映射由真实 PowerPoint 探测得出（设置 EntryEffect 后 SaveCopyAs 解包读取
 ``<p:transition>`` 子元素），见 ``_TRANSITION_FAMILY`` 注释；与 CONTRACT §7 的家族
@@ -24,6 +26,7 @@ push 实际是 3852–3855、zoom 是 3073/3074、cover 是 1281–1288、cut �
 import hashlib
 import json
 import posixpath
+import re
 import zipfile
 from xml.etree import ElementTree as ET
 
@@ -543,20 +546,57 @@ def compute_build_id(assets, manifest):
 
 
 def validate_manifest(manifest):
-    """校验 CONTRACT §5 的 manifest 结构，返回错误字符串列表（空 = 合法）。"""
+    """校验 CONTRACT §5/§11/§12 的 manifest 结构，返回错误字符串列表（空 = 合法）。
+
+    * ``v=1``（旧 deck）：slides 非空；files 若存在（v2.0 为旧 deck 补 compat）也校验；
+    * ``v=2``（compat 新 deck）：``files.compat`` + ``files.pdf`` 必须存在；slides 可为空数组；
+    * ``video`` 可选（仅旧 deck/旧模式）。
+    """
     errors = []
     if not isinstance(manifest, dict):
         return ["manifest 不是对象"]
-    if manifest.get("v") != 1:
-        errors.append("v 必须为 1")
+    version = manifest.get("v")
+    if version not in (1, 2):
+        errors.append("v 必须为 1 或 2")
+    is_compat = version == 2
     if not isinstance(manifest.get("base"), str) or not manifest.get("base"):
         errors.append("base 必须是非空字符串")
     for key in ("w", "h"):
         if not isinstance(manifest.get(key), int) or manifest.get(key) <= 0:
             errors.append("%s 必须是正整数" % key)
     slides = manifest.get("slides")
-    if not isinstance(slides, list) or not slides:
+    if slides is None and is_compat:
+        slides = []
+    if not isinstance(slides, list):
+        return errors + ["slides 必须是数组"]
+    if not slides and not is_compat:
         return errors + ["slides 必须是非空数组"]
+    files = manifest.get("files")
+    if files is not None:
+        errors.extend(validate_files(files))
+    elif is_compat:
+        errors.append("compat(v2) manifest 必须包含 files")
+    if is_compat and isinstance(files, dict):
+        if not isinstance(files.get("compat"), dict):
+            errors.append("compat(v2) manifest 必须包含 files.compat")
+        if not isinstance(files.get("pdf"), dict):
+            errors.append("compat(v2) manifest 必须包含 files.pdf")
+    compat = manifest.get("compat")
+    if compat is not None:
+        if not isinstance(compat, dict):
+            errors.append("compat 必须是对象")
+        else:
+            warnings = compat.get("warnings")
+            if warnings is not None and not isinstance(warnings, list):
+                errors.append("compat.warnings 必须是数组")
+            if not isinstance(compat.get("fonts_embedded", 0), int):
+                errors.append("compat.fonts_embedded 必须是整数")
+    if not slides:
+        # compat 新 deck 无分步 slides：跳过逐页校验，只校验可选 video
+        video = manifest.get("video")
+        if video is not None:
+            errors.extend(validate_video(video, None))
+        return errors
     media_table = manifest.get("media") or []
     if not isinstance(media_table, list):
         errors.append("media 必须是数组")
@@ -870,4 +910,141 @@ def validate_video(video, slide_count=None):
         if dur_ok and t > float(dur) + 1e-6:
             errors.append("video.chapters[%d].t（%.2f）超出视频时长（%.2f）"
                           % (k, t, float(dur)))
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# v2.0 compat（CONTRACT §12）：下载文件名清洗 / 媒体 sha256 / 外链媒体告警 / files 校验
+# ---------------------------------------------------------------------------
+COMPAT_MANIFEST_VERSION = 2
+_ILLEGAL_FILENAME_RE = re.compile(r'[\\/:*?"<>|\x00-\x1f\x7f]')
+
+
+def sanitize_filename(name, fallback="演示", max_len=80):
+    """把标题/原文件名清洗成安全的下载文件名（保留 UTF-8 中文，去路径分隔符/控制字符）。"""
+    text = _ILLEGAL_FILENAME_RE.sub("_", str(name or ""))
+    text = " ".join(text.split()).strip().rstrip(". ")
+    if not text:
+        text = _ILLEGAL_FILENAME_RE.sub("_", str(fallback or "演示")).strip() or "演示"
+    max_len = max(1, int(max_len or 80))
+    if len(text) > max_len:
+        text = text[:max_len].rstrip(". ")
+    return text or "演示"
+
+
+def path_tail(path, max_len=40):
+    """外链媒体路径尾部（优先保留文件名；过长时用 ``…`` 前缀截断）。"""
+    text = str(path or "").replace("\\", "/").strip()
+    if not text:
+        return ""
+    base = text.rsplit("/", 1)[-1] or text
+    max_len = max(8, int(max_len or 40))
+    if len(base) <= max_len:
+        return base
+    return "…" + base[-(max_len - 1):]
+
+
+def _media_sha_map_zf(zf, prefix="ppt/media/"):
+    out = {}
+    for name in zf.namelist():
+        if not name.startswith(prefix) or name.endswith("/"):
+            continue
+        try:
+            data = zf.read(name)
+        except KeyError:
+            continue
+        out[name] = hashlib.sha256(data).hexdigest()
+    return out
+
+
+def media_sha256_map(zf_or_path, prefix="ppt/media/"):
+    """包内媒体文件 → sha256（``{包内部件名: hex}``）；非 zip（.ppt）返回空 dict。"""
+    try:
+        zf, owned = open_zip(zf_or_path)
+    except PptxParseError:
+        return {}
+    try:
+        return _media_sha_map_zf(zf, prefix)
+    finally:
+        if owned:
+            zf.close()
+
+
+def media_sha256_set(zf_or_path, prefix="ppt/media/"):
+    """包内媒体 sha256 集合（「未重编码」校验：compat 的每个媒体 sha 必须在源集合中）。"""
+    return set(media_sha256_map(zf_or_path, prefix).values())
+
+
+def compat_external_media(media_shapes):
+    """外链媒体 → ``(warnings, structured)``。
+
+    ``warnings``：中文提示（按 kind 聚合，每处带页号与路径尾）；
+    ``structured``：``[{"slide": 1-based, "kind": "v"|"a", "path_tail": "..."}]``。
+    **不删除内容**，只如实告警（CONTRACT §12.1.4）。
+    """
+    places = []
+    for item in media_shapes or []:
+        if not item.get("external"):
+            continue
+        try:
+            slide = int(item.get("slide") or 0)
+        except (TypeError, ValueError):
+            slide = 0
+        places.append({"slide": slide,
+                       "kind": "v" if item.get("kind") == "v" else "a",
+                       "path_tail": path_tail(item.get("media") or "")})
+    warnings = []
+    labels = {"v": "外链视频", "a": "外链音频"}
+    for kind in ("v", "a"):
+        group = [p for p in places if p["kind"] == kind]
+        if not group:
+            continue
+        detail = "；".join("第 %d 页，路径尾 %s" % (p["slide"], p["path_tail"] or "（空）")
+                          for p in group)
+        warnings.append("%s %d 处未随文件携带（%s）" % (labels[kind], len(group), detail))
+    return warnings, places
+
+
+def _validate_sha(value):
+    if not isinstance(value, str) or len(value) != 64:
+        return False
+    return all(ch in "0123456789abcdef" for ch in value.lower())
+
+
+def validate_files(files):
+    """校验 ``manifest.files``（v2.0 compat 文件清单），返回错误字符串列表。"""
+    errors = []
+    if not isinstance(files, dict):
+        return ["files 必须是对象"]
+    for key in ("compat", "pdf", "source"):
+        entry = files.get(key)
+        if entry is None:
+            if key in ("compat", "pdf"):
+                errors.append("files.%s 缺失" % key)
+            continue
+        if not isinstance(entry, dict):
+            errors.append("files.%s 必须是对象" % key)
+            continue
+        name = entry.get("s")
+        if not isinstance(name, str) or not name:
+            errors.append("files.%s.s 必须是非空字符串" % key)
+        size = entry.get("size")
+        if not isinstance(size, int) or size <= 0:
+            errors.append("files.%s.size 必须是正整数" % key)
+        if not _validate_sha(entry.get("sha256")):
+            errors.append("files.%s.sha256 必须是 64 位十六进制" % key)
+        if key == "pdf":
+            pages = entry.get("pages")
+            if pages is not None and (not isinstance(pages, int) or pages <= 0):
+                errors.append("files.pdf.pages 必须是正整数")
+        ext = entry.get("ext")
+        if ext is not None and (not isinstance(ext, str) or not ext):
+            errors.append("files.%s.ext 必须是非空字符串" % key)
+        dl_name = entry.get("name")
+        if dl_name is not None and (not isinstance(dl_name, str) or not dl_name):
+            errors.append("files.%s.name 必须是非空字符串" % key)
+    if isinstance(files.get("compat"), dict):
+        ext = files["compat"].get("ext")
+        if ext is not None and str(ext).lower() != "pptx":
+            errors.append("files.compat.ext 必须是 pptx（兼容包统一为 pptx）")
     return errors

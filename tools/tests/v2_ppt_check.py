@@ -181,6 +181,22 @@ def mock_serve(method, url, body_text):
         if "ppt_decks" in path:
             if method == "GET":
                 sel = _query_first(qs, "select")
+                # v2.0：列表标签用的轻量子查询 select=id,files:manifest->files（只有文件元数据，无 slides）
+                if "manifest->files" in sel or "files:manifest" in sel:
+                    MOCK["hint_gets"] = MOCK.get("hint_gets", 0) + 1
+                    out = []
+                    for d in MOCK["decks"]:
+                        if d.get("deleted"):
+                            continue
+                        man = d.get("manifest")
+                        if isinstance(man, str):
+                            try:
+                                man = json.loads(man)
+                            except Exception:
+                                man = None
+                        files = man.get("files") if isinstance(man, dict) else None
+                        out.append({"id": d.get("id"), "files": files})
+                    return 200, out
                 if "manifest" in sel:
                     MOCK["man_gets"] += 1
                     did = _query_first(qs, "id").replace("eq.", "")
@@ -483,11 +499,30 @@ def player_idx(page):
     return js(page, "(function(){var e=document.getElementById('pptIdx');return e?e.textContent:'';})()") or ""
 
 
-def open_player(page):
-    ok = js(page, "(function(){var b=document.querySelector('#pptList [data-act=\"play\"]');"
-                  "if(!b)return false;b.click();return true;})()")
+def open_detail(page, deck_id):
+    """v2.0：点击列表卡片 = 打开下载详情（懒拉 manifest）。"""
+    ok = js(page, "(function(){var c=document.querySelector('#pptList [data-deck=\"%s\"] .ppt-bd');"
+                  "if(!c)return false;c.click();return true;})()" % deck_id)
     if not ok:
         return False
+    return wait_js(page, "(function(){var d=document.getElementById('pptDl');"
+                         "return !!d&&!d.hidden;})()", 6)
+
+
+def close_detail(page):
+    js(page, "(function(){var b=document.querySelector('#pptDl [data-dlact=\"close\"]');"
+             "if(b)b.click();return true;})()")
+    time.sleep(0.25)
+
+
+def open_player(page, deck_id="dtestready1"):
+    """v2.0：点击卡片 → 下载详情 → 「在线预览」进入旧播放器（原播放器覆盖不变）。"""
+    if not open_detail(page, deck_id):
+        return False
+    if not wait_js(page, "!!document.querySelector('#pptDl [data-dlact=\"preview\"]')", 8):
+        return False
+    js(page, "(function(){var b=document.querySelector('#pptDl [data-dlact=\"preview\"]');"
+             "if(b)b.click();return true;})()")
     return wait_js(page, "!!document.getElementById('pptPlayer')", 6)
 
 
@@ -551,6 +586,16 @@ def static_checks():
           "AccessKey" not in html and "LTAI" not in html)
     R.add("静态：播放器宿主元素不参与站点滑动（resolveStart 排除 #pptPlayer）",
           'closest(t,"#pptPlayer")' in flat)
+    # v2.0 下载中心（契约 §12.4.1）：点击卡片=下载详情、三行文件下载、兼容提示、旧 deck 三态
+    R.add("静态：v2.0 下载中心块标记 __PPT_DL_V1__（CSS+JS）",
+          html.count("__PPT_DL_V1__") >= 2, html.count("__PPT_DL_V1__"))
+    R.add("静态：列表无列表级播放按钮（点击卡片=下载详情）",
+          'data-act="play"' not in html and "data-dlact=\"preview\"" in html)
+    R.add("静态：详情三行下载（兼容版/PDF/原始）+ <a download> + 文件元数据来自 manifest.files",
+          all(('fileRow("%s"' % k) in html for k in ("compat", "pdf", "source"))
+          and 'download="' in flat and "manifest->files" in flat and "兼容提示" in html)
+    R.add("静态：旧 deck 详情三态文案（兼容版未生成 / 在线预览 / 重新处理）",
+          all(t in html for t in ("兼容版未生成", "在线预览", "重新处理")))
 
 
 def js_static(html):
@@ -648,11 +693,38 @@ def scenario_main(sess):
     ready_card = js(page, "(function(){var c=document.querySelector('#pptList [data-deck=\"dtestready1\"]');"
                           "if(!c)return null;return {chip:!!c.querySelector('.ppt-st'),"
                           "play:!!c.querySelector('[data-act=\"play\"]'),"
+                          "cvplay:!!c.querySelector('.ppt-cvplay'),"
                           "meta:c.querySelector('.ppt-meta')?c.querySelector('.ppt-meta').textContent:''};})()")
-    R.add("列表：ready 不显示状态胶囊（只显示页数/上传者）+ 播放按钮",
-          bool(ready_card) and not ready_card.get("chip") and ready_card.get("play")
-          and "3 页" in str(ready_card.get("meta")),
+    R.add("列表：ready 不显示状态胶囊（页数/大小/上传者）+ 无列表播放按钮（v2.0 点击卡片=下载详情）",
+          bool(ready_card) and not ready_card.get("chip") and not ready_card.get("play")
+          and not ready_card.get("cvplay") and "3 页" in str(ready_card.get("meta")),
           json.dumps(ready_card, ensure_ascii=False))
+    # v2.0：点击卡片 = 下载详情（旧 deck → 兼容版未生成 + 在线预览 + 重新处理 + 原始文件）
+    det_open = open_detail(page, "dtestready1")
+    sess.sleep(0.4)
+    dstate = js(page, r"""
+(function(){
+  var o=document.getElementById('pptDl');
+  if(!o||o.hidden)return null;
+  var body=document.getElementById('pptDlBody');
+  return {open:!o.hidden,txt:body?body.innerText:'',
+    preview:!!o.querySelector('[data-dlact="preview"]'),
+    retry:!!o.querySelector('[data-dlact="retry"]'),
+    source:o.querySelectorAll('.ppt-file-source a[download]').length,
+    files:o.querySelectorAll('.ppt-file').length,
+    player:!!document.getElementById('pptPlayer')};
+})()
+""")
+    R.add("详情：点击卡片 → 下载详情（懒拉 manifest，不直接进播放器）",
+          det_open and bool(dstate) and dstate.get("open") and not dstate.get("player"),
+          json.dumps(dstate, ensure_ascii=False)[:240])
+    R.add("详情：旧 deck（无 files）「兼容版未生成」+「在线预览」+「重新处理」+ 原始文件下载",
+          bool(dstate) and "兼容版未生成" in str(dstate.get("txt") or "")
+          and dstate.get("preview") and dstate.get("retry") and dstate.get("source") == 1,
+          json.dumps({k: (dstate or {}).get(k) for k in ("preview", "retry", "source", "files")},
+                     ensure_ascii=False))
+    close_detail(page)
+    sess.sleep(0.25)
     cover_lazy = js(page, "(function(){var c=document.querySelector('#pptList [data-deck=\"dtestready1\"] img');"
                           "return c?{lazy:c.getAttribute('loading'),src:(c.getAttribute('src')||'').slice(0,16)}:null;})()")
     R.add("列表：封面图懒加载（loading=lazy）", bool(cover_lazy) and cover_lazy.get("lazy") == "lazy",
@@ -753,7 +825,7 @@ def scenario_main(sess):
     with MOCK_LOCK:
         MOCK["agent"]["seen_at"] = NOW
     ok = open_player(page)
-    R.add("播放器：点卡片「播放」打开 #pptPlayer", ok)
+    R.add("播放器：详情「在线预览」打开 #pptPlayer（v2.0 旧播放器入口保留）", ok)
     if not ok:
         return
     sess.sleep(0.7)
