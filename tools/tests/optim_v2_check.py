@@ -4,7 +4,7 @@
 用法：cd web/tools && python tests/optim_v2_check.py [index.html]
 两轮：
   main  : 非管理员、普通 UA —— 预设 / hash / 汇总按钮 / 备份存储用量 / toast 错误样式 / 0 报错
-  admin : 管理员、微信 UA   —— 大屏演示 / 微信导出图弹层 + inert / 0 报错
+  admin : 管理员、微信 UA   —— 大屏（团日：实时时间 / PPT 联动 / 计时 / 抽签）/ 微信导出图弹层 + inert / 0 报错
 退出码 0 = 全绿。
 """
 import os
@@ -59,6 +59,13 @@ window.fetch=function(u,o){
     if(s.indexOf("/marks")>=0)return ok(DATA.marks);
     if(s.indexOf("/fitrecs")>=0)return ok(DATA.fitrecs);
     if(s.indexOf("/userdata")>=0)return ok([]);
+    if(s.indexOf("/ppt_decks")>=0){
+      if(s.indexOf("manifest")>=0)return ok([{id:"d1",title:"团日活动演示",slide_count:2,step_count:2,aspect:"16:9",cover_url:"",manifest:{slides:[
+        {steps:[{img:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="}],tr:"fade"},
+        {steps:[{img:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="}],tr:"fade"}]}}]);
+      return ok([{id:"d1",title:"团日活动演示",status:"ready",progress:100,slide_count:2,step_count:2,aspect:"16:9",cover_url:"",owner_name:"测试同学",source_name:"团日活动演示.pptx",created_at:1,converted_at:2}]);
+    }
+    if(s.indexOf("/site_assets")>=0)return ok([{body:{seen_at:Date.now()},updated_at:Date.now()}]);
     return ok([]);
   }
   if(s.indexOf("tt.json")>=0)return ok(DATA.tt);
@@ -100,18 +107,36 @@ RUNNER = r"""
         }else if(window.__MODE==="admin"){          /* ===== 管理员 + 微信 UA ===== */
           T("数据备份入口存在", !!q("#optBkBtn"), "");
           click('[data-tab="all"]'); await sleep(300);
-          T("大屏演示入口（管理员）存在", !!q("#opt2StageBtn"), "");
-          click("#opt2StageBtn"); await sleep(250);
+          T("大屏入口（管理员）存在", !!q("#opt2StageBtn") && txt("#opt2StageBtn")==="大屏", txt("#opt2StageBtn"));
+          click("#opt2StageBtn"); await sleep(350);
           var st=q("#opt2Stage");
-          T("大屏演示弹层可打开", !!st && st.style.display!=="none", st?st.style.display:"none");
-          T("大屏时钟在走", /\d{2}:\d{2}:\d{2}/.test(txt("#o2sClock")), txt("#o2sClock"));
+          T("大屏弹层可打开", !!st && st.style.display!=="none", st?st.style.display:"none");
+          var t1=txt("#o2sTime");
+          T("右上角实时时间（时:分:秒）", /\d{2}:\d{2}:\d{2}/.test(t1), t1);
+          T("右上角日期（年月日 + 星期）", /\d{4}年\d{1,2}月\d{1,2}日/.test(txt("#o2sDate")) && /周[日一二三四五六]/.test(txt("#o2sDate")), txt("#o2sDate"));
+          await sleep(1200);
+          T("实时时间每秒更新", txt("#o2sTime")!==t1, t1+" -> "+txt("#o2sTime"));
+          T("已去掉「下一节」「作业」卡", !q("#o2sNext") && !q("#o2sHw") && txt("#opt2Stage").indexOf("下一节")<0 && txt("#opt2Stage").indexOf("作业")<0, "");
           T("大屏计时器存在", /05:00/.test(txt("#o2sTimer")), txt("#o2sTimer"));
+          click('[data-o2timer="1"]'); await sleep(1300);
+          T("计时器可开始倒计时", txt("#o2sTimer")!=="05:00", txt("#o2sTimer"));
           var pick=q('[data-o2pick="1"]'); if(pick)pick.click(); await sleep(120);
-          T("抽签演示可点（无名单也不报错）", ["—","无名单"].indexOf(txt("#o2sPick"))>=0 || String(txt("#o2sPick")).length>0, txt("#o2sPick"));
+          T("抽签可点（无名单也不报错）", ["—","无名单"].indexOf(txt("#o2sPick"))>=0 || String(txt("#o2sPick")).length>0, txt("#o2sPick"));
+          await waitFor(function(){return !!q("#o2sDecks [data-o2deck]");},5000);
+          var rows=document.querySelectorAll("#o2sDecks [data-o2deck]");
+          T("大屏列出可放映演示", rows.length>=1 && txt("#o2sDecks").indexOf("团日活动")>=0, "rows="+rows.length+" ["+txt("#o2sDecks").slice(0,40)+"]");
           var w=q(".wrap");
           T("大屏打开时背景 inert", !(w&&("inert" in w)&&w.inert===false), (w&&("inert" in w))?String(w.inert):"no-inert");
+          if(rows.length)rows[0].click();
+          await waitFor(function(){return !!q("#pptPlayer");},6000);
+          T("大屏点演示 → 全屏播放器打开", !!q("#pptPlayer"), !!q("#pptPlayer"));
+          click('#pptPlayer [data-act="close"]'); await sleep(180);
+          var lv=q('#pptPlayer [data-act="leave"]'); if(lv)lv.click();
+          await waitFor(function(){return !q("#pptPlayer");},5000);
+          T("退出放映自动回到大屏", !q("#pptPlayer") && !!q("#opt2Stage") && q("#opt2Stage").style.display!=="none", "");
           click("#o2sClose"); await sleep(150);
           T("大屏可关闭", q("#opt2Stage").style.display==="none", q("#opt2Stage").style.display);
+          T("关闭后恢复页面滚动", document.body.classList.contains("opt2-lock")===false, "opt2-lock="+document.body.classList.contains("opt2-lock"));
           /* 微信内导出图：显示图 + 长按保存 */
           click('[data-tab="draw"]'); await sleep(200);
           click("#aRun"); await sleep(400);
@@ -218,7 +243,7 @@ def run_one(page, slot, wx, suffix="", timeout=100):
         os.remove(report)
     args = [EDGE, "--headless=new", "--disable-gpu", "--no-first-run",
             "--force-device-scale-factor=1", "--window-size=430,940",
-            "--virtual-time-budget=16000"]
+            "--virtual-time-budget=24000"]
     if wx:
         args.append("--user-agent=" + WX_UA)
     args.append("http://127.0.0.1:%d/%s%s" % (PORT, page, suffix))
