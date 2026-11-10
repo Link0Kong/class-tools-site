@@ -1643,6 +1643,39 @@ def convert_compat(src_path, work_dir, opts=None):
             pass
         com["pres"] = None
         pres = None
+        # 冷启动瞬态：首次 SaveAs(EmbedFonts) 偶尔静默不写字体 → 检测到 0 个字体部件时重试一次
+        pkg = _inspect_compat_package(ctx, compat_path)
+        if bool(opts.get("compat_embed_fonts", True)) and pkg["fonts"] == 0:
+            ctx.warn("compat: 首次 SaveAs 未写入嵌入字体（可能 PowerPoint 冷启动瞬态）→ 重试一次")
+            retry_pres = None
+            try:
+                retry_pres = com["app"].Presentations.Open(local_copy, False, False, False)
+                _save_compat_package(ctx, retry_pres, compat_path, opts)
+            except Exception as exc:  # noqa: BLE001
+                ctx.warn("compat: 字体嵌入重试失败：%s" % exc.__class__.__name__)
+            finally:
+                if retry_pres is not None:
+                    try:
+                        retry_pres.Close()
+                    except Exception:  # noqa: BLE001
+                        pass
+                    retry_pres = None
+            pkg = _inspect_compat_package(ctx, compat_path)
+            if pkg["fonts"] == 0:
+                ctx.warn("compat: 字体仍未嵌入（可能无可用 TrueType 字体或许可受限）")
+        # v2.0.1：断链视频修复（video 关系 External/NULL 但同 slide 有内嵌副本 → 内部化）
+        # 必须在 SaveAs 之后、PDF/上传之前；zip 级重写，media 字节不动。
+        video_repair = pptx_xml.repair_broken_video_links(compat_path)
+        repairs = video_repair.get("repairs") or []
+        unresolved = video_repair.get("unresolved") or []
+        if repairs:
+            for item in repairs:
+                ctx.log("compat: 修复断链视频（第 %d 页，形状 %r → 内嵌 %s，%d bytes）"
+                        % (item["slide"], item["name"], item["media"], item["bytes"]))
+        if unresolved:
+            ctx.log("compat: 仍有 %d 处视频外链无法内嵌（无内嵌副本，保留外链并告警）"
+                    % len(unresolved))
+        # 修复会改动 rels（compat 体积/sha 变化）→ 重新检查兼容包
         pkg = _inspect_compat_package(ctx, compat_path)
         if pkg["slides"] != slide_count:
             raise ConvertError("兼容包页数与原文件不一致（%d / %d）"
@@ -1736,6 +1769,8 @@ def convert_compat(src_path, work_dir, opts=None):
             "fonts_embedded": int(pkg["fonts"]),
             "converted_from": ("ppt" if src_ext == ".ppt" else None),
             "external_media": external_media,
+            # v2.0.1：断链视频已用内嵌副本修复的记录（已从 warnings 移除对应外链提示）
+            "repairs": repairs,
         }
         manifest = {
             "v": pptx_xml.COMPAT_MANIFEST_VERSION,
@@ -1778,16 +1813,17 @@ def convert_compat(src_path, work_dir, opts=None):
             "source_sha256": source_entry["sha256"],
             "fonts_embedded": int(pkg["fonts"]),
             "external_media": len(external_media),
+            "video_repairs": len(repairs),
             "warnings": len(ctx.warnings),
             "converted_from": compat_meta["converted_from"],
             "build_prefix": prefix,
         })
         ctx.log("compat 完成：%d 页 / compat %.2fMB sha=%s / pdf %d 页 %.2fMB / "
-                "字体 %d / 外链媒体 %d 处 / 耗时 %.1fs / build=%s"
+                "字体 %d / 外链媒体 %d 处 / 断链视频修复 %d 处 / 耗时 %.1fs / build=%s"
                 % (slide_count, stats["compat_size"] / 1048576.0,
                    compat_entry["sha256"][:12], pages, stats["pdf_size"] / 1048576.0,
-                   stats["fonts_embedded"], len(external_media), stats["elapsed_s"],
-                   build_id))
+                   stats["fonts_embedded"], len(external_media), len(repairs),
+                   stats["elapsed_s"], build_id))
         return {
             "manifest": manifest,
             "assets": assets,

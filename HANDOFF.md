@@ -2669,3 +2669,17 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - **交付**：桌面 `班级工具站_PPT演示_20261109\` 更新 **班级工具站_3.5.0.apk**、`更新说明_PPT_v2.0_20261110.md`、`截图_v2.0\`；独立验收报告 `web/验收报告/PPT演示_v2.0_下载中心_验收_20261110.md`。
 - **回滚**：网页重传 `tools/_backup/index_online_20261110-2215_preStageV2.html`（847,026 B/`411354e1…`，注意会连同并行大屏改动回退）；禁用任务 `schtasks /Change /TN PptConvertAgent /DISABLE` 或 `ppt-agent.pause`；manifest 去掉 `files`/`compat` 即回落旧逻辑；`--legacy` 可临时跑旧链路；无 DB schema 变更。
 - **已知限制**：外链媒体不能随包（只告警不删除）；字体许可受限时仅告警；兼容包体积 ≈ 源 + 字体（36.3MB→37.3MB）；小程序/安卓需设备装有 Office/WPS/PDF 查看器；小程序需微信后台配置 OSS request+downloadFile 合法域名并上传发布；安卓下载落私有下载目录（受不申请存储权限红线约束）；兼容版与原文件建议文件名区分（当前取同标题，浏览器会重命名）。
+
+## 2026-11-11 07:0x–07:4x · 增量 32：修复兼容包「嵌入视频仍不可用」——断链视频用内嵌副本重连（v2.0.1）
+
+> 用户反馈：「我上传的嵌入视频的 ppt 视频依旧不可用」。定位：其 PPT 第 7 页视频是「链接型」但链接目标为空，PowerPoint 仍保留了一份内嵌副本；
+> v2.0 兼容包经 PowerPoint SaveAs 原样保留了断链，所以打开后该视频不可用。
+- `pptx_xml.py` 新增 `repair_broken_video_links()`：扫描每页 rels 中 `Type=relationships/video` 且 `TargetMode=External`、Target 为空/`NULL`/不存在的断链；
+  按同形状 `<p14:media r:embed>`（或同页未引用内嵌 media）找到包内 `../media/*` 副本 → 把该 video 关系 Target 改为内嵌路径并去掉 TargetMode（Type 仍 video），
+  zip 安全重写（仅 rels 变化、所有部件/媒体字节原样、testzip 校验、幂等）；找不到内嵌副本仍保留 external+warning。
+- `convert.py`：在 SaveAs 后、PDF/上传前执行修复；`manifest.compat.repairs` 记录 `{slide,name,media,bytes}`；已修复项从 warnings 移除；另加冷启动首次 SaveAs 未写字体的自动重试。
+- 测试：`test_pure_logic.py` **131/131**（+8：断链+副本/无副本/幂等/多形状/兜底/manifest）、`test_compat_integration.py` **25/25**（+6：修复阶段、rels 内部化、媒体字节不变、PowerPoint 打开 MediaFormat）、旧 `test_convert_integration` 22/22、`test_cloud_contract` 7/7。
+- 真实用户 deck 重新补转：compat.pptx **39,063,744 B / sha256 `c83f642f18e6…`**；skill[7] 关系内部化；`compat.repairs=[{slide:7,name:"视频一_板蓝根",media:"media1.mp4",bytes:20158796}]`、warnings=[]；
+  独立 QA（真实云端下载）**23/23 PASS**（无未解决 external video 断链、15/15 内嵌媒体 sha 与源逐字节一致、PDF 16 页）；
+  PowerPoint COM 独立打开 OSS 上的 compat：slide7 `视频一_板蓝根` 为**内嵌媒体**（LinkFormat 报 not linked）、`MediaFormat.Length=150919ms / 1024x576`；slide12 对照 225582ms 正常。
+- 计划任务已重新启用（默认 compat 含修复）。后续同类「链接失效但包内有内嵌副本」的视频会自动修复；真正的纯外链媒体仍只告警。

@@ -40,6 +40,7 @@ WORK_16 = os.path.join(OUT_DIR, "compat_work_16x9")
 WORK_43 = os.path.join(OUT_DIR, "compat_work_4x3")
 WORK_PPT = os.path.join(OUT_DIR, "compat_work_ppt")
 WORK_FAIL = os.path.join(OUT_DIR, "compat_work_fail")
+WORK_FIX = os.path.join(OUT_DIR, "compat_work_fixvid")
 
 
 def ensure_fixtures():
@@ -76,7 +77,6 @@ def open_slide_count(path):
     opts = convert.normalize_options({})
     ctx = convert._Ctx(opts, log=lambda m: None)
     import pythoncom
-    import win32com.client as win32
 
     pythoncom.CoInitialize()
     com = {"app": None, "pres": None}
@@ -85,6 +85,58 @@ def open_slide_count(path):
         com["pres"] = com["app"].Presentations.Open(os.path.abspath(path), True,
                                                     False, False)
         return int(com["pres"].Slides.Count)
+    finally:
+        convert._quiet_shutdown(com, ctx)
+        pythoncom.CoUninitialize()
+
+
+def inspect_media_shape(path, slide_no, shape_id):
+    """PowerPoint 打开文件，检查指定页/形状的媒体状态（MediaFormat/LinkFormat）。"""
+    opts = convert.normalize_options({})
+    ctx = convert._Ctx(opts, log=lambda m: None)
+    import pythoncom
+
+    pythoncom.CoInitialize()
+    com = {"app": None, "pres": None}
+    try:
+        com["app"] = convert._acquire_powerpoint(ctx)
+        com["pres"] = com["app"].Presentations.Open(os.path.abspath(path), True,
+                                                    False, False)
+        pres = com["pres"]
+        info = {"slides": int(pres.Slides.Count), "found": False, "shape_id": shape_id}
+        slide = pres.Slides(int(slide_no))
+        for i in range(1, int(slide.Shapes.Count) + 1):
+            shape = slide.Shapes(i)
+            try:
+                if int(shape.Id) != int(shape_id):
+                    continue
+            except Exception:  # noqa: BLE001
+                continue
+            info["found"] = True
+            try:
+                info["type"] = int(shape.Type)
+            except Exception:  # noqa: BLE001
+                info["type"] = -1
+            try:
+                info["name"] = str(shape.Name)
+            except Exception:  # noqa: BLE001
+                info["name"] = ""
+            try:
+                media = shape.MediaFormat
+                for key, attr in (("media_len", "Length"),
+                                  ("sample_w", "SampleWidth"),
+                                  ("sample_h", "SampleHeight")):
+                    try:
+                        info[key] = getattr(media, attr)
+                    except Exception:  # noqa: BLE001
+                        info[key] = None
+            except Exception as exc:  # noqa: BLE001
+                info["media_err"] = exc.__class__.__name__
+            try:
+                info["link_source"] = str(shape.LinkFormat.SourceFullName or "")
+            except Exception:  # noqa: BLE001
+                info["link_source"] = None
+        return info
     finally:
         convert._quiet_shutdown(com, ctx)
         pythoncom.CoUninitialize()
@@ -200,6 +252,7 @@ class TestCompatFixture16x9(unittest.TestCase):
 
     def test_08_external_media_warning_kept(self):
         meta = self.manifest["compat"]
+        self.assertEqual(meta.get("repairs", []), [])  # 该 fixture 外链目标存在，不应误修复
         self.assertEqual(len(meta["external_media"]), 1)
         place = meta["external_media"][0]
         self.assertEqual(place["slide"], 5)
@@ -297,6 +350,140 @@ class TestCompatFromPpt(unittest.TestCase):
     def test_03_source_copy_original(self):
         self.assertEqual(self.manifest["files"]["source"]["sha256"], sha256(FIXTURE_PPT))
         self.assertTrue(os.path.exists(self.assets["original.ppt"]["path"]))
+
+
+def _break_slide_video_rels(path, rels_name="ppt/slides/_rels/slide4.xml.rels",
+                             media_target="../media/media1.mp4"):
+    """把一个 compat 包里的 video 关系改回「External/NULL 断链」状态（模拟用户 deck slide7）。"""
+    import re
+    import zipfile
+    with zipfile.ZipFile(path) as zf:
+        entries = {info.filename: zf.read(info.filename) for info in zf.infolist()}
+    text = entries[rels_name].decode("utf-8")
+
+    def repl(match):
+        tag = match.group(0)
+        if "/relationships/video" in tag and media_target in tag:
+            tag = re.sub(r'\s+Target="[^"]*"', ' Target="NULL"', tag, count=1)
+            tag = tag[:-2].rstrip() + ' TargetMode="External"/>'
+        return tag
+
+    entries[rels_name] = re.sub(r'<Relationship\b[^>]*/>', repl, text).encode("utf-8")
+    tmp = path + ".broken.tmp"
+    with zipfile.ZipFile(tmp, "w") as zout:
+        for name, data in entries.items():
+            zout.writestr(name, data)
+    os.replace(tmp, path)
+    return path
+
+
+class TestCompatBrokenVideoRepair(unittest.TestCase):
+    """断链视频（video 关系 External/NULL）但同页存在内嵌副本 → compat 包内内部化。
+
+    真实用户 deck dmwalrdlgevz90l 的 slide7 即此结构（Lead 证据）：
+    `a:videoFile r:link=rId1` → video rel External Target="NULL"，同形状
+    `p14:media r:embed=rId2` → ../media/media1.mp4（有效内嵌副本）。
+    本机 PowerPoint SaveAs 对 fixture 可能自动修复该结构，因此测试里在 SaveAs 完成后
+    再把 slide4 的视频关系改回断链（等价于真实 deck 被 SaveAs 原样保留的情况），
+    验证 convert_compat 的修复阶段会内部化并写入 manifest.compat.repairs。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        ensure_fixtures()
+        require_powerpoint_free()
+        real_repair = pptx_xml.repair_broken_video_links
+        repair_calls = []
+
+        def break_then_repair(path, out_path=None):
+            # 模拟「PowerPoint SaveAs 原样保留断链」：修复阶段开始前把 video 关系改回 External/NULL
+            _break_slide_video_rels(path)
+            repair_calls.append(path)
+            return real_repair(path, out_path)
+
+        t0 = time.time()
+        with mock.patch.object(convert.pptx_xml, "repair_broken_video_links",
+                               side_effect=break_then_repair):
+            cls.result = convert.convert_compat(FIXTURE, WORK_FIX, {
+                "deck_id": "dfixvid",
+                "title": "断链视频修复",
+                "source_name": os.path.basename(FIXTURE),
+                "timeout_s": 600,
+                "log": lambda msg: print("[compat-fixvid] " + msg, flush=True),
+            })
+        cls.total_s = round(time.time() - t0, 2)
+        cls.manifest = cls.result["manifest"]
+        cls.assets = {a["name"]: a for a in cls.result["assets"]}
+        cls.repair_calls = len(repair_calls)
+        print("[compat] 断链视频修复 fixture 转换耗时 %.2fs，repairs=%s（修复阶段调用 %d 次）"
+              % (cls.total_s, cls.manifest["compat"].get("repairs"),
+                 cls.repair_calls), flush=True)
+
+    def test_00_repair_stage_invoked(self):
+        self.assertEqual(self.repair_calls, 1, "compat 流水线必须调用断链视频修复阶段")
+
+    def test_01_repair_recorded(self):
+        meta = self.manifest["compat"]
+        repairs = meta.get("repairs") or []
+        self.assertEqual(len(repairs), 1, "slide4 断链视频应被内嵌副本修复")
+        item = repairs[0]
+        self.assertEqual(item["slide"], 4)
+        self.assertEqual(item["name"], "clip")
+        self.assertEqual(item["media"], "media1.mp4")
+        import zipfile
+        with zipfile.ZipFile(FIXTURE) as zf:
+            src_bytes = len(zf.read("ppt/media/media1.mp4"))
+        self.assertEqual(item["bytes"], src_bytes)  # fixture 内嵌 clip.mp4 原始字节数
+        # fixture 第 5 页另有「目标文件真实存在」的外链媒体，不属断链、保持外部+告警（不误修复）
+        self.assertEqual(len(meta["external_media"]), 1)
+        self.assertEqual(meta["external_media"][0]["slide"], 5)
+
+    def test_02_rels_internalized(self):
+        compat = self.assets["compat.pptx"]["path"]
+        import zipfile
+        with zipfile.ZipFile(compat) as zf:
+            rels = zf.read("ppt/slides/_rels/slide4.xml.rels").decode("utf-8")
+            video_lines = [ln for ln in rels.splitlines()
+                           if "/relationships/video" in ln]
+            self.assertEqual(len(video_lines), 1)
+            self.assertIn('Target="../media/media1.mp4"', video_lines[0])
+            self.assertNotIn("TargetMode", video_lines[0])
+            self.assertIsNone(zf.testzip())
+        shapes = pptx_xml.read_media_shapes(compat)
+        slide4 = [s for s in shapes if s["slide"] == 4]
+        self.assertEqual(len(slide4), 1)
+        self.assertFalse(slide4[0]["external"])
+        self.assertEqual(slide4[0]["media"], "media1.mp4")
+
+    def test_03_media_bytes_unchanged(self):
+        compat = self.assets["compat.pptx"]["path"]
+        src_map = pptx_xml.media_sha256_map(FIXTURE)
+        dst_map = pptx_xml.media_sha256_map(compat)
+        self.assertEqual(dst_map, src_map, "修复不得改动任何媒体字节")
+        self.assertEqual(self.manifest["files"]["compat"]["sha256"],
+                         sha256(compat))
+
+    def test_04_pdf_fonts_pages_not_regressed(self):
+        self.assertEqual(pptx_xml.validate_manifest(self.manifest), [])
+        pages = pdf_pages(self.assets["preview.pdf"]["path"])
+        self.assertEqual(pages, 5)
+        self.assertEqual(self.manifest["files"]["pdf"]["pages"], 5)
+        self.assertGreaterEqual(self.manifest["compat"]["fonts_embedded"], 1)
+        self.assertGreater(self.assets["compat.pptx"]["size"], 0)
+
+    def test_05_powerpoint_opens_repaired_media(self):
+        compat = self.assets["compat.pptx"]["path"]
+        info = inspect_media_shape(compat, 4, 3)  # fixture slide4 视频 shape id=3
+        self.assertEqual(info["slides"], 5)
+        self.assertTrue(info["found"], "slide4 视频形状应存在")
+        self.assertEqual(info["type"], 16)
+        self.assertIsNotNone(info.get("media_len"))
+        self.assertGreater(float(info.get("media_len") or 0), 0)
+        self.assertEqual((int(info.get("sample_w") or 0),
+                          int(info.get("sample_h") or 0)), (640, 360))
+        print("[compat] PowerPoint 打开修复后 compat：slide4 shape3 len=%sms %sx%s"
+              % (info.get("media_len"), info.get("sample_w"), info.get("sample_h")),
+              flush=True)
 
 
 class TestCompatFailures(unittest.TestCase):

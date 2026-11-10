@@ -25,8 +25,10 @@ push 实际是 3852–3855、zoom 是 3073/3074、cover 是 1281–1288、cut �
 """
 import hashlib
 import json
+import os
 import posixpath
 import re
+import urllib.parse
 import zipfile
 from xml.etree import ElementTree as ET
 
@@ -591,6 +593,21 @@ def validate_manifest(manifest):
                 errors.append("compat.warnings 必须是数组")
             if not isinstance(compat.get("fonts_embedded", 0), int):
                 errors.append("compat.fonts_embedded 必须是整数")
+            repairs = compat.get("repairs")
+            if repairs is not None:
+                if not isinstance(repairs, list):
+                    errors.append("compat.repairs 必须是数组")
+                else:
+                    for k, item in enumerate(repairs):
+                        if not isinstance(item, dict):
+                            errors.append("compat.repairs[%d] 必须是对象" % k)
+                            continue
+                        if not isinstance(item.get("slide"), int) or item["slide"] < 1:
+                            errors.append("compat.repairs[%d].slide 必须是正整数" % k)
+                        if not isinstance(item.get("media"), str) or not item["media"]:
+                            errors.append("compat.repairs[%d].media 必须是非空字符串" % k)
+                        if not isinstance(item.get("bytes"), int) or item["bytes"] <= 0:
+                            errors.append("compat.repairs[%d].bytes 必须是正整数" % k)
     if not slides:
         # compat 新 deck 无分步 slides：跳过逐页校验，只校验可选 video
         video = manifest.get("video")
@@ -1048,3 +1065,314 @@ def validate_files(files):
         if ext is not None and str(ext).lower() != "pptx":
             errors.append("files.compat.ext 必须是 pptx（兼容包统一为 pptx）")
     return errors
+
+
+# ---------------------------------------------------------------------------
+# v2.0.1 断链视频修复（CONTRACT §12.1.4 补充）：video External/NULL 关系 → 内嵌副本
+# ---------------------------------------------------------------------------
+P14_NS = "http://schemas.microsoft.com/office/powerpoint/2010/main"
+REL_VIDEO_SUFFIX = "/relationships/video"
+REL_MEDIA_SUFFIX = "/relationships/media"
+_MISSING_TARGETS = ("", "null", "none", "(null)", "#null")
+
+
+def rels_part_name(part_name):
+    """``ppt/slides/slide7.xml`` → ``ppt/slides/_rels/slide7.xml.rels``。"""
+    folder, fname = posixpath.split(part_name)
+    return posixpath.join(folder, "_rels", fname + ".rels")
+
+
+def parse_rels_text(text):
+    """rels XML 文本 → ``{rId: {"type","target","external"}}``（解析失败返回空 dict）。"""
+    try:
+        root = ET.fromstring(text.encode("utf-8") if isinstance(text, str) else text)
+    except (ET.ParseError, TypeError, ValueError):
+        return {}
+    out = {}
+    for rel in root:
+        rid = rel.get("Id")
+        if not rid:
+            continue
+        out[rid] = {"type": rel.get("Type") or "",
+                    "target": rel.get("Target") or "",
+                    "external": (rel.get("TargetMode") or "").lower() == "external"}
+    return out
+
+
+def _xml_attr_escape(value):
+    return (str(value).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def rewrite_rels_target(text, rel_id, new_target):
+    """把 rels 文本中 ``Id=rel_id`` 的 Relationship 的 Target 改为 new_target 并去掉 TargetMode。
+
+    只改这一个元素（其余 XML 文本原样保留）；内部化后 video 关系的 Target 指向包内媒体。
+    """
+    pattern = re.compile(r'<Relationship\b[^>]*\bId="%s"[^>]*/>' % re.escape(str(rel_id)))
+    escaped = _xml_attr_escape(new_target)
+
+    def repl(match):
+        tag = match.group(0)
+        tag = re.sub(r'\s+TargetMode="[^"]*"', "", tag)
+        if re.search(r'\s+Target="[^"]*"', tag):
+            tag = re.sub(r'\s+Target="[^"]*"', ' Target="%s"' % escaped, tag, count=1)
+        else:
+            tag = tag[:-2].rstrip() + ' Target="%s"/>' % escaped
+        return tag
+
+    return pattern.sub(repl, text, count=1)
+
+
+def resolve_relationship_target(part_name, target):
+    """内部关系 Target（相对部件）→ 包内部件名（posix normpath）；无法解析返回空串。"""
+    text = str(target or "").replace("\\", "/").strip()
+    if not text:
+        return ""
+    if text.startswith("/"):
+        return posixpath.normpath(text.lstrip("/"))
+    return posixpath.normpath(posixpath.join(posixpath.dirname(part_name), text))
+
+
+def _external_target_missing(target):
+    """外链 Target 是否断链：空/NULL/本机 file:// 路径不存在 → True；http(s) 等网络链接 → False。"""
+    text = str(target or "").strip()
+    if text.lower() in _MISSING_TARGETS:
+        return True
+    low = text.lower()
+    if low.startswith(("http://", "https://", "ftp://", "smb://")):
+        return False
+    if low.startswith("\\\\"):
+        return False  # UNC 无法可靠判断，保守保留为外链
+    path = text
+    if low.startswith("file:"):
+        path = urllib.parse.unquote(text)
+        if path.lower().startswith("file://"):
+            path = path[7:]
+        elif path.lower().startswith("file:"):
+            path = path[5:]
+    try:
+        return not os.path.exists(path)
+    except (OSError, ValueError):
+        return False
+
+
+def _is_video_rel(rel):
+    return bool(rel) and str(rel.get("type") or "").lower().endswith(REL_VIDEO_SUFFIX)
+
+
+def _is_media_rel(rel):
+    rel_type = str(rel.get("type") or "").lower()
+    return (rel_type.endswith(REL_MEDIA_SUFFIX)
+            or rel_type.endswith(REL_VIDEO_SUFFIX)
+            or rel_type.endswith("/relationships/audio"))
+
+
+def _rel_is_broken_video(rel, part_name, package_sizes):
+    """video 关系是否断链：External 且 Target 空/NULL/本机不存在，或内部 Target 指向缺失部件。"""
+    if not _is_video_rel(rel):
+        return False
+    target = str(rel.get("target") or "")
+    if rel.get("external"):
+        return _external_target_missing(target)
+    resolved = resolve_relationship_target(part_name, target)
+    return not resolved or resolved not in package_sizes
+
+
+def _iter_pic_video_refs(root):
+    """slide XML 里每个 ``<p:pic>`` 的 video/p14:media 关系引用。"""
+    out = []
+    for pic in root.iter("{%s}pic" % P_NS):
+        video_rid = ""
+        for node in pic.iter("{%s}videoFile" % A_NS):
+            video_rid = node.get("{%s}link" % R_NS) or ""
+            break
+        if not video_rid:
+            for node in pic.iter("{%s}videoFile" % P_NS):
+                video_rid = node.get("{%s}link" % R_NS) or ""
+                break
+        embed_rid = ""
+        for node in pic.iter("{%s}media" % P14_NS):
+            rid = node.get("{%s}embed" % R_NS)
+            if rid:
+                embed_rid = rid
+                break
+        name = ""
+        pic_id = ""
+        c_nv_pr = pic.find("./{%s}nvPicPr/{%s}cNvPr" % (P_NS, P_NS))
+        if c_nv_pr is not None:
+            name = str(c_nv_pr.get("name") or "")
+            pic_id = str(c_nv_pr.get("id") or "")
+        out.append({"name": name, "pic_id": pic_id,
+                    "video_rid": video_rid, "embed_rid": embed_rid})
+    return out
+
+
+def _used_relationship_ids(root):
+    """slide XML 中被引用的所有关系 id（r:embed/r:link/r:id）。"""
+    used = set()
+    attrs = ("{%s}embed" % R_NS, "{%s}link" % R_NS, "{%s}id" % R_NS)
+    for el in root.iter():
+        for attr in attrs:
+            value = el.get(attr)
+            if value:
+                used.add(value)
+    return used
+
+
+def plan_video_link_repairs(slide_xml, rels, package_sizes, slide_part_name, slide_index=1):
+    """分析一页，规划断链视频修复（纯逻辑，不写文件）。
+
+    ``package_sizes``: 包内部件名 → 字节数（用于判断内嵌 media 是否存在）。
+    返回 ``{"updates": {video_rel_id: new_target}, "repairs": [...], "unresolved": [...]}``。
+    """
+    plan = {"updates": {}, "repairs": [], "unresolved": []}
+    try:
+        root = ET.fromstring(slide_xml.encode("utf-8")
+                             if isinstance(slide_xml, str) else slide_xml)
+    except (ET.ParseError, TypeError, ValueError):
+        return plan
+    rels = rels or {}
+    used = _used_relationship_ids(root)
+    # 兜底候选：同 slide 内「未被引用」的内嵌 media/video 关系（文件存在）
+    fallback = []
+    for rid, rel in rels.items():
+        if rid in used or rel.get("external") or not _is_media_rel(rel):
+            continue
+        resolved = resolve_relationship_target(slide_part_name, rel.get("target"))
+        if resolved and resolved in package_sizes:
+            fallback.append((rid, rel.get("target"), resolved))
+    for pic in _iter_pic_video_refs(root):
+        video_rid = pic["video_rid"]
+        if not video_rid:
+            continue
+        if video_rid in plan["updates"]:
+            continue
+        rel = rels.get(video_rid)
+        broken = _rel_is_broken_video(rel, slide_part_name, package_sizes)
+        if not broken:
+            continue
+        # 优先 p14:media 的 r:embed 指向的内嵌副本
+        candidate = None
+        embed_rid = pic["embed_rid"]
+        embed_rel = rels.get(embed_rid)
+        if embed_rel is not None and not embed_rel.get("external") and _is_media_rel(embed_rel):
+            resolved = resolve_relationship_target(slide_part_name,
+                                                   embed_rel.get("target"))
+            if resolved and resolved in package_sizes:
+                candidate = (embed_rid, embed_rel.get("target"), resolved)
+        if candidate is None and len(fallback) == 1:
+            candidate = fallback[0]
+        if candidate is not None:
+            rel_id, target, resolved = candidate
+            plan["updates"][video_rid] = target
+            plan["repairs"].append({
+                "slide": int(slide_index),
+                "name": pic["name"],
+                "media": posixpath.basename(resolved),
+                "bytes": int(package_sizes[resolved]),
+            })
+            if candidate in fallback:
+                fallback.remove(candidate)
+        else:
+            plan["unresolved"].append({
+                "slide": int(slide_index),
+                "kind": "v",
+                "rel_id": video_rid,
+                "name": pic["name"],
+                "path_tail": path_tail((rel or {}).get("target") or ""),
+            })
+    return plan
+
+
+def repair_broken_video_links(path, out_path=None):
+    """修复 compat 包内「video 外链断链但存在内嵌副本」的结构（zip 级，不改任何内容字节）。
+
+    * 只重写 ``ppt/slides/_rels/*.xml.rels``（把断链 video 关系的 Target 指向同 slide
+      的内嵌 media 并去掉 TargetMode；Type 仍为 relationships/video，对齐正常包结构）；
+    * 所有部件（含 media 字节）原样复制；重写后 ``zipfile.testzip()`` + 部件名列表校验；
+    * 无修复时**不重写文件**（幂等）；找不到内嵌副本的断链保留 External → 由调用方如实 warning。
+
+    返回 ``{"changed": bool, "repairs": [{"slide","name","media","bytes"}], "unresolved": [...]}``。
+    """
+    path = os.path.abspath(str(path))
+    result = {"changed": False, "repairs": [], "unresolved": []}
+    try:
+        zf = zipfile.ZipFile(path)
+    except (OSError, zipfile.BadZipFile) as exc:
+        raise PptxParseError("无法打开兼容包（%s）" % exc.__class__.__name__)
+    tmp_path = path + ".repair.tmp"
+    zf_closed = False
+    try:
+        names = zf.namelist()
+        package_sizes = {}
+        for info in zf.infolist():
+            if not info.is_dir():
+                package_sizes[info.filename] = int(info.file_size)
+        changed_rels = {}
+        slide_parts = slide_part_names(zf)
+        for slide_index, part_name in enumerate(slide_parts, start=1):
+            if part_name not in package_sizes:
+                continue
+            rels_name = rels_part_name(part_name)
+            try:
+                rels_text = zf.read(rels_name).decode("utf-8", "replace")
+            except KeyError:
+                continue
+            try:
+                slide_xml = zf.read(part_name).decode("utf-8", "replace")
+            except KeyError:
+                continue
+            rels = parse_rels_text(rels_text)
+            plan = plan_video_link_repairs(slide_xml, rels, package_sizes,
+                                           part_name, slide_index)
+            result["repairs"].extend(plan["repairs"])
+            result["unresolved"].extend(plan["unresolved"])
+            if not plan["updates"]:
+                continue
+            new_text = rels_text
+            for rel_id, target in plan["updates"].items():
+                new_text = rewrite_rels_target(new_text, rel_id, target)
+            changed_rels[rels_name] = new_text.encode("utf-8")
+        if not changed_rels:
+            return result
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except OSError:
+            pass
+        with zipfile.ZipFile(tmp_path, "w") as zout:
+            for info in zf.infolist():
+                data = changed_rels.get(info.filename)
+                if data is None:
+                    data = zf.read(info.filename)
+                zout.writestr(info, data)
+        with zipfile.ZipFile(tmp_path) as check:
+            bad = check.testzip()
+            if bad is not None:
+                raise PptxParseError("断链视频修复后 zip 校验失败（坏部件：%s）" % bad)
+            if set(check.namelist()) != set(names):
+                raise PptxParseError("断链视频修复后部件列表变化（拒绝写入）")
+        # Windows 上必须先关闭源 zip 句柄，否则 os.replace 目标被占用（WinError 5）
+        zf.close()
+        zf_closed = True
+        target_path = os.path.abspath(str(out_path)) if out_path else path
+        try:
+            if os.path.exists(target_path):
+                os.chmod(target_path, 0o666)  # 只读属性兜底（不改变内容）
+        except OSError:
+            pass
+        os.replace(tmp_path, target_path)
+        result["changed"] = True
+        return result
+    finally:
+        try:
+            zf.close()
+        except Exception:  # noqa: BLE001
+            pass
+        if os.path.exists(tmp_path) and not result["changed"]:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+

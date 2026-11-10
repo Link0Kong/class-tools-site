@@ -1302,5 +1302,215 @@ class TestCompatOnlyMerge(unittest.TestCase):
         self.assertIn("重新上传", text)
 
 
+# ---------------------------------------------------------------------------
+# 10. v2.0.1 断链视频修复（OOXML zip 级）
+# ---------------------------------------------------------------------------
+P14_NS = "http://schemas.microsoft.com/office/powerpoint/2010/main"
+NS_VIDEO_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/video"
+NS_MEDIA_REL = "http://schemas.microsoft.com/office/2007/relationships/media"
+NS_IMAGE_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+
+
+def _pic_video_xml(shape_id, name, video_rid, embed_rid=None, pic_rid="rId3"):
+    media = ""
+    if embed_rid:
+        media = ('<p:extLst><p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}">'
+                 '<p14:media xmlns:p14="%s" r:embed="%s"/></p:ext></p:extLst>'
+                 % (P14_NS, embed_rid))
+    return (
+        '<p:pic><p:nvPicPr><p:cNvPr id="%d" name="%s"/>'
+        '<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>'
+        '<p:nvPr><a:videoFile r:link="%s"/>%s</p:nvPr></p:nvPicPr>'
+        '<p:blipFill><a:blip r:embed="%s"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>'
+        '<p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="100" cy="100"/></a:xfrm>'
+        '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>'
+        % (shape_id, name, video_rid, media, pic_rid))
+
+
+def make_video_link_pptx(path, *, video_target="NULL", video_external=True,
+                         embedded=True, extra_pics=()):
+    """合成最小 pptx：slide1 含一个 video 形状（video 关系可设为断链/正常）。
+
+    ``extra_pics``: [(shape_id, name, video_target, video_external, embed_media_name)]
+    用于多形状/多内嵌副本场景（额外媒体部件 media2.mp4 等）。
+    """
+    slide_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<p:sld xmlns:a="%s" xmlns:r="%s" xmlns:p="%s">'
+        '<p:cSld><p:spTree>'
+        '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>'
+        '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/>'
+        '<a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'
+        '%s</p:spTree></p:cSld></p:sld>'
+        % (A_NS, R_NS, P_NS,
+           _pic_video_xml(13, "视频一_播放", "rId1", "rId2" if embedded else None)))
+    rels = [RELS_HEAD]
+    mode = ' TargetMode="External"' if video_external else ""
+    rels.append('<Relationship Id="rId1" Type="%s" Target="%s"%s/>'
+                % (NS_VIDEO_REL, video_target, mode))
+    media_parts = {}
+    if embedded:
+        rels.append('<Relationship Id="rId2" Type="%s" Target="../media/media1.mp4"/>'
+                    % NS_MEDIA_REL)
+        media_parts["ppt/media/media1.mp4"] = b"FAKE-MP4-BYTES-" * 64
+    rels.append('<Relationship Id="rId3" Type="%s" Target="../media/image1.png"/>'
+                % NS_IMAGE_REL)
+    media_parts["ppt/media/image1.png"] = b"\x89PNG fake"
+    for k, (shape_id, name, vtarget, vext, embed_media) in enumerate(extra_pics, start=10):
+        vid_rid = "rId%d" % k
+        embed_rid = "rId%d" % (k + 1)
+        media_rid = "rId%d" % (k + 2)
+        slide_xml = slide_xml.replace(
+            "</p:spTree>",
+            _pic_video_xml(shape_id + k, name, vid_rid, embed_rid) + "</p:spTree>")
+        rels.append('<Relationship Id="%s" Type="%s" Target="%s"%s/>'
+                    % (vid_rid, NS_VIDEO_REL, vtarget,
+                       ' TargetMode="External"' if vext else ""))
+        rels.append('<Relationship Id="%s" Type="%s" Target="../media/%s"/>'
+                    % (embed_rid, NS_MEDIA_REL, embed_media))
+        media_parts["ppt/media/" + embed_media] = ("FAKE-%s-" % embed_media).encode() * 40
+    rels.append(RELS_TAIL)
+    pres = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<p:presentation xmlns:a="%s" xmlns:r="%s" xmlns:p="%s">'
+        '<p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst>'
+        '<p:sldSz cx="12192000" cy="6858000"/></p:presentation>'
+        % (A_NS, R_NS, P_NS))
+    pres_rels = (RELS_HEAD
+                 + '<Relationship Id="rId1" Type="%s" Target="slides/slide1.xml"/>'
+                 % NS_SLIDE + RELS_TAIL)
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("ppt/presentation.xml", pres)
+        z.writestr("ppt/_rels/presentation.xml.rels", pres_rels)
+        z.writestr("ppt/slides/slide1.xml", slide_xml)
+        z.writestr("ppt/slides/_rels/slide1.xml.rels", "".join(rels))
+        for name, data in media_parts.items():
+            z.writestr(name, data)
+    return path
+
+
+class TestRepairBrokenVideoLinks(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ppt_fixvid_")
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _path(self, name="broken.pptx"):
+        return os.path.join(self.tmp, name)
+
+    def test_internalizes_and_preserves_media_bytes(self):
+        path = make_video_link_pptx(self._path())
+        before_media = pptx_xml.media_sha256_map(path)
+        slide_before = zipfile.ZipFile(path).read("ppt/slides/slide1.xml")
+        result = pptx_xml.repair_broken_video_links(path)
+        self.assertTrue(result["changed"])
+        self.assertEqual(len(result["repairs"]), 1)
+        repair = result["repairs"][0]
+        self.assertEqual(repair["slide"], 1)
+        self.assertEqual(repair["name"], "视频一_播放")
+        self.assertEqual(repair["media"], "media1.mp4")
+        self.assertGreater(repair["bytes"], 0)
+        self.assertEqual(result["unresolved"], [])
+        with zipfile.ZipFile(path) as zf:
+            self.assertIsNone(zf.testzip())
+            rels = zf.read("ppt/slides/_rels/slide1.xml.rels").decode("utf-8")
+            video_line = [ln for ln in rels.splitlines() if "rId1" in ln][0]
+            self.assertIn('Target="../media/media1.mp4"', video_line)
+            self.assertNotIn("TargetMode", video_line)
+            self.assertIn(NS_VIDEO_REL, video_line)
+            # slide XML 不改；media 字节不变
+            self.assertEqual(zf.read("ppt/slides/slide1.xml"), slide_before)
+        self.assertEqual(pptx_xml.media_sha256_map(path), before_media)
+        # 修复后 read_media_shapes 不再报外链
+        shapes = pptx_xml.read_media_shapes(path)
+        self.assertEqual([s for s in shapes if s.get("external")], [])
+        self.assertEqual(shapes[0]["media"], "media1.mp4")
+
+    def test_idempotent(self):
+        path = make_video_link_pptx(self._path())
+        self.assertTrue(pptx_xml.repair_broken_video_links(path)["changed"])
+        second = pptx_xml.repair_broken_video_links(path)
+        self.assertFalse(second["changed"])
+        self.assertEqual(second["repairs"], [])
+
+    def test_no_embedded_keeps_external_and_unresolved(self):
+        path = make_video_link_pptx(self._path(), embedded=False)
+        result = pptx_xml.repair_broken_video_links(path)
+        self.assertFalse(result["changed"])
+        self.assertEqual(result["repairs"], [])
+        self.assertEqual(len(result["unresolved"]), 1)
+        self.assertEqual(result["unresolved"][0]["slide"], 1)
+        self.assertEqual(result["unresolved"][0]["rel_id"], "rId1")
+        warnings, places = pptx_xml.compat_external_media(
+            pptx_xml.read_media_shapes(path))
+        self.assertEqual(len(places), 1)
+        self.assertIn("外链视频", warnings[0])
+        self.assertIn("第 1 页", warnings[0])
+        self.assertIn("NULL", warnings[0])
+
+    def test_internal_missing_target_repaired(self):
+        path = make_video_link_pptx(self._path(), video_target="../media/missing.mp4",
+                                    video_external=False)
+        result = pptx_xml.repair_broken_video_links(path)
+        self.assertTrue(result["changed"])
+        self.assertEqual(result["repairs"][0]["media"], "media1.mp4")
+        with zipfile.ZipFile(path) as zf:
+            rels = zf.read("ppt/slides/_rels/slide1.xml.rels").decode("utf-8")
+            self.assertIn('Target="../media/media1.mp4"', rels)
+            self.assertNotIn("missing.mp4", rels)
+
+    def test_multiple_pics_map_to_their_own_media(self):
+        path = make_video_link_pptx(
+            self._path(),
+            extra_pics=[(21, "第二个视频", "NULL", True, "media2.mp4")])
+        result = pptx_xml.repair_broken_video_links(path)
+        self.assertTrue(result["changed"])
+        self.assertEqual(len(result["repairs"]), 2)
+        medias = sorted(item["media"] for item in result["repairs"])
+        self.assertEqual(medias, ["media1.mp4", "media2.mp4"])
+        with zipfile.ZipFile(path) as zf:
+            self.assertIsNone(zf.testzip())
+            for name in ("ppt/media/media1.mp4", "ppt/media/media2.mp4"):
+                self.assertTrue(zf.read(name))
+
+    def test_fallback_unused_media(self):
+        """无 p14:media embed，但同 slide 有未被引用的内嵌 media → 兜底修复。"""
+        path = self._path()
+        make_video_link_pptx(path, embedded=False)
+        # 追加一个未被引用的内嵌 media 关系/部件
+        with zipfile.ZipFile(path) as zf:
+            entries = {i.filename: zf.read(i.filename) for i in zf.infolist()}
+        rels = entries["ppt/slides/_rels/slide1.xml.rels"].decode("utf-8")
+        rels = rels.replace(RELS_TAIL,
+                            '<Relationship Id="rId9" Type="%s" '
+                            'Target="../media/media1.mp4"/>%s'
+                            % (NS_MEDIA_REL, RELS_TAIL))
+        entries["ppt/slides/_rels/slide1.xml.rels"] = rels.encode("utf-8")
+        entries["ppt/media/media1.mp4"] = b"FALLBACK-MEDIA" * 32
+        with zipfile.ZipFile(path, "w") as z:
+            for name, data in entries.items():
+                z.writestr(name, data)
+        result = pptx_xml.repair_broken_video_links(path)
+        self.assertTrue(result["changed"])
+        self.assertEqual(result["repairs"][0]["media"], "media1.mp4")
+
+    def test_manifest_accepts_repairs(self):
+        manifest = _compat_manifest()
+        manifest["compat"]["repairs"] = [
+            {"slide": 7, "name": "视频一", "media": "media1.mp4", "bytes": 123}]
+        self.assertEqual(pptx_xml.validate_manifest(manifest), [])
+
+    def test_manifest_rejects_bad_repairs(self):
+        manifest = _compat_manifest()
+        manifest["compat"]["repairs"] = [{"slide": 0, "name": "", "media": "",
+                                          "bytes": 0}]
+        text = "; ".join(pptx_xml.validate_manifest(manifest))
+        self.assertIn("slide", text)
+        self.assertIn("media", text)
+        self.assertIn("bytes", text)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
