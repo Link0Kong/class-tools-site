@@ -138,6 +138,21 @@ python sync_tools.py                 # 同步 tools/index.html + tools/assets/**
 - 首次开站 / 证书续期（幂等，可重跑）：`python setup_tool_site.py`
 - 凭据来自 `creds.env`（脚本自动读取；**不要打印、不要外传**）。
 
+**域名暂停期本机临时通道（2026-11-10 新增，工具 `deploy/local_channel.py`）**
+
+> 背景：`furina.fun` DNS 全部暂停期间 `tool.furina.fun` 不可解析；直接用 OSS 默认域名打开页面会因
+> Origin 不在 CloudBase 网关 CORS 白名单而登录失败。临时通道只在本机起作用：
+> 内存里把页面 CloudBase 基址改成同源 `/__cb/`，服务端带 `Origin: https://tool.furina.fun` 转发到 CloudBase
+> （不改线上页面、不改网关配置、不需要证书/DNS）。默认仅监听 `127.0.0.1`。
+
+```powershell
+cd C:\Users\Ko_Li\.openclaw\workspace\web
+python deploy\local_channel.py --open        # 或双击 deploy\local_channel.cmd / 桌面「班级工具站_本地临时通道」
+python deploy\local_channel_selftest.py      # 自检：headless Edge + 测试身份真实登录 → RESULT: PASS
+```
+
+详见 `deploy/LOCAL_CHANNEL.md`（原理/安全边界/常见问题）。域名恢复解析后不再需要。
+
 ### 5.2 四条自检（**全绿才算完成**）
 
 ```powershell
