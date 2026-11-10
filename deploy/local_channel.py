@@ -218,19 +218,55 @@ class Handler(BaseHTTPRequestHandler):
                    extra={k: v for k, v in out_headers.items() if k.lower() != "content-type"})
 
 
+def _already_running(host, port):
+    """若该端口已经跑着本通道（或别的服务），返回 health 结果；无服务返回 None。"""
+    import urllib.request as _u
+    try:
+        with _u.urlopen("http://%s:%d/__chan/health" % (host, port), timeout=1.5) as r:
+            if r.status == 200:
+                return json.loads(r.read().decode("utf-8", "replace"))
+    except Exception:
+        return None
+    return None
+
+
 def main():
     ap = argparse.ArgumentParser(description="班级工具站本地临时通道（域名暂停期间本机使用）")
     ap.add_argument("--host", default="127.0.0.1", help="监听地址（默认 127.0.0.1，仅本机）")
-    ap.add_argument("--port", type=int, default=8787, help="端口（默认 8787）")
+    ap.add_argument("--port", type=int, default=8787, help="端口（默认 8787；占用时自动顺延）")
     ap.add_argument("--open", action="store_true", help="启动后自动打开默认浏览器")
     args = ap.parse_args()
 
     if not os.path.isdir(ROOT):
         log("找不到站点目录: %s" % ROOT)
         return 1
-    srv = ThreadingHTTPServer((args.host, args.port), Handler)
+
+    # 0) 已有一个通道在跑：直接打开浏览器（避免重复启动报端口占用）
+    host_open = "127.0.0.1" if args.host in ("0.0.0.0", "::") else args.host
+    existing = _already_running(host_open, args.port)
+    if existing:
+        url = "http://%s:%d/" % (host_open, args.port)
+        log("检测到临时通道已在运行： %s" % url)
+        if args.open:
+            webbrowser.open(url)
+        return 0
+
+    # 1) 绑定端口；被占用则顺延（最多 +10）
+    srv = None
+    last_err = None
+    for port in range(args.port, args.port + 11):
+        try:
+            srv = ThreadingHTTPServer((args.host, port), Handler)
+            break
+        except OSError as e:
+            last_err = e
+            log("端口 %d 不可用（%s），尝试下一个…" % (port, e))
+    if srv is None:
+        log("没有可用端口（从 %d 起 11 个均被占用）：%s" % (args.port, last_err))
+        return 1
     srv.daemon_threads = True
-    url = "http://%s:%d/" % ("127.0.0.1" if args.host in ("0.0.0.0", "::") else args.host, args.port)
+    actual = srv.server_address[1]
+    url = "http://%s:%d/" % (host_open, actual)
     log("临时通道已启动： %s" % url)
     log("站点目录: %s" % ROOT)
     log("原理: 页面 CloudBase 基址 -> 同源 /__cb/ -> 服务端带 Origin=%s 转发（绕开 DNS 与 CORS）" % CB_FAKE_ORIGIN)

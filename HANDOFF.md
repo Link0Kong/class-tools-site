@@ -2601,3 +2601,15 @@ SLOW_BLD  = ["13号楼","16号楼"]   // 楼栋级慢频配置（23A/23B 不在�
 sync-repos.cmd "feat: 说明本次改了什么"
 ```
 只推一个远端 / 不写说明 = 未完成交付；两端 SHA 以 `sync-repos.cmd --check` 为准。仓库保持私有。
+
+## 2026-11-10 补丁（运维/跨端）：本机临时通道启动器健壮化 + 转换机缺片报错含「上传中断」
+
+- `deploy/local_channel.py`：端口被占自动顺延（最多 +10）；目标端口已有本通道在运行则直接打开浏览器；`--open` 打开实际端口。
+- `deploy/local_channel.cmd` 与桌面启动器：不再依赖 `where python`（资源管理器双击环境 PATH 可能找不到 Python），
+  改为按常见绝对路径探测 Python312/313/py.exe；批处理改为**纯 ASCII + CRLF**（cmd 按 OEM 代码页解析，避免中文注释/换行造成误判）。
+  实测：双击启动后 `http://127.0.0.1:8787/__chan/health` = 200。
+- `ppt/agent.py`：分片缺失错误改为「上传中断：云端分片不完整（缺 N 片…请重新上传）」→ 网页/小程序「重试」
+  按 `上传中断` 判定为**重新上传文件**，而不是把空分片的 deck 再次排队。
+- 小程序端同日修复（源码在 `mp-class-tools/`，非本仓库）：基础库 3.17 起 `openSync(path,'r')` 旧签名失效，
+  导致分片读取全部失败（上传必然中断）；改为 `readFile({filePath,position,length})` 优先 + `pickChunkBuffer` 旧库切片 +
+  对象/旧字符串签名 `openSync` 回退，分片请求超时 60s；`tool-ppt.png` 图标改为 96×96 白色实心「演示屏+播放」（与其它工具图标一致）。

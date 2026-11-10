@@ -493,7 +493,7 @@ def fetch_chunks(cloud, deck_id, chunk_count, log):
     if chunk_count:
         missing = [i for i in range(int(chunk_count)) if i not in out]
         if missing:
-            raise CloudError("分片不完整（缺 %d 片，如 idx=%s）"
+            raise CloudError("上传中断：云端分片不完整（缺 %d 片，如 idx=%s），请重新上传"
                              % (len(missing), missing[:5]))
     if not out:
         raise CloudError("没有找到上传分片")
