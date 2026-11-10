@@ -24,7 +24,7 @@
 
 ```
 tools/          站点本体：index.html（单文件主程序）、tt.json（课表快照）、tests/（自检套件）、build_notice_embed.py
-deploy/         部署：OSS 上传（sync_tools.py）、CloudBase SQL、证书、对象校验（creds.env 等凭据已排除）
+deploy/         部署：OSS 上传（sync_tools.py）、ECS 备案落点部署（ecs_site.py，见 deploy/ECS_DEPLOY.md）、CloudBase SQL、证书、对象校验（creds.env 等凭据已排除）
 jwxt/           教务课表同步（本机 DPAPI 凭据；产物 tools/tt.json）
 ppt/            PPT 演示：本机转换机 agent + 云端契约 / 运维文档
 ziqi/           竞选自我介绍页静态源归档（独立 OSS，勿与本站混改）
@@ -36,6 +36,7 @@ AGENTS.md HANDOFF.md CLOUDBASE.md CHANGELOG.md SYNC.md README.md   项目文档
 
 1. **自检**：按改动范围跑 `tools/tests/` 下对应脚本（红线与基线见 [AGENTS.md](AGENTS.md) §0、[HANDOFF.md](HANDOFF.md) §5.2）。
 2. **上线**（站点改动）：备份线上 `index.html` 到 `tools/_backup/` 后 `python deploy/sync_tools.py`；并在 `CHANGELOG.md` 记一条（时间 / 内容 / 回滚点）。
+   - 备案落点 ECS（`121.196.47.2`）同步：先上传 OSS，再 `python deploy/ecs_site.py apply`（云助手通道，无需 SSH；详见 [deploy/ECS_DEPLOY.md](deploy/ECS_DEPLOY.md)）。
 3. **提交并同时推送两个远端**（缺一不可）：
    ```cmd
    sync-repos.cmd "feat: 一句话说明本次改了什么"
