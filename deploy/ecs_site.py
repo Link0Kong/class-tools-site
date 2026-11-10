@@ -114,6 +114,10 @@ def _caddy_http():
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8090
 	}
+	# 通知附件服务（签名 URL；见 attachments/CONTRACT.md）
+	handle /att/* {
+		reverse_proxy 127.0.0.1:8091
+	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	handle /v1/rdb/rest/* {
 		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
@@ -149,6 +153,10 @@ tool.furina.fun {
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8090
 	}
+	# 通知附件服务（签名 URL；见 attachments/CONTRACT.md）
+	handle /att/* {
+		reverse_proxy 127.0.0.1:8091
+	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	handle /v1/rdb/rest/* {
 		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
@@ -176,6 +184,10 @@ tool.furina.fun {
 	encode zstd gzip
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8090
+	}
+	# 通知附件服务（签名 URL；见 attachments/CONTRACT.md）
+	handle /att/* {
+		reverse_proxy 127.0.0.1:8091
 	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	handle /v1/rdb/rest/* {

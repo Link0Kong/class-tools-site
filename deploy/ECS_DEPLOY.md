@@ -15,12 +15,13 @@
 | 项 | 值 |
 |---|---|
 | 实例 | `class_tool` / `i-bp1ibr9hs7ewepmm1ugw`，杭州 2C2G，Ubuntu，到期 2027-11-03 |
-| 站点目录 | `/var/www/tool`：`index.html` = **800,243 B / sha256 `4412f5fc…`**（= OSS 线上最新版），另有 `tt.json`、`assets/qr_tools.png`、`favicon.ico`、`apple-touch-icon.png`、`robots.txt` |
+| 站点目录 | `/var/www/tool`：`index.html` = **802,355 B / sha256 `e40571d3…`**（= OSS 线上最新版，2026-11-10 18:51），另有 `tt.json`、`assets/qr_tools.png`、`favicon.ico`、`apple-touch-icon.png`、`robots.txt` |
 | Web 服务器 | Caddy **2.6.2**，仅 `:80`（HTTP），配置 `/etc/caddy/Caddyfile` |
-| 压缩 | `encode zstd gzip`；`index.html` 传输 **259,807 B**（未压缩 800,243） |
+| 压缩 | `encode zstd gzip`；`index.html` 传输 **260,997 B**（未压缩 802,355） |
 | 缓存头 | `index.html` / `tt.json` / `/board` → `Cache-Control: no-cache`；`/assets/*` 与图标 → `public, max-age=604800` |
 | 原有服务（未改） | `/api/*` → uvicorn `127.0.0.1:8090`（briefdesk-board）；`/board*` → `/opt/briefdesk/data/board.html` |
-| 同源 API 代理（第 3 步就绪，前端未切） | `/v1/rdb/rest/*` → `https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com`（`header_up Host` 已设为网关域名；实测 401/OpenAPI 200/RLS `[]` 正常） |
+| 通知附件服务（迁移第 2 步） | `/att/*` → `127.0.0.1:8091`（`class-tools-att.service`，systemd，代码 `/opt/class-tools/att-code/`，数据 `/opt/class-tools/attachments/`；签名 URL 契约见 `attachments/CONTRACT.md`） |
+| 同源 API 代理（第 3 步就绪，前端已切） | `/v1/rdb/rest/*` → `https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com`（`header_up Host` 已设为网关域名；实测 401/OpenAPI 200/RLS `[]` 正常）。网页 `var CB` 在 `tool.furina.fun` / `121.196.47.2` 下运行时改走同源（字面量保留给本机脚本解析） |
 | HTTPS 就绪配置 | `/etc/caddy/Caddyfile.https.ready` 已生成并通过 `caddy validate`（含 `tool.furina.fun` 站点块 + 自动 Let's Encrypt），**尚未启用**（DNS 停用中，无法签发） |
 | 备份 | 每次 apply 前备份到 `/var/www/tool_backup/<时间戳>/`（旧 `index.html` + 旧 `Caddyfile`） |
 | 实测 | `curl http://121.196.47.2/` = 800,243 B 且与本地 sha 一致；`/board` 8,555,473 B、`/api/status` 200、`/tt.json` 7,463 B |
@@ -67,8 +68,11 @@ systemctl reload caddy
 
 ## 6. 已知未完成（迁移第 2/3 步）
 
-1. **通知附件外置（第 2 步）**：目前 `.notices.body` 里仍有 7.89 MB 内嵌 `data:` URI（通知列表会整体下发）。需要先定「存储位置 + 鉴权方式」（ECS 本地/私有 OSS/签名 URL/Token 鉴权），再改本机同步管线 + 网页模板（小程序/安卓需发版）。
-2. **前端同源切换（第 3 步）**：ECS 端 `/v1/rdb/rest/*` 代理已就绪；`index.html` 的 `var CB` 仍是 CloudBase 绝对地址。切换需改前端（按 `location.hostname` 判别同源）+ 回归测试，并同步三端。
+1. **通知附件外置（第 2 步）**：ECS 服务 + 网页端 + **小程序/安卓源码**均已完成（mp `unit 305/0`、安卓 `testDebugUnitTest 934/0`），但本机管线**默认关闭**（`NOTICE_ATTACH_EXTERNALIZE` 未开）。
+   因为 `tool.furina.fun` 尚未备案解析，现在开会让已发布的旧版小程序/安卓遇到 http/IP URL；等备案通过 + 三端新版发布后按
+   `attachments/README.md` §2 一次性开启（存量 41 个附件自动回填）。
+2. **前端同源切换（第 3 步）**：已完成并随 2026-11-10 的 `index.html`（802,355 B）部署；逻辑是运行时按 `location.hostname`
+   决定 `CB = location.origin + "/v1/rdb/rest/"`（仅 `tool.furina.fun` / `121.196.47.2`），其它来源仍走 CloudBase 网关。
 3. **PPT 媒体仍在 OSS 香港**（`ppt/a/…`），跨境访问慢；后续可加 ECS 反代 + 磁盘缓存（媒体不可变，适合长缓存）。
 
 ## 7. 安全与边界

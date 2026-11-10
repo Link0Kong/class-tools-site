@@ -2,6 +2,19 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-10 18:5x · 迁移 ①ECS 备案落点 + ②通知附件外置（签名 URL）+ ③同源/缓存（网页已上线；三端附件兼容改造中）
+
+> 背景：ICP 备案尚未通过（`furina.fun` 6 条 DNS 记录仍 DISABLE），本步先把内地落点与三端兼容能力做好，备案后一键切换。
+> 用户决策：② 采用「ECS 私有存储 + 签名 URL」方案（A），且**要求三端一起发布**。
+
+- **① ECS 备案落点（已完成）**：新增 `deploy/ecs_site.py`（云助手 RunCommand，无需 SSH）把 OSS 最新站同步到 `/var/www/tool`；Caddy 增加 `encode zstd gzip`、缓存头（index/tt/board no-cache、assets 7 天）、`/att/*` 与 `/v1/rdb/rest/*` 路由；HTTPS 就绪配置写入 `/etc/caddy/Caddyfile.https.ready`（等备案 + DNS 恢复后 `apply --https` 自动签发）。实测 ECS `index.html` 802,355 B / sha256 `e40571d3…`、gzip 传输 260,997 B、`/board`/`/api/status` 不受影响；文档 `deploy/ECS_DEPLOY.md`。
+- **② 通知附件外置（服务与网页端已完成，默认关闭）**：新增 `attachments/`（契约 + 纯标准库服务端 + 本机客户端 + 单测）与 `deploy/ecs_attachments.py`；ECS `class-tools-att.service`（127.0.0.1:8091，数据 `/opt/class-tools/attachments`，签名 URL `HMAC-SHA256(sha256(SYNC_TOKEN|att-v1), id+exp)`，180 天、内容寻址、不可枚举）；本机 `sync_notices_cloud.py` 以 `NOTICE_ATTACH_EXTERNALIZE=1` 开关接入（失败保留 data URI，fail-open）；实测 40 个去重附件 6.1 MB 上传后，board 通知体 **8.05 MB → 0.17 MB**，签名 GET 200/篡改 403。网页模板（`briefdesk-plan/build_notice_board.py` + `build_notice_embed.py`）已兼容 URL 与 data URI 双形态（`v2_attach_url_check.py` 9/9、`v2_notice_data_check` 27/27 全绿）。**不默认开启**：旧版小程序/安卓未见新版前遇到 http/IP URL 会坏，按「三端一起」等备案通过后统一开。
+- **③ 同源/缓存（已完成）**：网页 `CB` 在 `tool.furina.fun`/`121.196.47.2` 下运行时改走同源 `/v1/rdb/rest/*`（ECS 反代 CloudBase 网关，消除 CORS 与跨云一跳；`var CB` 字面量保留给本机脚本解析）；静态站 gzip 32.5%。
+- **上线**：`index.html` **802,355 B / sha256 `e40571d395f32af735243673f7e93c6d008788143b046a7b15df2ec0c4142c50`**（OSS `check` MATCH + ECS 同步 MATCH）；改前线上对象备份 `tools/_backup/index_online_20261110-1900_preAttUrl.html`（800,243 B / `4412f5fc…`）。
+- **三端改造已完成（2026-11-10 晚）**：小程序 `nt.js`（`unit.js` **305/0**，新增 8 条 URL 用例）、安卓（`testDebugUnitTest` **934/0**，新增 30 条）；均保持 data URI 兼容、版本号未 bump、未发布/未构建 APK。
+- **未完成（等备案）**：开启 `NOTICE_ATTACH_EXTERNALIZE` 与存量回填；`apply --https` 切域名；小程序后台加 downloadFile 域名；安卓正式版只能走 https。
+- **回滚**：网页重传上述备份；ECS 回滚 `/var/www/tool_backup/<时间戳>/` + `/opt/class-tools/backup/<时间戳>/`；附件服务可 `systemctl stop class-tools-att`（旧 data URI 数据仍可读）。
+
 ## 2026-11-09 22:5x · PPT 演示（网页端）：上传自动转换 + 分步全屏播放器（**本地完成，待 Lead 统一部署**）
 
 > 需求（2026-11-09，用户场景）：教室老电脑播 PPT 卡死、嵌入视频「媒体不可用」→ 上传端只传源文件，本机转换机转成「分步图片 + H.264 小视频」，任意设备流畅播放。

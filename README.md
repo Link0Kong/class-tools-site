@@ -28,6 +28,8 @@ deploy/         部署：OSS 上传（sync_tools.py）、ECS 备案落点部署�
 jwxt/           教务课表同步（本机 DPAPI 凭据；产物 tools/tt.json）
 ppt/            PPT 演示：本机转换机 agent + 云端契约 / 运维文档
 ziqi/           竞选自我介绍页静态源归档（独立 OSS，勿与本站混改）
+attachments/    通知附件外置：签名 URL 契约 + ECS 私有存储服务端 + 本机客户端 + 单测
+deploy/ECS_DEPLOY.md  ECS 备案落点部署（云助手通道，无需 SSH）
 _audit/ _compliance/ _water_rules/ 验收报告/   审计、合规、水电规则研究、验收报告存档
 AGENTS.md HANDOFF.md CLOUDBASE.md CHANGELOG.md SYNC.md README.md   项目文档
 ```
