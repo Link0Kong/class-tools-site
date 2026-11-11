@@ -1005,6 +1005,28 @@ class TestSanitizeFilename(unittest.TestCase):
         self.assertEqual(out, "班会 演示")
 
 
+class TestDownloadName(unittest.TestCase):
+    """v2.2.1：兼容版 / 预览 / 原始文件下载名必须可区分（防误开原始文件）。"""
+
+    def test_suffixes_distinct(self):
+        title = "本草孝心_传承岐黄孝道_团日活动"
+        c = convert._download_name(title, "_兼容版", ".pptx")
+        p = convert._download_name(title, "_预览", ".pdf")
+        s = convert._download_name(title, "_原始文件", ".pptx")
+        self.assertEqual(c, title + "_兼容版.pptx")
+        self.assertEqual(p, title + "_预览.pdf")
+        self.assertEqual(s, title + "_原始文件.pptx")
+        self.assertEqual(len({c, p, s}), 3)
+
+    def test_length_cap_keeps_suffix_and_ext(self):
+        out = convert._download_name("长" * 200, "_兼容版", ".pptx", max_len=40)
+        self.assertTrue(out.endswith("_兼容版.pptx"))
+        self.assertLessEqual(len(out), 40 + len("_兼容版.pptx"))
+
+    def test_empty_base_fallback(self):
+        self.assertEqual(convert._download_name("", "_预览", ".pdf", 80), "演示_预览.pdf")
+
+
 class TestPathTail(unittest.TestCase):
     def test_basename(self):
         self.assertEqual(pptx_xml.path_tail("file:///C:/a/b/v.mp4"), "v.mp4")

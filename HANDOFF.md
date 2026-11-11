@@ -2878,3 +2878,46 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - **缓存一致性**：ECS `pptfiles_app.py` v1.1 每个缓存文件带 `.meta`，`/__warm/...?force=1` 先 HEAD OSS 比对、变化则 `.part` 原子回源替换；`agent.warm_ppt_files(force=True)` 上传后强制刷新；`ecs_pptfiles.py force-selftest` 真实验证：同 key A→B，普通 GET 仍旧（复现），force 后 4s GET 新内容。已部署 ECS（health v1.1）。
 - **真实用户 deck 重转**：`dmwalrdlgevz90l` media_summary=`{"total":2,"kept":2,"remux":0,"transcode":0}`（两段本为 h264/aac，字节不变）；compat **39,063,744B / sha256 `d6e904680b99…`**、PDF 16 页、字体 6、warnings 0；ECS 缓存 force 刷新后独立 QA **14/14 PASS**（含 ECS 下载 sha=manifest、速度 **6.1MB/s**）。
 - 三端 UI 暂未单独展示「媒体兼容 N 处」（manifest 已就绪）；文档/交付说明已写明策略。回滚：`compat_media_compat=False` 关闭媒体处理；ECS 停服务/客户端备用 OSS；网页备份 `index_online_20261111-1241_preDlAccel.html`。
+## 2026-11-11 19:0x · 增量 38：电费「关注宿舍」记忆修复 + 选择器优化（网页已上线 OSS+ECS）
+
+> 用户需求（2026-11-11 18:33）：「把网页端的电费宿舍选择框优化一下，然后修复网页端还是无法记住我的宿舍的问题」。
+> 范围：仅 `tools/index.html` 电费页交互/同步兜底 + 专项测试；未改 UD v6 契约/云端表/小程序/安卓；APP_VER 仍 2.0.0、单文件零依赖、无新增外部请求。
+
+### 38.1 根因（网页端「记不住宿舍」）
+- `UD.sections().power` 直接读内存 `POWER.sel`；但 `POWER` 只在用户打开电费页 `POWER.enter()` 时才从 UD 缓存恢复。
+- 用户打开网页停在别的 tab（正常情况）→ 启动 `UD.bootPull` 时 `POWER.sel` 仍是 `""`，与 UD 缓存里的非空选择不同 → 被判为「本机改成了空」→ 把 `power={sel:"",at:now}` 推回云端，真实选择被覆盖；此后每次打开都重复 → 表现为「永远记不住」。
+- 复现：真实页面代码 + 合成 userdata（CDP Fetch）场景 S1/S2/S4 均捕获空值 POST；修复后同场景全部保留并正确恢复。
+
+### 38.2 修复（`tools/index.html`）
+1. `POWER.bootRestore()`：启动即从 UD 缓存 → 本机兜底恢复 `sel/selAt/low`（幂等）；`UD.sections()` 读取 power 前兜底调用；`POWER.enter` 开头也调用；`WATER.restoreSel` 改为复用。
+2. `UD.localView` power 防丢：隐式空（未初始化/非法旧值/无基线）不得覆盖非空基线/云端；只有 `POWER._clearedAt`（用户显式清空）允许推空；非法基线（旧脏数据）视作无基线。
+3. `UD.pull` 自愈：云端 `power.sel` 为空、本机仍有非空选择且非显式清空 → 合并结果保留本机选择并补推一次，修复历史上被冒烟清空的云端。
+4. 显式清空：`POWER.pick("")` / 水量页选空 设置 `_clearedAt`；`applyRemote` 重置。语义：非空选择不会被其他端的隐式空值覆盖。
+
+### 38.3 选择器优化
+- 原生 `<select>`（17 项长列表）→ 自定义选择器：触发按钮（当前宿舍/占位）+ 面板（楼栋分段 13/16/23A/23B + 房间网格：23B 4 列、13/16 2 列、23A 3 列；选中 ✓）。
+- 交互：点击开合、Esc/点面板外关闭、打开后焦点落选中房间、空间不足自动向上翻转、aria-expanded/aria-label、点按 ≥40px、面板不遮挡触发器；`.pw-pickwrap` 加入两处滑动手势豁免（选择器内滑动不切工具）。
+- 隐藏原生 `#pwSelect`（1px/opacity 0）保留为值源与自动化兼容；`#wtSel`（水量页）保持原生 select 不变。
+- 使用说明补一句：「点『关注宿舍』按楼栋选房间；选择随账号同步，换设备自动恢复。」
+
+### 38.4 测试（本机实跑）
+- 新增 `tools/tests/v2_power_pick_mem_check.py`：**47/47 PASS**（静态 12 + 选择器交互 23 + 记忆链路 8 + 多宽度 4；mock fetch 无真实云端/无真实写；截图 `_shots_power_pick/{390_open,390_closed,1280_open}.png`）；对修复前冻结副本（`frozen/index_drag_body_c2f8ce71.html`）实跑 FAIL（证明能抓住回归）。
+- 回归：`power_check` **155/155**、`sync_check` **144/144**、`v2_power_detail_check` 30、`v2_power_tip_fixed_check` 21、`v2_power_cadence_check` 84、`v2_power_slow_check` 45、`v2_orient_power_check` 33、`v2_power_sync_hardening_check` 29、`water_check` 169、`v2_water_sync_check` 116、`v2_water_layout_check` 29、`v2_water_month_check`、`v2_pos_restore_check` 12、`v2_ui_check` 27、`v2_drag_check` 69、overflow 430 = 0；0 JS 报错/无外部请求。
+- 测试适配：`power_check` 下拉框高度断言改为「自定义触发器 ≥40px + 原生 select opacity 0」；`sync_check` static 断言改为 sections power IIFE/`bootRestore`；`v2_water_sync_check` G09/G16 在「power 恢复后启动不再产生空值脏推送」后改为显式强拉一次再断言 sid 过滤（原断言依赖旧 bug 产生的 GET）。
+- 部署后真实环境冒烟（ECS `121.196.47.2`，字节=OSS=本次产物）：真实身份 + CDP 拦截全部云端写（blocked=2: visits/userdata，未污染云端）→ 电费页恢复云端 `4-23B---423`、选择器面板 4 楼栋/4 房间/1 选中、390 无溢出、0 JS 报错；截图 `tools/tests/_shots_power_pick/live_ecs_390.png`。
+
+### 38.5 上线 / 回滚 / 副作用
+- 备份线上：`python deploy/oss_object.py get index.html tools/_backup/index_online_20261111-1915_prePowerPick.html`（963,583B/`c2f8ce71…`）。
+- 部署：`python deploy/sync_tools.py index.html` + `python deploy/ecs_site.py apply`，`oss_object.py check` MATCH / ECS verify MATCH；线上对象 **974,922 B / sha256 `e352ff18…`**（DNS 暂停期以 OSS/ECS 字节为准）。
+- 回滚：重传备份（会连同同批大屏/投票等一起回退到 963,583 版本）。
+- 副作用/已知取舍（如实）：① 未改电费数据/统计口径；② 非空优先策略下，一端「显式取消关注」后其他仍持有非空选择的端可能把它补推恢复（用户首要诉求是永不丢失选择；如需严格联动取消，需新增显式清空标记字段并改 UD 契约）；③ 选择器为纯前端，17 间静态目录不变（增删宿舍仍需 `PW_ROOMS` 与同步脚本两处同改）；④ 隐藏原生 select 保留但视觉不可见，键盘/读屏走自定义按钮（aria 标注）。
+
+## 2026-11-11 19:2x · 增量 39：下载文件名区分（兼容版/预览/原始文件）— v2.2.1
+
+> 用户反馈「班级电脑上视频提示媒体不可用；同时优化下载文件名」。根因之一：此前兼容版与原始文件**同名**（`<标题>.pptx`），
+> 用户很可能打开了「原始文件」（保留原断链，换机必媒体不可用）。现改为：
+- compat：`<标题>_兼容版.pptx`；pdf：`<标题>_预览.pdf`；source：`<标题>_原始文件.<ext>`（`convert._download_name`，长度上限内截断保留后缀）。
+- 纯逻辑测试 159→**162**（新增 `TestDownloadName`：三种后缀互异/超长保留后缀扩展名/空标题兜底）。
+- 真实 user deck `--compat-only` 重转：manifest names 已更新；compat **39,063,746B / sha256 `f1532d7c…`**、media kept=2、repairs slide7、warnings 0；ECS 缓存 force 刷新后独立 QA **14/14 PASS**（8.0MB/s）。
+- 排查建议：教室电脑请打开文件名带 `_兼容版` 的那份（约 37.25MB）；`_原始文件` 保留原链接会媒体不可用；下载文件可能进 PowerPoint「受保护视图」→ 点「启用编辑」；
+  教室若为 Office 2007 不支持内嵌视频，请用 Office 2010+/WPS 新版。视频编码已核实 H.264 Main L3.1 + AAC-LC，本身兼容。

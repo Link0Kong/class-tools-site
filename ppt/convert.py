@@ -1835,6 +1835,19 @@ def _compat_file_entry(path, name, content_type=None, **extra):
     return entry
 
 
+def _download_name(base, suffix, ext, max_len=80):
+    """v2.2.1 下载文件名区分：``<标题>_兼容版.pptx`` / ``_预览.pdf`` / ``_原始文件.pptx``。
+
+    避免兼容版与原始文件同名导致用户误开旧链接文件（``ext`` 带点）。
+    """
+    b = str(base or "").strip() or "演示"
+    suffix = str(suffix or "")
+    keep = max(8, int(max_len or 80) - len(suffix))
+    if len(b) > keep:
+        b = b[:keep]
+    return b + suffix + str(ext or "")
+
+
 def convert_compat(src_path, work_dir, opts=None):
     """v2.0 兼容性处理（CONTRACT §12.1）：返回 compat.pptx/original.<ext>/preview.pdf/
     cover.webp 资产 + manifest v2（files/compat）。
@@ -2050,14 +2063,17 @@ def convert_compat(src_path, work_dir, opts=None):
                                                  max_len=max_len)
         if not safe_source.lower().endswith(src_ext):
             safe_source += src_ext
-        compat_entry = _compat_file_entry(compat_path, safe_title + ".pptx",
-                                          content_type=MIME_PPTX, ext="pptx")
-        pdf_entry = _compat_file_entry(pdf_path, safe_title + ".pdf",
-                                       content_type=MIME_PDF, pages=pages)
-        source_entry = _compat_file_entry(source_asset_path, safe_source,
-                                          content_type=(MIME_PPT if src_ext == ".ppt"
-                                                        else MIME_PPTX),
-                                          ext=src_ext.lstrip("."))
+        compat_entry = _compat_file_entry(
+            compat_path, _download_name(safe_title, "_兼容版", ".pptx", max_len),
+            content_type=MIME_PPTX, ext="pptx")
+        pdf_entry = _compat_file_entry(
+            pdf_path, _download_name(safe_title, "_预览", ".pdf", max_len),
+            content_type=MIME_PDF, pages=pages)
+        source_entry = _compat_file_entry(
+            source_asset_path,
+            _download_name(os.path.splitext(safe_source)[0], "_原始文件", src_ext, max_len),
+            content_type=(MIME_PPT if src_ext == ".ppt" else MIME_PPTX),
+            ext=src_ext.lstrip("."))
         for entry in (compat_entry, pdf_entry, source_entry):
             entry.pop("_content_type", None)
         files = {"compat": compat_entry, "pdf": pdf_entry, "source": source_entry}

@@ -78,6 +78,12 @@ def main(deck_id):
     print("media_summary:", summary, "| actions:", json.dumps(actions, ensure_ascii=False)[:400])
     print("repairs:", json.dumps(compat_meta.get("repairs") or [], ensure_ascii=False)[:200])
     check("manifest.files 三件套存在", bool(compat and pdf and src))
+    if compat:
+        check("兼容版文件名含 _兼容版", "_兼容版" in str(compat.get("name") or ""), compat.get("name"))
+    if pdf:
+        check("PDF 文件名含 _预览", "_预览" in str(pdf.get("name") or ""), pdf.get("name"))
+    if src:
+        check("原始文件名含 _原始文件", "_原始文件" in str(src.get("name") or ""), src.get("name"))
     if not (compat and pdf and src):
         return finish()
     blobs = {}
