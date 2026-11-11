@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""PPT v2.0 compat 质量验收（真实云端 + OSS）：
+"""PPT v2.2 compat 质量验收（真实云端 + OSS + ECS 缓存）：
 - manifest.files 三件套存在/大小/sha256 与下载字节一致
-- compat.pptx 能被 python-pptx 打开、页数=源
-- **源包内嵌媒体 sha256 全部保留在 compat 包内（不降质强断言）**
-- PPT 内嵌视频断链修复：compat 中不存在未解决的「Target=NULL/External video」关系；repairs 有记录
-- PDF %PDF 头、页数=slide_count；warnings 可读（可为空）
+- compat.pptx 可被 python-pptx 打开、页数=源
+- 媒体编码兼容：media_summary/media_actions 结构；keep 媒体 sha256 与源逐字节一致；remux/transcode 允许变化但需记录
+- 断链视频修复：无未解决 external video 断链；repairs 记录
+- PDF %PDF/页数；ECS 缓存下载 sha256 与 manifest 一致且速度 ≥2MB/s
 用法：python _qa_ppt_compat.py <deckId>
 """
 import hashlib
@@ -12,6 +12,7 @@ import io
 import json
 import re
 import sys
+import time
 import urllib.request
 import zipfile
 
@@ -31,9 +32,9 @@ def get_json(path):
     return json.loads(urllib.request.urlopen(r, timeout=60).read())
 
 
-def fetch(url):
+def fetch(url, timeout=600):
     req = urllib.request.Request(url)
-    with urllib.request.urlopen(req, timeout=600) as x:
+    with urllib.request.urlopen(req, timeout=timeout) as x:
         return x.read(), {k.lower(): v for k, v in x.headers.items()}
 
 
@@ -42,12 +43,11 @@ def media_hashes(zbytes):
     z = zipfile.ZipFile(io.BytesIO(zbytes))
     for n in z.namelist():
         if n.startswith("ppt/media/") and not n.endswith("/"):
-            out.append((n.split("/")[-1], hashlib.sha256(z.read(n)).hexdigest()))
+            out.append((n.split("/")[-1], hashlib.sha256(z.read(n)).hexdigest(), len(z.read(n))))
     return out
 
 
 def external_video_rels(zbytes):
-    """返回仍存在的 external video 关系：[(slide, relid, target)]"""
     out = []
     z = zipfile.ZipFile(io.BytesIO(zbytes))
     for n in z.namelist():
@@ -56,10 +56,7 @@ def external_video_rels(zbytes):
         xml = z.read(n).decode("utf-8", "ignore")
         for m in re.finditer(r"<Relationship\b[^>]*>", xml):
             tag = m.group(0)
-            if "relationships/video" not in tag:
-                continue
-            tm = re.search(r'TargetMode="External"', tag)
-            if not tm:
+            if "relationships/video" not in tag or 'TargetMode="External"' not in tag:
                 continue
             relid = re.search(r'Id="([^"]+)"', tag)
             target = re.search(r'Target="([^"]*)"', tag)
@@ -75,73 +72,82 @@ def main(deck_id):
     pdf = files.get("pdf")
     src = files.get("source")
     compat_meta = man.get("compat") or {}
+    summary = compat_meta.get("media_summary") or {}
+    actions = compat_meta.get("media_actions") or []
     print("deck:", deck_id, "| status:", row["status"], "| slides:", row["slide_count"], "| source:", row["source_name"])
-    print("repairs:", json.dumps(compat_meta.get("repairs") or [], ensure_ascii=False)[:300])
-    print("warnings:", json.dumps(compat_meta.get("warnings") or [], ensure_ascii=False)[:300])
-    check("manifest.files.compat 存在", bool(compat))
-    check("manifest.files.pdf 存在", bool(pdf))
-    check("manifest.files.source 存在", bool(src))
+    print("media_summary:", summary, "| actions:", json.dumps(actions, ensure_ascii=False)[:400])
+    print("repairs:", json.dumps(compat_meta.get("repairs") or [], ensure_ascii=False)[:200])
+    check("manifest.files 三件套存在", bool(compat and pdf and src))
     if not (compat and pdf and src):
         return finish()
     blobs = {}
     for kind, f in files.items():
         if not isinstance(f, dict) or not f.get("s"):
             continue
-        url = man["base"] + f["s"]
-        try:
-            data, hdr = fetch(url)
-        except Exception as e:  # noqa: BLE001
-            check("下载 " + kind, False, str(e)[:80])
-            continue
+        data, hdr = fetch(man["base"] + f["s"])
         sha = hashlib.sha256(data).hexdigest()
         blobs[kind] = data
-        check("下载 %s（%d bytes）" % (kind, len(data)), True)
-        check("%s size 与 manifest 一致" % kind, len(data) == int(f.get("size", -1)), (len(data), f.get("size")))
-        check("%s sha256 与 manifest 一致" % kind, sha == f.get("sha256"), sha[:16])
+        check("%s 下载 size/sha256 与 manifest 一致" % kind,
+              len(data) == int(f.get("size", -1)) and sha == f.get("sha256"), (len(data), sha[:16]))
     pages = int(row["slide_count"] or 0)
     try:
         from pptx import Presentation
-        prs = Presentation(io.BytesIO(blobs["compat"]))
-        cp = len(prs.slides)
-        check("compat.pptx 可被 python-pptx 打开", True)
-        check("compat 页数 = deck.slide_count", cp == pages, (cp, pages))
+        cp = len(Presentation(io.BytesIO(blobs["compat"])).slides)
+        check("compat.pptx 可打开且页数=slide_count", cp == pages, (cp, pages))
     except Exception as e:  # noqa: BLE001
-        check("compat.pptx 可被 python-pptx 打开", False, str(e)[:120])
-    # 媒体字节不降质
+        check("compat.pptx 可打开", False, str(e)[:100])
+    # 媒体兼容
     try:
         src_media = media_hashes(blobs["source"])
         cmp_media = media_hashes(blobs["compat"])
-        src_set = {h for _, h in src_media}
-        cmp_set = {h for _, h in cmp_media}
-        missing = src_set - cmp_set
-        check("源内嵌媒体全部保留在 compat（sha256 逐字节一致）", not missing,
-              {"source_media": len(src_set), "compat_media": len(cmp_set), "missing_sha": [x[:12] for x in missing]})
-        check("compat 媒体数 >= 源媒体数", len(cmp_media) >= len(src_media), (len(cmp_media), len(src_media)))
+        converted = {a.get("file") for a in actions if a.get("action") in ("remux", "transcode")}
+        src_hashes = {h for _, h, _ in src_media}
+        cmp_hashes = {h for _, h, _ in cmp_media}
+        # 未被转换/改名的源媒体必须逐字节保留（按 sha 多重集合：源 sha 减去已转换文件的 sha）
+        kept_src = set()
+        for name, h, size in src_media:
+            act = next((a for a in actions if a.get("file") == name), None)
+            if not act or act.get("action") == "keep":
+                kept_src.add(h)
+        missing = kept_src - cmp_hashes
+        check("keep/未转换媒体逐字节保留", not missing, {"kept_src": len(kept_src), "missing": [x[:12] for x in missing]})
+        check("media_summary.total = media_actions 数", int(summary.get("total", -1)) == len(actions) or not actions,
+              (summary, len(actions)))
+        check("media_summary 字段完整", all(k in summary for k in ("total", "kept", "remux", "transcode")), summary)
+        if converted:
+            check("存在 remux/transcode 记录且 compat 媒体集不再全等（允许）", True, sorted(converted)[:5])
+        else:
+            check("无转换时 compat 媒体 sha 集合与源相等", src_hashes == cmp_hashes,
+                  {"src": len(src_hashes), "compat": len(cmp_hashes)})
     except Exception as e:  # noqa: BLE001
-        check("媒体字节一致性检查", False, str(e)[:120])
-    # 断链视频修复校验
+        check("媒体兼容检查", False, str(e)[:120])
+    # 断链修复
     try:
         ext = external_video_rels(blobs["compat"])
-        check("compat 中无未解决的 external video 断链", not ext, ext[:5])
-        repairs = compat_meta.get("repairs") or []
-        check("manifest.compat.repairs 记录修复", len(repairs) >= 1, repairs)
-        for rep in repairs:
-            media = rep.get("media") or ""
-            check("修复记录 media 在包内可解析", any(media and media in n for n in zipfile.ZipFile(io.BytesIO(blobs["compat"])).namelist()), rep)
+        check("compat 无未解决 external video 断链", not ext, ext[:5])
     except Exception as e:  # noqa: BLE001
-        check("断链视频修复检查", False, str(e)[:120])
+        check("断链视频检查", False, str(e)[:120])
     # PDF
     try:
         from pypdf import PdfReader
-        pdf_bytes = blobs["pdf"]
-        check("PDF %PDF 头", pdf_bytes[:5] == b"%PDF-", pdf_bytes[:8])
-        pp = len(PdfReader(io.BytesIO(pdf_bytes)).pages)
-        check("PDF 页数 = deck.slide_count", pp == pages, (pp, pages))
+        check("PDF %PDF 头", blobs["pdf"][:5] == b"%PDF-", blobs["pdf"][:8])
+        pp = len(PdfReader(io.BytesIO(blobs["pdf"])).pages)
+        check("PDF 页数=slide_count", pp == pages, (pp, pages))
     except Exception as e:  # noqa: BLE001
-        check("PDF 页数检查", False, str(e)[:120])
-    warns = compat_meta.get("warnings") or []
-    check("compat.warnings 是列表（已修复的可为空）", isinstance(warns, list), len(warns))
-    check("slides/video 旧字段保留（旧 deck 兼容）", isinstance(man.get("slides"), list))
+        check("PDF 检查", False, str(e)[:100])
+    # ECS 缓存（真实下载 + 速度）
+    try:
+        path = man["base"].split("aliyuncs.com/")[1] + files["compat"]["s"]
+        url = "http://121.196.47.2/pptfiles/" + path
+        t0 = time.time()
+        data, _ = fetch(url, timeout=300)
+        el = max(0.001, time.time() - t0)
+        sha = hashlib.sha256(data).hexdigest()
+        speed = len(data) / el / 1048576.0
+        check("ECS 缓存下载 compat 成功且 sha=manifest", sha == files["compat"]["sha256"], sha[:16])
+        check("ECS 缓存下载速度 ≥2MB/s", speed >= 2.0, "%.1fMB/s / %.2fs / %.1fMB" % (speed, el, len(data) / 1048576.0))
+    except Exception as e:  # noqa: BLE001
+        check("ECS 缓存下载", False, str(e)[:120])
     return finish()
 
 

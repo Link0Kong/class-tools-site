@@ -99,6 +99,12 @@ DEFAULT_OPTIONS = {
     "compat_cover_width": 1600,        # cover.webp 渲染宽（最长边 1600）
     "compat_filename_max": 80,         # 下载文件名最大字符数
     "compat_pdf_pages_fallback": True, # pypdf 不可用时 PDF 页数按幻灯片数填写（记 warning）
+    # v2.2 媒体编码兼容（CONTRACT §12.7）：h264+aac 保留；容器不兼容 remux；编码不兼容高保真转码
+    "compat_media_compat": True,
+    "compat_media_max_bytes": 200 * 1024 * 1024,   # 单文件 >200MiB 不转换
+    "compat_media_max_dur_s": 30 * 60.0,           # 单段 >30min 不转换
+    "compat_media_max_total_dur_s": 60 * 60.0,     # 总时长 >60min 不转换
+    "compat_media_ffmpeg_timeout": 900,            # 单个媒体转码/remux 超时（秒）
     # DESIGN §5.1 性能预算：主图 1600 长边 ≤200KB（超了降 q62 重试一次），
     # 缩略图 400 宽 ≤25KB（超了再降一次 quality）
     "image_max_bytes": 200 * 1024,
@@ -765,6 +771,268 @@ def _transcode_media(ffmpeg, ffprobe, src_path, kind, dst_path, ctx, opts):
 
 def _media_ext(kind):
     return ".mp4" if kind == "v" else ".m4a"
+
+
+# ---------------------------------------------------------------------------
+# v2.2 媒体编码兼容（CONTRACT §12.7）
+# ---------------------------------------------------------------------------
+def _media_limits(opts):
+    return {
+        "max_bytes": int(opts.get("compat_media_max_bytes") or 200 * 1024 * 1024),
+        "max_single_dur": float(opts.get("compat_media_max_dur_s") or 1800.0),
+        "max_total_dur": float(opts.get("compat_media_max_total_dur_s") or 3600.0),
+    }
+
+
+def _media_part_basename(part_name):
+    return str(part_name or "").rsplit("/", 1)[-1]
+
+
+def _media_probe_part(ffprobe, part_name, data, tmp_dir):
+    """把包内媒体字节写临时文件 → ffprobe，返回 probe dict（失败 None）。"""
+    ext = os.path.splitext(_media_part_basename(part_name))[1].lower()
+    probe_path = os.path.join(tmp_dir, "media_probe" + (ext or ".bin"))
+    try:
+        with open(probe_path, "wb") as fh:
+            fh.write(data)
+        info = _ffprobe_info(ffprobe, probe_path)
+    finally:
+        _remove_quiet(probe_path)
+    if info is None:
+        return None
+    out = dict(info)
+    out["bytes"] = len(data)
+    out["ext"] = ext
+    out["part"] = part_name
+    return out
+
+
+def _media_encode(ctx, ffmpeg, src_path, plan, src_info, dst_path, timeout):
+    """按策略执行 remux/transcode；成功返回输出 probe，失败 None（记 warning）。"""
+    kind = plan.get("kind")
+    action = plan.get("action")
+    has_audio = bool(src_info.get("has_audio"))
+    base = [ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", src_path]
+    if action == "remux":
+        cmd = base + ["-map", "0:v:0", "-map", "0:a?", "-c", "copy",
+                      "-movflags", "+faststart", dst_path]
+    elif kind == "audio":
+        cmd = base + ["-map", "0:a:0", "-vn", "-c:a", "aac", "-b:a", "192k",
+                      "-movflags", "+faststart", dst_path]
+    else:
+        cmd = base + ["-map", "0:v:0", "-map", "0:a?",
+                      "-c:v", "libx264", "-profile:v", "high", "-crf", "18",
+                      "-preset", "medium", "-pix_fmt", "yuv420p"]
+        cmd += (["-c:a", "aac", "-b:a", "192k"] if has_audio else ["-an"])
+        cmd += ["-movflags", "+faststart", dst_path]
+    try:
+        proc = _run_ffmpeg(cmd, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        ctx.warn("compat: 媒体 %s %s 超时（%ss）"
+                 % (_media_part_basename(src_info.get("part") or ""), action, timeout))
+        _remove_quiet(dst_path)
+        return None
+    if proc.returncode != 0 or not os.path.exists(dst_path) or os.path.getsize(dst_path) <= 0:
+        err = (proc.stderr or "").strip().splitlines()
+        ctx.warn("compat: 媒体 %s %s 失败：%s"
+                 % (_media_part_basename(src_info.get("part") or ""), action,
+                    (err[-1] if err else "rc=%s" % proc.returncode)[:200]))
+        _remove_quiet(dst_path)
+        return None
+    info = _ffprobe_info(_find_tool("ffprobe", ctx.opts.get("ffprobe")), dst_path)
+    if info is None:
+        ctx.warn("compat: 媒体 %s 输出无法解析，保留原样"
+                 % _media_part_basename(src_info.get("part") or ""))
+        _remove_quiet(dst_path)
+        return None
+    out = dict(info)
+    out["bytes"] = os.path.getsize(dst_path)
+    return out
+
+
+def _media_output_ok(plan, src_info, out_info):
+    """转码/remux 输出校验：H.264/AAC、同分辨率、时长差 ≤0.3s、音轨存在性一致。"""
+    if out_info is None:
+        return False, "probe"
+    kind = plan.get("kind")
+    if kind == "audio":
+        if str(out_info.get("audio_codec") or "").lower() != "aac":
+            return False, "audio_codec"
+        src_dur = float(src_info.get("dur") or 0.0)
+        out_dur = float(out_info.get("dur") or 0.0)
+        if src_dur > 0 and out_dur > 0 and abs(src_dur - out_dur) > 0.3:
+            return False, "duration"
+        return True, ""
+    if str(out_info.get("codec") or "").lower() != "h264":
+        return False, "vcodec"
+    for key in ("w", "h"):
+        if int(src_info.get(key) or 0) and int(out_info.get(key) or 0) != int(src_info.get(key)):
+            return False, key
+    src_dur = float(src_info.get("dur") or 0.0)
+    out_dur = float(out_info.get("dur") or 0.0)
+    if src_dur > 0 and out_dur > 0 and abs(src_dur - out_dur) > 0.3:
+        return False, "duration"
+    if bool(src_info.get("has_audio")) != bool(out_info.get("has_audio")):
+        return False, "audio_presence"
+    if out_info.get("has_audio") and str(out_info.get("audio_codec") or "").lower() != "aac":
+        return False, "audio_codec"
+    return True, ""
+
+
+def _media_action_record(plan, src_info, out_info, file_name, bytes_before, bytes_after):
+    return {
+        "file": file_name,
+        "kind": plan.get("kind"),
+        "action": plan.get("action"),
+        "vcodec_from": plan.get("vcodec_from") or "",
+        "acodec_from": plan.get("acodec_from") or "",
+        "vcodec_to": (str((out_info or {}).get("codec") or "") or plan.get("vcodec_from") or ""),
+        "acodec_to": (str((out_info or {}).get("audio_codec") or "")
+                      or plan.get("acodec_from") or ""),
+        "width": int((out_info or src_info).get("w") or 0),
+        "height": int((out_info or src_info).get("h") or 0),
+        "dur": round(float((out_info or src_info).get("dur") or 0.0), 3),
+        "bytes_before": int(bytes_before),
+        "bytes_after": int(bytes_after),
+        "lossless": bool(plan.get("lossless", True)),
+    }
+
+
+def _compat_media(ctx, compat_path, tmp_dir, opts):
+    """对 compat 包内 ``ppt/media/*`` 音视频做编码兼容处理（CONTRACT §12.7）。
+
+    返回 ``{"actions": [...], "summary": {...}, "changed": bool}``；
+    只改媒体字节/容器与必要的 rels/Content_Types，绝不删媒体/改分辨率。
+    """
+    actions = []
+    summary = {"total": 0, "kept": 0, "remux": 0, "transcode": 0}
+    if not bool(opts.get("compat_media_compat", True)):
+        ctx.log("compat: media 编码兼容处理已关闭（compat_media_compat=False）")
+        return {"actions": actions, "summary": summary, "changed": False}
+    try:
+        zf = zipfile.ZipFile(compat_path)
+    except (OSError, zipfile.BadZipFile) as exc:
+        ctx.warn("compat: 媒体兼容处理跳过（包无法打开：%s）" % exc.__class__.__name__)
+        return {"actions": actions, "summary": summary, "changed": False}
+    try:
+        names = zf.namelist()
+        media_parts = [n for n in names
+                       if n.startswith("ppt/media/") and not n.endswith("/")
+                       and pptx_xml.media_kind_of(n)]
+        media_names = set(n for n in names
+                          if n.startswith("ppt/media/") and not n.endswith("/"))
+        blobs = {part: zf.read(part) for part in media_parts}
+    finally:
+        zf.close()
+    if not media_parts:
+        ctx.log("compat: 包内无音视频媒体，跳过媒体编码兼容")
+        return {"actions": actions, "summary": summary, "changed": False}
+    ffmpeg = _find_tool("ffmpeg", opts.get("ffmpeg"))
+    ffprobe = _find_tool("ffprobe", opts.get("ffprobe"))
+    limits = _media_limits(opts)
+    timeout = int(opts.get("compat_media_ffmpeg_timeout") or 900)
+    total_dur = 0.0
+    replacements = []
+    t0 = time.monotonic()
+    for part in sorted(media_parts):
+        data = blobs[part]
+        base_name = _media_part_basename(part)
+        src_info = _media_probe_part(ffprobe, part, data, tmp_dir)
+        if src_info is None:
+            ctx.warn("compat: 媒体 %s 探测失败，未做编码兼容（原样保留）" % base_name)
+            actions.append(_media_action_record(
+                {"kind": pptx_xml.media_kind_of(part), "action": "keep",
+                 "vcodec_from": "", "acodec_from": "", "lossless": True},
+                {"w": 0, "h": 0, "dur": 0.0}, None, base_name, len(data), len(data)))
+            summary["total"] += 1
+            summary["kept"] += 1
+            continue
+        duration = float(src_info.get("dur") or 0.0)
+        total_dur += duration
+        plan = pptx_xml.classify_media(src_info, part, limits)
+        if plan.get("action") != "keep" and total_dur > limits["max_total_dur"]:
+            plan = dict(plan, action="keep", reason="media_total_too_long")
+        if plan.get("action") == "keep":
+            reason = plan.get("reason") or ""
+            if reason in ("media_too_big", "media_too_long", "media_total_too_long"):
+                ctx.warn("compat: 媒体 %s 过大/过长，未做编码兼容（原样保留）" % base_name)
+            elif reason:
+                ctx.warn("compat: 媒体 %s 未做编码兼容（%s，原样保留）"
+                         % (base_name, reason))
+            else:
+                ctx.log("compat: 媒体 %s 已兼容（%s/%s），原字节保留"
+                        % (base_name, src_info.get("codec") or "-",
+                           src_info.get("audio_codec") or "无音频"))
+            actions.append(_media_action_record(plan, src_info, None, base_name,
+                                                len(data), len(data)))
+            summary["total"] += 1
+            summary["kept"] += 1
+            continue
+        ext = os.path.splitext(base_name)[1].lower()
+        target_ext = plan.get("target_ext") or (".m4a" if plan.get("kind") == "audio"
+                                                else ".mp4")
+        src_tmp = os.path.join(tmp_dir, "media_src" + ext)
+        dst_tmp = os.path.join(tmp_dir, "media_out" + target_ext)
+        _remove_quiet(dst_tmp)
+        try:
+            with open(src_tmp, "wb") as fh:
+                fh.write(data)
+            out_info = _media_encode(ctx, ffmpeg, src_tmp, plan, src_info, dst_tmp, timeout)
+        finally:
+            _remove_quiet(src_tmp)
+        ok, why = _media_output_ok(plan, src_info, out_info)
+        if not ok:
+            ctx.warn("compat: 媒体 %s %s 输出校验失败（%s），保留原样"
+                     % (base_name, plan.get("action"), why))
+            _remove_quiet(dst_tmp)
+            actions.append(_media_action_record(plan, src_info, None, base_name,
+                                                len(data), len(data)))
+            summary["total"] += 1
+            summary["kept"] += 1
+            continue
+        with open(dst_tmp, "rb") as fh:
+            new_data = fh.read()
+        bytes_after = len(new_data)
+        _remove_quiet(dst_tmp)
+        new_name = base_name
+        if target_ext != ext:
+            stem = os.path.splitext(base_name)[0]
+            candidate = stem + target_ext
+            seq = 1
+            while candidate in media_names:
+                candidate = "%s_%d%s" % (stem, seq, target_ext)
+                seq += 1
+            new_name = candidate
+            media_names.add(new_name)
+        new_part = "ppt/media/" + new_name
+        replacements.append({"old": part, "new": new_part, "data": new_data,
+                             "content_type": pptx_xml.MEDIA_CONTENT_TYPES.get(
+                                 target_ext, "application/octet-stream")})
+        actions.append(_media_action_record(plan, src_info, out_info, new_name,
+                                            len(data), bytes_after))
+        summary["total"] += 1
+        if plan.get("action") == "remux":
+            summary["remux"] += 1
+        else:
+            summary["transcode"] += 1
+        ctx.log("compat: 媒体 %s %s → %s（%.2fMB → %.2fMB，%.0fs，lossless=%s）"
+                % (base_name, plan.get("action"), new_name,
+                   len(data) / 1048576.0, bytes_after / 1048576.0,
+                   float((out_info or {}).get("dur") or 0.0), plan.get("lossless")))
+    changed = False
+    if replacements:
+        result = pptx_xml.rewrite_package_media(compat_path, replacements)
+        changed = bool(result.get("changed"))
+        if changed:
+            ctx.log("compat: 媒体编码兼容完成 %d 个（keep %d / remux %d / transcode %d），"
+                    "耗时 %.1fs；已安全更新 rels/Content_Types"
+                    % (summary["total"], summary["kept"], summary["remux"],
+                       summary["transcode"], time.monotonic() - t0))
+        else:
+            ctx.warn("compat: 媒体包重写未生效（保留原样）")
+    else:
+        ctx.log("compat: 全部 %d 个媒体已兼容，字节未变" % summary["total"])
+    return {"actions": actions, "summary": summary, "changed": changed}
 
 
 # ---------------------------------------------------------------------------
@@ -1680,25 +1948,54 @@ def convert_compat(src_path, work_dir, opts=None):
         if pkg["slides"] != slide_count:
             raise ConvertError("兼容包页数与原文件不一致（%d / %d）"
                                % (pkg["slides"], slide_count))
-        # 不降质证据：源包内媒体 sha256 必须全部出现在兼容包（PowerPoint 不得重编码）
+        # v2.2 媒体编码兼容（CONTRACT §12.7）：在断链修复之后、计算 size/sha/上传之前
+        ctx.progress(40, "媒体编码兼容处理")
+        media_result = _compat_media(ctx, compat_path, tmp_dir, opts)
+        media_actions = media_result.get("actions") or []
+        media_summary = media_result.get("summary") or {
+            "total": 0, "kept": 0, "remux": 0, "transcode": 0}
+        if media_result.get("changed"):
+            pkg = _inspect_compat_package(ctx, compat_path)
+            if pkg["slides"] != slide_count:
+                raise ConvertError("媒体处理后兼容包页数异常（%d / %d）"
+                                   % (pkg["slides"], slide_count))
+        # 不降质证据：已兼容（keep）媒体必须逐字节不变；remux/transcode 按 media_actions 允许变化
         src_media = pptx_xml.media_sha256_map(src_path) if src_ext == ".pptx" else {}
+        changed_files = set()
+        for item in media_actions:
+            if item.get("action") and item.get("action") != "keep":
+                changed_files.add(str(item.get("file") or ""))
         if src_media:
             src_values = set(src_media.values())
-            changed = [n for n, sha in pkg["media"].items() if sha not in src_values]
-            if changed:
-                raise ConvertError("兼容包媒体字节与原文件不一致（疑似重编码）：%s"
-                                   % ", ".join(changed[:3]))
+            unexpected = []
+            for name, sha in pkg["media"].items():
+                if _media_part_basename(name) in changed_files:
+                    continue
+                if sha not in src_values:
+                    unexpected.append(name)
+            if unexpected:
+                raise ConvertError("兼容包媒体字节与原文件不一致（非 keep 媒体被改动）：%s"
+                                   % ", ".join(unexpected[:3]))
             if len(pkg["media"]) != len(src_media):
                 ctx.warn("compat: 兼容包媒体部件数与原包不同（源 %d / 兼容 %d），"
                          "PowerPoint 可能合并了重复媒体；字节校验通过"
                          % (len(src_media), len(pkg["media"])))
             same_names = sum(1 for n, sha in pkg["media"].items()
                              if src_media.get(n) == sha)
-            ctx.log("compat: 内嵌媒体 sha256 与源包逐字节一致（源 %d / 兼容 %d 个，"
-                    "未重编码；部件名同名 %d 个，PowerPoint SaveAs 可能重编号但字节不变）"
-                    % (len(src_media), len(pkg["media"]), same_names))
+            if changed_files:
+                ctx.log("compat: 媒体编码兼容后 sha 校验通过（源 %d / 兼容 %d 个；"
+                        "keep 媒体逐字节不变，remux/transcode 按 media_actions 记录）"
+                        % (len(src_media), len(pkg["media"])))
+            else:
+                ctx.log("compat: 内嵌媒体 sha256 与源包逐字节一致（源 %d / 兼容 %d 个，"
+                        "未重编码；部件名同名 %d 个，PowerPoint SaveAs 可能重编号但字节不变）"
+                        % (len(src_media), len(pkg["media"]), same_names))
         else:
             ctx.log("compat: 源为 .ppt（OLE 包），跳过包内媒体 sha 对比（PowerPoint 转换，不重采样）")
+        if media_summary.get("total"):
+            ctx.log("compat: 媒体编码兼容摘要：total=%d keep=%d remux=%d transcode=%d"
+                    % (media_summary["total"], media_summary["kept"],
+                       media_summary["remux"], media_summary["transcode"]))
         ctx.log("compat: 字体部件 %d 个（embedTrueTypeFonts=%s, saveSubsetFonts=%s）"
                 % (pkg["fonts"], pkg["embed_attr"], pkg["subset_attr"]))
         # 55 生成兼容包：原始文件副本 + 外链媒体告警 + 封面
@@ -1771,6 +2068,9 @@ def convert_compat(src_path, work_dir, opts=None):
             "external_media": external_media,
             # v2.0.1：断链视频已用内嵌副本修复的记录（已从 warnings 移除对应外链提示）
             "repairs": repairs,
+            # v2.2：媒体编码兼容处理记录（成功项不进 warnings）
+            "media_actions": media_actions,
+            "media_summary": media_summary,
         }
         manifest = {
             "v": pptx_xml.COMPAT_MANIFEST_VERSION,
@@ -1814,16 +2114,22 @@ def convert_compat(src_path, work_dir, opts=None):
             "fonts_embedded": int(pkg["fonts"]),
             "external_media": len(external_media),
             "video_repairs": len(repairs),
+            "media_total": int(media_summary.get("total") or 0),
+            "media_kept": int(media_summary.get("kept") or 0),
+            "media_remux": int(media_summary.get("remux") or 0),
+            "media_transcode": int(media_summary.get("transcode") or 0),
             "warnings": len(ctx.warnings),
             "converted_from": compat_meta["converted_from"],
             "build_prefix": prefix,
         })
         ctx.log("compat 完成：%d 页 / compat %.2fMB sha=%s / pdf %d 页 %.2fMB / "
-                "字体 %d / 外链媒体 %d 处 / 断链视频修复 %d 处 / 耗时 %.1fs / build=%s"
+                "字体 %d / 外链媒体 %d 处 / 断链视频修复 %d 处 / "
+                "媒体 keep %d remux %d transcode %d / 耗时 %.1fs / build=%s"
                 % (slide_count, stats["compat_size"] / 1048576.0,
                    compat_entry["sha256"][:12], pages, stats["pdf_size"] / 1048576.0,
                    stats["fonts_embedded"], len(external_media), len(repairs),
-                   stats["elapsed_s"], build_id))
+                   stats["media_kept"], stats["media_remux"],
+                   stats["media_transcode"], stats["elapsed_s"], build_id))
         return {
             "manifest": manifest,
             "assets": assets,

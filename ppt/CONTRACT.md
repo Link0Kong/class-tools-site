@@ -599,3 +599,33 @@ PATCH /ppt_decks?id=eq.<id>  { "status":"queued", "progress":0, "error":"", "upd
 - 旧在线播放器代码/旧 deck 兼容不得破坏（旧 deck 仍可预览/下载原始）。
 
 
+
+---
+
+# 12.7 媒体编码兼容处理（v2.2 增量，2026-11-11 用户确认方案 A）
+
+> 用户问「兼容化有包括对媒体的兼容性处理吗」并选择 **A：智能媒体兼容**——能无损就无损，必要时高保真转码；
+> 原始文件仍逐字节保留可下载。
+
+对 `compat.pptx` 包内的 `ppt/media/*` 嵌入音视频逐个执行（在 SaveAs + 断链修复之后、重新计算 sha/上传之前）：
+
+1. **探测**：用 ffprobe 读容器格式、视频编码、音频编码、分辨率、时长、码率。
+2. **已兼容 → 原样保留**：视频 H.264 且音频 AAC/无音频、容器 mp4/m4v → 不改字节（沿用现有"媒体 sha 不变"红线）。
+3. **容器不兼容但编码兼容 → 无损 remux**：H.264+AAC 但容器为 mkv/mov/flv/avi 等 → `ffmpeg -c copy -movflags +faststart` 输出 MP4（音视频**码流字节不变**，仅换容器/元数据；`lossless=true`）。
+4. **编码不兼容 → 高保真转码**：视频 HEVC/H.265、VP8/VP9、AV1、VC-1/WMV、MPEG-2、MPEG-4/Xvid/DivX 等，或音频 AC3/WMA/DTS/MP2/Vorbis/Opus 等
+   → 视频 `libx264`（High profile、`-crf 18`、`preset medium`、保持原分辨率/帧率、`-pix_fmt yuv420p`、`+faststart`）；
+   音频 `aac 192k`（保持声道数；无音轨则不加）；输出 MP4；转码后时长与源差 ≤0.3s；`lossless=false`。
+5. **仅音频文件**：不兼容音频（wma/ac3/dts/mp2 等）→ AAC m4a（192k）；已兼容（mp3/m4a/aac）原样保留（PowerPoint 本身支持 mp3/m4a）。
+6. **扩展名/关系更新**：若媒体部件扩展名改变，必须安全重写 zip：
+   - `[Content_Types].xml` 补/去重对应 `Default Extension`（如 mp4）；
+   - 所有 `ppt/slides/_rels/*.rels` 中 `Target="../media/原文件名"` 改为新文件名；`p14:media`/`a:videoFile` 只引用 rId，不受影响；
+   - 媒体部件名尽量保持原名（同扩展名时直接替换字节）；跨扩展名时新名 = 原名去扩展名 + 新扩展名（防冲突加序号）。
+7. **上限/降级**：单文件 >200MiB 或时长 >30min 或 sum(媒体时长) >60min → 不转换、保留原样 + warning「媒体过大/过长，未做编码兼容」；
+   纯外链媒体（无内嵌副本）仍只告警；**绝不删除媒体、绝不改分辨率/画幅/时长**（仅编码/容器转换）。
+8. **manifest**：`compat.media_actions=[{file,kind:"video"|"audio",action:"keep"|"remux"|"transcode",vcodec_from,acodec_from,vcodec_to,acodec_to,width,height,dur,bytes_before,bytes_after,lossless}]`；
+   `compat.media_summary={total,kept,remux,transcode}`；**文件大小/sha256 必须在媒体处理后重新计算**；成功项不得写入 warnings（客户端可展示"媒体兼容 N 处"）。
+9. **质量红线调整**：已兼容媒体必须逐字节不变；remux 码流字节不变；transcode 只在编码不兼容时发生且参数高保真（CRF18/192k），原始文件 `files.source` 永远保留；
+   README/更新说明须写明"为兼容性对 N 个媒体做了无损换容器/高保真转码，原始文件仍可下载"。
+10. **测试**：纯函数策略矩阵（keep/remux/transcode/音频/上限）；用 ffmpeg 生成 h264/aac-MKV（remux 预期）、MPEG-4/WMV 视频 + AC3 音频（transcode 预期）、HEVC（transcode）少量 fixture，
+    以 zip 方式替换进 fixture pptx 并同步 rels/Content_Types，真实跑 `convert_compat` + PowerPoint 打开；断言输出 media 为 h264/aac MP4、时长差、页面/媒体数、PDF、manifest actions、原始文件不变、已兼容媒体 sha 不变；
+    真实 user deck（两段已 h264/aac）应为 kept=2、字节不变。

@@ -608,6 +608,37 @@ def validate_manifest(manifest):
                             errors.append("compat.repairs[%d].media 必须是非空字符串" % k)
                         if not isinstance(item.get("bytes"), int) or item["bytes"] <= 0:
                             errors.append("compat.repairs[%d].bytes 必须是正整数" % k)
+            media_actions = compat.get("media_actions")
+            if media_actions is not None:
+                if not isinstance(media_actions, list):
+                    errors.append("compat.media_actions 必须是数组")
+                else:
+                    for k, item in enumerate(media_actions):
+                        if not isinstance(item, dict):
+                            errors.append("compat.media_actions[%d] 必须是对象" % k)
+                            continue
+                        if not isinstance(item.get("file"), str) or not item["file"]:
+                            errors.append("compat.media_actions[%d].file 必须是非空字符串" % k)
+                        if item.get("kind") not in ("video", "audio"):
+                            errors.append("compat.media_actions[%d].kind 必须是 video/audio" % k)
+                        if item.get("action") not in ("keep", "remux", "transcode"):
+                            errors.append("compat.media_actions[%d].action 非法" % k)
+                        for key in ("bytes_before", "bytes_after"):
+                            value = item.get(key)
+                            if not isinstance(value, int) or value < 0:
+                                errors.append("compat.media_actions[%d].%s 必须是非负整数"
+                                              % (k, key))
+                        if not isinstance(item.get("lossless"), bool):
+                            errors.append("compat.media_actions[%d].lossless 必须是布尔值" % k)
+            media_summary = compat.get("media_summary")
+            if media_summary is not None:
+                if not isinstance(media_summary, dict):
+                    errors.append("compat.media_summary 必须是对象")
+                else:
+                    for key in ("total", "kept", "remux", "transcode"):
+                        value = media_summary.get(key)
+                        if not isinstance(value, int) or value < 0:
+                            errors.append("compat.media_summary.%s 必须是非负整数" % key)
     if not slides:
         # compat 新 deck 无分步 slides：跳过逐页校验，只校验可选 video
         video = manifest.get("video")
@@ -869,6 +900,17 @@ def parse_ffprobe_json(text):
     fmt = data.get("format") or {}
     if not isinstance(fmt, dict):
         fmt = {}
+    fps = 0.0
+    for frac in (str(video.get("avg_frame_rate") or ""),
+                 str(video.get("r_frame_rate") or "")):
+        try:
+            num, _, den = frac.partition("/")
+            den_f = float(den or 1)
+            if den_f:
+                fps = round(float(num) / den_f, 3)
+                break
+        except (TypeError, ValueError):
+            continue
     return {
         "w": _int(video.get("width")),
         "h": _int(video.get("height")),
@@ -877,6 +919,14 @@ def parse_ffprobe_json(text):
         "has_audio": bool(audio),
         "audio_codec": str(audio.get("codec_name") or ""),
         "nb_streams": len(streams),
+        # v2.2 媒体编码兼容补充字段（不改变旧调用语义）
+        "format_name": str(fmt.get("format_name") or ""),
+        "format_long_name": str(fmt.get("format_long_name") or ""),
+        "bit_rate": _int(fmt.get("bit_rate")),
+        "audio_bit_rate": _int(audio.get("bit_rate")),
+        "audio_channels": _int(audio.get("channels")),
+        "fps": fps,
+        "profile": str(video.get("profile") or ""),
     }
 
 
@@ -1373,6 +1423,261 @@ def repair_broken_video_links(path, out_path=None):
         if os.path.exists(tmp_path) and not result["changed"]:
             try:
                 os.remove(tmp_path)
+            except OSError:
+                pass
+
+# ---------------------------------------------------------------------------
+# v2.2 媒体编码兼容（CONTRACT §12.7）：策略纯函数 + 安全 zip 重写
+# ---------------------------------------------------------------------------
+VIDEO_MEDIA_EXTS = frozenset([
+    ".mp4", ".m4v", ".mov", ".mkv", ".avi", ".wmv", ".flv", ".webm",
+    ".mpg", ".mpeg", ".ts", ".3gp", ".vob", ".ogv", ".asf", ".rm", ".rmvb",
+])
+AUDIO_MEDIA_EXTS = frozenset([
+    ".mp3", ".m4a", ".aac", ".wav", ".wma", ".ac3", ".dts", ".mp2",
+    ".ogg", ".oga", ".opus", ".flac", ".amr", ".aiff", ".aif", ".mka",
+])
+VIDEO_CONTAINER_OK = frozenset([".mp4", ".m4v"])
+VIDEO_CODEC_KEEP = frozenset(["h264"])
+AUDIO_CODEC_KEEP = frozenset(["aac"])
+AUDIO_FILE_CODEC_KEEP = frozenset(["aac", "mp3"])
+MEDIA_CONTENT_TYPES = {
+    ".mp4": "video/mp4",
+    ".m4a": "audio/mp4",
+    ".mp3": "audio/mpeg",
+    ".aac": "audio/aac",
+}
+CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
+
+MEDIA_DEFAULT_LIMITS = {
+    "max_bytes": 200 * 1024 * 1024,
+    "max_single_dur": 30 * 60.0,
+    "max_total_dur": 60 * 60.0,
+}
+
+
+def media_kind_of(part_name):
+    """``ppt/media/media1.mp4`` → ``"video"`` / ``"audio"`` / ``""``（按扩展名）。"""
+    ext = posixpath.splitext(str(part_name or ""))[1].lower()
+    if ext in VIDEO_MEDIA_EXTS:
+        return "video"
+    if ext in AUDIO_MEDIA_EXTS:
+        return "audio"
+    return ""
+
+
+def classify_media(probe, part_name, limits=None):
+    """媒体编码兼容策略（CONTRACT §12.7 纯逻辑矩阵）。
+
+    ``probe``: ``{"w","h","dur","codec"(vcodec),"has_audio","audio_codec","bytes"}``。
+    返回 ``{"action": "keep"|"remux"|"transcode", "kind", "target_ext", "reason",
+    "lossless", "vcodec_from", "acodec_from", "dur", "width", "height"}``。
+    """
+    limits = dict(MEDIA_DEFAULT_LIMITS, **(limits or {}))
+    part_name = str(part_name or "")
+    kind = media_kind_of(part_name)
+    ext = posixpath.splitext(part_name)[1].lower()
+    probe = probe or {}
+    try:
+        dur = float(probe.get("dur") or 0.0)
+    except (TypeError, ValueError):
+        dur = 0.0
+    try:
+        size = int(probe.get("bytes") or 0)
+    except (TypeError, ValueError):
+        size = 0
+    vcodec = str(probe.get("codec") or "").lower()
+    acodec = str(probe.get("audio_codec") or "").lower()
+    has_audio = bool(probe.get("has_audio"))
+    try:
+        width = int(probe.get("w") or 0)
+        height = int(probe.get("h") or 0)
+    except (TypeError, ValueError):
+        width = height = 0
+    base = {
+        "kind": kind or "video", "target_ext": "", "reason": "",
+        "lossless": True, "vcodec_from": vcodec, "acodec_from": acodec,
+        "dur": round(dur, 3), "width": width, "height": height,
+    }
+    if not kind:
+        return dict(base, action="keep", reason="非音视频媒体")
+    if size and size > int(limits["max_bytes"]):
+        return dict(base, action="keep", reason="media_too_big")
+    if dur and dur > float(limits["max_single_dur"]):
+        return dict(base, action="keep", reason="media_too_long")
+    if kind == "audio":
+        file_ok = (acodec in AUDIO_FILE_CODEC_KEEP
+                   and ext in (".mp3", ".m4a", ".aac", ".mp4"))
+        if file_ok:
+            return dict(base, action="keep")
+        if not acodec:
+            return dict(base, action="keep", reason="audio_codec_unknown")
+        return dict(base, action="transcode", target_ext=".m4a", lossless=False)
+    # 视频
+    video_ok = vcodec in VIDEO_CODEC_KEEP
+    audio_ok = (not has_audio) or (acodec in AUDIO_CODEC_KEEP)
+    container_ok = ext in VIDEO_CONTAINER_OK
+    if video_ok and audio_ok and container_ok:
+        return dict(base, action="keep")
+    if video_ok and audio_ok:
+        return dict(base, action="remux", target_ext=".mp4", lossless=True)
+    return dict(base, action="transcode", target_ext=".mp4", lossless=False)
+
+
+def ensure_content_types_defaults(xml_text, ext_types):
+    """``[Content_Types].xml`` 补齐 ``Default Extension``（去重，保留其余元素）。
+
+    ``ext_types``: ``{".mp4": "video/mp4", ...}``；返回新 XML 文本。
+    """
+    root = ET.fromstring(xml_text.encode("utf-8") if isinstance(xml_text, str) else xml_text)
+    existing = {}
+    for el in list(root):
+        if el.tag != "{%s}Default" % CT_NS:
+            continue
+        ext = str(el.get("Extension") or "").lower()
+        if not ext:
+            continue
+        if ext in existing:
+            root.remove(el)  # 去重
+        else:
+            existing[ext] = el
+    for ext, content_type in ext_types.items():
+        key = str(ext or "").lower().lstrip(".")
+        if not key or key in existing:
+            continue
+        child = ET.SubElement(root, "{%s}Default" % CT_NS)
+        child.set("Extension", key)
+        child.set("ContentType", content_type)
+        existing[key] = child
+    ET.register_namespace("", CT_NS)
+    body = ET.tostring(root, encoding="unicode")
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' + body)
+
+
+def rewrite_rels_media_targets(text, rename_map):
+    """把 rels 文本中 ``Target=".../media/<旧名>"`` 改为新名（其它内容原样保留）。"""
+    if not rename_map:
+        return text
+    pattern = re.compile(r'<Relationship\b[^>]*/>')
+
+    def repl(match):
+        tag = match.group(0)
+        target_match = re.search(r'\bTarget="([^"]*)"', tag)
+        if not target_match:
+            return tag
+        target = target_match.group(1)
+        normalized = target.replace("\\", "/")
+        base = posixpath.basename(normalized)
+        if base not in rename_map:
+            return tag
+        if "/media/" not in normalized and not normalized.startswith("media/"):
+            return tag
+        new_target = normalized[: len(normalized) - len(base)] + rename_map[base]
+        return tag.replace('Target="%s"' % target, 'Target="%s"' % new_target, 1)
+
+    return pattern.sub(repl, text)
+
+
+def rewrite_package_media(path, replacements):
+    """安全重写 compat 包：替换/改名 media 部件、更新 Content_Types 与 rels。
+
+    ``replacements``: ``[{"old": "ppt/media/a.wmv", "new": "ppt/media/a.mp4",
+    "data": b"...", "content_type": "video/mp4"}, ...]``。
+    所有其它部件原样复制；重写后校验 zip 与媒体部件数；返回 ``{"changed","renames"}``。
+    """
+    import os as _os
+    path = _os.path.abspath(str(path))
+    result = {"changed": False, "renames": {}, "parts": 0}
+    if not replacements:
+        return result
+    with zipfile.ZipFile(path) as zf:
+        names = zf.namelist()
+        name_set = set(names)
+        entries = {name: zf.read(name) for name in names}
+    rename_map = {}
+    media_after = set()
+    updates = {}
+    for item in replacements:
+        old = str(item.get("old") or "").replace("\\", "/")
+        new = str(item.get("new") or old).replace("\\", "/")
+        if old not in entries:
+            raise PptxParseError("媒体部件不存在：%s" % old)
+        if new != old and new in name_set and new not in {
+                str(it.get("old") or "").replace("\\", "/") for it in replacements}:
+            raise PptxParseError("媒体新名冲突：%s" % new)
+        if new != old:
+            rename_map[posixpath.basename(old)] = posixpath.basename(new)
+        data = item.get("data")
+        updates[new] = entries[old] if data is None else bytes(data)
+        media_after.add(new)
+    new_names = set(updates.keys())
+    # 原有其它 media 保留
+    for name in names:
+        if name.startswith("ppt/media/") and not name.endswith("/"):
+            if name in {str(it.get("old") or "").replace("\\", "/") for it in replacements}:
+                continue
+            media_after.add(name)
+    ext_types = {}
+    for item in replacements:
+        new = str(item.get("new") or item.get("old") or "")
+        ext = posixpath.splitext(new)[1].lower()
+        key = ext.lstrip(".")
+        if ext in MEDIA_CONTENT_TYPES:
+            ext_types[key] = item.get("content_type") or MEDIA_CONTENT_TYPES[ext]
+    ct_name = "[Content_Types].xml"
+    updated_entries = dict(entries)
+    for name in list(updated_entries.keys()):
+        if name in {str(it.get("old") or "").replace("\\", "/") for it in replacements}:
+            del updated_entries[name]
+    for new, data in updates.items():
+        updated_entries[new] = data
+    if ct_name in updated_entries:
+        try:
+            old_ct = updated_entries[ct_name].decode("utf-8")
+            updated_entries[ct_name] = ensure_content_types_defaults(
+                old_ct, ext_types).encode("utf-8")
+        except (ET.ParseError, UnicodeDecodeError):
+            pass
+    for name in names:
+        if not name.endswith(".rels") or not name.startswith("ppt/"):
+            continue
+        try:
+            text = entries[name].decode("utf-8")
+        except UnicodeDecodeError:
+            continue
+        new_text = rewrite_rels_media_targets(text, rename_map)
+        if new_text != text:
+            updated_entries[name] = new_text.encode("utf-8")
+    tmp_path = path + ".media.tmp"
+    try:
+        if _os.path.exists(tmp_path):
+            _os.remove(tmp_path)
+        with zipfile.ZipFile(tmp_path, "w") as zout:
+            for name in names:
+                old = str(name)
+                out_name = old
+                for item in replacements:
+                    if old == str(item.get("old") or "").replace("\\", "/"):
+                        out_name = str(item.get("new") or old).replace("\\", "/")
+                        break
+                zout.writestr(out_name, updated_entries[out_name])
+        with zipfile.ZipFile(tmp_path) as check:
+            bad = check.testzip()
+            if bad is not None:
+                raise PptxParseError("媒体兼容重写后 zip 校验失败（%s）" % bad)
+            new_media = [n for n in check.namelist()
+                         if n.startswith("ppt/media/") and not n.endswith("/")]
+            if len(new_media) != len(media_after):
+                raise PptxParseError("媒体兼容重写后媒体部件数不一致（%d/%d）"
+                                     % (len(new_media), len(media_after)))
+        _os.replace(tmp_path, path)
+        result.update({"changed": True, "renames": rename_map,
+                       "parts": len(replacements)})
+        return result
+    finally:
+        if _os.path.exists(tmp_path):
+            try:
+                _os.remove(tmp_path)
             except OSError:
                 pass
 

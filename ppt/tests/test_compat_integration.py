@@ -16,7 +16,10 @@
 
 运行：``python tests\\test_compat_integration.py -v``（缺 fixture 时自动生成，需 PowerPoint）。
 """
+import hashlib
 import os
+import shutil
+import subprocess
 import sys
 import time
 import unittest
@@ -377,6 +380,105 @@ def _break_slide_video_rels(path, rels_name="ppt/slides/_rels/slide4.xml.rels",
     return path
 
 
+MEDIA_FIX_DIR = os.path.join(OUT_DIR, "media_fixtures")
+WORK_MEDIA = os.path.join(OUT_DIR, "compat_work_media")
+
+
+def _ffmpeg_bin():
+    return shutil.which("ffmpeg") or "ffmpeg"
+
+
+def _ffprobe_bin():
+    return shutil.which("ffprobe") or "ffprobe"
+
+
+def ensure_media_fixtures():
+    """ffmpeg 生成小样本：h264/aac-MKV（remux）、HEVC-MP4（transcode）、
+    WMV+AC3（transcode）、WMA 纯音频（transcode）。已存在则跳过。"""
+    os.makedirs(MEDIA_FIX_DIR, exist_ok=True)
+    make = [
+        ("remux.mkv", ["-f", "lavfi", "-i", "testsrc2=size=320x240:rate=15",
+                       "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100",
+                       "-t", "3", "-c:v", "libx264", "-preset", "veryfast",
+                       "-crf", "28", "-pix_fmt", "yuv420p", "-c:a", "aac",
+                       "-b:a", "64k"]),
+        ("hevc.mp4", ["-f", "lavfi", "-i", "testsrc2=size=320x240:rate=15",
+                      "-f", "lavfi", "-i", "sine=frequency=440", "-t", "3",
+                      "-c:v", "libx265", "-preset", "veryfast", "-crf", "30",
+                      "-pix_fmt", "yuv420p", "-tag:v", "hvc1", "-c:a", "aac",
+                      "-b:a", "64k"]),
+        ("wmvac3.wmv", ["-f", "lavfi", "-i", "testsrc2=size=320x240:rate=15",
+                        "-f", "lavfi", "-i", "sine=frequency=440", "-t", "3",
+                        "-c:v", "wmv2", "-b:v", "500k", "-c:a", "ac3",
+                        "-b:a", "128k"]),
+        ("audio.wma", ["-f", "lavfi", "-i", "sine=frequency=880", "-t", "3",
+                       "-c:a", "wmav2", "-b:a", "96k"]),
+    ]
+    for name, args in make:
+        path = os.path.join(MEDIA_FIX_DIR, name)
+        if os.path.exists(path) and os.path.getsize(path) > 0:
+            continue
+        proc = subprocess.run([_ffmpeg_bin(), "-y", "-hide_banner", "-loglevel",
+                               "error"] + args + [path],
+                              capture_output=True, text=True)
+        if proc.returncode != 0 or not os.path.exists(path):
+            raise RuntimeError("生成媒体 fixture 失败：%s %s"
+                               % (name, (proc.stderr or "")[-300:]))
+    return MEDIA_FIX_DIR
+
+
+def inject_extra_media(path):
+    """向 compat 包追加 4 个未引用音视频部件（模拟编码不兼容媒体）。
+
+    - media_remux.mkv（h264+aac，预期 remux → media_remux.mp4）
+    - media_hevc.mp4（hevc+aac，预期 transcode，同扩展名）
+    - media_wmv.wmv（wmv2+ac3，预期 transcode+改名 → media_wmv.mp4）
+    - media_audio.wma（wmav2，预期 transcode+改名 → media_audio.m4a）
+    同步 [Content_Types].xml 补 Default。
+    """
+    import zipfile
+    ensure_media_fixtures()
+    extra = [
+        ("ppt/media/media_remux.mkv", "remux.mkv", "video/x-matroska"),
+        ("ppt/media/media_hevc.mp4", "hevc.mp4", "video/mp4"),
+        ("ppt/media/media_wmv.wmv", "wmvac3.wmv", "video/x-ms-wmv"),
+        ("ppt/media/media_audio.wma", "audio.wma", "audio/x-ms-wma"),
+    ]
+    with zipfile.ZipFile(path) as zf:
+        entries = {info.filename: zf.read(info.filename) for info in zf.infolist()}
+    for part, src_name, _ctype in extra:
+        with open(os.path.join(MEDIA_FIX_DIR, src_name), "rb") as fh:
+            entries[part] = fh.read()
+    ct = entries["[Content_Types].xml"].decode("utf-8")
+    ct = pptx_xml.ensure_content_types_defaults(ct, {
+        "mkv": "video/x-matroska", "wmv": "video/x-ms-wmv",
+        "wma": "audio/x-ms-wma"})
+    entries["[Content_Types].xml"] = ct.encode("utf-8")
+    tmp = path + ".inject.tmp"
+    with zipfile.ZipFile(tmp, "w") as zout:
+        for name, data in entries.items():
+            zout.writestr(name, data)
+    os.replace(tmp, path)
+    return extra
+
+
+def probe_media_bytes(data):
+    """媒体 bytes → ffprobe 关键信息（写临时文件探测）。"""
+    import tempfile
+    fd, path = tempfile.mkstemp(suffix=".bin")
+    os.close(fd)
+    try:
+        with open(path, "wb") as fh:
+            fh.write(data)
+        info = convert._ffprobe_info(_ffprobe_bin(), path)
+        return info or {}
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
 class TestCompatBrokenVideoRepair(unittest.TestCase):
     """断链视频（video 关系 External/NULL）但同页存在内嵌副本 → compat 包内内部化。
 
@@ -484,6 +586,118 @@ class TestCompatBrokenVideoRepair(unittest.TestCase):
         print("[compat] PowerPoint 打开修复后 compat：slide4 shape3 len=%sms %sx%s"
               % (info.get("media_len"), info.get("sample_w"), info.get("sample_h")),
               flush=True)
+
+
+class TestCompatMediaEncode(unittest.TestCase):
+    """v2.2 媒体编码兼容：真实 convert_compat 内注入不兼容媒体 → 输出 h264/aac MP4。
+
+    保持媒体数不变、keep 媒体字节不变、原始文件不变、PDF/页数不回退、PowerPoint 可打开。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        ensure_fixtures()
+        require_powerpoint_free()
+        ensure_media_fixtures()
+        cls.media_calls = 0
+        real_media = convert._compat_media
+
+        def inject_then_media(ctx, compat_path, tmp_dir, opts):
+            # 生产阶段入口：注入「编码不兼容」媒体后再跑真实媒体兼容处理
+            inject_extra_media(compat_path)
+            cls.media_calls += 1
+            return real_media(ctx, compat_path, tmp_dir, opts)
+
+        t0 = time.time()
+        with mock.patch.object(convert, "_compat_media", side_effect=inject_then_media):
+            cls.result = convert.convert_compat(FIXTURE, WORK_MEDIA, {
+                "deck_id": "dmedia",
+                "title": "媒体兼容",
+                "source_name": os.path.basename(FIXTURE),
+                "timeout_s": 900,
+                "log": lambda msg: print("[compat-media] " + msg, flush=True),
+            })
+        cls.total_s = round(time.time() - t0, 2)
+        cls.manifest = cls.result["manifest"]
+        cls.assets = {a["name"]: a for a in cls.result["assets"]}
+        cls.compat = cls.assets["compat.pptx"]["path"]
+        print("[compat] 媒体兼容 fixture 转换耗时 %.2fs，summary=%s"
+              % (cls.total_s, cls.manifest["compat"].get("media_summary")), flush=True)
+
+    def test_00_stage_invoked_once(self):
+        self.assertEqual(self.media_calls, 1)
+
+    def test_01_manifest_media_actions(self):
+        meta = self.manifest["compat"]
+        actions = meta.get("media_actions") or []
+        self.assertEqual(len(actions), 5)
+        summary = meta["media_summary"]
+        self.assertEqual(summary, {"total": 5, "kept": 1, "remux": 1, "transcode": 3})
+        by_file = {item["file"]: item for item in actions}
+        self.assertEqual(by_file["media1.mp4"]["action"], "keep")
+        self.assertTrue(by_file["media1.mp4"]["lossless"])
+        self.assertEqual(by_file["media_remux.mp4"]["action"], "remux")
+        self.assertTrue(by_file["media_remux.mp4"]["lossless"])
+        self.assertEqual(by_file["media_remux.mp4"]["vcodec_from"], "h264")
+        for name in ("media_hevc.mp4", "media_wmv.mp4", "media_audio.m4a"):
+            item = by_file[name]
+            self.assertEqual(item["action"], "transcode")
+            self.assertFalse(item["lossless"])
+            self.assertEqual(item["vcodec_to"], "h264" if item["kind"] == "video" else "")
+        self.assertEqual(by_file["media_audio.m4a"]["acodec_to"], "aac")
+        self.assertEqual(pptx_xml.validate_manifest(self.manifest), [])
+
+    def test_02_zip_media_replaced_and_codecs(self):
+        import zipfile
+        with zipfile.ZipFile(self.compat) as zf:
+            names = [n for n in zf.namelist() if n.startswith("ppt/media/")]
+            media = {n: zf.read(n) for n in names}
+            ct = zf.read("[Content_Types].xml").decode("utf-8")
+            self.assertIsNone(zf.testzip())
+        # 原 media1.mp4 keep：与源 fixture 同 sha
+        with zipfile.ZipFile(FIXTURE) as zf:
+            self.assertEqual(media["ppt/media/media1.mp4"],
+                             zf.read("ppt/media/media1.mp4"))
+        self.assertIn("ppt/media/media_remux.mp4", media)
+        self.assertIn("ppt/media/media_hevc.mp4", media)
+        self.assertIn("ppt/media/media_wmv.mp4", media)
+        self.assertIn("ppt/media/media_audio.m4a", media)
+        self.assertNotIn("ppt/media/media_remux.mkv", media)
+        self.assertNotIn("ppt/media/media_wmv.wmv", media)
+        self.assertNotIn("ppt/media/media_audio.wma", media)
+        # mp4/m4a Content-Types defaults 已补齐
+        self.assertIn('Extension="mp4"', ct)
+        self.assertIn('Extension="m4a"', ct)
+        # 输出编码/分辨率/时长断言
+        for name in ("media_remux.mp4", "media_hevc.mp4", "media_wmv.mp4"):
+            info = probe_media_bytes(media["ppt/media/" + name])
+            self.assertEqual(info.get("codec"), "h264", name)
+            if info.get("has_audio"):
+                self.assertEqual(info.get("audio_codec"), "aac", name)
+            self.assertEqual((info.get("w"), info.get("h")), (320, 240), name)
+            self.assertAlmostEqual(float(info.get("dur") or 0), 3.0, delta=0.35)
+        audio = probe_media_bytes(media["ppt/media/media_audio.m4a"])
+        self.assertEqual(audio.get("audio_codec"), "aac")
+        self.assertAlmostEqual(float(audio.get("dur") or 0), 3.0, delta=0.35)
+
+    def test_03_warnings_only_external_and_count(self):
+        warnings = self.manifest["compat"]["warnings"]
+        self.assertTrue(any("外链视频" in w for w in warnings))
+        self.assertFalse(any("未做编码兼容" in w or "媒体过大" in w for w in warnings))
+
+    def test_04_pdf_pages_and_powerpoint_open(self):
+        pages = pdf_pages(self.assets["preview.pdf"]["path"])
+        self.assertEqual(pages, 5)
+        self.assertEqual(self.manifest["files"]["pdf"]["pages"], 5)
+        self.assertEqual(open_slide_count(self.compat), 5)
+        self.assertEqual(self.result["slide_count"], 5)
+
+    def test_05_original_unchanged(self):
+        with open(FIXTURE, "rb") as fh:
+            src_sha = hashlib.sha256(fh.read()).hexdigest()
+        self.assertEqual(self.manifest["files"]["source"]["sha256"], src_sha)
+        self.assertEqual(self.manifest["files"]["source"]["size"],
+                         os.path.getsize(FIXTURE))
 
 
 class TestCompatFailures(unittest.TestCase):

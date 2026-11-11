@@ -11,7 +11,8 @@
 
 路由（Caddy 已 strip_prefix /pptfiles）：
     GET/HEAD  /ppt/<path>        仅允许 ppt/ 前缀；缓存命中/未命中都可用
-    GET       /__warm/ppt/<path> 后台预热：已缓存 200，正在预热 202，启动预热 202
+    GET       /__warm/ppt/<path>[?force=1] 后台预热：已缓存 200；?force=1 先 HEAD OSS 比对
+                              Content-Length/ETag/Last-Modified 与本地 .meta，不一致则强制回源刷新
     GET       /__health          200 JSON（版本/缓存文件数/字节/预热中数量/运行时长）
 
 安全：
@@ -45,7 +46,7 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = "1.0"
+VERSION = "1.1"
 ROOT = os.environ.get("PPTFILES_ROOT", "/opt/class-tools/pptfiles")
 PORT = int(os.environ.get("PPTFILES_PORT", "8092"))
 OSS_BASE = os.environ.get(
@@ -202,8 +203,67 @@ def oss_url(rel):
     return OSS_BASE + "/" + urllib.parse.quote(rel, safe="/")
 
 
+def meta_path(rel):
+    """缓存文件旁的 ``.meta``（记录 OSS Content-Length/ETag/Last-Modified，用于 force 比对）。"""
+    return cache_path(rel) + ".meta"
+
+
+def _headers_snapshot(headers):
+    return {
+        "content_length": str((headers or {}).get("Content-Length") or ""),
+        "etag": str((headers or {}).get("ETag") or ""),
+        "last_modified": str((headers or {}).get("Last-Modified") or ""),
+        "content_type": str((headers or {}).get("Content-Type") or ""),
+        "fetched_at": time.time(),
+    }
+
+
+def _write_meta(rel, headers):
+    try:
+        meta = _headers_snapshot(headers)
+        tmp = meta_path(rel) + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(meta, fh, ensure_ascii=False)
+        os.replace(tmp, meta_path(rel))
+    except OSError as exc:
+        warn("meta 写入失败 %s：%s" % (rel, exc.__class__.__name__))
+
+
+def _read_meta(rel):
+    try:
+        with open(meta_path(rel), "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def _meta_matches(meta, headers):
+    """本地 .meta 与 OSS HEAD 是否一致（长度 + ETag；无 ETag 时用 Last-Modified）。"""
+    if not meta:
+        return False
+    snap = _headers_snapshot(headers)
+    if snap["content_length"] and meta.get("content_length"):
+        if str(meta["content_length"]) != snap["content_length"]:
+            return False
+    if snap["etag"] and meta.get("etag"):
+        return str(meta["etag"]).strip() == snap["etag"].strip()
+    if snap["last_modified"] and meta.get("last_modified"):
+        return str(meta["last_modified"]).strip() == snap["last_modified"].strip()
+    # 上游没给可比信息时，保守认为不一致（强制刷新）
+    return False
+
+
+def head_upstream(rel):
+    """HEAD OSS 对象，返回响应头 dict（失败抛异常）。"""
+    req = urllib.request.Request(oss_url(rel), method="HEAD",
+                                 headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        return dict(resp.headers)
+
+
 def _download_to_cache(rel):
-    """从 OSS 下载到 ``<cache>.part.<pid>.<tid>``，成功后原子 rename。返回字节数。"""
+    """从 OSS 下载到 ``<cache>.part.<pid>.<tid>``，成功后原子 rename 并写 .meta。返回字节数。"""
     final = cache_path(rel)
     os.makedirs(os.path.dirname(final), exist_ok=True)
     part = "%s.part.%d.%d" % (final, os.getpid(), threading.get_ident())
@@ -212,7 +272,8 @@ def _download_to_cache(rel):
     try:
         req = urllib.request.Request(url, headers={"User-Agent": UA})
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            length = resp.headers.get("Content-Length")
+            headers = dict(resp.headers)
+            length = headers.get("Content-Length")
             with open(part, "wb") as fh:
                 while True:
                     chunk = resp.read(CHUNK)
@@ -223,6 +284,7 @@ def _download_to_cache(rel):
         if length is not None and str(length).isdigit() and int(length) != size:
             raise IOError("长度不一致（期望 %s / 实际 %d）" % (length, size))
         os.replace(part, final)
+        _write_meta(rel, headers)
         log("cache 写入 %s（%.2fMB）" % (rel, size / 1048576.0))
         _evict_if_needed()
         return size
@@ -233,6 +295,32 @@ def _download_to_cache(rel):
         except OSError:
             pass
         raise
+
+
+def _refresh_async(rel):
+    """强制回源刷新（force=1 且 HEAD 发现变化时）：先写 .part → 原子替换 → 更新 .meta。
+
+    旧缓存文件在新下载完成前一直可用；刷新失败时保留旧文件并记录 WARN。
+    """
+    with _LOCK:
+        if rel in _WARMING:
+            return False
+        _WARMING.add(rel)
+
+    def worker():
+        try:
+            with _path_lock(rel):
+                _download_to_cache(rel)
+                log("force 刷新完成 %s" % rel)
+        except Exception as exc:  # noqa: BLE001
+            warn("force 刷新失败 %s（保留旧缓存）：%s: %s"
+                 % (rel, exc.__class__.__name__, str(exc)[:160]))
+        finally:
+            with _LOCK:
+                _WARMING.discard(rel)
+
+    threading.Thread(target=worker, name="refresh-" + rel[-40:], daemon=True).start()
+    return True
 
 
 def _warm_async(rel):
@@ -431,6 +519,7 @@ class Handler(BaseHTTPRequestHandler):
             if length_int is not None and int(length_int) != size:
                 raise IOError("上游长度不一致（期望 %d / 实际 %d）" % (length_int, size))
             os.replace(part, final)
+            _write_meta(rel, headers)
             log("cache 写入 %s（%.2fMB，边下边发）" % (rel, size / 1048576.0))
             _evict_if_needed()
         except (BrokenPipeError, ConnectionResetError):
@@ -480,15 +569,46 @@ class Handler(BaseHTTPRequestHandler):
                 if rel is None:
                     self._send_error_json(400, "非法缓存路径（仅允许 ppt/ 前缀）")
                     return
-                if os.path.exists(cache_path(rel)):
-                    payload = {"ok": True, "cached": True, "path": rel}
-                    self._send_json(200, payload)
+                query = urllib.parse.parse_qs(parsed.query or "")
+                force = str((query.get("force") or [""])[0]).lower() in ("1", "true", "yes")
+                cached = os.path.exists(cache_path(rel))
+                if not force:
+                    if cached:
+                        self._send_json(200, {"ok": True, "cached": True, "path": rel})
+                        return
+                    started_warm = _warm_async(rel)
+                    self._send_json(202, {"ok": True, "cached": False,
+                                          "warming": True,
+                                          "started": bool(started_warm),
+                                          "path": rel})
                     return
-                started_warm = _warm_async(rel)
-                payload = {"ok": True, "cached": False,
-                           "warming": True, "started": bool(started_warm),
-                           "path": rel}
-                self._send_json(202, payload)
+                # force=1：先 HEAD OSS 比对本地 .meta，不一致才强制回源（避免无谓重下）
+                try:
+                    headers = head_upstream(rel)
+                except Exception as exc:  # noqa: BLE001
+                    warn("force warm HEAD 失败 %s：%s" % (rel, exc.__class__.__name__))
+                    self._send_json(502, {"ok": False, "cached": cached,
+                                          "force": True, "error": "上游 HEAD 失败",
+                                          "path": rel})
+                    return
+                upstream_len = str(headers.get("Content-Length") or "")
+                local_size = ""
+                if cached:
+                    try:
+                        local_size = str(os.path.getsize(cache_path(rel)))
+                    except OSError:
+                        cached = False
+                if cached and _meta_matches(_read_meta(rel), headers):
+                    self._send_json(200, {"ok": True, "cached": True, "force": True,
+                                          "unchanged": True, "path": rel,
+                                          "content_length": upstream_len})
+                    return
+                started = _refresh_async(rel)
+                self._send_json(202, {"ok": True, "cached": cached, "force": True,
+                                      "refresh": True, "started": bool(started),
+                                      "path": rel,
+                                      "content_length": upstream_len,
+                                      "local_size": local_size})
                 return
             rel = safe_rel_path(path)
             if rel is None:

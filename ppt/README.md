@@ -48,9 +48,9 @@
 | `oss_upload.py` | OSS 封装（`oss2`，凭据复用 `web/deploy/sync_tools.py::load_creds()`，不打印）；`download_to()` 供补转取回原件 |
 | `install_agent.ps1` | 注册计划任务 `PptConvertAgent`（每分钟 + 登录后 30s、InteractiveToken、pythonw、StartWhenAvailable、单实例、`ExecutionTimeLimit=PT45M`；compat 转换预算 ≥20min） |
 | `tests/make_fixture_pptx.py` | 用 COM 生成测试 fixture（16:9 五页、4:3 三页、**.ppt 旧格式三页**；含动画/退场/嵌入视频+音轨/外链/备注/切换） |
-| `tests/test_pure_logic.py` | **131 项**纯逻辑单测（无 COM/网络；v1.2 视频 46 项 + v2.0 compat 26 项 + v2.0.1 断链视频修复 8 项：合成 OOXML zip 断链/无副本/幂等/多副本/兜底/manifest repairs） |
+| `tests/test_pure_logic.py` | **159 项**纯逻辑单测（无 COM/网络；v1.2 视频 46 项 + v2.0 compat 26 项 + v2.0.1 断链视频修复 8 项 + v2.2 媒体编码兼容 20 项：策略矩阵/Content-Types/rels 重写/zip 安全重写/manifest；另含预热/强制刷新 8 项） |
 | `tests/test_convert_integration.py` | **22 项**真实 COM 旧链路断言（图片尺寸/step 去重/视频 hot区/4:3/外链跳过/笔记/耗时 + v1.2 video/帧级/降级/tuanri；`--legacy` 路径回归） |
-| `tests/test_compat_integration.py` | **25 项** v2.0 compat 真实 COM 断言（manifest v2/files 存在+sha/size、页数=源、PowerPoint 可打开、**媒体 sha256 逐字节一致**、PDF 页数、cover、字体、外链告警且不删除、`.ppt→pptx`、失败路径 + **断链视频修复 6 项**：repairs 记录、rels 内部化、媒体字节不变、PDF/字体不回退、PowerPoint 打开修复后媒体形状） |
+| `tests/test_compat_integration.py` | **31 项** v2.0 compat 真实 COM 断言（manifest v2/files 存在+sha/size、页数=源、PowerPoint 可打开、**keep 媒体 sha256 逐字节一致**、PDF 页数、cover、字体、外链告警且不删除、`.ppt→pptx`、失败路径 + **断链视频修复 6 项** + **媒体编码兼容 6 项**：真实 convert_compat 内注入 h264-MKV/HEVC/WMV+AC3/WMA → remux 1/transcode 3、输出 h264/aac、时长差、页数/PDF、原始文件不变、PowerPoint 可打开） |
 | `tests/test_cloud_contract.py` | 云端 RLS/分片/失败路径/token 刷新/心跳冒烟 + 真实 OSS E2E（E2E 显式走 `legacy=True` 保持旧断言） |
 | `logs/` | `agent-YYYYMMDD.log`（按天，保留 14 天）；`agent.lock` 单实例锁 |
 | `work/` | 每个 deck 的临时工作目录（转换结束删除；陈旧目录 >24h 自动清） |
@@ -343,6 +343,34 @@ PowerPoint COM 打开修复后 compat：slide7 shape13 `Type=16`、`MediaFormat.
 **已知限制**：真·外链媒体（本机无内嵌副本/网络 URL）仍无法随包携带，只告警；
 PowerPoint 若在 SaveAs 时已自动修复的包，本阶段无操作（幂等，`repairs` 为空）。
 
+### 6.4 媒体编码兼容（v2.2，CONTRACT §12.7，2026-11-11 用户确认方案 A）
+
+**问题**：compat 之前只做结构层（断链修复/字节保留/外链告警），不做**编码/容器兼容**。若 PPT 嵌入的
+视频是 HEVC/VP9/AV1/VC-1/WMV/MPEG-2/Xvid 或音频 AC3/WMA/DTS/MP2/Vorbis/Opus，或容器是 mkv/mov/flv/avi，
+在部分电脑/WPS/手机上仍可能「媒体不可用」。v2.2 在 **SaveAs + 断链修复之后、重新计算 size/sha 与上传之前**
+对 `ppt/media/*` 内嵌音视频逐个处理（原始文件 `original.<ext>` 仍逐字节保留可下载）：
+
+| 探测结果 | 动作 | 说明 |
+|---|---|---|
+| H.264 视频 + AAC/无音频，容器 mp4/m4v | **keep** | 原字节保留（沿用「媒体 sha 不变」红线） |
+| H.264 + AAC，容器 mkv/mov/flv/avi 等 | **remux** | `ffmpeg -c copy -movflags +faststart` 换 MP4，音视频码流字节不变（lossless=true） |
+| 视频编码不兼容（HEVC/VP9/AV1/VC-1/WMV/MPEG-2/Xvid…）或音频不兼容（AC3/WMA/DTS/MP2/Vorbis/Opus…） | **transcode** | `libx264 -profile:v high -crf 18 -preset medium -pix_fmt yuv420p` + `aac 192k`（无音轨不加），保持原分辨率/帧率，faststart；时长差 ≤0.3s（lossless=false） |
+| 仅音频不兼容 | **transcode** | AAC m4a 192k；已兼容 mp3/m4a/aac 原样保留 |
+| 单文件 >200MiB / 单段 >30min / 总时长 >60min | **keep + warning** | 不转换、保留原样并告警「媒体过大/过长，未做编码兼容」 |
+
+- 跨扩展名时安全重写 zip：`[Content_Types].xml` 补/去重 `Default Extension`（mp4/m4a），
+  所有 `ppt/slides/_rels/*.rels` 的 `Target="../media/旧名"` 改为新名；`p14:media`/`a:videoFile` 只引用 rId 不受影响；
+  同扩展名直接替换字节；新名 = 原名去扩展名 + 新扩展名（防冲突加序号）；绝不删媒体、不改分辨率/画幅/时长。
+- manifest：`compat.media_actions=[{file,kind,action,vcodec_from,acodec_from,vcodec_to,acodec_to,width,height,dur,bytes_before,bytes_after,lossless}]`
+  + `compat.media_summary={total,kept,remux,transcode}`；**成功项不进 warnings**；compat 的 size/sha256 在媒体处理后重新计算。
+- 质量红线：keep 媒体字节不变（强校验）；remux 码流不变；transcode 仅限编码不兼容且 CRF18/192k 高保真；`files.source` 永远保留原始文件。
+- 关闭/降级：`convert_compat(..., {"compat_media_compat": False})` 可跳过（默认开）；ffmpeg/ffprobe 缺失时自动 keep+warning。
+- 实测（fixture，5 个媒体：keep 1 / remux 1 / transcode 3）：媒体阶段约 **4.4s**；MKV h264+aac 81,832→83,053B（remux）、
+  HEVC 81,370→168,001B、WMV2+AC3 365,663→202,930B、WMA 42,142→47,910B（AAC m4a），输出均 h264/aac 且时长差 ≤0.03s；
+  真实 user deck 两段 h264/aac → `kept=2`、媒体字节不变，compat 39,063,742B sha256 `5dae5346…`（转换 7.4s）。
+- 已知限制：转码会增加兼容包体积（HEVC/WMV 样本 1.5–2×）；`>200MiB/30min` 大媒体只告警不转；外链媒体仍只告警；
+  PowerPoint 对极少数封装（如带字幕轨的 mkv）可能需先 remux，remux 只保留首视频轨+首音频轨（不保留字幕轨）。
+
 ---
 
 ## 7. 云端行为（agent）
@@ -388,7 +416,12 @@ PowerPoint 若在 SaveAs 时已自动修复的包，本阶段无操作（幂等�
 ```
 
 - 配置：`PPT_WARM_BASE` 环境变量（默认 `http://121.196.47.2`）；预热函数 `agent.warm_ppt_files()`，
-  URL 规则 `<base>/pptfiles/__warm/<manifest.base 相对 OSS 的路径前缀><文件名>`；
+  URL 规则 `<base>/pptfiles/__warm/<manifest.base 相对 OSS 的路径前缀><文件名>?force=1`；
+- **同一 build 重转的缓存一致性（v2.1+）**：`--compat-only` 复用原 build 目录上传 compat（同 URL 内容会变），
+  所以预热默认带 **`?force=1`**：服务先 HEAD OSS 比对本地 `.meta`（Content-Length/ETag/Last-Modified），
+  不一致才 `.part` 回源原子替换并更新 meta；普通下载命中缓存直接下发（不 HEAD）。
+  手动强制刷新：`curl 'http://121.196.47.2/pptfiles/__warm/ppt/a/<deckId>/<buildId>/compat.pptx?force=1'`
+  （202 刷新中 / 200 unchanged）；自测：`python deploy\ecs_pptfiles.py force-selftest`。
 - 存量 deck 用 `--compat-only` 补文件后也会预热（写入原 build 目录）；
 - **ECS 服务运维**（部署/健康/手动预热/清缓存）见 `deploy/ECS_DEPLOY.md §8`；脚本：
   `python deploy\ecs_pptfiles.py deploy|probe|verify`，健康 `http://121.196.47.2/pptfiles/__health`；
@@ -426,6 +459,7 @@ PowerPoint 若在 SaveAs 时已自动修复的包，本阶段无操作（幂等�
 | 视频太大（>40MB） | 已自动重编码（crf24/aac96k）。日志 `video: reencode X MB → Y MB`；仍偏大属内容本身（长视频），弱网端会回退分步 |
 | `--video-only` 报「源文件缺失」 | 该 deck 是早期数据（无 `source_key` 或 OSS 原件已清）。重新上传源文件后转换，或先 `PATCH status=queued` 让转换机重跑 |
 | `--video-only` 报「只有 ready 的 deck 才能补视频」 | 只对已 ready 的存量 deck 补视频；queued/processing/failed 走正常转换流程 |
+| **重转后下载到旧兼容包（旧视频/旧媒体）** | 同一 build 目录内容会变，缓存需强制刷新。v2.1+ 转换机上传后自动 `?force=1` 预热；若仍旧：手动 `curl '…/pptfiles/__warm/ppt/a/<id>/<build>/compat.pptx?force=1'` 等待 202 完成后重试；检查 `journalctl -u class-tools-pptfiles` 的 force 刷新日志 |
 | **下载兼容版很慢（几十 KB/s）** | 现在应走 ECS 缓存 `…/pptfiles/ppt/a/...`（见 §7.1）。检查：`curl http://121.196.47.2/pptfiles/__health` 是否 200；`deploy/ecs_pptfiles.py probe` 看服务/缓存；该文件是否已预热（`__warm` 返回 202 后约 1–2 分钟落盘）。缓存服务不可用时先用 OSS 直链（慢但可用） |
 | **下载兼容版后视频仍显示不可用** | v2.0.1 起转换机自动修复「外链断链但包内有内嵌副本」的视频（日志 `修复断链视频（第 N 页…→ 内嵌 …）`，manifest `compat.repairs`）。检查该 deck manifest：`repairs` 是否含该页；若 `external_media` 仍列出说明是真外链（包内无副本）→ 只能告警，需用户重新在 PPT 里嵌入媒体后重传。修复需重转：`python agent.py --deck <id> --compat-only` |
 | **旧 deck 没有兼容文件**（manifest 无 `files`） | 用 `python agent.py --deck <id> --compat-only` 补；dry-run 可先本地验证。补完 manifest 只新增 files/compat，旧预览字段保留 |
@@ -479,7 +513,12 @@ python agent.py --deck dmwalrdlgevz90l --compat-only --dry-run
   （例如用户正在编辑 PowerPoint）则 `skip` 该类而不是报错，并打印原因。
 - `test_cloud_contract.py` 会**保留** 2 个 ready deck（标题 `测试·嵌入视频演示`、`测试·4:3 演示`），
   供网页端播放器/视频热点验收；其余临时 deck/chunks/failed 数据在 `finally` 里清理；
-  交付前由 Lead 统一 soft-delete 这 2 个 deck 并清 OSS 测试 prefix；
+- **交付前清理测试 deck**：运行 `python tests\cleanup_test_decks.py --apply` 软删测试 deck（脚本只对
+  `owner_sid=3260799999` 且 `deleted=false` 的行 PATCH `deleted=true`，写前复核 owner 并断言全为测试身份，
+  真实同学 deck 不参与；幂等，重跑 0 行；不带参数为 dry-run，只列出将被软删的 id/标题/状态/创建时间）；
+- 测试 deck 的 OSS 前缀（`ppt/a/<id>/`、`ppt/src/<id>/`）对象数/字节数可用
+  `python tests\cleanup_test_decks.py --report-oss` 只读统计（只 `list_objects_v2` 分页统计，**不删除**；
+  加 `--all-test` 可统计全部测试身份 deck（含已软删）；是否清理存储由用户决定后另行处理）；
 - 过程产物写 `tests/_out/`（`fixture_deck*.pptx`、`work_16x9/`、`work_4x3/`、`work_degraded/`、
   `work_tuanri/`、`media/clip.mp4`、`frame_media_*.jpg` 抽帧），交付前清理（fixture 可由脚本重新生成）。
 

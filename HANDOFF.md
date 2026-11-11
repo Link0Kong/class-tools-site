@@ -2864,3 +2864,17 @@ sync-repos.cmd "feat: 说明本次改了什么"
 
 - 回滚：重传 `index_online_20261111-1829_preVoteAudience.html`（会连同并行投票可见范围/大屏 CSS 一起回退）；仅回退拖动手感 → 局部还原 `updateDropTarget`（指针命中）/`calcTabsDrop`/`calcCardsDrop` 与 `isToolKey` 拦截，并把 `v2_drag_check.py` 回退到 56 项版本。
 - 取舍（如实）：① 鼠标不再参与命中/插入（以卡片本体为准）→ 工具栏插入位置相对旧「指针位置」约左移半个卡宽（本体中心口径，测试已锁定）；② 只能从卡片右上 handle 起手（未改起手方式）；③ 跨端：小程序 `utils/tools.js normalizeHome` 会过滤 power/fb/ug（noHome/未知 key）——网页工具栏里的特殊 key 在小程序首页不显示，且小程序编辑首页后可能回写覆盖（本轮不改 mp，按用户「网页版」范围）。
+
+## 2026-11-11 18:3x–19:0x · 增量 37：PPT v2.2 媒体编码兼容处理（用户选择方案 A）+ 缓存强制刷新
+
+> 用户问「兼容化有包括对媒体的兼容性处理吗」并确认方案 A：**能无损就无损、必要时高保真转码**；原始文件仍逐字节保留。
+- **兼容包媒体策略**（`convert.py` 在 SaveAs+断链修复后、size/sha/上传前；契约 `ppt/CONTRACT.md §12.7`）：
+  - `keep`：h264+aac/无音频 + mp4/m4v → 原字节不动（沿用质量红线）；
+  - `remux`：h264+aac 但容器 mkv/mov/flv/avi 等 → `-c copy -movflags +faststart` 换 MP4（码流字节不变，lossless=true）；
+  - `transcode`：HEVC/VP9/AV1/VC-1/WMV/MPEG-2/Xvid/DivX 视频、AC3/WMA/DTS/MP2/Vorbis/Opus 音频 → libx264 High CRF18 preset medium 同分辨率/帧率 yuv420p + AAC192k MP4（faststart，时长差≤0.3s）；纯音频→AAC m4a；
+  - 跨扩展名安全重写 zip（Content_Types Default + 全部 rels Target，媒体数守恒/testzip）；>200MiB/单段>30min/总>60min → keep+warning；纯外链仍只告警；绝不删媒体/改分辨率/时长；
+  - manifest 新增 `compat.media_actions` + `media_summary`；质量校验改为 keep 媒体 sha 必须不变、remux/transcode 按记录允许变化；`files.source` 永远原字节。
+- **实测**：fixture 5 媒体 → keep1/remux1/transcode3，输出全 h264+aac、时长差≤0.03s（MKV 81,832→83,053B；HEVC 81,370→168,001B；WMV+AC3 365,663→202,930B；WMA 42,142→47,910B）；测试 pure **159**/compat **31**/legacy 22/cloud 7 全过。
+- **缓存一致性**：ECS `pptfiles_app.py` v1.1 每个缓存文件带 `.meta`，`/__warm/...?force=1` 先 HEAD OSS 比对、变化则 `.part` 原子回源替换；`agent.warm_ppt_files(force=True)` 上传后强制刷新；`ecs_pptfiles.py force-selftest` 真实验证：同 key A→B，普通 GET 仍旧（复现），force 后 4s GET 新内容。已部署 ECS（health v1.1）。
+- **真实用户 deck 重转**：`dmwalrdlgevz90l` media_summary=`{"total":2,"kept":2,"remux":0,"transcode":0}`（两段本为 h264/aac，字节不变）；compat **39,063,744B / sha256 `d6e904680b99…`**、PDF 16 页、字体 6、warnings 0；ECS 缓存 force 刷新后独立 QA **14/14 PASS**（含 ECS 下载 sha=manifest、速度 **6.1MB/s**）。
+- 三端 UI 暂未单独展示「媒体兼容 N 处」（manifest 已就绪）；文档/交付说明已写明策略。回滚：`compat_media_compat=False` 关闭媒体处理；ECS 停服务/客户端备用 OSS；网页备份 `index_online_20261111-1241_preDlAccel.html`。

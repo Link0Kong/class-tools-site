@@ -101,9 +101,19 @@ GET/HEAD  /pptfiles/ppt/<path>        仅允许 ppt/ 前缀；命中缓存直接
                                           Cache-Control: public,max-age=31536000,immutable / ETag
                                       Range: bytes=… → 206 + Content-Range（未缓存时先完整落盘再 206）
                                       未缓存 GET：边下边发（同时写 .part），完成后原子 rename；同 path 串行加锁
-GET       /pptfiles/__warm/ppt/<path> 后台预热（已缓存 200 JSON；正在预热/已启动 202 JSON）
-GET/HEAD  /pptfiles/__health          200 JSON：{ok, files, bytes, warming, root, max_bytes, uptime_s, version}
+GET       /pptfiles/__warm/ppt/<path>              后台预热（已缓存 200 JSON；正在预热/已启动 202 JSON）
+GET       /pptfiles/__warm/ppt/<path>?force=1      强制刷新：先 HEAD OSS 比对本地 .meta
+                                                   （Content-Length/ETag/Last-Modified），一致→200 unchanged，
+                                                   不一致→202 后台 .part 回源原子替换并更新 meta
+GET/HEAD  /pptfiles/__health                       200 JSON：{ok, files, bytes, warming, root, cache_dir,
+                                                   max_bytes, uptime_s, version}
 ```
+
+- **缓存一致性（v1.1，2026-11-11）**：`--compat-only` 复用原 build 目录上传 → 同 URL 内容会变。
+  转换机上传后统一调用 `?force=1`；普通 GET 命中缓存直接下发（不 HEAD 更省时），force 负责纠偏。
+  每个缓存文件旁有 `<file>.meta`（JSON：content_length/etag/last_modified/content_type/fetched_at）。
+  实测自测（`force-selftest`）：同 key 覆盖 A(184,800B)→B(285,600B)，普通 GET 仍返回 A 旧缓存，
+  `?force=1` 后 4s 内 GET 返回 B，再次 force → 200 unchanged。
 
 - 防穿越：仅 `ppt/` 前缀、拒绝 `..`/反斜杠/NUL，实测 `/pptfiles/ppt/../etc/passwd` → **400**；
 - 上游：`https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/<path>`（公共读，无凭据）；
@@ -116,6 +126,7 @@ python deploy\ecs_pptfiles.py deploy            # 分片上传 app.py + unit + �
 python deploy\ecs_pptfiles.py probe             # 服务状态/缓存文件/磁盘/journal/Caddy 路由
 python deploy\ecs_pptfiles.py verify --path ppt/a/<deckId>/<buildId>/compat.pptx --timeout 25
                                                 # 公网：health / HEAD / 预热 / Range(206) / 下载测速
+python deploy\ecs_pptfiles.py force-selftest   # 强制刷新自测：同 key 换内容 → force 后 GET 必须换新
 python deploy\ecs_site.py apply                 # 同时更新 Caddy 配置（含 /pptfiles 路由）并再次安装本服务
 python deploy\ecs_site.py verify                # 末尾含 pptfiles health 检查
 ```
@@ -123,8 +134,8 @@ python deploy\ecs_site.py verify                # 末尾含 pptfiles health 检�
 **手动预热 / 清理缓存**：
 
 ```bash
-# 预热（转换机在上传后会自动调用；也可手动）：
-curl -sS http://121.196.47.2/pptfiles/__warm/ppt/a/<deckId>/<buildId>/compat.pptx
+# 预热（转换机在上传后会自动调用 `?force=1`；也可手动）：
+curl -sS 'http://121.196.47.2/pptfiles/__warm/ppt/a/<deckId>/<buildId>/compat.pptx?force=1'
 curl -sS http://121.196.47.2/pptfiles/__warm/ppt/a/<deckId>/<buildId>/preview.pdf
 curl -sS http://121.196.47.2/pptfiles/__warm/ppt/a/<deckId>/<buildId>/original.pptx
 
@@ -143,6 +154,9 @@ rm -rf /opt/class-tools/pptfiles/ppt/a/<deckId>/
 - `/__health`：`{"ok": true, "files": 5, "bytes": 78245019, "warming": 0, "max_bytes": 5368709120}`（缓存 ~74.6MB）；
 - **HEAD** `compat.pptx` → **200**，`Content-Length: 39063744`，`Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation`，`Accept-Ranges: bytes`，`Cache-Control: public, max-age=31536000, immutable`；
 - **GET** 200；**Range** `bytes=100-199` → **206**，`Content-Range: bytes 100-199/39063744`；
+- **强制刷新自测（v1.1）**：上传 A(184,800B) → force 预热 → GET sha `66b1a3d2…`；同 key 覆盖 B(285,600B)
+  → 普通 GET 仍 `66b1a3d2…`（旧缓存，问题复现）→ `?force=1` 预热 → 4s 后 GET sha `d05e004c…`（新内容）
+  → 再次 force → 200 `unchanged`；测试对象/缓存已自动清理；
 - **预热 39MB compat**：首次 `/__warm/` 后台回源耗时 **约 74s**（当时 ECS→OSS ≈0.53MB/s）；
 - **本机下载（预热后，37.25MB）**：`curl --max-time 25` → **4.41s / 8.44MB/s**；完整 GET 4.07s / 9.14MB/s；
 - **首次未缓存直下（38MB original.pptx，边下边发）**：14.88s / **2.56MB/s**（本次 ECS→OSS 达标）；缓存后二次下载 2.50s / **15.2MB/s**；

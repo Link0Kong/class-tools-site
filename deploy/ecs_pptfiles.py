@@ -12,7 +12,7 @@
 用法（web 目录，系统 python，需要 aliyunsdkcore）：
   python deploy\\ecs_pptfiles.py deploy     # 安装/更新服务 + 重启 + 本机健康检查
   python deploy\\ecs_pptfiles.py probe      # 只读：服务状态/缓存大小/磁盘/日志
-  python deploy\\ecs_pptfiles.py verify --path ppt/a/<deck>/<build>/compat.pptx
+  python deploy\\ecs_pptfiles.py force-selftest  # 强制刷新自测（同 key 换内容）\n  python deploy\\ecs_pptfiles.py verify --path ppt/a/<deck>/<build>/compat.pptx
                                             # 公网 HEAD/GET/Range + 预热 + 下载测速
 """
 import argparse
@@ -265,9 +265,95 @@ def verify(path, timeout=25):
     return 0 if fails == 0 else 1
 
 
+def force_selftest():
+    """真实缓存一致性自测：同 key 换内容 → force=1 预热后 GET 必须拿到新内容。
+
+    步骤：上传 A 到 OSS 测试 key → 预热 → GET=A；同 key 覆盖为 B → 普通 GET 仍为 A（旧缓存）；
+    ``?force=1`` 预热 → GET=B。最后删除 OSS 测试对象与 ECS 缓存文件（不污染业务数据）。
+    """
+    import hashlib
+    import oss_object
+    bucket = oss_object.bucket()
+    base = "http://%s/pptfiles" % ecs_site.ECS_IP
+    key = "ppt/_selftest/force_refresh_%d.bin" % int(time.time())
+    url = base + "/" + key
+    data_a = (b"CACHE-A-" + b"A" * 300) * 600          # ~190KB
+    data_b = (b"CACHE-B-" + b"B" * 400) * 700          # ~290KB（同时改变长度）
+    sha_a = hashlib.sha256(data_a).hexdigest()
+    sha_b = hashlib.sha256(data_b).hexdigest()
+    fails = 0
+
+    def get_sha(_url):
+        r = _http("GET", _url, timeout=20)
+        return r["status"], hashlib.sha256(r["body"]).hexdigest() if r["status"] == 200 else ""
+
+    def wait_sha(expect, label):
+        for i in range(60):
+            st, got = get_sha(url)
+            if st == 200 and got == expect:
+                print("%s：GET sha=%s（%ds）" % (label, got[:16], i + 1))
+                return True
+            time.sleep(1)
+        print("%s：超时未拿到期望内容（最后一次 %s sha=%s）" % (label, st, got[:16]))
+        return False
+
+    try:
+        print("=== 1. 上传测试对象 A（%d bytes） ===" % len(data_a))
+        bucket.put_object(key, data_a, headers={"Cache-Control": "no-cache"})
+        print("PUT %s sha=%s" % (key, sha_a[:16]))
+
+        print("\n=== 2. force 预热（首次） ===")
+        r = _http("GET", base + "/__warm/" + key + "?force=1", timeout=10)
+        print("WARM HTTP %s %s" % (r["status"],
+                                   r["body"][:200].decode("utf-8", "replace")))
+        if r["status"] not in (200, 202):
+            fails += 1
+        if not wait_sha(sha_a, "A 缓存"):
+            fails += 1
+
+        print("\n=== 3. 同 key 覆盖为 B（新内容） ===")
+        bucket.put_object(key, data_b, headers={"Cache-Control": "no-cache"})
+        print("PUT %s sha=%s" % (key, sha_b[:16]))
+        st, got = get_sha(url)
+        print("普通 GET（未 force）：HTTP %s sha=%s → %s"
+              % (st, got[:16], "仍是旧缓存（符合预期，暴露问题）"
+                 if got == sha_a else "已变（意外）"))
+        if got != sha_a:
+            print("WARN 覆盖后普通 GET 已是新内容（可能缓存未命中/服务已刷新）")
+
+        print("\n=== 4. force=1 预热刷新 ===")
+        r = _http("GET", base + "/__warm/" + key + "?force=1", timeout=10)
+        print("WARM HTTP %s %s" % (r["status"],
+                                   r["body"][:260].decode("utf-8", "replace")))
+        if r["status"] not in (200, 202):
+            fails += 1
+        if not wait_sha(sha_b, "B 缓存（force 后）"):
+            fails += 1
+
+        print("\n=== 5. 再次 force（内容未再变）应返回 unchanged/200 ===")
+        r = _http("GET", base + "/__warm/" + key + "?force=1", timeout=10)
+        print("WARM HTTP %s %s" % (r["status"],
+                                   r["body"][:220].decode("utf-8", "replace")))
+    finally:
+        try:
+            bucket.delete_object(key)
+            print("已删除 OSS 测试对象 %s" % key)
+        except Exception as exc:  # noqa: BLE001
+            print("WARN 删除 OSS 测试对象失败：%s" % exc.__class__.__name__)
+        remote = "rm -f /opt/class-tools/pptfiles/%s /opt/class-tools/pptfiles/%s.meta" % (key, key)
+        try:
+            ecs_site.run_script("#!/bin/bash\n%s\necho cache-cleaned\n" % remote,
+                                label="pptfiles-force-cleanup", timeout=120, wait=180)
+        except Exception:  # noqa: BLE001
+            pass
+    print("\n%s" % ("FORCE_SELFTEST PASS" if fails == 0
+                     else "FORCE_SELFTEST FAIL（%d 项）" % fails))
+    return 0 if fails == 0 else 1
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="ECS PPT 文件缓存服务部署（云助手）")
-    ap.add_argument("cmd", choices=["deploy", "probe", "verify"])
+    ap.add_argument("cmd", choices=["deploy", "probe", "verify", "force-selftest"])
     ap.add_argument("--path", default="ppt/a/dmwalrdlgevz90l/c0e5834805/compat.pptx",
                     help="verify 用的缓存路径（相对 /pptfiles，仅 ppt/ 前缀）")
     ap.add_argument("--timeout", type=int, default=25, help="下载测速采样秒数")
@@ -276,6 +362,8 @@ def main(argv=None):
         return install_service()
     if ns.cmd == "probe":
         return probe()
+    if ns.cmd == "force-selftest":
+        return force_selftest()
     return verify(ns.path, timeout=max(5, int(ns.timeout)))
 
 

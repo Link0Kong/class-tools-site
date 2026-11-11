@@ -1560,10 +1560,25 @@ class TestWarmPptFiles(unittest.TestCase):
         self.assertTrue(all(item["ok"] for item in results))
         self.assertEqual(
             calls[0][0],
-            "http://121.196.47.2/pptfiles/__warm/ppt/a/d1/b1/compat.pptx")
+            "http://121.196.47.2/pptfiles/__warm/ppt/a/d1/b1/compat.pptx?force=1")
         self.assertEqual(calls[0][1], 1.5)
         self.assertIn("preview.pdf", calls[1][0])
         self.assertIn("预热 ECS 缓存：4/4", "\n".join(logs))
+
+    def test_force_parameter(self):
+        calls = []
+
+        def opener(url, timeout=None):
+            calls.append(url)
+            return _FakeWarmResponse(200)
+
+        agent.warm_ppt_files("http://x", "ppt/a/d1/b1/", ["a.pptx"],
+                             opener=opener, force=False)
+        self.assertFalse(calls[0].endswith("?force=1"))
+        calls.clear()
+        agent.warm_ppt_files("http://x", "ppt/a/d1/b1/", ["a.pptx"],
+                             opener=opener, force=True)
+        self.assertTrue(calls[0].endswith("?force=1"))
 
     def test_best_effort_failure_does_not_raise(self):
         def opener(url, timeout=None):
@@ -1689,6 +1704,197 @@ class TestCompatUploadWarmCall(unittest.TestCase):
         self.assertEqual(ready[0]["slide_count"], 5)
         self.assertTrue(ready[0]["cover_url"].endswith("/cover.webp"))
         self.assertEqual(ready[0]["manifest"]["files"]["pdf"]["pages"], 5)
+
+
+# ---------------------------------------------------------------------------
+# 12. v2.2 媒体编码兼容（CONTRACT §12.7 纯逻辑）
+# ---------------------------------------------------------------------------
+class TestMediaClassify(unittest.TestCase):
+    def _probe(self, **kw):
+        base = {"w": 320, "h": 240, "dur": 3.0, "codec": "h264",
+                "has_audio": True, "audio_codec": "aac", "bytes": 100000}
+        base.update(kw)
+        return base
+
+    def test_keep_compatible_mp4(self):
+        plan = pptx_xml.classify_media(self._probe(), "ppt/media/media1.mp4")
+        self.assertEqual(plan["action"], "keep")
+        self.assertTrue(plan["lossless"])
+
+    def test_keep_h264_no_audio_mp4(self):
+        plan = pptx_xml.classify_media(
+            self._probe(has_audio=False, audio_codec=""), "ppt/media/m.mp4")
+        self.assertEqual(plan["action"], "keep")
+
+    def test_remux_mkv(self):
+        plan = pptx_xml.classify_media(self._probe(), "ppt/media/m.mkv")
+        self.assertEqual((plan["action"], plan["target_ext"]), ("remux", ".mp4"))
+        self.assertTrue(plan["lossless"])
+
+    def test_remux_mov(self):
+        plan = pptx_xml.classify_media(self._probe(), "ppt/media/m.mov")
+        self.assertEqual(plan["action"], "remux")
+
+    def test_transcode_hevc(self):
+        plan = pptx_xml.classify_media(self._probe(codec="hevc"),
+                                       "ppt/media/m.mp4")
+        self.assertEqual((plan["action"], plan["target_ext"]), ("transcode", ".mp4"))
+        self.assertFalse(plan["lossless"])
+
+    def test_transcode_h264_with_ac3_audio(self):
+        plan = pptx_xml.classify_media(self._probe(audio_codec="ac3"),
+                                       "ppt/media/m.mp4")
+        self.assertEqual(plan["action"], "transcode")
+
+    def test_transcode_mpeg4_avi(self):
+        plan = pptx_xml.classify_media(
+            self._probe(codec="mpeg4", audio_codec="ac3"), "ppt/media/m.avi")
+        self.assertEqual(plan["action"], "transcode")
+
+    def test_transcode_vp9_webm(self):
+        plan = pptx_xml.classify_media(self._probe(codec="vp9"),
+                                       "ppt/media/m.webm")
+        self.assertEqual(plan["action"], "transcode")
+
+    def test_audio_wma_transcode_to_m4a(self):
+        probe = {"dur": 3.0, "codec": "", "has_audio": True,
+                 "audio_codec": "wmav2", "w": 0, "h": 0, "bytes": 1000}
+        plan = pptx_xml.classify_media(probe, "ppt/media/a.wma")
+        self.assertEqual((plan["kind"], plan["action"], plan["target_ext"]),
+                         ("audio", "transcode", ".m4a"))
+
+    def test_audio_m4a_keep(self):
+        probe = {"dur": 3.0, "codec": "", "has_audio": True,
+                 "audio_codec": "aac", "bytes": 1000}
+        plan = pptx_xml.classify_media(probe, "ppt/media/a.m4a")
+        self.assertEqual(plan["action"], "keep")
+
+    def test_audio_mp3_keep(self):
+        probe = {"dur": 3.0, "codec": "", "has_audio": True,
+                 "audio_codec": "mp3", "bytes": 1000}
+        plan = pptx_xml.classify_media(probe, "ppt/media/a.mp3")
+        self.assertEqual(plan["action"], "keep")
+
+    def test_audio_ac3_transcode(self):
+        probe = {"dur": 3.0, "codec": "", "has_audio": True,
+                 "audio_codec": "ac3", "bytes": 1000}
+        plan = pptx_xml.classify_media(probe, "ppt/media/a.ac3")
+        self.assertEqual(plan["action"], "transcode")
+
+    def test_limit_size_and_duration(self):
+        plan = pptx_xml.classify_media(
+            self._probe(bytes=201 * 1024 * 1024), "ppt/media/big.mkv")
+        self.assertEqual((plan["action"], plan["reason"]), ("keep", "media_too_big"))
+        plan = pptx_xml.classify_media(self._probe(dur=1801.0), "ppt/media/long.mkv")
+        self.assertEqual((plan["action"], plan["reason"]), ("keep", "media_too_long"))
+
+    def test_non_media_kept(self):
+        plan = pptx_xml.classify_media(self._probe(), "ppt/media/image1.png")
+        self.assertEqual(plan["action"], "keep")
+
+    def test_media_kind(self):
+        self.assertEqual(pptx_xml.media_kind_of("ppt/media/a.mp4"), "video")
+        self.assertEqual(pptx_xml.media_kind_of("ppt/media/a.wma"), "audio")
+        self.assertEqual(pptx_xml.media_kind_of("ppt/media/a.png"), "")
+
+
+class TestMediaPackageRewrite(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ppt_media_pkg_")
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _make_zip(self, name="pkg.pptx"):
+        path = os.path.join(self.tmp, name)
+        ct = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+              '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+              '<Default Extension="mp4" ContentType="video/mp4"/>'
+              '<Default Extension="xml" ContentType="application/xml"/></Types>')
+        rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>'
+                '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" Target="../media/media1.wmv"/>'
+                '<Relationship Id="rId3" Type="http://schemas.microsoft.com/office/2007/relationships/media" Target="../media/media2.mkv"/>'
+                '</Relationships>')
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("[Content_Types].xml", ct)
+            z.writestr("ppt/slides/slide1.xml", "<p:sld/>")
+            z.writestr("ppt/slides/_rels/slide1.xml.rels", rels)
+            z.writestr("ppt/media/image1.png", b"PNG")
+            z.writestr("ppt/media/media1.wmv", b"OLD-WMV" * 10)
+            z.writestr("ppt/media/media2.mkv", b"OLD-MKV" * 10)
+        return path
+
+    def test_content_types_add_and_dedupe(self):
+        ct = ('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+              '<Default Extension="mp4" ContentType="video/mp4"/></Types>')
+        out = pptx_xml.ensure_content_types_defaults(ct, {"m4a": "audio/mp4",
+                                                          ".mp4": "video/mp4"})
+        self.assertEqual(out.count('Extension="mp4"'), 1)
+        self.assertIn('Extension="m4a"', out)
+        self.assertNotIn('Extension=".mp4"', out)
+        root = pptx_xml.ET.fromstring(out.encode("utf-8"))
+        self.assertTrue(len(list(root)) >= 2)
+
+    def test_rels_target_rewrite(self):
+        rels = ('<Relationships><Relationship Id="rId2" '
+                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" '
+                'Target="../media/media1.wmv"/>'
+                '<Relationship Id="rId1" Target="../media/image1.png"/></Relationships>')
+        out = pptx_xml.rewrite_rels_media_targets(rels, {"media1.wmv": "media1.mp4"})
+        self.assertIn('Target="../media/media1.mp4"', out)
+        self.assertIn('Target="../media/image1.png"', out)
+        self.assertNotIn("media1.wmv", out)
+
+    def test_rewrite_package_media(self):
+        path = self._make_zip()
+        result = pptx_xml.rewrite_package_media(path, [
+            {"old": "ppt/media/media1.wmv", "new": "ppt/media/media1.mp4",
+             "data": b"NEW-MP4-DATA", "content_type": "video/mp4"},
+            {"old": "ppt/media/media2.mkv", "new": "ppt/media/media2.mp4",
+             "data": b"NEW-MKV-AS-MP4", "content_type": "video/mp4"},
+        ])
+        self.assertTrue(result["changed"])
+        self.assertEqual(result["renames"], {"media1.wmv": "media1.mp4",
+                                             "media2.mkv": "media2.mp4"})
+        with zipfile.ZipFile(path) as zf:
+            self.assertIsNone(zf.testzip())
+            names = zf.namelist()
+            self.assertNotIn("ppt/media/media1.wmv", names)
+            self.assertNotIn("ppt/media/media2.mkv", names)
+            self.assertEqual(zf.read("ppt/media/media1.mp4"), b"NEW-MP4-DATA")
+            self.assertEqual(zf.read("ppt/media/media2.mp4"), b"NEW-MKV-AS-MP4")
+            self.assertEqual(zf.read("ppt/media/image1.png"), b"PNG")
+            rels = zf.read("ppt/slides/_rels/slide1.xml.rels").decode("utf-8")
+            self.assertIn('Target="../media/media1.mp4"', rels)
+            self.assertIn('Target="../media/media2.mp4"', rels)
+            ct = zf.read("[Content_Types].xml").decode("utf-8")
+            self.assertEqual(ct.count('Extension="mp4"'), 1)
+
+    def test_rewrite_package_media_conflict_rejected(self):
+        path = self._make_zip()
+        with self.assertRaises(pptx_xml.PptxParseError):
+            pptx_xml.rewrite_package_media(path, [
+                {"old": "ppt/media/media1.wmv", "new": "ppt/media/image1.png",
+                 "data": b"X"}])
+
+    def test_manifest_media_actions_validation(self):
+        manifest = _compat_manifest()
+        manifest["compat"]["media_actions"] = [{
+            "file": "media1.mp4", "kind": "video", "action": "transcode",
+            "vcodec_from": "hevc", "acodec_from": "aac", "vcodec_to": "h264",
+            "acodec_to": "aac", "width": 320, "height": 240, "dur": 3.0,
+            "bytes_before": 100, "bytes_after": 80, "lossless": False}]
+        manifest["compat"]["media_summary"] = {
+            "total": 1, "kept": 0, "remux": 0, "transcode": 1}
+        self.assertEqual(pptx_xml.validate_manifest(manifest), [])
+        manifest["compat"]["media_actions"][0]["action"] = "bad"
+        manifest["compat"]["media_actions"][0]["bytes_after"] = -1
+        text = "; ".join(pptx_xml.validate_manifest(manifest))
+        self.assertIn("action", text)
+        self.assertIn("bytes_after", text)
 
 
 if __name__ == "__main__":

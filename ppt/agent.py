@@ -608,11 +608,13 @@ def upload_compat_assets(uploader, prefix, assets, log, retries=2):
 
 
 def warm_ppt_files(base_url, cache_prefix, names, log=None, opener=None,
-                   timeout=WARM_TIMEOUT_S):
+                   timeout=WARM_TIMEOUT_S, force=True):
     """兼容文件上传后调用 ECS `/pptfiles/__warm/...` 预热（best-effort，失败只告警）。
 
     ``cache_prefix``：``ppt/a/<deckId>/<buildId>/``（manifest.base 相对 OSS 的路径前缀）；
-    ``names``：要预热的文件名（compat.pptx / preview.pdf / original.* / cover.webp）。
+    ``names``：要预热的文件名（compat.pptx / preview.pdf / original.* / cover.webp）；
+    ``force``：默认 True → 带 ``?force=1`` 强制按 OSS HEAD 比对刷新（同一 build 重转后
+    内容会变，必须强制刷新缓存，否则用户可能下载旧包）。
     返回 ``[{"name","url","ok","status"/"error"}...]``；**绝不抛异常**（不影响 PATCH ready）。
     """
     log = log or (lambda *_a, **_k: None)
@@ -630,6 +632,8 @@ def warm_ppt_files(base_url, cache_prefix, names, log=None, opener=None,
             continue
         seen.add(name)
         url = "%s/pptfiles/__warm/%s/%s" % (base, prefix, urllib.request.quote(name))
+        if force:
+            url += "?force=1"
         item = {"name": name, "url": url, "ok": False, "status": 0, "error": ""}
         try:
             with opener(url, timeout=float(timeout)) as resp:
