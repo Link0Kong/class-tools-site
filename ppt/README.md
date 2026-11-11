@@ -42,7 +42,7 @@
 
 | 文件 | 作用 |
 |---|---|
-| `agent.py` | 入口：轮询/认领/分片拼装/OSS 上传/心跳/token 刷新/单实例锁/进度 PATCH/日志；v2.0 默认 `--once` 走 **compat**（`--legacy` 保留旧流程）、`--compat-only --deck <id>` 为存量 ready deck 补兼容文件并合并 manifest（保留旧 slides/video） |
+| `agent.py` | 入口：轮询/认领/分片拼装/OSS 上传/心跳/token 刷新/单实例锁/进度 PATCH/日志；v2.0 默认 `--once` 走 **compat**（`--legacy` 保留旧流程）、`--compat-only --deck <id>` 为存量 ready deck 补兼容文件并合并 manifest（保留旧 slides/video）；**上传后 best-effort 预热 ECS 文件缓存**（`PPT_WARM_BASE`，见 §7.1） |
 | `convert.py` | 转换核心：v2.0 `convert_compat()`（compat.pptx 字体嵌入/规范化 + preview.pdf + cover.webp + original.<ext> + manifest v2 + sha256；不重编码媒体）；v1.2 `convert_deck()`/`export_video_only()`（分步图+原样播放视频）保留给 `--legacy` |
 | `pptx_xml.py` | 纯函数：尺寸/页序/媒体/切换/step 规划/buildId；v1.2 视频章节/限流/ffprobe/`manifest.video` 校验；**v2.0** 文件名清洗/路径尾/外链媒体告警/包内媒体 sha256/`manifest.files` 校验（v1/v2 兼容）；**v2.0.1** `repair_broken_video_links` 断链视频修复（rels 重写） |
 | `oss_upload.py` | OSS 封装（`oss2`，凭据复用 `web/deploy/sync_tools.py::load_creds()`，不打印）；`download_to()` 供补转取回原件 |
@@ -373,6 +373,36 @@ PowerPoint 若在 SaveAs 时已自动修复的包，本阶段无操作（幂等�
   `--dry-run` 只下载+转换+合并校验+打印，不上传/不写云端。
 - **`--video-only` 补视频**（v1.2 legacy）：同上，但只上传 `deck.mp4` 并只新增 `manifest.video`。
 
+### 7.1 下载加速：ECS PPT 文件缓存（v2.1，2026-11-11）
+
+兼容包 37MB 在 OSS 香港，跨境直连很慢（本机实测 ~74KB/s；用户换教室网络也一样）。现在：
+
+```
+转换机上传 compat.pptx / preview.pdf / original.<ext> / cover.webp 到 OSS
+   └→ 立即对 ECS 缓存服务发预热：GET http://121.196.47.2/pptfiles/__warm/ppt/a/<deckId>/<buildId>/<file>
+       （best-effort：每文件 ≤3s 超时，失败只 WARN，不影响 PATCH ready）
+用户下载 → http://121.196.47.2/pptfiles/ppt/a/<deckId>/<buildId>/compat.pptx
+       Caddy /pptfiles/* → strip_prefix → ECS 本地服务 127.0.0.1:8092
+       命中本地磁盘：直接下发（Range/206、HEAD、Accept-Ranges、immutable 长缓存）
+       未命中：从 OSS 回源（边下边发 + .part 原子落盘，同 path 加锁）
+```
+
+- 配置：`PPT_WARM_BASE` 环境变量（默认 `http://121.196.47.2`）；预热函数 `agent.warm_ppt_files()`，
+  URL 规则 `<base>/pptfiles/__warm/<manifest.base 相对 OSS 的路径前缀><文件名>`；
+- 存量 deck 用 `--compat-only` 补文件后也会预热（写入原 build 目录）；
+- **ECS 服务运维**（部署/健康/手动预热/清缓存）见 `deploy/ECS_DEPLOY.md §8`；脚本：
+  `python deploy\ecs_pptfiles.py deploy|probe|verify`，健康 `http://121.196.47.2/pptfiles/__health`；
+- **实测速度**（2026-11-11）：预热后本机下载 37.25MB compat **4.41s / 8.44MB/s**
+  （直连 OSS 香港同文件 ~74KB/s）；未缓存首次直下 38MB 14.88s / 2.56MB/s，缓存后 2.50s / 15.2MB/s；
+  首次预热回源约 74s（ECS→OSS 当时 ~0.53MB/s），之后用户下载走 ECS 本地磁盘；
+- **三端下载 URL 需切到 ECS**：manifest 里 `files.*.s` 仍存 OSS 相对路径（不改契约），客户端下载时
+  把 `https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/ppt/a/<deckId>/<buildId>/<file>`
+  替换为 `http://121.196.47.2/pptfiles/ppt/a/<deckId>/<buildId>/<file>`（备案/DNS 恢复后换
+  `https://tool.furina.fun/pptfiles/...` 更佳）；未命中时服务会自动回源，所以客户端可**默认全走 ECS**，
+  失败再回退 OSS 直链（缓存服务不可用时不要阻塞下载）；
+- 缓存上限 5GiB 自动清最旧；清理：`rm -rf /opt/class-tools/pptfiles/ppt/<path>` 或见 ECS_DEPLOY §8.3；
+- 回滚：`systemctl disable --now class-tools-pptfiles` + 客户端回退 OSS 直链（manifest 数据无需改动）。
+
 ---
 
 ## 8. 常见故障排查
@@ -396,6 +426,7 @@ PowerPoint 若在 SaveAs 时已自动修复的包，本阶段无操作（幂等�
 | 视频太大（>40MB） | 已自动重编码（crf24/aac96k）。日志 `video: reencode X MB → Y MB`；仍偏大属内容本身（长视频），弱网端会回退分步 |
 | `--video-only` 报「源文件缺失」 | 该 deck 是早期数据（无 `source_key` 或 OSS 原件已清）。重新上传源文件后转换，或先 `PATCH status=queued` 让转换机重跑 |
 | `--video-only` 报「只有 ready 的 deck 才能补视频」 | 只对已 ready 的存量 deck 补视频；queued/processing/failed 走正常转换流程 |
+| **下载兼容版很慢（几十 KB/s）** | 现在应走 ECS 缓存 `…/pptfiles/ppt/a/...`（见 §7.1）。检查：`curl http://121.196.47.2/pptfiles/__health` 是否 200；`deploy/ecs_pptfiles.py probe` 看服务/缓存；该文件是否已预热（`__warm` 返回 202 后约 1–2 分钟落盘）。缓存服务不可用时先用 OSS 直链（慢但可用） |
 | **下载兼容版后视频仍显示不可用** | v2.0.1 起转换机自动修复「外链断链但包内有内嵌副本」的视频（日志 `修复断链视频（第 N 页…→ 内嵌 …）`，manifest `compat.repairs`）。检查该 deck manifest：`repairs` 是否含该页；若 `external_media` 仍列出说明是真外链（包内无副本）→ 只能告警，需用户重新在 PPT 里嵌入媒体后重传。修复需重转：`python agent.py --deck <id> --compat-only` |
 | **旧 deck 没有兼容文件**（manifest 无 `files`） | 用 `python agent.py --deck <id> --compat-only` 补；dry-run 可先本地验证。补完 manifest 只新增 files/compat，旧预览字段保留 |
 | `compat: 字体未嵌入（可能无 TrueType 字体或许可受限）` | 只是 warning，不失败；版式在其他设备可能变化。查看是否使用了许可禁止嵌入的字体 |

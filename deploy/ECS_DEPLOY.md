@@ -75,6 +75,86 @@ systemctl reload caddy
    决定 `CB = location.origin + "/v1/rdb/rest/"`（仅 `tool.furina.fun` / `121.196.47.2`），其它来源仍走 CloudBase 网关。
 3. **PPT 媒体仍在 OSS 香港**（`ppt/a/…`），跨境访问慢；后续可加 ECS 反代 + 磁盘缓存（媒体不可变，适合长缓存）。
 
+## 8. PPT 文件本地缓存（下载加速，2026-11-11）
+
+> 背景：兼容包 `compat.pptx` 约 37MB 在 OSS **香港**，本机→OSS 单连接实测 ~74KB/s（要 8 分钟）；
+> ECS 杭州→OSS 单连接约 0.6–2.5MB/s；用户→ECS 约 4.7MB/s。方案：ECS 本地磁盘缓存 PPT 文件，
+> Caddy 以 `/pptfiles/*` 暴露；转换机上传完成后调用预热，用户下载走 ECS。
+
+### 8.1 组件
+
+| 项 | 值 |
+|---|---|
+| 服务 | `class-tools-pptfiles.service`（systemd，User=www-data，Restart=always） |
+| 代码 | `/opt/class-tools/pptfiles/app.py`（来源 `deploy/pptfiles_app.py`，Python 标准库） |
+| 监听 | `127.0.0.1:8092`（仅本机；公网只能经 Caddy） |
+| 缓存目录 | `/opt/class-tools/pptfiles/ppt/...`（www-data 可写） |
+| 缓存上限 | `PPTFILES_MAX_BYTES` 默认 **5GiB**，超出按 mtime 删最旧（`.part` 不计数） |
+| Caddy 路由 | `/pptfiles/*` → `uri strip_prefix /pptfiles` → `reverse_proxy 127.0.0.1:8092`（HTTP、HTTPS-ready 域名块、IP:80 块三处配置一致） |
+| 部署脚本 | `python deploy\ecs_pptfiles.py deploy|probe|verify`（云助手；代码 >16KB 自动分片上传，单条命令 <16KB 限制） |
+
+### 8.2 接口
+
+```text
+GET/HEAD  /pptfiles/ppt/<path>        仅允许 ppt/ 前缀；命中缓存直接下发
+                                      头：Content-Type / Content-Length / Accept-Ranges: bytes
+                                          Cache-Control: public,max-age=31536000,immutable / ETag
+                                      Range: bytes=… → 206 + Content-Range（未缓存时先完整落盘再 206）
+                                      未缓存 GET：边下边发（同时写 .part），完成后原子 rename；同 path 串行加锁
+GET       /pptfiles/__warm/ppt/<path> 后台预热（已缓存 200 JSON；正在预热/已启动 202 JSON）
+GET/HEAD  /pptfiles/__health          200 JSON：{ok, files, bytes, warming, root, max_bytes, uptime_s, version}
+```
+
+- 防穿越：仅 `ppt/` 前缀、拒绝 `..`/反斜杠/NUL，实测 `/pptfiles/ppt/../etc/passwd` → **400**；
+- 上游：`https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/<path>`（公共读，无凭据）；
+- 日志：`journalctl -u class-tools-pptfiles -f`（每个请求一行 + 预热/淘汰/cache 写入）。
+
+### 8.3 部署与验证（web 目录，系统 python）
+
+```powershell
+python deploy\ecs_pptfiles.py deploy            # 分片上传 app.py + unit + 缓存目录 + 重启 + 本机健康检查
+python deploy\ecs_pptfiles.py probe             # 服务状态/缓存文件/磁盘/journal/Caddy 路由
+python deploy\ecs_pptfiles.py verify --path ppt/a/<deckId>/<buildId>/compat.pptx --timeout 25
+                                                # 公网：health / HEAD / 预热 / Range(206) / 下载测速
+python deploy\ecs_site.py apply                 # 同时更新 Caddy 配置（含 /pptfiles 路由）并再次安装本服务
+python deploy\ecs_site.py verify                # 末尾含 pptfiles health 检查
+```
+
+**手动预热 / 清理缓存**：
+
+```bash
+# 预热（转换机在上传后会自动调用；也可手动）：
+curl -sS http://121.196.47.2/pptfiles/__warm/ppt/a/<deckId>/<buildId>/compat.pptx
+curl -sS http://121.196.47.2/pptfiles/__warm/ppt/a/<deckId>/<buildId>/preview.pdf
+curl -sS http://121.196.47.2/pptfiles/__warm/ppt/a/<deckId>/<buildId>/original.pptx
+
+# 查看缓存占用：
+curl -sS http://121.196.47.2/pptfiles/__health
+du -sh /opt/class-tools/pptfiles/ppt
+
+# 清理全部缓存（不影响 OSS 原件；下次请求自动回源）：
+systemctl stop class-tools-pptfiles && rm -rf /opt/class-tools/pptfiles/ppt/* && systemctl start class-tools-pptfiles
+# 清理某个 deck：
+rm -rf /opt/class-tools/pptfiles/ppt/a/<deckId>/
+```
+
+### 8.4 实测（2026-11-11 12:44–12:50）
+
+- `/__health`：`{"ok": true, "files": 5, "bytes": 78245019, "warming": 0, "max_bytes": 5368709120}`（缓存 ~74.6MB）；
+- **HEAD** `compat.pptx` → **200**，`Content-Length: 39063744`，`Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation`，`Accept-Ranges: bytes`，`Cache-Control: public, max-age=31536000, immutable`；
+- **GET** 200；**Range** `bytes=100-199` → **206**，`Content-Range: bytes 100-199/39063744`；
+- **预热 39MB compat**：首次 `/__warm/` 后台回源耗时 **约 74s**（当时 ECS→OSS ≈0.53MB/s）；
+- **本机下载（预热后，37.25MB）**：`curl --max-time 25` → **4.41s / 8.44MB/s**；完整 GET 4.07s / 9.14MB/s；
+- **首次未缓存直下（38MB original.pptx，边下边发）**：14.88s / **2.56MB/s**（本次 ECS→OSS 达标）；缓存后二次下载 2.50s / **15.2MB/s**；
+- 磁盘：ECS `/` 40G，已用 7.3G，可用 31G；缓存目录 `75M`（上限 5GiB 自动淘汰）。
+
+### 8.5 回滚
+
+```bash
+systemctl disable --now class-tools-pptfiles     # 停服务（Caddy /pptfiles/* 会 502；客户端应回退 OSS 直链）
+rm -rf /opt/class-tools/pptfiles /etc/systemd/system/class-tools-pptfiles.service
+# Caddy 路由回滚：把 deploy/ecs_site.py 里的 pptfiles handle 去掉后重新 apply
+```
 ## 7. 安全与边界
 
 - `ecs_site.py` 不含任何密钥；远端命令只做文件下载/替换/Caddy reload，不含凭据；云助手执行记录留在阿里云账号内。

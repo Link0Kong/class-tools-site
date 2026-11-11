@@ -19,7 +19,7 @@
   python deploy\\ecs_site.py apply            # 部署最新静态站 + HTTP Caddy 配置（gzip/缓存）
   python deploy\\ecs_site.py apply --https    # 同上，但直接启用 tool.furina.fun 的 HTTPS 站点块
   python deploy\\ecs_site.py apply --dry-run  # 只打印将要执行的远端脚本
-  python deploy\\ecs_site.py verify           # 从本机校验 ECS 上的字节与 gzip/接口状态
+  python deploy\\ecs_site.py verify           # 从本机校验 ECS 上的字节与 gzip/接口状态（含 /pptfiles/__health）
 
 安全：
   - 所有远端脚本都以 base64 传给云助手，执行内容固定、不含密钥；
@@ -118,6 +118,11 @@ def _caddy_http():
 	handle /att/* {
 		reverse_proxy 127.0.0.1:8091
 	}
+	# PPT 文件本地缓存（OSS 香港太慢；见 deploy/ECS_DEPLOY.md §8）
+	handle /pptfiles/* {
+		uri strip_prefix /pptfiles
+		reverse_proxy 127.0.0.1:8092
+	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	handle /v1/rdb/rest/* {
 		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
@@ -157,6 +162,11 @@ tool.furina.fun {
 	handle /att/* {
 		reverse_proxy 127.0.0.1:8091
 	}
+	# PPT 文件本地缓存（OSS 香港太慢；见 deploy/ECS_DEPLOY.md §8）
+	handle /pptfiles/* {
+		uri strip_prefix /pptfiles
+		reverse_proxy 127.0.0.1:8092
+	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	handle /v1/rdb/rest/* {
 		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
@@ -189,6 +199,11 @@ tool.furina.fun {
 	handle /att/* {
 		reverse_proxy 127.0.0.1:8091
 	}
+	# PPT 文件本地缓存（OSS 香港太慢；见 deploy/ECS_DEPLOY.md §8）
+	handle /pptfiles/* {
+		uri strip_prefix /pptfiles
+		reverse_proxy 127.0.0.1:8092
+	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	handle /v1/rdb/rest/* {
 		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
@@ -211,6 +226,7 @@ tool.furina.fun {
 	header @static Cache-Control "public, max-age=604800"
 }
 """.replace("__LE_EMAIL__", LE_EMAIL)
+
 
 
 def build_apply_script(https=False):
@@ -319,6 +335,19 @@ def verify():
             print("%-10s HTTP %s %d B" % (name, st, len(b)))
         except Exception as e:  # noqa: BLE001
             print("%-10s ERR %s" % (name, type(e).__name__))
+    try:
+        st, hd, b = _fetch("http://%s/pptfiles/__health" % ECS_IP, timeout=15)
+        payload = json.loads(b.decode("utf-8", "replace") or "{}")
+        print("%-10s HTTP %s files=%s bytes=%.2fMB warming=%s"
+              % ("pptfiles", st, payload.get("files"), (payload.get("bytes") or 0) / 1048576.0,
+                 payload.get("warming")))
+        hd2 = None
+        req = urllib.request.Request("http://%s/pptfiles/__health" % ECS_IP, method="HEAD")
+        with urllib.request.urlopen(req, timeout=15) as r:
+            hd2 = dict(r.headers)
+        print("pptfiles   HEAD HTTP 200 content-length=%s" % (hd2.get("Content-Length"),))
+    except Exception as e:  # noqa: BLE001
+        print("%-10s ERR %s" % ("pptfiles", type(e).__name__))
     return 0
 
 
@@ -342,6 +371,10 @@ def main(argv=None):
         label = "apply"
     if ns.dry_run:
         print(script)
+        if ns.cmd == "apply":
+            print("\n# 注意：apply 成功后还会分片上传安装 PPT 文件缓存服务"
+                  "（deploy/ecs_pptfiles.py：/opt/class-tools/pptfiles/app.py + "
+                  "class-tools-pptfiles.service + 健康检查）")
         return 0
     st, rc, out = run_script(script, label=label,
                              timeout=300 if ns.cmd == "apply" else 120,
@@ -351,6 +384,15 @@ def main(argv=None):
     if st != "Success" or rc not in (0, "0", None):
         return 1
     if ns.cmd == "apply":
+        # PPT 文件缓存服务：代码 >16KB，不能塞进单条云助手命令，按分片上传安装
+        try:
+            import ecs_pptfiles
+            print("\n[ecs_site] 安装/更新 PPT 文件缓存服务（分片上传 app.py）...")
+            if ecs_pptfiles.install_service() != 0:
+                print("[ecs_site] WARN PPT 文件缓存服务安装失败；站已更新，可重试："
+                      " python deploy\\ecs_pptfiles.py deploy")
+        except Exception as exc:  # noqa: BLE001
+            print("[ecs_site] WARN PPT 文件缓存服务安装异常：%s" % exc.__class__.__name__)
         print()
         return verify()
     return 0

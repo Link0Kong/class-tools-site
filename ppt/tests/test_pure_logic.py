@@ -1240,18 +1240,26 @@ class TestCompatOnlyMerge(unittest.TestCase):
     def _run(self, deck=None, dry_run=False, uploader=None, result=None):
         cloud = FakeVideoCloud(deck or self.deck)
         uploader = uploader or FakeVideoUploader()
+        warm_calls = []
+
+        def fake_warm(base_url, cache_prefix, names, log=None, **kwargs):
+            warm_calls.append({"base": base_url, "prefix": cache_prefix,
+                               "names": list(names or [])})
+            return []
+
         with mock.patch.object(agent, "new_work_dir",
                                return_value=tempfile.mkdtemp(prefix="ppt_w_")), \
                 mock.patch.object(agent, "cleanup_work_dir", return_value=None), \
                 mock.patch.object(agent, "HeartbeatThread", _FakeHeartbeat), \
+                mock.patch.object(agent, "warm_ppt_files", side_effect=fake_warm), \
                 mock.patch.object(agent.convert, "convert_compat",
                                   return_value=result or self.result):
             summary = agent.run_compat_only(cloud, uploader, lambda m: None, "host1",
                                             "d1", dry_run=dry_run)
-        return summary, cloud, uploader
+        return summary, cloud, uploader, warm_calls
 
     def test_merge_keeps_old_fields_and_only_adds_files_compat(self):
-        summary, cloud, uploader = self._run()
+        summary, cloud, uploader, warm_calls = self._run()
         self.assertEqual(summary["action"], "compat-added")
         self.assertEqual(len(uploader.puts), 3)
         keys = [k for k, _c, _p in uploader.puts]
@@ -1272,10 +1280,16 @@ class TestCompatOnlyMerge(unittest.TestCase):
         # 新增 files/compat
         self.assertEqual(merged["files"], self.result["files"])
         self.assertEqual(merged["compat"], self.result["compat"])
+        # 上传后对**原 build 目录**做 ECS 预热（best-effort）：4 个资产都请求
+        self.assertEqual(len(warm_calls), 1)
+        self.assertEqual(warm_calls[0]["prefix"], "ppt/a/d1/b1/")
+        self.assertEqual(sorted(warm_calls[0]["names"]),
+                         ["compat.pptx", "original.pptx", "preview.pdf"])
 
     def test_dry_run_no_upload_no_patch(self):
-        summary, cloud, uploader = self._run(dry_run=True)
+        summary, cloud, uploader, warm_calls = self._run(dry_run=True)
         self.assertEqual(summary["action"], "dry-run")
+        self.assertEqual(warm_calls, [])  # dry-run 不上传/不预热
         self.assertEqual(uploader.puts, [])
         self.assertEqual(cloud.patches, [])
         self.assertEqual(summary["pdf_pages"], 5)
@@ -1510,6 +1524,171 @@ class TestRepairBrokenVideoLinks(unittest.TestCase):
         self.assertIn("slide", text)
         self.assertIn("media", text)
         self.assertIn("bytes", text)
+
+
+# ---------------------------------------------------------------------------
+# 11. v2.1 下载加速：ECS 缓存预热（best-effort）
+# ---------------------------------------------------------------------------
+class _FakeWarmResponse(object):
+    def __init__(self, status=202):
+        self.status = status
+
+    def read(self, _n=None):
+        return b'{"ok": true}'
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+
+class TestWarmPptFiles(unittest.TestCase):
+    def test_urls_and_ok(self):
+        calls = []
+
+        def opener(url, timeout=None):
+            calls.append((url, timeout))
+            return _FakeWarmResponse(202)
+
+        logs = []
+        results = agent.warm_ppt_files(
+            "http://121.196.47.2", "ppt/a/d1/b1/",
+            ["compat.pptx", "preview.pdf", "original.pptx", "cover.webp"],
+            log=logs.append, opener=opener, timeout=1.5)
+        self.assertEqual(len(results), 4)
+        self.assertTrue(all(item["ok"] for item in results))
+        self.assertEqual(
+            calls[0][0],
+            "http://121.196.47.2/pptfiles/__warm/ppt/a/d1/b1/compat.pptx")
+        self.assertEqual(calls[0][1], 1.5)
+        self.assertIn("preview.pdf", calls[1][0])
+        self.assertIn("预热 ECS 缓存：4/4", "\n".join(logs))
+
+    def test_best_effort_failure_does_not_raise(self):
+        def opener(url, timeout=None):
+            raise RuntimeError("network down")
+
+        logs = []
+        results = agent.warm_ppt_files("http://x", "ppt/a/d1/b1/",
+                                       ["compat.pptx"], log=logs.append,
+                                       opener=opener, timeout=0.1)
+        self.assertEqual(len(results), 1)
+        self.assertFalse(results[0]["ok"])
+        self.assertTrue(any("WARN 预热失败" in line for line in logs))
+
+    def test_http_error_status_marks_failed(self):
+        def opener(url, timeout=None):
+            return _FakeWarmResponse(500)
+
+        results = agent.warm_ppt_files("http://x", "ppt/a/d1/b1/",
+                                       ["compat.pptx"], opener=opener)
+        self.assertFalse(results[0]["ok"])
+        self.assertEqual(results[0]["status"], 500)
+
+    def test_skips_invalid_and_duplicate_names(self):
+        calls = []
+
+        def opener(url, timeout=None):
+            calls.append(url)
+            return _FakeWarmResponse(200)
+
+        results = agent.warm_ppt_files("http://x", "ppt/a/d1/b1/",
+                                       ["compat.pptx", "compat.pptx", "", "../x",
+                                        "sub/dir.pptx", None], opener=opener)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(len(calls), 1)
+
+    def test_empty_base_or_prefix(self):
+        self.assertEqual(agent.warm_ppt_files("", "ppt/a/d1/b1/", ["a.pptx"]), [])
+        self.assertEqual(agent.warm_ppt_files("http://x", "", ["a.pptx"]), [])
+
+    def test_warm_base_constant_injectable(self):
+        self.assertTrue(agent.WARM_BASE.startswith("http"))
+        self.assertGreater(agent.WARM_TIMEOUT_S, 0)
+
+
+class TestCompatUploadWarmCall(unittest.TestCase):
+    """DeckJob 正常 compat 流程：上传 4 个资产后调用 ECS 预热（best-effort，不影响 ready）。"""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ppt_warmcall_")
+        self.work = os.path.join(self.tmp, "work")
+        os.makedirs(self.work, exist_ok=True)
+        self.src = os.path.join(self.tmp, "source.pptx")
+        with open(self.src, "wb") as fh:
+            fh.write(b"fake pptx")
+        self.assets = []
+        for name in ("compat.pptx", "preview.pdf", "original.pptx", "cover.webp"):
+            path = os.path.join(self.tmp, name)
+            with open(path, "wb") as fh:
+                fh.write(b"x" * 8)
+            self.assets.append({"name": name, "path": path, "size": 8,
+                                "content_type": "application/octet-stream",
+                                "kind": name.split(".")[-1]})
+        self.result = {
+            "manifest": {"v": 2, "w": 960, "h": 540, "slides": [],
+                         "files": {"compat": {"s": "compat.pptx", "size": 8,
+                                              "sha256": "a" * 64},
+                                   "pdf": {"s": "preview.pdf", "size": 8,
+                                           "sha256": "a" * 64, "pages": 5},
+                                   "source": {"s": "original.pptx", "size": 8,
+                                              "sha256": "a" * 64}},
+                         "compat": {"warnings": [], "fonts_embedded": 3,
+                                    "converted_from": None, "repairs": []},
+                         "base": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/"
+                                 "ppt/a/d1/b1/"},
+            "assets": self.assets,
+            "build_id": "b1",
+            "stats": {"slides": 5, "compat_size": 8, "compat_sha256": "a" * 64,
+                      "pdf_size": 8, "pdf_pages": 5, "fonts_embedded": 3,
+                      "external_media": 0, "video_repairs": 0},
+            "slide_count": 5, "step_count": 0, "aspect": "16:9",
+            "cover": "cover.webp",
+        }
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_upload_then_warm_and_ready(self):
+        cloud = FakeVideoCloud({"id": "d1"})
+        uploader = FakeVideoUploader()
+        warm_calls = []
+
+        def fake_warm(base_url, cache_prefix, names, log=None, **kwargs):
+            warm_calls.append({"base": base_url, "prefix": cache_prefix,
+                               "names": list(names or [])})
+            return [{"name": n, "ok": True} for n in names or []]
+
+        job = agent.DeckJob(cloud, uploader, lambda m: None, "host1",
+                            dry_run=False, mode="compat", source_name="a.pptx")
+        job_dict = {"deck": "d1", "title": "t", "action": "none",
+                    "elapsed_s": 0.0, "error": ""}
+        with mock.patch.object(agent, "HeartbeatThread", _FakeHeartbeat), \
+                mock.patch.object(agent, "warm_ppt_files", side_effect=fake_warm), \
+                mock.patch.object(agent.convert, "convert_compat",
+                                  return_value=self.result):
+            out = job._run_compat("d1", self.src, ".pptx",
+                                  "ppt/src/d1/source.pptx", self.work,
+                                  job_dict, time.monotonic())
+        self.assertEqual(out["action"], "converted")
+        # 4 个资产都上传到 build 目录
+        keys = [k for k, _c, _p in uploader.puts]
+        self.assertEqual(sorted(keys), [
+            "ppt/a/d1/b1/compat.pptx", "ppt/a/d1/b1/cover.webp",
+            "ppt/a/d1/b1/original.pptx", "ppt/a/d1/b1/preview.pdf"])
+        # 上传后对同一 build 目录预热 4 个文件
+        self.assertEqual(len(warm_calls), 1)
+        self.assertEqual(warm_calls[0]["prefix"], "ppt/a/d1/b1/")
+        self.assertEqual(sorted(warm_calls[0]["names"]),
+                         ["compat.pptx", "cover.webp", "original.pptx", "preview.pdf"])
+        # ready PATCH 带 manifest v2 / cover_url / slide_count
+        ready = [b for _p, b, _pref in cloud.patches if b.get("status") == "ready"]
+        self.assertEqual(len(ready), 1)
+        self.assertEqual(ready[0]["slide_count"], 5)
+        self.assertTrue(ready[0]["cover_url"].endswith("/cover.webp"))
+        self.assertEqual(ready[0]["manifest"]["files"]["pdf"]["pages"], 5)
 
 
 if __name__ == "__main__":

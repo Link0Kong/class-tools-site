@@ -42,9 +42,14 @@ import v2_ppt_check as B  # noqa: E402  （CDP mock 基座 / 断言 / 工具 / s
 
 NOW = int(time.time() * 1000)
 BASE_URL = "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/ppt/a/dtestdl1/b1/"
+ECS_BASE = "http://121.196.47.2/pptfiles"
+# 本地测试页是 http://127.0.0.1:<port> → 主下载链接应走固定 ECS 缓存地址 + OSS pathname
+EXP_ECS = ECS_BASE + "/ppt/a/dtestdl1/b1/"
+OTHER_BASE = "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/other/dtestdlother1/b1/"
 SHA_A = "a" * 64
 SHA_B = "b" * 64
 SHA_C = "c" * 64
+SHA_D = "d" * 64
 WARN1 = "外链视频 1 处未随文件携带（第 7 页，路径尾 …/v.mp4）"
 WARN2 = "字体未嵌入：思源黑体（许可受限）"
 
@@ -75,6 +80,28 @@ def legacy_manifest():
 NO_PREVIEW_MANIFEST = {"v": 1, "base": "", "w": 1600, "h": 900, "slides": [], "media": []}
 
 
+def other_manifest():
+    """非 /ppt/ 路径的 base：下载加速只处理 OSS `/ppt/...` 资产 → 应回退 OSS 直链、不显示「备用」。"""
+    return {"v": 2, "base": OTHER_BASE, "w": 960, "h": 540, "slides": [],
+            "files": {
+                "compat": {"s": "compat.pptx", "size": 2048, "sha256": SHA_D,
+                           "ext": "pptx", "name": "其他_兼容版.pptx"},
+                "pdf": {"s": "preview.pdf", "size": 1024, "sha256": SHA_D,
+                        "pages": 2, "name": "其他.pdf"},
+            },
+            "compat": {"warnings": []}}
+
+
+def backfilled_manifest():
+    """存量旧 deck 补转 compat 后：既有 files（下载中心）又保留旧 slides（可在线预览）。"""
+    man = legacy_manifest()
+    v2 = v2_manifest()
+    man["files"] = v2["files"]
+    man["base"] = BASE_URL
+    man["compat"] = v2["compat"]
+    return man
+
+
 def make_decks():
     def row(did, title, man, created, **kw):
         r = B.deck(id=did, title=title, manifest=man, created_at=created,
@@ -86,10 +113,16 @@ def make_decks():
         row("dtestdl1", "班会兼容版", v2_manifest(), NOW - 1000,
             slide_count=16, step_count=0, cover_url=B.THUMB2, source_name="班会.pptx",
             source_size=12345678),
+        row("dtestdlboth1", "存量补转演示", backfilled_manifest(), NOW - 1500,
+            slide_count=3, step_count=4, cover_url=B.THUMB1, source_name="存量.pptx",
+            source_size=12345678),
         row("dtestdll1", "旧版演示", legacy_manifest(), NOW - 2000,
             slide_count=3, step_count=4, cover_url=B.THUMB1),
         row("dtestdlnone1", "无预览旧版", NO_PREVIEW_MANIFEST, NOW - 2500,
             slide_count=0, step_count=0, cover_url=""),
+        row("dtestdlother1", "非 ppt 路径演示", other_manifest(), NOW - 2800,
+            slide_count=2, step_count=0, cover_url=B.THUMB3, source_name="其他.pptx",
+            source_size=2048),
         row("dtestdlq1", "排队中的演示", {}, NOW - 3000,
             status="queued", progress=0, slide_count=0, step_count=0, cover_url="", manifest={}),
         row("dtestdlf1", "失败演示", {}, NOW - 4000,
@@ -142,12 +175,17 @@ def detail_state(page):
       if(!o||o.hidden)return null;
       var card=document.getElementById('pptDlCard');
       var files=[].slice.call(o.querySelectorAll('.ppt-file')).map(function(r){
-        var a=r.querySelector('a[download]');
+        var a=r.querySelector('a[download]:not(.ppt-alt)');
+        var alt=r.querySelector('a.ppt-alt');
         var d=r.querySelector('.ppt-file-d');
+        var rect=r.getBoundingClientRect();
         return {cls:r.className, label:d?d.querySelector('b').textContent:'',
           sub:d&&d.querySelector('em')?d.querySelector('em').textContent:'',
           href:a?a.getAttribute('href'):'', name:a?a.getAttribute('download'):'',
-          hasDl:!!a};
+          hasDl:!!a,
+          altHref:alt?alt.getAttribute('href'):'', altName:alt?alt.getAttribute('download'):'',
+          altTitle:alt?alt.getAttribute('title'):'',
+          right:Math.round(rect.right)};
       });
       var warns=o.querySelectorAll('.ppt-warn li');
       var wt=o.querySelector('.ppt-warn');
@@ -166,6 +204,7 @@ def detail_state(page):
         lock:document.body.classList.contains('ppt-dl-lock'),
         cardRect:card?(function(){var q=card.getBoundingClientRect();
           return [Math.round(q.left),Math.round(q.right),Math.round(q.width),Math.round(q.height)];})():null,
+        rowMaxRight:files.length?Math.max.apply(null,files.map(function(x){return x.right;})):0,
         docSW:document.documentElement.scrollWidth, vw:innerWidth};})()""")
 
 
@@ -234,6 +273,12 @@ def static_checks():
           all(t in html for t in ("兼容版未生成", "在线预览", "重新处理", "兼容提示")))
     R.add("静态：详情弹层内滑动不切工具（resolveStart 排除 #pptDl）",
           'closest(t,"#pptDl")' in flat)
+    R.add("静态：下载加速 pptDlHref（http→ECS /pptfiles、https→同源 /pptfiles、非 /ppt/ 回退 OSS）",
+          "pptDlHref" in flat and "121.196.47.2/pptfiles" in flat
+          and 'location.protocol==="http:"' in flat and 'location.protocol==="https:"' in flat
+          and 'indexOf("/ppt/")!==0' in flat)
+    R.add("静态：「备用」小字 OSS 直链 + title 提示（不破坏主按钮布局）",
+          "ppt-alt" in html and "备用下载（较慢）" in html and "ppt-file-a" in html)
     R.add("静态：无外部脚本/字体/CDN（单文件零依赖）",
           "<script src=" not in html and "fonts.googleapis" not in html and "cdn." not in html)
     R.add("静态：不新增密钥（无 AccessKey / LTAI）",
@@ -275,18 +320,29 @@ def scenario_v2_deck(sess):
     compat = by.get("兼容版 PPTX") or {}
     pdf = by.get("PDF") or {}
     source = by.get("原始文件") or {}
-    R.add("详情：兼容版 PPTX href=base+compat.pptx、download=name、大小 12MB",
-          compat.get("href") == BASE_URL + "compat.pptx"
+    R.add("详情：兼容版 PPTX 主 href=ECS 缓存（/pptfiles + OSS pathname）、download=name、大小 12MB",
+          compat.get("href") == EXP_ECS + "compat.pptx"
           and compat.get("name") == "班会_兼容版.pptx" and "12MB" in str(compat.get("sub"))
           and compat.get("hasDl") is True,
-          json.dumps(compat, ensure_ascii=False)[:240])
-    R.add("详情：PDF href=base+preview.pdf、download=name、显示页数（16 页 · 1.2MB）",
-          pdf.get("href") == BASE_URL + "preview.pdf" and pdf.get("name") == "班会.pdf"
+          json.dumps(compat, ensure_ascii=False)[:260])
+    R.add("详情：PDF 主 href=ECS 缓存、download=name、显示页数（16 页 · 1.2MB）",
+          pdf.get("href") == EXP_ECS + "preview.pdf" and pdf.get("name") == "班会.pdf"
           and "16 页" in str(pdf.get("sub")) and "1.2MB" in str(pdf.get("sub")),
-          json.dumps(pdf, ensure_ascii=False)[:240])
-    R.add("详情：原始文件 href=base+original.pptx、download=name",
-          source.get("href") == BASE_URL + "original.pptx" and source.get("name") == "班会.pptx",
-          json.dumps(source, ensure_ascii=False)[:240])
+          json.dumps(pdf, ensure_ascii=False)[:260])
+    R.add("详情：原始文件主 href=ECS 缓存、download=name",
+          source.get("href") == EXP_ECS + "original.pptx" and source.get("name") == "班会.pptx",
+          json.dumps(source, ensure_ascii=False)[:260])
+    R.add("下载加速：http 页面三行主下载均以 ECS 缓存地址开头",
+          len(files) == 3 and all(str(f.get("href") or "").startswith(ECS_BASE + "/ppt/a/dtestdl1/b1/")
+                                  for f in files),
+          json.dumps([f.get("href") for f in files], ensure_ascii=False)[:320])
+    R.add("下载加速：「备用」小字链接 = 原 OSS 直链（下载名一致、title=备用下载（较慢））",
+          all(f.get("altHref") == BASE_URL + str(f.get("href") or "").split("/")[-1]
+              for f in files)
+          and [f.get("altName") for f in files] == ["班会_兼容版.pptx", "班会.pdf", "班会.pptx"]
+          and all(f.get("altTitle") == "备用下载（较慢）" for f in files),
+          json.dumps([{k: f.get(k) for k in ("altHref", "altName", "altTitle")} for f in files],
+                     ensure_ascii=False)[:360])
     R.add("详情：兼容提示橙色区逐条显示（外链媒体 / 字体未嵌入）",
           bool(st) and st.get("warn") and len(st.get("warnings") or []) == 2
           and any("外链视频" in w for w in st.get("warnings") or [])
@@ -295,10 +351,13 @@ def scenario_v2_deck(sess):
           json.dumps({k: (st or {}).get(k) for k in ("warn", "warnings", "warnBg")}, ensure_ascii=False)[:280])
     R.add("详情：manifest v2（slides=[]）不显示在线预览按钮（下载中心为主）",
           bool(st) and st.get("preview") is False and st.get("player") is False)
-    R.add("详情：430px 弹层不横向溢出（页面 scrollWidth ≤ 视口、卡片在视口内）",
+    R.add("详情：430px 弹层不横向溢出（页面/弹层/文件行 均在视口内，含「备用」小字）",
           bool(st) and st.get("docSW", 9999) <= st.get("vw", 0) + 1
           and bool(st.get("cardRect")) and st["cardRect"][0] >= 0
-          and st["cardRect"][1] <= st.get("vw", 0) + 1, json.dumps(st.get("cardRect")))
+          and st["cardRect"][1] <= st.get("vw", 0) + 1
+          and st.get("rowMaxRight", 9999) <= st.get("vw", 0) + 1,
+          json.dumps({k: (st or {}).get(k) for k in ("cardRect", "rowMaxRight", "docSW", "vw")},
+                     ensure_ascii=False))
     R.add("详情：打开时锁定页面滚动（body.ppt-dl-lock）", bool(st) and st.get("lock") is True)
     time.sleep(0.35)  # 等入场动画结束，截图稳定
     shot(page, "A1_detail_v2")
@@ -325,7 +384,63 @@ def scenario_v2_deck(sess):
     close_detail(page)
 
 
-# ---------------------------------------------------------------- B 旧 deck 兼容
+# ---------------------------------------------------------------- B 非 /ppt/ 路径回退
+def scenario_nonppt_fallback(sess):
+    """下载加速只处理 OSS `/ppt/...` 资产；其它路径应回退原 OSS 直链、不显示「备用」。"""
+    page = sess.page
+    ok = open_card(page, "dtestdlother1")
+    ready = wait_detail_ready(page) if ok else False
+    st = detail_state(page) if ready else None
+    files = (st or {}).get("files") or []
+    by = {f.get("label"): f for f in files}
+    compat = by.get("兼容版 PPTX") or {}
+    R.add("下载加速：非 /ppt/ 路径 → 主下载回退原 OSS 直链（不改写为 ECS 地址）",
+          bool(st) and compat.get("href") == OTHER_BASE + "compat.pptx"
+          and all(not str(f.get("href") or "").startswith(ECS_BASE) for f in files),
+          json.dumps([f.get("href") for f in files], ensure_ascii=False)[:320])
+    R.add("下载加速：回退时不再显示「备用」（主链接即 OSS，避免重复入口）",
+          bool(st) and len(files) >= 1 and all(not f.get("altHref") for f in files),
+          json.dumps([f.get("altHref") for f in files], ensure_ascii=False)[:200])
+    close_detail(page)
+
+
+# ---------------------------------------------------------------- B2 存量补转（files + 旧 slides）
+def scenario_backfilled(sess):
+    """存量 deck 补转 compat 后有 files 且保留旧 slides：下载中心为主 + 次要「在线预览」。"""
+    page = sess.page
+    card = card_state(page, "dtestdlboth1")
+    R.add("存量补转 deck：列表显示「兼容版/PDF」标签", bool(card) and card.get("tags") == ["兼容版", "PDF"],
+          json.dumps(card, ensure_ascii=False)[:200])
+    ok = open_card(page, "dtestdlboth1")
+    ready = wait_detail_ready(page) if ok else False
+    st = detail_state(page) if ready else None
+    files = (st or {}).get("files") or []
+    by = {f.get("label"): f for f in files}
+    compat = by.get("兼容版 PPTX") or {}
+    R.add("存量补转 deck：三行下载仍以 ECS 缓存为主 href", bool(st) and st.get("nFiles") == 3
+          and compat.get("href") == EXP_ECS + "compat.pptx"
+          and compat.get("altHref") == BASE_URL + "compat.pptx",
+          json.dumps({k: (compat or {}).get(k) for k in ("href", "altHref")}, ensure_ascii=False)[:240])
+    R.add("存量补转 deck：保留次要「在线预览」（有旧 slides 时；契约 §12.4.1）",
+          bool(st) and st.get("preview") is True and st.get("player") is False,
+          json.dumps({k: (st or {}).get(k) for k in ("preview", "nFiles")}, ensure_ascii=False))
+    if st and st.get("preview"):
+        js(page, "(function(){var b=document.querySelector('#pptDl [data-dlact=\"preview\"]');"
+                 "if(b)b.click();return true;})()")
+        popen = wait(page, "!!document.getElementById('pptPlayer')", 8)
+        time.sleep(0.7)
+        pst = js(page, "(function(){var p=document.getElementById('pptPlayer');"
+                       "var a=document.querySelectorAll('#pptPlayer .ppt-layer img'),ok2=false;"
+                       "for(var i=0;i<a.length;i++){if(a[i].naturalWidth>0)ok2=true;}"
+                       "return {player:!!p,img:ok2};})()")
+        R.add("存量补转 deck：点「在线预览」可进旧播放器（下载/预览并存）",
+              popen and bool(pst) and pst.get("player") and pst.get("img"),
+              json.dumps(pst, ensure_ascii=False))
+        close_player_any(page)
+    close_detail(page)
+
+
+# ---------------------------------------------------------------- C 旧 deck 兼容
 def scenario_legacy_deck(sess):
     page = sess.page
     ok = open_card(page, "dtestdll1")
@@ -441,6 +556,8 @@ def main():
     try:
         sess = DlSession(server)
         scenario_v2_deck(sess)
+        scenario_nonppt_fallback(sess)
+        scenario_backfilled(sess)
         scenario_legacy_deck(sess)
         scenario_states(sess)
         errs = sess.errors()

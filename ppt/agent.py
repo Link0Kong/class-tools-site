@@ -83,6 +83,9 @@ HTTP_TIMEOUT = 60.0
 MAX_SOURCE_BYTES = 64 * 1024 * 1024          # 契约 §6：≤64MiB
 VIDEO_ONLY_TIMEOUT_S = 1800.0                 # --video-only 单任务预算（契约 §11.2.2 30min）
 COMPAT_TIMEOUT_S = 1800.0                     # v2.0 compat 单任务预算（契约 §12.3 ≥20min）
+# v2.1 下载加速：ECS 本地缓存预热（http://121.196.47.2/pptfiles/__warm/ppt/...）
+WARM_BASE = os.environ.get("PPT_WARM_BASE", "http://121.196.47.2").rstrip("/")
+WARM_TIMEOUT_S = 3.0
 CHUNK_PAGE_LIMIT = 8                          # 分片 GET 每页 8 片（约 5.5MB/响应，稳）
 HEARTBEAT_INTERVAL = 30.0
 LOG_KEEP_DAYS = 14
@@ -604,6 +607,52 @@ def upload_compat_assets(uploader, prefix, assets, log, retries=2):
     return uploaded
 
 
+def warm_ppt_files(base_url, cache_prefix, names, log=None, opener=None,
+                   timeout=WARM_TIMEOUT_S):
+    """兼容文件上传后调用 ECS `/pptfiles/__warm/...` 预热（best-effort，失败只告警）。
+
+    ``cache_prefix``：``ppt/a/<deckId>/<buildId>/``（manifest.base 相对 OSS 的路径前缀）；
+    ``names``：要预热的文件名（compat.pptx / preview.pdf / original.* / cover.webp）。
+    返回 ``[{"name","url","ok","status"/"error"}...]``；**绝不抛异常**（不影响 PATCH ready）。
+    """
+    log = log or (lambda *_a, **_k: None)
+    base = str(base_url or "").rstrip("/")
+    prefix = str(cache_prefix or "").strip("/")
+    if not base or not prefix:
+        return []
+    if opener is None:
+        opener = urllib.request.urlopen
+    results = []
+    seen = set()
+    for name in names or []:
+        name = str(name or "").strip()
+        if not name or name in seen or "/" in name or "\\" in name:
+            continue
+        seen.add(name)
+        url = "%s/pptfiles/__warm/%s/%s" % (base, prefix, urllib.request.quote(name))
+        item = {"name": name, "url": url, "ok": False, "status": 0, "error": ""}
+        try:
+            with opener(url, timeout=float(timeout)) as resp:
+                item["ok"] = int(getattr(resp, "status", 200) or 0) in (200, 202)
+                item["status"] = int(getattr(resp, "status", 200) or 0)
+                try:
+                    resp.read(256)  # 小 JSON，避免连接悬挂
+                except Exception:  # noqa: BLE001
+                    pass
+        except Exception as exc:  # noqa: BLE001
+            item["error"] = sanitize(exc, 120) or exc.__class__.__name__
+        results.append(item)
+    ok = sum(1 for item in results if item["ok"])
+    if results:
+        log("预热 ECS 缓存：%d/%d 已受理（base=%s）"
+            % (ok, len(results), base))
+    for item in results:
+        if not item["ok"]:
+            log("WARN 预热失败（best-effort，不影响 ready）：%s %s"
+                % (item["name"], item["error"] or ("HTTP %s" % item["status"])))
+    return results
+
+
 def format_error(exc, elapsed=None):
     """异常 → 云端 error 中文短句（≤300 字，脱敏）。"""
     if isinstance(exc, convert.ConvertTimeout):
@@ -704,6 +753,11 @@ class DeckJob(object):
                       self.log,
                       progress=lambda p, ph="": self.patch_progress(deck_id, p, ph),
                       dry_run=False, retries=2)
+        # ECS 本地缓存预热（best-effort，小超时；失败不影响 ready）
+        warm_ppt_files(WARM_BASE,
+                       "ppt/a/%s/%s/" % (deck_id, result["build_id"]),
+                       [a.get("name") for a in result["assets"]],
+                       log=self.log, timeout=WARM_TIMEOUT_S)
         self.patch_progress(deck_id, 95, "写入 ready")
         manifest = result["manifest"]
         cover = result.get("cover") or ""
@@ -1265,6 +1319,10 @@ def run_compat_only(cloud, uploader, log, host, deck_id, dry_run=False):
         log("上传兼容文件 %d 个 → %s（单对象重试 2 次）"
             % (len(result["assets"]), prefix))
         upload_compat_assets(uploader, prefix, result["assets"], log, retries=2)
+        # ECS 本地缓存预热（存量 deck 写回原 build 目录；best-effort）
+        warm_ppt_files(WARM_BASE, prefix,
+                       [a.get("name") for a in result["assets"]],
+                       log=log, timeout=WARM_TIMEOUT_S)
         code, data = cloud.patch(
             "ppt_decks?id=eq.%s" % _q(deck_id),
             {"manifest": merged, "updated_at": int(time.time() * 1000)},

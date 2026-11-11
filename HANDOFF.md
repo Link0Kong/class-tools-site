@@ -2683,3 +2683,70 @@ sync-repos.cmd "feat: 说明本次改了什么"
   独立 QA（真实云端下载）**23/23 PASS**（无未解决 external video 断链、15/15 内嵌媒体 sha 与源逐字节一致、PDF 16 页）；
   PowerPoint COM 独立打开 OSS 上的 compat：slide7 `视频一_板蓝根` 为**内嵌媒体**（LinkFormat 报 not linked）、`MediaFormat.Length=150919ms / 1024x576`；slide12 对照 225582ms 正常。
 - 计划任务已重新启用（默认 compat 含修复）。后续同类「链接失效但包内有内嵌副本」的视频会自动修复；真正的纯外链媒体仍只告警。
+
+## 2026-11-11 12:3x–13:0x · 增量 33：投票功能（临时限时 / 长时截止 / 高度自定义；网页已上线 OSS，小程序源码待用户上传发布）
+
+> 用户需求（原话）：「新增投票功能，该功能需同时可用于临时的限时投票和可设立截止日期的长时投票，投票选项和投票标题需可高度自定义化」。
+> 关键决策（已复述并经用户确认）：三端里**先做网页 + 小程序**（安卓后续）；**完整版自定义**（单选/多选+上限、匿名/实名、允许改票、三种结果可见性、截止时间快捷/指定/不限时、2–20 选项含说明与配图）；**全班成员都可发起**，发起人与管理员可管理。
+
+### 1. 契约与云端（唯一真源）
+
+- 契约：`web/vote/CONTRACT.md`（§1 数据模型 / §2 RPC / §3 网页 UI / §4 小程序 / §5 验收 / §6 红线）。
+- 迁移（已应用，幂等）：`deploy/cloudbase/2026-11-11_polls.sql`
+  - 表 `public.polls`（标题/说明/发起人 sid+姓名/options jsonb/settings jsonb/deadline ms/status/closed_at/软删/时间戳，CHECK 约束）+ `public.poll_votes`（`id='<poll_id>|<sid>'`、`UNIQUE(poll_id,sid)`、FK ON DELETE CASCADE）。
+  - **两张表对 anon 完全无直连权限**（RLS 开启但无策略 + `REVOKE ALL`）；全部读写只能走 5 个 `SECURITY DEFINER` RPC：
+    `poll_create`（幂等 p_id；校验标题 1–80/说明 ≤500/选项 2–20/选项文字 1–80/说明 ≤200/配图 data:image 单张 ≤150000 字符且合计 ≤1.6MB/规则归一/截止必须晚于服务端当前时间）、
+    `poll_list`（最多 100 条，含 total/counts/has_voted/my_choices/results_hidden/mine/can_manage，**不含学号**）、
+    `poll_detail`（poll 全量 + 结果 + 实名 voters；可见性/匿名在服务端裁剪）、
+    `poll_submit`（服务端 `clock_timestamp()` 判截止、单选/多选上限、选项合法性、`UNIQUE(poll_id,sid)` upsert、allowChange）、
+    `poll_manage`（编辑仅限「尚无票」/提前结束/延长·重开/软删除；owner 或 admin；delete 返回 `{ok,deleted:true}`）。
+  - 隐私：任何 RPC 响应都不返回 `owner_sid` / `voter.sid`（只有姓名）；匿名投票即使发起人/管理员也拿不到投票人。
+- 回滚 SQL 在迁移文件头部：`DROP FUNCTION` 5 个 + `DROP TABLE poll_votes / polls`。
+
+### 2. 网页（`tools/index.html`，APP_VER 仍 2.0.0，纯增量）
+
+- `__VOTE_V1__` 块 = CSS（`</style>` 前）+ HTML（`#s-vote` 在 `#s-all` 前；两个弹层在 `.wrap` 后）+ JS（PPT 块之后、OPTIM V1 前），`TOOLS` 追加 `vote`（water 后 ppt 前）、`ALL_TONE` 加 teal、`gotoTab` 切走/切回挂钩 2 行、`cbRpc()` 通用 RPC 基座、使用说明页加「投票」段。
+- 能力：列表（进行中/已结束、15s 静默刷新、倒计时、规则标签、已投人数+「我已投」）；详情弹层（单选 radio / 多选 checkbox、提交/改票、结果百分比条、实名投票人、结果隐藏标签、管理按钮）；发起/编辑弹层（限时 5/10/30/60/120 分钟、指定截止 datetime-local、不限时；2–20 选项可加说明与配图，配图 canvas 压缩成长边 ≤640 JPEG data URL；单选/多选+最多可选；匿名/实名；允许改票；结果始终/投票后/截止后可见）；桌面 ≥960px 列表双栏；`window.VOTE` 探针供测试。
+- 已知取舍：投票页不导出图片（避免投票人隐私）；配图 data URL 存 options（单投票 ≤1.6MB）；投票数据不进 userdata v6。
+
+### 3. 小程序（源码 `mp-class-tools/`，VERSION 仍 2.0.0，**待用户上传发布**）
+
+- 新增 `pages/vote/*`（列表+发起/编辑弹层）、`pages/votedetail/*`（详情/投票/结果/管理）、`utils/vote.js`（纯逻辑：截止/倒计时/百分比/规则归一/多选上限/排序/可见性/payload/回填/轮询节奏）、`utils/cloud.js` 5 个 poll RPC 封装（复用既有 rpcCall 通道）、`utils/tools.js` 入口、`images/tool-vote.png`、`app.json` 注册。
+- 配图：`wx.chooseMedia → canvas 2d → 长边 ≤640 JPEG data URL ≤150000 字符（多档质量/尺寸降级）`。
+- 测试：`mp-class-tools-tests/vote_unit_tests.js`（34 用例，已挂 unit.js）；`node unit.js` **397/0**、`python staticcheck.py`（26 页、handlers/share 无缺失）、`node code_quality_check.js` 退出 0；`tool_sort_unit.js` 预期顺序已同步补 vote。
+
+### 4. 测试（本机全绿）
+
+| 脚本 | 结果 | 覆盖 |
+|---|---|---|
+| `tools/tests/vote_check.py` | **63/63** | mock 网页 UI：发起[限时/长时/多选/选项配图]/投票/改票/可见性/管理/倒计时到点自动截止/360·390·430 无横向溢出/0 JS 报错/0 外部请求 |
+| `tools/tests/vote_cloud_check.py` | **54/54** | 真实云端 API：鉴权/参数上下限/规则/一人一票/匿名/实名/三种可见性/服务端截止/编辑限制/权限/软删/直连表 401（测试身份 + 合成 QA 会话，finally 硬删除） |
+| `tools/tests/vote_live_check.py` | **20/20** | 本地临时通道 + 测试身份**真实 E2E**：界面发起→界面投票→第二成员真实投票→匿名校验→界面删除；CDP 写白名单只放行 poll_* 与登录/名单只读 RPC（拦截 visits/userdata 等云写） |
+| 回归 | 全绿 | `overflow_check.py 430` overflowCount=0、`v2_ui_check.py` 27/27、`v2_drag_check.py` 56/56、`optim_v1_check.py`/`optim_v2_check.py` GREEN、`export_check.py draw` 正常 |
+
+### 5. 上线（2026-11-11 13:0x）
+
+- 线上备份（部署前）：`tools/_backup/index_online_20261111-1257_preVote.html`（**870,349 B / sha256 `ea799a28…`**）。
+- 部署：`python deploy/sync_tools.py` → OSS 对象 **920,140 B / sha256 `489c87eaf55ab19dc26b443152929baa6de1c7c8fe25425b4c32cf82304c5298`**；
+  `python deploy/oss_object.py check index.html` = **MATCH**；OSS 直连对象字节复核含 `__VOTE_V1__`（DNS 暂停期以 OSS 字节为准，恢复解析后生效）。
+- 说明：本次部署文件同时包含**并行会话的 PPT 下载加速改动**（其自行验收中）；回滚到上面备份会连同该并行改动一起回退。
+- 独立验收：`web/验收报告/投票功能_独立验收_20261111.md`（QA 独立出具，含小程序门禁与安全隐私审计）。
+
+### 6. 回滚与已知限制
+
+- 网页回滚：重传 `index_online_20261111-1257_preVote.html`。
+- DB 回滚：迁移文件头部 SQL（DROP 5 RPC + 2 表）；已删除的测试投票均硬删除，无测试残留。
+- 小程序回滚：回退 `pages/vote`、`pages/votedetail`、`utils/vote.js`、`utils/cloud.js`/`tools.js`/`app.json` 改动（未上传发布，线上仍是旧版）。
+- 已知限制：投票人姓名来自 `private.class_ids`（合成/测试会话可为空）；匿名仅不对外返回投票人（服务端仍按 sid 去重）；选项配图存 data URL（单投票 ≤1.6MB）；无导出图片。
+
+## 2026-11-11 12:4x–13:0x · 增量 34：PPT 下载加速（ECS 本地缓存 + 预热 + 网页/转换机接入）
+
+> 用户反馈「下载速度偏慢」。实测：本机→OSS 香港单连接 **74KB/s**（37MB 兼容包约 8 分钟）；ECS 杭州→OSS 618KB/s；**本机→ECS 杭州 4.7MB/s**。
+> 方案：ECS 本地磁盘缓存 PPT 文件 + Caddy `/pptfiles/*` + 转换机预热，客户端下载主链接走 ECS、备用 OSS。
+- **ECS 服务**：`deploy/pptfiles_app.py`（纯标准库，127.0.0.1:8092，systemd `class-tools-pptfiles.service`）：命中本地磁盘直发（Range/206、HEAD、Content-Type/Length、Accept-Ranges、immutable、ETag）；未命中从 OSS 边下边发 + `.part` 原子落盘 + 同 path 锁；`/__warm/ppt/...` 后台预热（200/202）；`/__health`；仅 `ppt/` 前缀防穿越；5GiB 上限自动清最旧。
+- **部署**：`deploy/ecs_pptfiles.py`（云助手 deploy/probe/verify，app.py 4 分片上传安装）；`deploy/ecs_site.py` 三处 Caddy（HTTP / HTTPS-ready / IP）加 `handle /pptfiles/* { uri strip_prefix; reverse_proxy 127.0.0.1:8092 }`，apply 后自动安装服务并 verify。
+- **转换机**：`ppt/agent.py` 上传 4 个 compat 资产后 `warm_ppt_files()` best-effort 预热（env `PPT_WARM_BASE`，每文件 ≤3s，失败只 WARN）；`test_pure_logic` +7 项（138 全过）。
+- **网页**：`tools/index.html` **920,140 B / sha256 `489c87ea…`**（含并行会话投票/大屏改动）；`pptDlHref()` http 页面用 `http://121.196.47.2/pptfiles` + OSS pathname，https 页面用同源 `/pptfiles`，非 `/ppt/` 回退 OSS；主下载走 ECS，小字「备用」OSS 直链；`v2_ppt_download_check` **51/51**、v2_ppt_check 92/92、v2_ppt_video 100/100；已部署 OSS + ECS（两者 index MATCH 920,140/489c87ea）。
+- **实测**：预热用户 deck 4 文件后，本机下载 37.25MB compat：**5.22MB/s（7.14s）**，另测 7.2–9.1MB/s；冷未缓存直下 2.56MB/s + 边下边发；缓存后 15.2MB/s；ECS 缓存 5 文件 110.84MB。真实 E2E 10/10 PASS（主链接 3 行均 ECS、备用 OSS、sha256 与 manifest 一致、0 JS error）。
+- **客户端**：网页已加速；**小程序/安卓仍走 OSS 直链**（微信/Android HTTPS 限制，ECS 目前只有 http）→ 备案 + `tool.furina.fun` HTTPS 启用后，把下载前缀换成同源 `https://tool.furina.fun/pptfiles/...` 即可同样加速（Caddy 路由已就绪）。
+- **回滚**：`systemctl disable --now class-tools-pptfiles`（客户端回退备用 OSS 链接）；从 `ecs_site.py` 去掉 `/pptfiles` handle 后 apply；网页回滚 `tools/_backup/index_online_20261111-1241_preDlAccel.html`（870,349B/`ea799a28…`，不含投票）。

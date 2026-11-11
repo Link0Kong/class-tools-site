@@ -2,6 +2,24 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-11 12:4x · PPT 下载加速（网页端）：下载详情优先走 ECS 缓存 `/pptfiles` + 备用 OSS 直链（**本地完成，待 Lead 部署网页；ECS 已上线**）
+
+> 背景（Lead 任务）：实测本机→OSS 香港单连接 74KB/s、用户→ECS 杭州 4.7MB/s；ECS 提供 `/pptfiles/ppt/a/...` 缓存下载（服务由另一 agent 部署，地址 `http://121.196.47.2/pptfiles/`，https 备案后同源 `/pptfiles/`）。本次把网页下载详情的三行下载链接改为优先走 ECS 缓存，OSS 保留为「备用」。
+> 写作用域：`tools/index.html`（PPT 块内增量）+ `tools/tests/` + 本 CHANGELOG；未改其它文件、未部署、未 git。
+
+- **链接选择 `pptDlHref(man,f)`**：先用 `resolveUrl(manifest.base, files.s)` 得 OSS 绝对 URL 并解析 pathname；`/ppt/...` 路径时——http 页面 → `http://121.196.47.2/pptfiles` + pathname；https 页面 → `location.origin + "/pptfiles"` + pathname（为 tool.furina.fun 备案后同源反代预留）；非 `/ppt/` 路径、`data:`/`blob:`、解析失败 → 回退原 OSS 直链。
+- **fileRow**：主「下载」按钮改用 ECS href（`<a href=… download=name>`，下载文件名/人类可读大小不变）；按钮下方新增**小字「备用」**链接指向原 OSS 直链（`title="备用下载（较慢）"`、同一 download 名），ECS 未就绪/失败时可自选；回退场景（主链接即 OSS）不重复显示「备用」；「未生成 · —」行不变。按钮组竖排 `.ppt-file-a`，暖白卡片/雾青主按钮风格不变。
+- **顺带修正**：存量 deck 补转 compat 后（既有 `files` 又保留旧 `slides/video`），详情现在按契约 §12.4.1 显示**次要「在线预览」**按钮（此前仅无 files 的旧 deck 才有），下载为主、预览为次。
+- **测试（真实输出，最终稳定合并文件 920,140 B / sha256 `489c87eaf55ab19dc26b443152929baa6de1c7c8fe25425b4c32cf82304c5298`；mtime 12:51:39，并行投票/大屏改动均在内）**：
+  - [`v2_ppt_download_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_download_check.py) **51/51 PASS**（新增/更新：http 页面三行主 href 均以 `http://121.196.47.2/pptfiles/ppt/a/` 开头、download 文件名/大小不变、备用=原 OSS 且 title 正确、非 /ppt/ 路径回退 OSS 且不显示备用、存量补转 deck 三行 ECS +「在线预览」可进旧播放器、430px 文件行不溢出、0 JS 报错/0 console.error/0 真实云端写）
+  - 既有 [`v2_ppt_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_check.py) **92/92**、[`v2_ppt_video_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_video_check.py) **100/100** 全过（详情/下载/播放器交互不回归）
+  - 回归（真实输出）：`overflow_check 430`=**0**、`v2_ui_check` **27/27**、`v2_pos_restore_check` **12/12**、`v2_x5_anim_check` **28/28**、`v2_drag_check` **56/56**
+  - 真实 deck `dmwalrdlgevz90l`（本地 http 页面）：详情三行主 href 实测为 `http://121.196.47.2/pptfiles/ppt/a/dmwalrdlgevz90l/c0e5834805/{compat.pptx,preview.pdf,original.pptx}`，备用均为 `https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/...`（title=备用下载（较慢）），下载名=原中文名；详情同时保留「在线预览」；0 JS error。
+  - **ECS `/pptfiles` 已上线（Lead 反馈缓存命中 7.2MB/s、用户 deck 4 文件已预热）**；本机只读复核：HEAD `compat.pptx` 200/39,063,744B、`preview.pdf` 200/1,105,861B、`original.pptx` 200/38,016,533B、`ppt/src/.../source.pptx` 200/38,016,533B；`Range: bytes=0-4095` 四者均 206 且返回 `bytes 0-4095/总长`（即 `/ppt/a/` 与 `/ppt/src/` 都在 ECS 缓存覆盖范围，无需收窄 `pptDlHref` 前缀）；真实速度/sha256 由 Lead 部署网页后 E2E。
+- **已知限制**：① https 页面走同源 `/pptfiles`，需 Caddy 反代就绪（备案后）；② ECS 已实测覆盖 `/ppt/a/` 与 `/ppt/src/`，旧 deck 原始文件同样走缓存；若未来 ECS 范围收窄，需把 `pptDlHref` 生效前缀同步收窄（一行）；③ 浏览器大文件下载无进度（原生下载，仅显示大小）；④ 移动端/微信内仍可能被改写为预览或拦截 `<a download>`。
+- **并行改动提醒**：本次期间并行 agent 合入了「投票」功能（+~700 行 CSS/JS/HTML 与 TOOLS 入口），最终稳定工作区 `tools/index.html` **920,140 B / sha256 `489c87eaf55ab19dc26b443152929baa6de1c7c8fe25425b4c32cf82304c5298`**（我的下载加速 + 投票 + 此前大屏/v2.0 均在内），全部 PPT 测试在该合并文件上实跑通过；部署前请 Lead 以最终文件重新备份。
+- **回滚**：本次未部署；改前线上对象备份 `tools/_backup/index_online_20261111-1241_preDlAccel.html`（**870,349 B / sha256 `ea799a28…`**，不含本次加速与并行投票改动）；回滚该文件会一并回退并行改动，建议以 Lead 部署前备份为准；本次改动只在 PPT 下载详情函数/CSS 行内，回退到旧 `fileRow` 即恢复 OSS 直链。
+
 ## 2026-11-10 22:4x · PPT v2.0（网页端）：功能重定义为「兼容性处理 + 多端下载中心」（**已上线：2026-11-10 22:53 由 Lead 统一部署**）
 
 > 用户原话（2026-11-10 22:05）：「重新定义该功能，不再已在线播放为主要功能，而是以上传ppt，自动对内容进行兼容性处理，并提供多端下载的方式，不改变ppt本身质量」。
