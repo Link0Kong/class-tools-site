@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 """task-22：卡片拖拽（工具栏入位/替换 + 全部页排序）回归（CDP，鼠标+触摸）
 
+2026-11-11 增量：定位基准 v2.1 = 卡片本体（幽灵矩形）而不是鼠标指针
+  · 工具栏命中 / 工具栏插入位置 / 卡片排序插入位置 全部按「拖动中的卡片本体」计算；
+    指针只驱动幽灵（保留抓取偏移，H4 锁定）。
+  · 全部页所有卡片（含电费/反馈/使用说明三个特殊页）都能拖进顶部工具栏。
+
 场景：
   A. 全部页卡片 handle 存在（三条横线），无「设为首页/替换为/点击取消」按钮；
   B. 鼠标拖「点名 roll」到工具栏第 2 位 → homeTools 顺序、tabs 顺序、thumb 对齐；点击可切页；刷新后保持；
@@ -9,7 +14,21 @@
   E. 触摸拖动（CDP touch）卡片到工具栏 → 生效；
   F. reduced-motion 下拖动功能正常；
   G. 横竖屏切换后 tabs/thumb 正常、拖动与点击仍可用；
-  H. 0 JS 报错。
+  H. 拖动幽灵跟手（卡片本体锚定：ghost = 卡片左上 + (指针 - 按下点)）；
+  I. 触摸拖动幽灵跟手 + 清理；
+  K. 工具栏命中区/高亮/移出清除；
+  L. 卡片排序稳定（不抽动）+ 目标卡让位；
+  M. 边缘自动滚动（长列表可拖到顶/底）；
+  N. homeTools 只存用户选择（不写回自动补齐项；兼容小程序勾选）；
+  O. 拖动收尾清理；
+  P. 桌面多列网格拖动；
+  Q. 自动滚动到顶后工具栏命中区仍正确（.tabs sticky 位置随滚动换位）；
+  R. 命中基准 = 卡片本体：卡片上沿压进工具栏即进入投放态（此时指针仍在旧「指针命中区」外），
+     本体矩形与幽灵实际位置一致，离开工具栏后回到卡片排序态；
+  S. 排序落点 = 卡片本体中心（桌面多列：本体中心压到目标卡中心 → 落位一致）；
+  T. 特殊卡片（宿舍电费 / 反馈建议 / 使用说明）可拖入工具栏：homeTools、短标签、点击切页、刷新保持；
+  U. 工具栏插入位置 = 卡片本体中心（不是指针）：本体中心压住第 2 格 → homeTools[1]；
+  J. 0 JS 报错。
 用法：cd C:\\...\\web\\tools && python tests\\v2_drag_check.py
 """
 import functools
@@ -18,6 +37,7 @@ import importlib.util
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -43,11 +63,24 @@ pc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(pc)
 
 EDGE = pc.EDGE
-HTTP_PORT = 8965
-CDP_PORT = 9465
+
+
+def _free_port():
+    """动态端口：并行会话可能同时跑回归（曾撞 8965/9465 导致 Edge 连接被重置）。"""
+    s = socket.socket()
+    try:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+    finally:
+        s.close()
+
+
+HTTP_PORT = _free_port()
+CDP_PORT = _free_port()
 BASE = "http://127.0.0.1:%d/" % HTTP_PORT
 SID = pc.SID_A
-PV = "_power_preview.html"
+# 预览副本用 PID 唯一命名，避免并行会话的 v2_drag_check 同时写 _power_preview.html 互相覆盖
+PV = "_drag_preview_%d.html" % os.getpid()
 RESULTS = []
 
 
@@ -323,6 +356,62 @@ def snap_thumb(cdp):
               morph:bar.classList.contains('morph')};})()""")
 
 
+def bar_rect(cdp):
+    return cdp.eval("(function(){var b=document.getElementById('tabsBar').getBoundingClientRect();return {top:b.top,bottom:b.bottom,left:b.left,right:b.right};})()")
+
+
+def tab_centers(cdp):
+    return cdp.eval("""[].slice.call(document.querySelectorAll('#tabsBar button[data-tab]')).map(function(b){
+      var r=b.getBoundingClientRect();return {k:b.dataset.tab,cx:r.left+r.width/2,cy:r.top+r.height/2,left:r.left,width:r.width};})""") or []
+
+
+def card_offsets(cdp, key):
+    """卡片 + handle 几何（不滚动；用于把「卡片本体中心」换算成指针位置）。"""
+    return cdp.eval("""(function(){var c=document.querySelector('#allCards [data-card="%s"]');
+      if(!c)return null;var h=c.querySelector('[data-handle]');if(!h)return null;
+      var cr=c.getBoundingClientRect(),hr=h.getBoundingClientRect();
+      return {hx:hr.left+hr.width/2,hy:hr.top+hr.height/2,
+        offx:hr.left+hr.width/2-cr.left,offy:hr.top+hr.height/2-cr.top,
+        left:cr.left,top:cr.top,w:cr.width,h:cr.height,cx:cr.left+cr.width/2,cy:cr.top+cr.height/2};})()""" % key)
+
+
+def target_for_tab_insert(cdp, key, idx, dx=-10):
+    """把卡片本体中心水平压到第 idx 个 tab 中心 + dx 处（下滑后卡片上沿仍在工具栏内）。
+
+    返回 (起点 handle 坐标, 终点指针坐标, 期望本体中心)。基准是卡片本体而不是指针：
+    指针 = 期望本体中心 + (抓取偏移 - 卡片中心到左上角距离)。
+    """
+    info = scroll_handle_center(cdp, key)
+    bar = bar_rect(cdp)
+    tabs = tab_centers(cdp)
+    if not info or not bar or not tabs:
+        return None
+    i = max(0, min(idx, len(tabs) - 1))
+    card_top = bar["bottom"] - 20                    # 卡片上沿压进工具栏 20px（保证命中）
+    cx = tabs[i]["cx"] + dx
+    cy = card_top + info["card"]["h"] / 2.0
+    offx = info["hx"] - info["card"]["left"]
+    offy = info["hy"] - info["card"]["top"]
+    return {"x0": info["hx"], "y0": info["hy"],
+            "x1": cx + offx - info["card"]["w"] / 2.0,
+            "y1": cy + offy - info["card"]["h"] / 2.0,
+            "cx": cx, "cy": cy}
+
+
+def reset_home_all(cdp, home=None):
+    """清全部页顺序 + 重置 homeTools 后刷新，回到「全部」页。"""
+    home = home or ["draw", "hw", "nt", "tt"]
+    cdp.eval("(function(){try{localStorage.removeItem('zq_all_order_v1');"
+             "var k='zq_tools_v2_%s';var d=JSON.parse(localStorage.getItem(k)||'{}');"
+             "d.homeTools=%s;localStorage.setItem(k,JSON.stringify(d));}catch(e){}return 1;})()"
+             % (SID, json.dumps(home)))
+    cdp.send("Page.reload", {"ignoreCache": False})
+    ok = wait_boot(cdp)
+    if ok:
+        open_all(cdp)
+    return ok
+
+
 def run(cdp):
     set_metrics(cdp, 390, 844)
     cdp.send("Page.navigate", {"url": BASE + "tests/" + PV})
@@ -342,16 +431,12 @@ def run(cdp):
     T("A2 旧「设为首页/替换为/点击取消」按钮与文案已删除", oldbtn == 0 and oldtxt == "", "%s / %s" % (oldbtn, oldtxt))
     T("A3 handle aria-label=拖动调整", cdp.eval("(document.querySelector('#allCards [data-handle]').getAttribute('aria-label')||'')==='拖动调整'"), "")
 
-    # B. 鼠标拖 roll 到工具栏第 2 位（hw 之前）
-    h0 = handle_center(cdp, "roll")
-    time.sleep(0.15)
-    hw = tab_rect(cdp, "hw")
-    if not (hw and h0):
+    # B. 鼠标拖 roll 到工具栏第 2 位（hw 之前；按「卡片本体中心」定位，不是指针）
+    tgB = target_for_tab_insert(cdp, "roll", 1)
+    if not tgB:
         T("B0 起始 handle/tab 定位", False, "missing")
         return
-    tx = hw["x"] + 2
-    ty = hw["y"] + hw["h"] / 2
-    mouse_drag(cdp, h0["x"], h0["y"], tx, ty)
+    mouse_drag(cdp, tgB["x0"], tgB["y0"], tgB["x1"], tgB["y1"])
     order = tab_order(cdp)
     ht = home_tools(cdp)
     T("B1 鼠标拖 roll 到工具栏第 2 位：homeTools[1]=roll", len(ht) > 1 and ht[1] == "roll", json.dumps(ht, ensure_ascii=False))
@@ -368,12 +453,10 @@ def run(cdp):
     T("B5 刷新后 homeTools 顺序保持", (home_tools(cdp) or [None, None])[1] == "roll", json.dumps(home_tools(cdp), ensure_ascii=False))
     open_all(cdp)
 
-    # C. 工具栏满员替换：拖 ft 到第 3 格（nt）
-    h1 = handle_center(cdp, "ft")
-    time.sleep(0.15)
-    nt = tab_rect(cdp, tab_order(cdp)[2] if len(tab_order(cdp)) > 2 else "nt")
-    if nt and h1:
-        mouse_drag(cdp, h1["x"], h1["y"], nt["x"] + nt["w"] / 2, nt["y"] + nt["h"] / 2)
+    # C. 工具栏满员替换：拖 ft 到第 3 槽（卡片本体中心压住第 3 格）
+    tgC = target_for_tab_insert(cdp, "ft", 2)
+    if tgC:
+        mouse_drag(cdp, tgC["x0"], tgC["y0"], tgC["x1"], tgC["y1"])
     ht2 = home_tools(cdp)
     order2 = tab_order(cdp)
     T("C1 工具栏满员（4 个）时拖入替换第 3 槽：homeTools 含 ft 且仍 ≤4 项", "ft" in ht2 and len(ht2) <= 4, json.dumps(ht2, ensure_ascii=False))
@@ -404,12 +487,10 @@ def run(cdp):
     else:
         T("D0 全部页卡片不足，无法排序测试", False, len(cards0))
 
-    # E. 触摸拖动：拖 committee 到工具栏第 1 位
-    hc = handle_center(cdp, "committee")
-    time.sleep(0.15)
-    dc = tab_rect(cdp, tab_order(cdp)[0])
-    if dc and hc:
-        touch_drag(cdp, hc["x"], hc["y"], dc["x"] + 1, dc["y"] + dc["h"] / 2)
+    # E. 触摸拖动：拖 committee 到工具栏第 1 位（卡片本体中心）
+    tgE = target_for_tab_insert(cdp, "committee", 0)
+    if tgE:
+        touch_drag(cdp, tgE["x0"], tgE["y0"], tgE["x1"], tgE["y1"])
     ht3 = home_tools(cdp)
     T("E1 触摸拖动卡片到工具栏生效", len(ht3) > 0 and ht3[0] == "committee", json.dumps(ht3, ensure_ascii=False))
 
@@ -418,9 +499,9 @@ def run(cdp):
     open_all(cdp)
     hd2 = handle_center(cdp, "draw")
     time.sleep(0.15)
-    dc2 = tab_rect(cdp, tab_order(cdp)[0])
-    if dc2 and hd2:
-        mouse_drag(cdp, hd2["x"], hd2["y"], dc2["x"] + 1, dc2["y"] + dc2["h"] / 2)
+    tgF = target_for_tab_insert(cdp, "draw", 0)
+    if tgF:
+        mouse_drag(cdp, tgF["x0"], tgF["y0"], tgF["x1"], tgF["y1"])
     T("F1 reduced-motion 下拖动仍生效", (home_tools(cdp) or [""])[0] == "draw", json.dumps(home_tools(cdp), ensure_ascii=False))
     cdp.send("Emulation.setEmulatedMedia", {"features": [{"name": "prefers-reduced-motion", "value": "no-preference"}]})
 
@@ -696,6 +777,136 @@ def run(cdp):
         T("Q3 滚动到顶后拖入工具栏仍生效", ht_after != ht_before and "water" in ht_after,
           "%s -> %s" % (json.dumps(ht_before, ensure_ascii=False), json.dumps(ht_after, ensure_ascii=False)))
 
+    # ===== R. 命中基准 = 卡片本体（不是指针） =====
+    reset_home_all(cdp, ["draw", "hw", "nt", "tt"])
+    cdp.eval("window.scrollTo(0,0)")
+    time.sleep(0.35)
+    infoR = cdp.eval("""(function(){var c=document.querySelector('#allCards [data-card="draw"]');if(!c)return null;
+      var h=c.querySelector('[data-handle]');var cr=c.getBoundingClientRect(),hr=h.getBoundingClientRect();
+      var bar=document.getElementById('tabsBar').getBoundingClientRect();
+      var bs=[].slice.call(document.querySelectorAll('#tabsBar button[data-tab]')).filter(function(x){return x.dataset.tab!=='all';});
+      var t=bs.length>1?bs[1].getBoundingClientRect():null;
+      return {hx:hr.left+hr.width/2,hy:hr.top+hr.height/2,ct:cr.top,barBottom:bar.bottom,
+        tab1x:t?t.left+t.width/2:null};})()""")
+    if not infoR or infoR.get("tab1x") is None:
+        T("R0 起始卡片/工具栏定位", False, "missing")
+    else:
+        grab_y = infoR["hy"] + 18        # 抓 handle 偏下 → 抓取偏移大，指针可停在旧命中区外
+        press_at(cdp, infoR["hx"], grab_y)
+        tyR = infoR["barBottom"] + 31    # 旧口径命中区 = bar.bottom+26，指针已在其外
+        for i in range(1, 7):
+            move_to(cdp, infoR["hx"] + (infoR["tab1x"] - infoR["hx"]) * i / 6,
+                    grab_y + (tyR - grab_y) * i / 6, 0.04)
+        stR = drag_state(cdp)
+        gR = ghost_state(cdp)
+        cbR = stR.get("cardBox") or {}
+        T("R1 卡片本体上沿压进工具栏即进入投放态（此时指针仍在旧「指针命中区」外）",
+          stR.get("mode") == "tabs" and stR.get("tabsZone") is True and stR.get("y", 0) > infoR["barBottom"] + 26,
+          "mode=%s zone=%s pointerY=%s barBottom=%.0f cardTop=%s" % (stR.get("mode"), stR.get("tabsZone"),
+                                                                    stR.get("y"), infoR["barBottom"], cbR.get("top")))
+        overR = cdp.eval("document.getElementById('tabsBar').classList.contains('drag-over')")
+        T("R2 命中时工具栏高亮", bool(overR), "")
+        T("R3 卡片本体矩形与幽灵实际位置一致（≤2px）",
+          bool(gR.get("exists")) and abs((cbR.get("left") or 0) - (gR.get("x") or 0)) <= 2
+          and abs((cbR.get("top") or 0) - (gR.get("y") or 0)) <= 2,
+          json.dumps({"cardBox": {"left": cbR.get("left"), "top": cbR.get("top")},
+                      "ghost": {"x": gR.get("x"), "y": gR.get("y")}}, ensure_ascii=False))
+        move_to(cdp, infoR["tab1x"], infoR["barBottom"] + 70, 0.06)
+        stR2 = drag_state(cdp)
+        T("R4 本体离开工具栏（上沿离开 >18px）回到卡片排序态", stR2.get("mode") == "cards",
+          "mode=%s cardTop=%s" % (stR2.get("mode"), (stR2.get("cardBox") or {}).get("top")))
+        release_at(cdp, infoR["tab1x"], infoR["barBottom"] + 70)
+
+    # ===== S. 排序落点 = 卡片本体中心（桌面多列） =====
+    set_metrics(cdp, 1280, 900)
+    time.sleep(0.9)
+    reset_home_all(cdp, ["draw", "hw", "nt", "tt"])
+    cardsS = dom_cards(cdp)
+    if len(cardsS) < 6:
+        T("S0 卡片数量足够（桌面多列）", False, len(cardsS))
+    else:
+        srcS, tgtKeyS = cardsS[0], cardsS[3]
+        cdp.eval("window.scrollTo(0,0)")
+        time.sleep(0.3)
+        mgS = card_offsets(cdp, srcS)
+        tgtS = card_rect(cdp, tgtKeyS)
+        if not mgS or not tgtS:
+            T("S0b 起始卡片定位", False, "missing")
+        else:
+            pxS = tgtS["x"] + mgS["offx"] - mgS["w"] / 2.0   # 指针 → 本体中心 = 目标卡中心
+            pyS = tgtS["y"] + mgS["offy"] - mgS["h"] / 2.0
+            press_at(cdp, mgS["hx"], mgS["hy"])
+            for i in range(1, 9):
+                move_to(cdp, mgS["hx"] + (pxS - mgS["hx"]) * i / 8,
+                        mgS["hy"] + (pyS - mgS["hy"]) * i / 8, 0.035)
+            stS = drag_state(cdp)
+            cbS = stS.get("cardBox") or {}
+            T("S1 拖动中本体中心与目标卡中心一致（≤3px）",
+              abs((cbS.get("cx") or 0) - tgtS["x"]) <= 3 and abs((cbS.get("cy") or 0) - tgtS["y"]) <= 3,
+              json.dumps({"cardBox": {"cx": cbS.get("cx"), "cy": cbS.get("cy")},
+                          "target": {"cx": round(tgtS["x"], 1), "cy": round(tgtS["y"], 1)}}, ensure_ascii=False))
+            release_at(cdp, pxS, pyS)
+            cardsS2 = dom_cards(cdp)
+            T("S2 松手后卡片落位到本体中心对应位置（原第 4 张处）",
+              srcS in cardsS2 and cardsS2.index(srcS) == 3, json.dumps(cardsS2[:6], ensure_ascii=False))
+    set_metrics(cdp, 390, 844)
+    time.sleep(0.9)
+
+    # ===== T. 特殊卡片（电费/反馈/使用说明）可拖入工具栏 =====
+    reset_home_all(cdp, ["draw", "hw", "nt", "tt"])
+    okT = {}
+    for keyT, labelT, secT in (("power", "电费", "s-power"), ("fb", "反馈", "s-fb"), ("ug", "说明", "s-ug")):
+        tgT = target_for_tab_insert(cdp, keyT, 2)
+        if not tgT:
+            okT[keyT] = {"missing": True}
+            continue
+        mouse_drag(cdp, tgT["x0"], tgT["y0"], tgT["x1"], tgT["y1"])
+        htT = home_tools(cdp)
+        txtT = cdp.eval("(function(){var b=document.querySelector('#tabsBar button[data-tab=\"%s\"]');return b?b.textContent:'';})()" % keyT)
+        cdp.eval("(function(){var b=document.querySelector('#tabsBar button[data-tab=\"%s\"]');if(b)b.click();return 1;})()" % keyT)
+        time.sleep(0.5)
+        onT = cdp.eval("(function(){var s=document.getElementById('%s');return !!(s&&s.classList.contains('on'));})()" % secT)
+        okT[keyT] = {"inHome": keyT in htT, "label": txtT, "page": onT}
+        open_all(cdp)
+    T("T1 电费/反馈/使用说明均可拖入工具栏并写入 homeTools",
+      all(okT.get(k, {}).get("inHome") for k in ("power", "fb", "ug")), json.dumps(okT, ensure_ascii=False))
+    T("T2 工具栏短标签正确（电费/反馈/说明）",
+      okT.get("power", {}).get("label") == "电费" and okT.get("fb", {}).get("label") == "反馈"
+      and okT.get("ug", {}).get("label") == "说明",
+      json.dumps({k: okT.get(k, {}).get("label") for k in ("power", "fb", "ug")}, ensure_ascii=False))
+    T("T3 点击特殊工具 tab 可切到对应页面",
+      all(okT.get(k, {}).get("page") for k in ("power", "fb", "ug")),
+      json.dumps({k: okT.get(k, {}).get("page") for k in ("power", "fb", "ug")}))
+    cdp.send("Page.reload", {"ignoreCache": False})
+    wait_boot(cdp)
+    htT4 = home_tools(cdp)
+    labelT4 = cdp.eval("(function(){var b=document.querySelector('#tabsBar button[data-tab=\"ug\"]');return b?b.textContent:'';})()")
+    T("T4 刷新后特殊工具仍保留在工具栏（标签 说明）", "ug" in htT4 and labelT4 == "说明",
+      json.dumps({"home": htT4, "label": labelT4}, ensure_ascii=False))
+    open_all(cdp)
+
+    # ===== U. 工具栏插入位置 = 卡片本体中心（不是指针） =====
+    reset_home_all(cdp, ["draw", "hw", "nt", "tt"])
+    tgU = target_for_tab_insert(cdp, "water", 1)
+    if not tgU:
+        T("U0 起始定位", False, "missing")
+    else:
+        mouse_drag(cdp, tgU["x0"], tgU["y0"], tgU["x1"], tgU["y1"])
+        htU = home_tools(cdp)
+        orderU = tab_order(cdp)
+        T("U1 本体中心压住第 2 格 → homeTools[1]=水量", len(htU) > 1 and htU[1] == "water",
+          json.dumps(htU, ensure_ascii=False))
+        T("U2 工具栏第 2 格显示水量", len(orderU) > 1 and orderU[1] == "water", json.dumps(orderU, ensure_ascii=False))
+        tgU2 = target_for_tab_insert(cdp, "vote", 2)
+        tcs = tab_centers(cdp)
+        if tgU2 and len(tcs) > 2:
+            mouse_drag(cdp, tgU2["x0"], tgU2["y0"], tcs[2]["cx"], tgU2["y1"])   # 旧口径：指针压住第 3 格中心
+            htU2 = home_tools(cdp)
+            T("U3 指针在第 3 格中心但本体中心偏左 → 插入位置按本体算（不是指针）",
+              "vote" in htU2 and htU2.index("vote") < 2, json.dumps(htU2, ensure_ascii=False))
+        else:
+            T("U3 对照定位", False, "missing")
+
     errs = cdp.eval("JSON.stringify(window.__errs||[])")
     T("J1 0 JS 报错", errs == "[]", errs[:300])
 
@@ -708,6 +919,7 @@ def main():
     httpd = None
     try:
         pc.build_previews()
+        shutil.copy(os.path.join(HERE, pc.PREVIEW), os.path.join(HERE, PV))
         os.chdir(ROOT)
         handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT)
         httpd = http.server.ThreadingHTTPServer(("127.0.0.1", HTTP_PORT), handler)
@@ -739,11 +951,10 @@ def main():
         except Exception:
             pass
         shutil.rmtree(prof, ignore_errors=True)
-        for fn in (PV, pc.COMMON):
-            try:
-                os.remove(os.path.join(HERE, fn))
-            except Exception:
-                pass
+        try:
+            os.remove(os.path.join(HERE, PV))
+        except Exception:
+            pass
         shutil.rmtree(pc.REPORT_DIR, ignore_errors=True)
     passed = sum(1 for r in RESULTS if r["ok"])
     total = len(RESULTS)
