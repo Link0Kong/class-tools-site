@@ -3015,7 +3015,7 @@ sync-repos.cmd "feat: 说明本次改了什么"
 > 用户一次提出 13 条反馈（原文见 CHANGELOG 增量 45 / 验收报告）。本增量覆盖全部 13 条；网页端已部署，小程序仅源码（需用户上传发布并部署 notify 云函数），安卓独立基线 APK（因并行会话占用主仓库，走 worktree 分支交付，patch 可 apply）。
 > 红线遵守：web 单文件零依赖不变（APP_VER 仍 2.0.0）、UD v6 契约不变、无新增外部请求来源、未在对话中输出 token/密钥/学号。
 
-### 45.1 网页（`tools/index.html`，1,144,965B / sha256 `86B9F114…`）
+### 45.1 网页（`tools/index.html`，1,144,714B / sha256 `1C2B77B3…`（独立验收对象 1,144,965B/`86B9F114…`，验收后 P2 收尾再部署））
 - **大屏 V5（反馈 3/4/5）**：删除「布局/编辑模式」按钮与工具条；改为按住模块卡片拖动（鼠标表头按住 / 触屏长按 180ms，`STG_DRAG_MOVE=5/STG_LONG_PRESS=180`），跟手幽灵 + WAAPI FLIP 让位（与全部页拖动 v2 同思路），落位写 `localStorage zq_stage_layout_v1` 并 800ms 防抖推云端；右下角拖宽常驻；模块增删改由顶栏「＋ 模块」弹层 + 卡片表头 ×（`STG_PANELS` 4 模块）；聚焦仅卡片右上角按钮（⤢→⤡），顶部/灵动岛均无「退出聚焦」，4 模块聚焦态各自专属 UI；**iOS 灵动岛**（黑色 34px 胶囊 ⇄ 卡片 spring 形变 WAAPI、内容淡入滑动、多活动堆叠、reduced-motion 关闭动画）；退出 `stgCleanupSession()` 清计时/抽签结果/投票详情与发起草稿（DOM+内存双清，含 `stgCreateResetDom`）/聚焦/岛/上传队列，保留布局与文件传输会话。
 - **布局云同步（反馈 3）**：新表 `public.stage_prefs(sid PK, layout jsonb, updated_at)`（仅本人 RLS；BEFORE INSERT/UPDATE 触发器刷 updated_at）；`STAGE` 打开时 GET + LWW（本机 `layout.at` vs 云端 updated_at）、改动 POST `on_conflict=sid` + `Prefer: resolution=merge-duplicates,return=minimal`、404/网络失败静默降级 localStorage、旧三键首次 seed。契约 `tools/tests/_stage_sync_contract.md`；测试 mock + 真实云端 QA 覆盖。
 - **名单（反馈 2/8）**：名单工具行内去掉重复「班委」badge（保留职务文字），全部页描述去「；班级身份气泡」；共享 `#rosterModal`（draw/group/roll）+ 投票「指定成员」+ 大屏发起投票成员区新增「全班/班委/团员」一键预设，预设=对既有成员按钮真实点击套基础集合，之后仍可逐个增删（数据仍 seat 数组 / `p_audience_seats`）。
@@ -3065,7 +3065,7 @@ sync-repos.cmd "feat: 说明本次改了什么"
 
 ### 45.9 上线 / 回滚
 - 部署前线上备份：`tools/_backup/index_online_20261111-2210_preBatch13.html`（1,054,704B / sha256 `834d39cc…`）。
-- 网页：`python deploy/sync_tools.py` + `python deploy/ecs_site.py apply` → OSS+ECS **1,144,965 B / sha256 `86B9F114…`**；`python deploy/oss_object.py check index.html` MATCH、ECS `verify` MATCH；`/drop/__health` 200（version 2.1）。
+- 网页：`python deploy/sync_tools.py` + `python deploy/ecs_site.py apply` → OSS+ECS **1,144,714 B / sha256 `1C2B77B3…`**（独立验收对象为 1,144,965B/`86B9F114…`；验收后仅做 P2 收尾——使用说明重复行去重 + notice demo 恢复，再部署为当前字节）；`python deploy/oss_object.py check index.html` MATCH、ECS `verify` MATCH；`/drop/__health` 200（version 2.1）。
 - 回滚：网页重传备份；DB 按两份迁移文件头 DROP；drop 停 unit 或改回旧 env 重新 deploy；小程序回退源码重传；安卓回退 v3.6.0 APK。
 
 ### 45.10 用户需执行（不代做）

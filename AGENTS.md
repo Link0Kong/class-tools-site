@@ -159,4 +159,4 @@
     - **安卓后台通知**：交付在独立 worktree `android-class-tools-notify` 分支 `feat/background-notify`（commit 172831a）+ patch `artifacts/background-notify.patch`；主仓库因并行会话未合入；无 FCM 无法秒达（周期下限约 15min）。
     - **云端**：`deploy/cloudbase/2026-11-11_water_shared.sql`、`2026-11-11_stage_prefs.sql` 已应用（幂等）；审计见 `_audit/cloudbase_data_audit_20261111.md`（**CloudBase 2026-12-10 到期**、notices 36MB 首拉性能、class_sessions 无保留策略等）；`debug_headers` 已收回 anon 执行权；DNS 暂停期 `site_config.web.paused=true`（恢复解析后 `web_pause.py --off`）。
     - **提交卫生**：并行会话曾在本仓库根目录误留 0 字节 `Vote*.kt` 与 `tools/_ovf_preview.html` 等临时文件，提交前清理；`tools/notice-board-live-demo.html` 由 briefdesk 管线重建（提交时含数据差异属正常）；`tools/tests/_*/`、`tools/tests/frozen/` 已 gitignore。
-    - 上线状态：网页 OSS+ECS **1,144,965B / sha256 `86B9F114…`**（部署前备份 `tools/_backup/index_online_20261111-2210_preBatch13.html`，1,054,704B/`834d39cc…`）；APP_VER 仍 2.0.0。
+    - 上线状态：网页 OSS+ECS **1,144,714B / sha256 `1C2B77B3…`**（独立验收对象 1,144,965B/`86B9F114…`；验收后仅 P2 收尾）（部署前备份 `tools/_backup/index_online_20261111-2210_preBatch13.html`，1,054,704B/`834d39cc…`）；APP_VER 仍 2.0.0。
