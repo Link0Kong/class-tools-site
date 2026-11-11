@@ -2964,3 +2964,13 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 备份线上 `tools/_backup/index_online_20261111-2020_prePowerTrendCmp.html`（1,048,404B/`c6034271…`，即 stage V4+PPT v2.3 版）→ OSS+ECS **1,054,704 B / sha256 `834d39cc…`**；`oss_object.py check` MATCH、`ecs_site.py verify` MATCH。
 - 回滚：重传上述备份（会连同本轮电费改动一起回退）。
 - 取舍（如实）：① tile 主数值仍是「近 N 天窗口用电」，比较徽标百分比按自然周期同期计算（两者口径不同，UI 上以「较昨日/上周/上月同期」区分）；② 现网 `power_history` 仅约 6 天 → 7d/30d 的上周/上月同期比较暂不显示，数据积累到 14/70 天后自动出现；③ 仅网页端改动，小程序端未改（如需同口径需另改并随用户上传发布）；④ 13/16 隐藏 24h 是楼栋级固定策略，网关提速（isSlowRoom 降级实时口径）不重新显示 24h。
+
+## 2026-11-11 20:3x · 增量 43：小程序端同步「13/16 隐藏 24h + 电费比较自然周期同期」（源码已改，待用户上传发布）
+
+> 用户「小程序也要」→ 与网页增量 42 同口径落地小程序（网页已上线 1,054,704B/`834d39cc…`）。
+
+- **隐藏 24h**：`utils/power.js` 新增 `showRange/rangesOfBuilding/normRangeForBuilding`（13/16 号楼主楼不提供 24h 档）；`pages/power/power.js` 的 `_syncSel` 过滤 `data.ranges`（24h 按钮不渲染）、选中慢楼栋自动落 7 天并记住进入前档位（切回实时房恢复；用户手选则保留）；24h 数据仍按原契约拉取，仅用于 `isSlowRoom`（日更/降级）与估算，不展示 24h 趋势。
+- **电费比较**：`utils/power.js` 新增 `cmpSourceKey/naturalWindows/ptsBetween/cmpCoverage/naturalCompare`（自然周期同期；覆盖 <35% 不显示）；`tilesOf(..., cmp)` 在「区间用电」tile 副标追加「较昨日/上周/上月同期 ±x%」；`utils/cloud.js` `POWER_RANGE_MS` 增 14d/70d 隐藏取数窗口；`pages/power/power.js` `load()` 按需补拉（实时房 7d→14d、30d→70d；慢楼栋 7d 用已预取 30d）+ 缓存分支/渲染同步。
+- **与网页差异（如实）**：小程序 7d 比较取数按楼栋选窗口（13/16 用已预取 30d；其他楼栋 14d），网页按 isSlowRoom 数据口径（慢楼栋提速时网页用 14d、小程序仍用 30d）；现网历史约 6 天 → 上周/上月同期暂不显示，数据积累后自动出现。
+- **测试**：`mp-class-tools-tests/v3_power_diag_tests.js` **64/64**（新增 utils 窗口边界/取数/覆盖降级/tile 副标 + page 隐藏/默认/恢复/三档比较/请求窗口）；`node unit.js` **414/0**、`sync_contract_test.js` **33/0**、`staticcheck.py` exit 0、`code_quality_check.js` exit 0；automator `power_natural_cmp_preview.js` **9/9 PASS**（mock 70 天自然周期，截图 `_shots_power_natural_cmp/{01_slow_7d,02_live_24h,03_live_7d,04_live_30d}.png`，0 console error）。
+- **发布状态**：小程序源码不在 web 仓库，需用户在微信开发者工具**上传发布**后生效；VERSION 仍 2.0.0、UD v6 不变、无新增外部请求。回滚=源码回退到上一版并重新上传。

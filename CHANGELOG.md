@@ -2,6 +2,16 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-11 20:3x · v2.0.0 增量 43：小程序端同步「13/16 隐藏 24h + 电费比较自然周期同期」（源码已改，待用户上传发布）
+
+> 用户「小程序也要」→ 与增量 42 网页同口径落到小程序。
+
+- **隐藏 24h**：`utils/power.js` 新增 `showRange/rangesOfBuilding/normRangeForBuilding`（13/16 号楼主楼不提供 24h 档）；`pages/power/power.js` 过滤 `data.ranges`（24h 按钮不渲染）、选中慢楼栋自动落 7 天、切回实时房恢复进入前档位；24h 数据仍拉取，仅用于 `isSlowRoom`（日更/降级）与估算，不展示 24h 趋势。
+- **电费比较**：`utils/power.js` 新增 `cmpSourceKey/naturalWindows/ptsBetween/cmpCoverage/naturalCompare`（自然周期同期；覆盖 <35% 不显示）；`tilesOf(..., cmp)` 在「区间用电」tile 副标追加「较昨日/上周/上月同期 ±x%」；`utils/cloud.js` 增 14d/70d 隐藏取数窗口；`pages/power/power.js` `load()` 按需补拉（实时房 7d→14d、30d→70d；慢楼栋 7d 用已预取 30d）。
+- **与网页差异（如实）**：小程序 7d 比较取数按楼栋选窗口（13/16 用 30d；其他楼栋 14d），网页按 isSlowRoom 数据口径（慢楼栋提速时网页用 14d）；现网历史约 6 天 → 上周/上月同期暂不显示，数据积累后自动出现。
+- **测试**：`v3_power_diag_tests.js` **64/64**、`unit.js` **414/0**、`sync_contract_test.js` **33/0**、`staticcheck.py` exit 0、`code_quality_check.js` exit 0；automator `power_natural_cmp_preview.js` **9/9 PASS**（截图 `_shots_power_natural_cmp/`，0 console error）。
+- **发布状态**：小程序源码不在 web 仓库，需用户在微信开发者工具上传发布后生效；VERSION 仍 2.0.0、UD v6 不变。回滚=源码回退上一版重新上传。
+
 ## 2026-11-11 20:0x–20:2x · v2.0.0 增量 42：电费 13/16 号楼隐藏 24h 趋势 + 电费比较改「自然周期同期」（网页已上线 OSS+ECS）
 
 > 用户需求（2026-11-11 19:48）：「对 13 号楼，16 号楼隐藏 24 小时趋势图；对于电费比较，24h 改为与前一天比较，七天改为与上一周比较，以此类推」。
