@@ -4,7 +4,7 @@
 用法：cd web/tools && python tests/optim_v2_check.py [index.html]
 两轮：
   main  : 非管理员、普通 UA —— 预设 / hash / 汇总按钮 / 备份存储用量 / toast 错误样式 / 0 报错
-  admin : 管理员、微信 UA   —— 大屏（团日：实时时间 / PPT 联动 / 计时 / 抽签）/ 微信导出图弹层 + inert / 0 报错
+  admin : 管理员、微信 UA   —— 大屏 V3（自定义面板/布局编辑/投票投屏+快速发起/PPT 放映+相容包下载+PowerPoint 打开）/ 微信导出图弹层 + inert / 0 报错
 退出码 0 = 全绿。
 """
 import os
@@ -49,6 +49,15 @@ window.addEventListener("error",function(e){window.__errs.push(String((e&&e.mess
 window.addEventListener("unhandledrejection",function(e){var r=e&&e.reason;window.__errs.push("rejection:"+String((r&&r.message)||r));});
 (function(){var _ce=console.error;console.error=function(){window.__cerrs.push(Array.prototype.map.call(arguments,function(x){try{return String(x);}catch(e){return "?";}}).join(" "));try{_ce.apply(console,arguments);}catch(e){}};})();
 var DATA=__DATA__;
+var PNOW=Date.now()+600000;
+var POLLSET={multi:false,maxChoices:1,anonymous:true,allowChange:true,resultVisibility:"always"};
+var POLL={id:"p1",title:"团日活动形式投票",description:"",mode:"quick",owner_name:"测试同学",settings:POLLSET,
+  deadline:PNOW,status:"open",closed_at:0,created_at:Date.now(),updated_at:Date.now(),closed:false,
+  total:12,counts:{o1:7,o2:5},has_voted:false,my_choices:[],results_hidden:false,mine:true,can_manage:true};
+var PDETAIL={ok:true,now:Date.now(),poll:{id:"p1",title:"团日活动形式投票",description:"",mode:"quick",owner_name:"测试同学",
+  settings:POLLSET,options:[{id:"o1",text:"参观红色基地"},{id:"o2",text:"主题团课"}],deadline:PNOW,status:"open",closed_at:0,
+  created_at:Date.now(),updated_at:Date.now()},closed:false,total:12,counts:{o1:7,o2:5},has_voted:false,my_choices:[],
+  results_hidden:false,mine:true,can_manage:true,voters:[]};
 function ok(obj){return Promise.resolve({ok:true,status:200,json:function(){return Promise.resolve(obj);},text:function(){return Promise.resolve("");}});}
 window.fetch=function(u,o){
   var s=String((u&&u.url!==undefined)?u.url:u);
@@ -60,14 +69,33 @@ window.fetch=function(u,o){
     if(s.indexOf("/fitrecs")>=0)return ok(DATA.fitrecs);
     if(s.indexOf("/userdata")>=0)return ok([]);
     if(s.indexOf("/ppt_decks")>=0){
-      if(s.indexOf("manifest")>=0)return ok([{id:"d1",title:"团日活动演示",slide_count:2,step_count:2,aspect:"16:9",cover_url:"",manifest:{slides:[
-        {steps:[{img:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="}],tr:"fade"},
-        {steps:[{img:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="}],tr:"fade"}]}}]);
+      if(s.indexOf("files%3A")>=0 || s.indexOf("files:")>=0){
+        return ok([
+          {id:"d2",files:{compat:{s:"ppt/a/d2/build/compat.pptx",size:39000000,name:"总结_兼容版.pptx"},
+            pdf:{s:"ppt/a/d2/build/preview.pdf",size:1200000,name:"总结.pdf",pages:16}}},
+          {id:"d3",files:null}
+        ]);
+      }
+      if(s.indexOf("manifest")>=0){
+        if(s.indexOf("id=eq.d2")>=0)return ok([{id:"d2",title:"团支部年度工作总结",slide_count:8,step_count:12,aspect:"16:9",cover_url:"",
+          manifest:{base:"https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/",slides:[],
+            files:{compat:{s:"ppt/a/d2/build/compat.pptx",size:39000000,name:"总结_兼容版.pptx"},
+              pdf:{s:"ppt/a/d2/build/preview.pdf",size:1200000,name:"总结.pdf",pages:16}}}}]);
+        return ok([{id:"d1",title:"团日活动演示",slide_count:2,step_count:2,aspect:"16:9",cover_url:"",manifest:{slides:[
+          {steps:[{img:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="}],tr:"fade"},
+          {steps:[{img:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="}],tr:"fade"}]}}]);
+      }
       return ok([
         {id:"d1",title:"团日活动演示",status:"ready",progress:100,slide_count:2,step_count:2,aspect:"16:9",cover_url:"",owner_name:"测试同学",source_name:"团日活动演示.pptx",created_at:3,converted_at:4},
         {id:"d2",title:"团支部年度工作总结",status:"ready",progress:100,slide_count:8,step_count:12,aspect:"16:9",cover_url:"",owner_name:"李同学",source_name:"总结.pptx",created_at:2,converted_at:3},
         {id:"d3",title:"防诈骗主题班会",status:"ready",progress:100,slide_count:5,step_count:5,aspect:"16:9",cover_url:"",owner_name:"王同学",source_name:"班会.pptx",created_at:1,converted_at:2}]);
     }
+    if(s.indexOf("rpc/poll_list")>=0)return ok({ok:true,now:Date.now(),polls:[POLL]});
+    if(s.indexOf("rpc/poll_detail")>=0)return ok(PDETAIL);
+    if(s.indexOf("rpc/poll_create")>=0)return ok({ok:true,now:Date.now(),
+      poll:{id:"pnew",title:"团日现场快投",description:"",mode:"quick",owner_name:"测试同学",settings:POLLSET,
+        options:[{id:"o1x",text:"方案A"},{id:"o2x",text:"方案B"}],deadline:Date.now()+1800000,status:"open",closed_at:0,created_at:Date.now(),updated_at:Date.now()},
+      closed:false,total:0,counts:{},has_voted:false,my_choices:[],results_hidden:false,mine:true,can_manage:true,voters:[]});
     if(s.indexOf("/site_assets")>=0)return ok([{body:{seen_at:Date.now()},updated_at:Date.now()}]);
     return ok([]);
   }
@@ -111,7 +139,7 @@ RUNNER = r"""
           T("数据备份入口存在", !!q("#optBkBtn"), "");
           click('[data-tab="all"]'); await sleep(300);
           T("大屏入口（管理员）存在", !!q("#opt2StageBtn") && txt("#opt2StageBtn")==="大屏", txt("#opt2StageBtn"));
-          click("#opt2StageBtn"); await sleep(350);
+          click("#opt2StageBtn"); await sleep(400);
           var st=q("#opt2Stage");
           T("大屏弹层可打开", !!st && st.style.display!=="none", st?st.style.display:"none");
           var t1=txt("#o2sTime");
@@ -119,25 +147,68 @@ RUNNER = r"""
           T("顶栏日期（年月日 + 星期）", /\d{4}年\d{1,2}月\d{1,2}日/.test(txt("#o2sDate")) && /周[日一二三四五六]/.test(txt("#o2sDate")), txt("#o2sDate"));
           await sleep(1200);
           T("实时时间每秒更新", txt("#o2sTime")!==t1, t1+" -> "+txt("#o2sTime"));
-          T("已去掉「下一节」「作业」卡", !q("#o2sNext") && !q("#o2sHw") && txt("#opt2Stage").indexOf("下一节")<0 && txt("#opt2Stage").indexOf("作业")<0, "");
-          T("非四宫格布局（大放映台 + 计时/抽签侧栏）", !!q("#opt2Stage .opt2-hero") && !!q("#opt2Stage .opt2-rail") && !!q("#o2sHero .opt2-play") && !q("#opt2Stage .opt2-stage-grid"), "");
+          var panels=document.querySelectorAll("#opt2Stage [data-panel]");
+          T("可自定义面板（演示/投票/计时/抽签）", panels.length>=4 && txt("#opt2Stage").indexOf("演示")>=0 && txt("#opt2Stage").indexOf("投票")>=0 && txt("#opt2Stage").indexOf("计时")>=0 && txt("#opt2Stage").indexOf("抽签")>=0, "panels="+panels.length);
+          T("已去掉「下一节」「作业」", !q("#o2sNext") && !q("#o2sHw") && txt("#opt2Stage").indexOf("下一节")<0 && txt("#opt2Stage").indexOf("作业")<0, "");
+          /* 计时面板 */
           T("大屏计时器存在", /05:00/.test(txt("#o2sTimer")), txt("#o2sTimer"));
           click('[data-o2timer="1"]'); await sleep(1300);
           T("计时器可开始倒计时", txt("#o2sTimer")!=="05:00", txt("#o2sTimer"));
+          click('[data-stg="timerset"][data-min="10"]'); await sleep(150);
+          T("计时快捷时长（10 分）", txt("#o2sTimer")==="10:00", txt("#o2sTimer"));
+          /* 抽签面板 */
           var pick=q('[data-o2pick="1"]'); if(pick)pick.click(); await sleep(120);
           T("抽签可点（无名单也不报错）", ["—","无名单"].indexOf(txt("#o2sPick"))>=0 || String(txt("#o2sPick")).length>0, txt("#o2sPick"));
-          await waitFor(function(){return !!q("#opt2Stage [data-o2deck]");},5000);
-          var rows=document.querySelectorAll("#opt2Stage [data-o2deck]");
-          T("大屏列出可放映演示（主位 + 列表）", rows.length>=2 && txt("#o2sHero").indexOf("团日活动")>=0, "decks="+rows.length+" hero=["+txt("#o2sHero").slice(0,40)+"]");
-          var w=q(".wrap");
-          T("大屏打开时背景 inert", !(w&&("inert" in w)&&w.inert===false), (w&&("inert" in w))?String(w.inert):"no-inert");
-          if(rows.length)rows[0].click();
+          /* PPT 面板：放映 / 兼容包下载 */
+          await waitFor(function(){return !!q('#opt2Stage [data-panel="ppt"] [data-pptact="play"]');},6000);
+          T("PPT 面板：主位放映按钮", !!q('#opt2Stage [data-panel="ppt"] [data-pptact="play"]'), "");
+          click('#opt2Stage [data-panel="ppt"] [data-pptact="play"]');
           await waitFor(function(){return !!q("#pptPlayer");},6000);
-          T("大屏点演示 → 全屏播放器打开", !!q("#pptPlayer"), !!q("#pptPlayer"));
+          T("大屏在线放映 → 播放器打开", !!q("#pptPlayer"), "");
           click('#pptPlayer [data-act="close"]'); await sleep(180);
           var lv=q('#pptPlayer [data-act="leave"]'); if(lv)lv.click();
           await waitFor(function(){return !q("#pptPlayer");},5000);
-          T("退出放映自动回到大屏", !q("#pptPlayer") && !!q("#opt2Stage") && q("#opt2Stage").style.display!=="none", "");
+          T("退出放映自动回到大屏", !q("#pptPlayer") && q("#opt2Stage").style.display!=="none", "");
+          await waitFor(function(){return txt('#opt2Stage [data-panel="ppt"]').indexOf("兼容包")>=0;},5000);
+          T("PPT 面板：兼容包标签（v2 下载语义）", txt('#opt2Stage [data-panel="ppt"]').indexOf("兼容包")>=0, "");
+          var dlBtn=q('#opt2Stage [data-panel="ppt"] [data-pptact="dl"][data-ppt-id="d2"]');
+          if(dlBtn)dlBtn.click();
+          await waitFor(function(){var d=q("#pptDl");return d&&!d.hidden&&txt("#pptDl").indexOf("兼容版")>=0;},6000);
+          T("PPT 面板：打开下载详情（兼容版/PDF）", !!q("#pptDl") && !q("#pptDl").hidden && txt("#pptDl").indexOf("兼容版")>=0, "btn="+!!dlBtn+" dl="+(q("#pptDl")?String(q("#pptDl").hidden):"none")+" toast="+txt("#toast").slice(0,20));
+          T("PPT 详情：PowerPoint 打开（本机 Office 联动）", txt("#pptDl").indexOf("PowerPoint 打开")>=0 && !!q('#pptDl a[href^="ms-powerpoint:ofv|u|"]'), "");
+          var dlx=q('#pptDl [data-dlact="close"]'); if(dlx)dlx.click();
+          await sleep(250);
+          T("PPT 详情可关闭", !q("#pptDl") || q("#pptDl").hidden, "");
+          /* 投票面板：实时投屏 */
+          await waitFor(function(){return txt('#opt2Stage [data-panel="vote"]').indexOf("团日活动形式投票")>=0;},6000);
+          var vt=txt('#opt2Stage [data-panel="vote"]');
+          T("投票面板：实时投屏（标题/人数/票数条）", vt.indexOf("团日活动形式投票")>=0 && vt.indexOf("12")>=0 && !!q('#opt2Stage [data-panel="vote"] .opt2-vbar'), "");
+          T("投票面板：不显示投票人姓名", vt.indexOf("测试同学")<0, "");
+          click('#opt2Stage [data-panel="vote"] [data-stg="votecreate"]'); await sleep(250);
+          T("大屏快速发起：弹层打开", !!q("#o2sModal") && !q("#o2sModal").hidden && !!q("#o2sCrtTitle"), "");
+          q("#o2sCrtTitle").value="团日现场快投";
+          var oi=document.querySelectorAll("#o2sCrtOpts [data-crtopt]");
+          if(oi[0])oi[0].value="方案A"; if(oi[1])oi[1].value="方案B";
+          click('#opt2Stage [data-crtmins="30"]'); await sleep(100);
+          click("#o2sCrtGo");
+          await waitFor(function(){return q("#o2sModal") && q("#o2sModal").hidden;},5000);
+          T("大屏快速发起：创建成功", q("#o2sModal") && q("#o2sModal").hidden && txt("#toast").indexOf("已发起")>=0, txt("#toast").slice(0,30));
+          /* 布局自定义 */
+          click('[data-stg="laytoggle"]'); await sleep(200);
+          T("布局编辑：编辑态与预设条", q("#opt2Stage").classList.contains("opt2-editing") && !!q("#o2sLbar") && !q("#o2sLbar").hidden, "");
+          click('#o2sLbar [data-preset="dual"]'); await sleep(200);
+          var pptPanel=q('#opt2Stage [data-panel="ppt"]');
+          T("布局编辑：预设「双栏」生效", pptPanel && pptPanel.style.gridColumn==="span 6", pptPanel?pptPanel.style.gridColumn:"none");
+          click('#opt2Stage [data-panel="ppt"] [data-stg="laysize"]'); await sleep(200);
+          T("布局编辑：面板大小切换", (function(){try{return JSON.parse(localStorage.getItem("zq_stage_layout_v1")).span.ppt===8;}catch(e){return false;}})(), q('#opt2Stage [data-panel="ppt"]').style.gridColumn);
+          click('#opt2Stage [data-panel="vote"] [data-stg="layhide"]'); await sleep(200);
+          T("布局编辑：隐藏面板", q('#opt2Stage [data-panel="vote"]').hidden===true, "");
+          var showBtn=q('#o2sLhid [data-stg="layshow"]');
+          if(showBtn)showBtn.click(); await sleep(200);
+          T("布局编辑：恢复隐藏面板", q('#opt2Stage [data-panel="vote"]').hidden!==true, "");
+          T("布局保存到本机", !!localStorage.getItem("zq_stage_layout_v1"), "");
+          click('[data-stg="laydone"]'); await sleep(150);
+          T("布局编辑：可退出", !q("#opt2Stage").classList.contains("opt2-editing"), "");
           click("#o2sClose"); await sleep(150);
           T("大屏可关闭", q("#opt2Stage").style.display==="none", q("#opt2Stage").style.display);
           T("关闭后恢复页面滚动", document.body.classList.contains("opt2-lock")===false, "opt2-lock="+document.body.classList.contains("opt2-lock"));
@@ -247,7 +318,7 @@ def run_one(page, slot, wx, suffix="", timeout=100):
         os.remove(report)
     args = [EDGE, "--headless=new", "--disable-gpu", "--no-first-run",
             "--force-device-scale-factor=1", "--window-size=430,940",
-            "--virtual-time-budget=24000"]
+            "--virtual-time-budget=45000"]
     if wx:
         args.append("--user-agent=" + WX_UA)
     args.append("http://127.0.0.1:%d/%s%s" % (PORT, page, suffix))
