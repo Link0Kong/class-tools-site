@@ -38,7 +38,7 @@ TEST_SID, TEST_NAME = "3260799999", "测试账号"
 SHOTS = os.path.join(HERE, "_shots_vote_qa")
 os.makedirs(SHOTS, exist_ok=True)
 RESULTS = []
-STATE = {"pid": "", "token": ""}
+STATE = {"pids": [], "token": "", "extra_tokens": []}
 
 _spec = importlib.util.spec_from_file_location("apply_sql", os.path.join(WEB, "deploy", "cloudbase", "apply_sql.py"))
 _apply_sql = importlib.util.module_from_spec(_spec)
@@ -217,7 +217,7 @@ def main():
             pid = ev(pg, "(function(){try{return window.VOTE.detail().poll.id;}catch(e){return '';}})()")
         except Exception:
             pid = ""
-        STATE["pid"] = pid
+        STATE["pids"].append(pid)
         T("L5 界面发起投票成功并打开详情（真实云端）", ok and bool(pid), pid)
         if not pid:
             return RESULTS
@@ -279,25 +279,87 @@ def main():
         st, rl = rpc("poll_list", {}, tok)
         T("L17 真实 RPC：删除后列表不再返回该投票",
           rl.get("ok") is True and all(x.get("id") != pid for x in (rl.get("polls") or [])))
+        # ---- 可见人范围（audience）：界面创建「班委可见」→ 普通成员 REST 不可见/不可投 ----
+        normal_tok = "qatok_qaudlive_%s" % int(time.time())
+        ok_ins = sql("insert into private.class_sessions(token,sid,name,expires_at) "
+                     "select '%s', sid, name, now()+interval '1 day' from private.class_ids "
+                     "where seat = 2 and not coalesce(is_test,false) on conflict (token) do nothing"
+                     % normal_tok)
+        if normal_tok:
+            STATE["extra_tokens"].append(normal_tok)
+        T("L20 创建普通成员一次性会话（seat=2，不读取/不打印 sid）", bool(ok_ins))
+        title2 = "QA独立验收_班委可见_%d" % int(time.time())
+        click(pg, "#voteNew")
+        pg.wait_for("(function(){var e=document.getElementById('voteCreateOv');return e&&e.style.display!=='none';})()", 8)
+        set_val(pg, "#voteTitle", title2)
+        set_val(pg, '#voteOpts input[data-ot="0"]', "甲")
+        set_val(pg, '#voteOpts input[data-ot="1"]', "乙")
+        click(pg, '#voteAudience button[data-aud="committee"]')
+        pg.sleep(0.15)
+        click(pg, "#voteCreateGo")
+        ok = pg.wait_for("(function(){var e=document.getElementById('voteDetailOv');return e&&e.style.display!=='none';})()", 25)
+        pid2 = ""
+        try:
+            pid2 = ev(pg, "(function(){try{return window.VOTE.detail().poll.id;}catch(e){return '';}})()")
+        except Exception:
+            pid2 = ""
+        if pid2:
+            STATE["pids"].append(pid2)
+        T("L21 界面发起「班委可见」投票成功并打开详情（真实云端）", ok and bool(pid2), pid2)
+        if pid2:
+            T("L22 详情显示可见范围标签「班委可见」", "班委可见" in text_of(pg, "#voteDetailBody"))
+            st, d2 = rpc("poll_detail", {"p_id": pid2}, tok)
+            T("L23 真实 RPC：audience=committee、audience_count=0、owner_name=测试账号",
+              d2.get("ok") is True and (d2.get("poll") or {}).get("audience") == "committee"
+              and (d2.get("poll") or {}).get("audience_count") == 0
+              and (d2.get("poll") or {}).get("owner_name") == TEST_NAME,
+              str((d2.get("poll") or {}).get("audience")))
+            st, rl2 = rpc("poll_list", {}, normal_tok)
+            T("L24 普通成员列表完全看不到该投票",
+              rl2.get("ok") is True and all(x.get("id") != pid2 for x in (rl2.get("polls") or [])))
+            st, dn = rpc("poll_detail", {"p_id": pid2}, normal_tok)
+            T("L25 普通成员 detail → 「投票不存在」",
+              dn.get("ok") is False and dn.get("reason") == "投票不存在", dn.get("reason"))
+            oid2 = ((d2.get("poll") or {}).get("options") or [{}])[0].get("id")
+            st, sn = rpc("poll_submit", {"p_id": pid2, "p_choices": [oid2]}, normal_tok)
+            T("L26 普通成员 submit → 「投票不存在」",
+              sn.get("ok") is False and sn.get("reason") == "投票不存在", sn.get("reason"))
+            st, so = rpc("poll_submit", {"p_id": pid2, "p_choices": [oid2]}, tok)
+            T("L27 发起人始终可投票（owner 不在班委范围也允许）", so.get("ok") is True and so.get("has_voted") is True)
+            click(pg, "#voteDetailClose")
+            pg.wait_for("(function(){var e=document.getElementById('voteDetailOv');return e&&e.style.display==='none';})()", 8)
+            pg.wait_for("document.querySelector('.vote-card[data-id=\"%s\"]')!==null" % pid2, 10)
+            click(pg, '.vote-card[data-id="%s"]' % pid2)
+            pg.wait_for("(function(){var e=document.getElementById('voteDetailOv');return e&&e.style.display!=='none';})()", 10)
+            click(pg, '[data-vm="delete"]')
+            T("L28 界面删除班委可见投票（软删）",
+              pg.wait_for("(function(){var e=document.getElementById('voteDetailOv');return e&&e.style.display==='none';})()", 20))
+            st, dd = rpc("poll_detail", {"p_id": pid2}, tok)
+            T("L29 真实 RPC：删除后不可查（投票不存在）",
+              dd.get("ok") is False and "不存在" in str(dd.get("reason")))
+            pg.screenshot(os.path.join(SHOTS, "live_audience_430.png"))
         # ---- 写保护 / 报错 ----
-        T("L18 云端写保护生效（非投票云写被拦截，poll_* 放行）",
+        T("L30 云端写保护生效（非投票云写被拦截，poll_* 放行）",
           guard["blocked"] >= 1 and guard["allowed_rpc"] >= 4,
           "blocked=%d allowed_rpc=%d seen=%d" % (guard["blocked"], guard["allowed_rpc"], guard["seen"]))
         errs = pg.all_errors()
         win_errs = json.loads(ev(pg, "JSON.stringify(window.__errs||[])"))
-        T("L19 真实云端页面 0 未捕获 JS 异常",
+        T("L31 真实云端页面 0 未捕获 JS 异常",
           len(errs.get("exceptions") or []) == 0 and not win_errs,
           json.dumps({"exceptions": (errs.get("exceptions") or [])[:2], "win": win_errs[:2]})[:300])
         return RESULTS
     finally:
         try:
-            if STATE["pid"]:
-                sql("delete from public.poll_votes where poll_id = '%s'" % STATE["pid"])
-                sql("delete from public.polls where id = '%s'" % STATE["pid"])
-                print("[cleanup] 测试投票硬删除 pid=%s" % STATE["pid"])
-            if STATE["token"]:
-                sql_quiet("delete from private.class_sessions where token = '%s'" % STATE["token"])
-                print("[cleanup] 本次测试身份会话已删除")
+            for p_id in STATE.get("pids") or []:
+                sql("delete from public.poll_votes where poll_id = '%s'" % p_id)
+                sql("delete from public.polls where id = '%s'" % p_id)
+                print("[cleanup] 测试投票硬删除 pid=%s" % p_id)
+            toks = [STATE.get("token")] + list(STATE.get("extra_tokens") or [])
+            toks = [t for t in toks if t]
+            if toks:
+                lst = ",".join("'%s'" % t for t in toks)
+                sql_quiet("delete from private.class_sessions where token in (%s)" % lst)
+                print("[cleanup] 本次测试身份/普通成员会话已删除 n=%d" % len(toks))
         except Exception as e:  # noqa: BLE001
             print("[cleanup] FAILED: %s" % e)
         try:

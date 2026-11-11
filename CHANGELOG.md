@@ -2,6 +2,49 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-11 18:1x–18:4x · 大屏 V3：面板化 + 高度自定义布局 + 投票投屏/快速发起 + PPT 播放/下载联动（网页已随合并部署上线）
+
+> 用户需求（2026-11-11 18:10）：「添加投票功能至大屏，同时对于目前重新改动的ppt功能重新设计大屏ppt板块，优化大屏功能和布局高度自定义」。用户拍板：大屏投票＝**投屏 + 大屏快速发起**；布局自定义＝**按钮式 + 拖拽排序/拖拽改宽**；PPT 板块＝**做下载按钮 + 本机 Office 联动**。
+> 范围：仅 `tools/index.html` 大屏块（CSS/JS 重写约 1400 行）+ PPT 下载详情小增（PowerPoint 打开）+ `tools/tests/optim_v2_check.py`；未改 UD v6 / 云端表 / 小程序 / 安卓；APP_VER 仍 2.0.0、单文件零依赖、无新增外部来源。
+
+- **大屏改为 12 列自适应面板网格（非固定四格）**：演示 / 投票 / 计时 / 抽签四面板，时钟固定顶栏；每行自动补满 12 列；≤900px 单列纵向堆叠（自然高度、整体滚动）；短面板自动紧凑（PPT 主位隐藏 eyebrow/标签、标题 1 行，避免裁切）。
+- **布局高度自定义**：`#o2sLay`（或 L 键）进编辑模式 → 布局条（预设 **主持台** 8/4+6/6、**双栏** 6/6+6/6、**聚焦** 12+4/4/4、恢复默认、完成、隐藏面板恢复 chips）；每面板工具 ↑↓ 排序 / ⤢ 大小循环（4/6/8/12）/ × 隐藏；⋮⋮ 手柄拖拽换位、右下角拖拽改宽；持久化 `localStorage zq_stage_layout_v1`（本机偏好，不进 UD 同步）；隐藏后自动补满行；编辑态不触发面板内容操作。
+- **投票面板（新增）**：`cbRpc("poll_list"/"poll_detail"/"poll_create")`；进行中投票 chips 切换；大号标题 + 已投人数 + 倒计时（1s 走）+ 单选/匿名/结果可见性标签 + 选项票数/百分比条；**不渲染投票人姓名**（即使 detail 返回 voters）；结果隐藏时只显示「投后可见/截止后可见」不显示票数；空态「还没有进行中的投票 + 发起投票」。
+- **大屏快速发起**：弹层内标题 + 2–8 选项 + 限时 5/10/30/60 分钟 + 匿名开关 → `poll_create`（mode=quick、单选、允许改票、结果始终可见）→ 创建后自动投屏；失败显示原因不阻塞大屏。
+- **PPT 板块适配 v2.0 下载中心**：`window.PPT` 新增 `openDetail(id)/filesOf(id)` 导出；主位 deck 显示 页数/大小/上传者 + 兼容版/PDF/可放映标签；兼容版主按钮「⤓ 下载资料」（打开 `#pptDl` 下载详情）、旧 deck 主按钮「▶ 开始放映」；主/次按钮可互切；列表行含下载/放映小按钮；头部「演示库/刷新」；空库「去上传」跳 #s-ppt。
+- **PPT 下载详情 · 本机 Office 联动**：兼容版行新增「PowerPoint 打开」= `ms-powerpoint:ofv|u|<绝对URL>`（仅兼容版且 http(s)，走 ECS 缓存 URL；Windows 已装 Office 时直接调起 PowerPoint 打开远程文件）+ 一行说明「兼容版可 PowerPoint 打开（需本机 Office）；WPS 请下载后用本机 WPS 打开」（WPS 无公开远程打开协议，故走下载）。
+- **其它优化**：计时面板 5/10/15/30 分钟快捷（点选即设置并停止旧计时）；Esc 分层（先关弹层 → 退出编辑 → 关大屏；`#pptPlayer`/`#pptDl` 打开时不抢 Esc）；F 全屏、L 布局；窗口 resize 重新补满行并自适应紧凑；移动端触控目标 ≥40px；移除旧 hero+rail 结构及选择器。
+- **测试（本机真实输出）**：`optim_v2_check.py` admin 大屏断言更新为 **29 项**（面板/编辑模式/预设/大小/隐藏恢复/PPT 放映+下载详情+PowerPoint 打开/投票投屏+快速发起/计时快捷/0 JS 报错），全套 main 16 + admin 29 + hash 3 = **GREEN 0 fails**；回归 `v2_ppt_check` 92/92、`v2_ppt_download_check` 51/51、`v2_ui_check` 27/27、`overflow_check 430` = 0；本机 CDP 截图 1366/1920/430/编辑态/投票/PPT 下载详情均 0 横向溢出、0 报错。
+- **独立验收（第三轮，fresh-context teammate）**：**94/94 PASS、0 FAIL、0 JS error**（12 列网格/布局编辑/合成 PointerEvent 拖拽换位与改宽/重载恢复/投票投屏+快速发起/PPT 下载详情+Office URI/Esc 分层/空态错误态/三档布局/非管理员），报告 `验收报告/团日大屏_改造验收_20261110.md`（第三轮；前两轮标注作废保留历史），证据 `tools/tests/_stageqa/`。
+- **上线**：随并行会话合并部署，线上 `index.html` **963,583 B / sha256 `c2f8ce71…`**（OSS `check` MATCH / ECS `verify` MATCH，含同批投票可见人范围与拖拽 v2.1）；APP_VER 2.0.0 未改。
+- **回滚**：重传 `tools/_backup/index_online_20261111-1829_preVoteAudience.html`（962,121 B / `0254a4b8…`，不含投票 audience 与大屏 V3）；仅回退大屏不建议（会连带回退 PPT v2/投票等）。
+- **副作用/已知限制**：大屏打开时额外读取投票列表/详情（5s 详情、20s 列表刷新）与一次 PPT 列表+轻量文件元数据（均为现有 PostgREST 只读，无新增外部来源）；布局偏好只本机；WPS 无法从浏览器直接调起打开远程文件（需下载后打开）；大屏仍仅管理员可见。
+
+## 2026-11-11 18:0x–18:3x · 增量 36：网页卡片拖动定位基准 v2.1（卡片本体）+ 全部卡片可拖入顶部工具栏 + 删除云端测试 PPT（网页已上线 OSS+ECS）
+
+> 用户需求（2026-11-11 18:08）：「1、删除测试ppt，2、将网页版卡片拖动的定位基准设成卡片本体而不是鼠标位置，3、修复部分卡片无法拖动至上方工具栏的问题」。
+> 范围：`tools/index.html`（全部页卡片拖动块 + tabs 元数据）、`tools/tests/v2_drag_check.py`（56→69 项）、`ppt/tests/cleanup_test_decks.py` + `ppt/README.md`；云端仅 `ppt_decks` 软删 2 行测试数据。APP_VER 仍 2.0.0、单文件零依赖、无新增外部请求。
+
+- **拖动定位基准（#2）**：幽灵视觉本来就是卡片本体锚定（`ghost = 指针 - 抓取偏移`，`v2_drag_check` H4 锁定）；本次把**落点/命中/插入位置**从鼠标坐标改为**卡片本体矩形**：`beginGhost` 缓存卡片宽高（`DRAG.cardW/cardH`）→ `dragCardBox()` 用幽灵实时位置推导本体矩形（不逐帧读布局）；`updateDropTarget` 工具栏命中 = 本体矩形与 sticky `.tabs` 重叠（上沿压进栏 ≥2px 进入、离开迟滞 18px）；`calcTabsDrop(cx)` 用本体中心 x 选插入位；`calcCardsDrop(cx,cy)` 按本体中心**阅读顺序（先行后列）**算插入位置，与目标中心几乎重合时按拖动方向决定前/后，保留「候选连续 2 帧一致才落位」迟滞；松手收尾/自动滚动/FLIP 不回归。
+- **全部卡片可拖入工具栏（#3）**：新增 `SPECIAL_TAB={power:"电费",fb:"反馈",ug:"说明"}` + `tabInfoOf/isTabKey`（TOOLS 用原名、特殊页用短标签），贯通 `renderTabs` 显示/安全过滤、`dropToTabs` 校验、命中放行；`gotoTab` 既有支持不改；homeTools 仍 ≤4、仍走 UD v6 同步。14 张卡片逐张验证均可入栏。
+- **测试（真实输出）**：`tools/tests/v2_drag_check.py` **56→69 项全 PASS**——新增 R 本体命中（抓取偏移大、指针在旧命中区外、本体上沿压进栏仍进入投放态；本体矩形=幽灵位置 ≤2px）；S 桌面多列本体中心压到目标卡中心 → 落位到该 index；T 电费/反馈/使用说明入栏 + 短标签 + 点击切页 + 刷新保持；U 工具栏插入位=本体中心（对照指针口径证明不是指针）。测试基座改**动态端口 + 预览副本 PID 唯一名**，避免并行会话撞 8965/9465/`_power_preview.html`（本轮曾致浏览器连接重置假失败）。
+- **回归（本机实跑）**：overflow 360/390/430 = **overflowCount 0**；`v2_ui_check` 27/27；`v2_pos_restore_check` 12/12；`v2_x5_anim_check` 28/28；`optim_v1_check` GREEN；`v2_orient_power_check` 33/33；`sync_check` 144/144；`export_check draw` 正常落盘。
+- **删除测试 PPT（#1）**：云端 `public.ppt_decks` 原有 3 行 `deleted=false`，其中 2 个测试 deck（`dtestvidnu3wy4gfvefa`「测试·嵌入视频演示」、`dtest437clgn2cbiopo`「测试·4:3 演示」）已按用户要求软删（PATCH `id=in.(…)&deleted=eq.false` HTTP 200、affected 2；写前断言 owner_sid=测试身份 3260799999）；清理后仅剩真实 deck `dmwalrdlgevz90l`（16 页 38MB）。新增 `ppt/tests/cleanup_test_decks.py`（默认 dry-run；`--apply` 幂等、写前断言 owner；`--report-oss` 只读统计）+ `ppt/README.md` §9 交付前清理说明；测试身份全部 deck 的 OSS 资产 78 obj / 7.20MiB **只统计未删**（用户未要求清存储）。
+- **上线（已随并行合并部署）**：本改动随并行会话 18:36 合并部署上线 —— OSS/ECS **963,583 B / sha256 `c2f8ce718a2baf6e0e1a4eb1c655c1c5e3222e37967f2eccca1182ced2ba82cb`**（`deploy/oss_object.py check index.html` = **MATCH**；冻结副本 `tools/tests/frozen/index_drag_body_c2f8ce71.html`）。部署前线上备份 `tools/_backup/index_online_20261111-1829_preVoteAudience.html`（962,121 B/`0254a4b8…`）。线上字节级复核：`dragCardBox / SPECIAL_TAB / DRAG_TABS_OVER / calcCardsDrop(cx,cy)` 标记均在。
+- **回滚**：重传上述备份（会连同并行投票可见范围/大屏 CSS 一起回退）；仅回退拖动手感需局部还原 `updateDropTarget/calcTabsDrop/calcCardsDrop` 与 `isToolKey` 拦截，并把测试回退到 56 项版本。
+- **已知取舍/副作用（如实）**：① 鼠标不再参与命中/插入位置——拖动时落点以卡片本体为准（工具栏插入位置随本体中心，比旧「指针位置」左移约半个卡片宽，测试按新口径锁定）；② 只从卡片右上 handle 起手（未改起手方式）；③ 跨端：小程序 `utils/tools.js normalizeHome` 会过滤 power/fb/ug（noHome/未知 key），网页工具栏中的特殊 key 在小程序首页不显示、且小程序编辑首页后可能回写覆盖。
+
+## 2026-11-11 18:0x–18:3x · 投票功能：可见人范围（网页已上线 OSS+ECS；小程序源码待用户上传发布）
+
+> 用户需求（2026-11-11 18:08）：「投票功能新增可见人范围选项」。已确认：**全班 / 班委 / 团员 / 指定成员（座号多选，不存/不显示学号）**；**范围内的人才能看到并投票**（范围外列表完全不可见，detail/submit「投票不存在」）；发起人始终可见可管理可投；管理员始终可见可管理、不在范围时不能投。
+> 契约：`web/vote/CONTRACT.md` §1.6；增量迁移：`deploy/cloudbase/2026-11-11_polls_audience.sql`（已应用，幂等）。
+
+- **云端**：`polls` 增 `audience`（all/committee/league/custom）+ `audience_seats`（座号 jsonb，去重升序，排除测试身份）；新增 `poll_audience_visible()`/`poll_norm_audience()`；DROP 旧 7 参 `poll_create`/`poll_manage` 重建 9 参（新参数默认 all/NULL → 旧版页面创建=全班、编辑不改范围，**向后兼容**）；`poll_list`/`poll_detail`/`poll_submit` 服务端按范围过滤；`audience_seats` 仅 `can_manage` 返回；任何 RPC 不返回学号。
+- **网页**：发起/编辑弹层「可见范围」4 段 + 指定成员（姓名搜索 + 成员 chips，只显示姓名/内部座号，至少 1 人）；卡片/详情范围标签（班委可见/团员可见/指定 N 人，all 不显示）；编辑回填；纯增量 APP_VER 2.0.0。
+- **小程序（源码）**：`utils/vote.js` 范围纯逻辑、`utils/cloud.js` 透传、`pages/vote` 范围 4 段 + roster 成员多选（页面 data 剥离 sid）、`pages/votedetail` 标签；版本仍 2.0.0，**待用户上传发布**。
+- **测试**：`vote_check.py` **83/83**、`vote_cloud_check.py` **82/82**（真实云端班委/团员/普通/管理员身份，finally 清理）、`vote_live_check.py` **34/34**（真实身份：班委投票普通成员不可见、指定成员真实名单可见性）；小程序 `unit 402/0`、staticcheck/code_quality 通过；回归 overflow=0、v2_ui 27/27、v2_drag 69/69。
+- **上线**：部署前备份 `tools/_backup/index_online_20261111-1829_preVoteAudience.html`（962,121 B/`0254a4b8…`）；OSS+ECS 对象 **963,583 B / sha256 `c2f8ce718a2baf6e0e1a4eb1c655c1c5e3222e37967f2eccca1182ced2ba82cb`**（OSS/ECS 校验 MATCH；同文件含并行会话大屏 CSS 改动）。回滚：网页重传备份；DB 先按增量迁移头部回滚、再按基础迁移头部回滚整功能；小程序回退源码。
+
 ## 2026-11-11 13:0x · 投票功能（网页已上线 OSS+ECS；小程序源码待用户上传发布）
 
 > 用户需求（2026-11-11）：「新增投票功能，该功能需同时可用于临时的限时投票和可设立截止日期的长时投票，投票选项和投票标题需可高度自定义化」。
@@ -1489,4 +1532,5 @@
   同步脏检测（后台逻辑不跨端推送/不改用户偏好；用户手动切换视图、导入自定义课表仍正常同步）；
   ② UD 模块含 apply/DOM 辅助约 280 行（契约估 ~150 行）；③ 网页无隐私开关（隐私/数据管理页在小程序），
   网页不承诺开关。
+
 

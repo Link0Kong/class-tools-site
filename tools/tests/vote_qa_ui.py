@@ -17,6 +17,7 @@
 import http.server
 import json
 import os
+import re
 import socketserver
 import sys
 import threading
@@ -51,7 +52,7 @@ def jsq(s):
 
 
 # ---------------------------------------------------------------- fixture
-ME = {"sid": "9000000001", "name": "测试同学01"}
+ME = {"sid": "9000000001", "name": "测试同学01", "seat": 2}
 NAMES = {"9000000001": "测试同学01", "9000000002": "张三", "9000000003": "李四",
          "9000000004": "王五<img src=x onerror=window.__voterxss=1>"}
 TINY_PNG = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
@@ -69,12 +70,15 @@ def opt(oid, text, desc="", img=""):
 
 
 def poll(pid, title, settings, options, deadline=0, *, owner=None, owner_name=None, desc="",
-         mode="long", status="open", closed_at=0, created=None):
+         mode="long", status="open", closed_at=0, created=None,
+         audience="all", audience_count=0, audience_seats=None):
     o = owner if owner is not None else "9000000002"
     return {"id": pid, "title": title, "description": desc, "mode": mode, "owner_sid": o,
             "owner_name": owner_name if owner_name is not None else NAMES.get(o, "同学"),
             "settings": settings, "options": options, "deadline": deadline, "status": status,
             "closed_at": closed_at, "deleted": False,
+            "audience": audience, "audience_count": audience_count,
+            "audience_seats": list(audience_seats or []),
             "created_at": created if created is not None else NOW, "updated_at": NOW}
 
 
@@ -118,7 +122,24 @@ def build_fixture():
     p13 = poll("pqf13", "非法配图不渲染", SET_REAL_ALWAYS,
                [opt("o1", "带外链图", "", "https://evil.example/x.png"),
                 opt("o2", "带合法图", "", TINY_PNG)], 0, created=t - 700)
-    polls = [p1, p2, p3, p4, p5, p6, p7, p8, p11, p12, p13]
+    # ---- 可见人范围（audience）fixture：范围外的投票不应出现在我的列表里 ----
+    p14 = poll("pqf14", "班委可见投票（他人发起）", SET_ANON, [opt("o1", "甲"), opt("o2", "乙")],
+               0, audience="committee", created=t - 650)
+    p15 = poll("pqf15", "团员可见投票（他人发起）", SET_ANON, [opt("o1", "甲"), opt("o2", "乙")],
+               0, audience="league", created=t - 620)
+    p16 = poll("pqf16", "指定成员可见投票（他人发起·我不在内）", SET_ANON,
+               [opt("o1", "甲"), opt("o2", "乙")], 0,
+               audience="custom", audience_count=3, audience_seats=[5, 7, 9], created=t - 600)
+    p17 = poll("pqf17", "我发起的指定成员投票", SET_ANON, [opt("o1", "甲"), opt("o2", "乙")], 0,
+               owner=ME["sid"], owner_name=ME["name"],
+               audience="custom", audience_count=2, audience_seats=[3, 5], created=t - 550)
+    p18 = poll("pqf18", "我发起的班委可见投票", SET_ANON, [opt("o1", "甲"), opt("o2", "乙")], 0,
+               owner=ME["sid"], owner_name=ME["name"], audience="committee", created=t - 500)
+    polls = [p1, p2, p3, p4, p5, p6, p7, p8, p11, p12, p13, p14, p15, p16, p17, p18]
+    # 70 人班级名单（座位 1–70；第 9 个名字含 XSS，用于成员 chips 转义测试）
+    members = [{"seat": i, "sid": "800%07d" % i,
+                "name": ('<img src=x onerror=window.__memxss=1>同学09' if i == 9 else "测试同学%02d" % i),
+                "role": "", "badge": "", "is_admin": False} for i in range(1, 71)]
     votes = {
         "pqf01": [{"sid": "9000000002", "choices": ["o1"]}, {"sid": "9000000003", "choices": ["o2"]}],
         "pqf02": [{"sid": "9000000003", "choices": ["o1", "o2"]},
@@ -135,7 +156,7 @@ def build_fixture():
     }
     for p in polls:
         votes.setdefault(p["id"], [])
-    return {"me": ME, "names": NAMES, "polls": polls, "votes": votes}
+    return {"me": ME, "names": NAMES, "polls": polls, "votes": votes, "members": members}
 
 
 MOCK_JS = r"""
@@ -156,6 +177,26 @@ function pd(id){for(var i=0;i<M.polls.length;i++)if(M.polls[i].id===id&&!M.polls
 function votesOf(id){return M.votes[id]||[];}
 function rec(){return window.__QAREQ;}
 function myVote(id){var v=votesOf(id);for(var i=0;i<v.length;i++)if(v[i].sid===ME.sid)return v[i];return null;}
+/* ---------- 可见人范围（audience）模拟 ---------- */
+function audVal(p){var a=(p&&p.audience)||"all";return (a==="committee"||a==="league"||a==="custom")?a:"all";}
+function audSeatsOf(p){var s=(p&&p.audience_seats)||[];return s.map(Number).filter(function(x){return x>0;});}
+function audVisible(p){
+  if(p.owner_sid===ME.sid)return true;                    /* 发起人始终可见 */
+  var a=audVal(p);
+  if(a==="all")return true;
+  /* mock 的 ME 是普通成员（非班委/非团员） */
+  if(a==="custom")return audSeatsOf(p).indexOf(Number(ME.seat))>=0;
+  return false;
+}
+function audCountOf(p){return audSeatsOf(p).length;}
+function normSeats(list){
+  var out=[],seen={};
+  (Array.isArray(list)?list:[]).forEach(function(x){
+    var n=Math.floor(Number(x));if(!isFinite(n)||n<1||n>70)return;
+    if(seen[n])return;seen[n]=1;out.push(n);
+  });
+  out.sort(function(a,b){return a-b;});return out;
+}
 function countsOf(id){var c={},v=votesOf(id);v.forEach(function(x){(x.choices||[]).forEach(function(o){c[o]=(c[o]||0)+1;});});return c;}
 function closedOf(p){return !!(p.status==="closed"||(Number(p.deadline)>0&&now()>=Number(p.deadline)));}
 function visible(p,has){var mode=(p.settings&&p.settings.resultVisibility)||"afterVote";
@@ -163,19 +204,21 @@ function visible(p,has){var mode=(p.settings&&p.settings.resultVisibility)||"aft
 function votersArr(p){var has=!!myVote(p.id);if(!visible(p,has))return [];
   if(p.settings&&p.settings.anonymous)return [];
   return votesOf(p.id).map(function(v){return {name:FIX.names[v.sid]||"同学",choices:v.choices.slice()};});}
-function summary(p){var has=!!myVote(p.id),vis=visible(p,has),m=myVote(p.id);
+function summary(p){var has=!!myVote(p.id),vis=visible(p,has),m=myVote(p.id),can=p.owner_sid===ME.sid;
   return {id:p.id,title:p.title,description:p.description,mode:p.mode,owner_name:p.owner_name,
     settings:p.settings,deadline:p.deadline,status:p.status,closed_at:p.closed_at,
     created_at:p.created_at,updated_at:p.updated_at,closed:closedOf(p),total:votesOf(p.id).length,
+    audience:audVal(p),audience_count:audCountOf(p),audience_seats:can?audSeatsOf(p):[],
     has_voted:has,my_choices:has?m.choices.slice():[],results_hidden:!vis,
-    counts:vis?countsOf(p.id):{},mine:p.owner_sid===ME.sid,can_manage:p.owner_sid===ME.sid};}
-function detailOf(p){var has=!!myVote(p.id),vis=visible(p,has),m=myVote(p.id);
+    counts:vis?countsOf(p.id):{},mine:can,can_manage:can};}
+function detailOf(p){var has=!!myVote(p.id),vis=visible(p,has),m=myVote(p.id),can=p.owner_sid===ME.sid;
   return {ok:true,now:now(),poll:{id:p.id,title:p.title,description:p.description,mode:p.mode,
     owner_name:p.owner_name,settings:p.settings,options:p.options,deadline:p.deadline,
-    status:p.status,closed_at:p.closed_at,created_at:p.created_at,updated_at:p.updated_at},
+    status:p.status,closed_at:p.closed_at,created_at:p.created_at,updated_at:p.updated_at,
+    audience:audVal(p),audience_count:audCountOf(p),audience_seats:can?audSeatsOf(p):[]},
     closed:closedOf(p),total:votesOf(p.id).length,counts:vis?countsOf(p.id):{},
     has_voted:has,my_choices:has?m.choices.slice():[],results_hidden:!vis,
-    voters:vis?votersArr(p):[],mine:p.owner_sid===ME.sid,can_manage:p.owner_sid===ME.sid};}
+    voters:vis?votersArr(p):[],mine:can,can_manage:can};}
 function resp(o){return Promise.resolve({ok:true,status:200,json:function(){return Promise.resolve(o);},
   text:function(){return Promise.resolve("");},headers:{get:function(){return "application/json";}}});}
 function hdrs(o){var h={},k;o=o||{};for(k in o){try{h[k]=String(o[k]);}catch(e){}}return h;}
@@ -193,15 +236,16 @@ window.fetch=function(u,o){
     if(s.indexOf("/rpc/")>=0){
       var name=s.replace(/^.*\/rpc\//,"").split("?")[0];
       rec().reqs.push({kind:"rpc",name:name,headers:hdrs(o.headers)});
-      if(name==="class_members")return resp([]);
+      if(name==="class_members")return resp(FIX.members);
       if(name==="class_verify")return resp({ok:true,token:"qa-ui-token",sid:ME.sid,name:ME.name,
         role:"",badge:"",is_admin:false});
       if(name==="poll_list"){return resp({ok:true,now:now(),
-        polls:M.polls.filter(function(p){return !p.deleted;}).map(summary)});}
+        polls:M.polls.filter(function(p){return !p.deleted&&audVisible(p);}).map(summary)});}
       if(name==="poll_detail"){var p=pd(body&&body.p_id||"");
-        if(!p)return resp({ok:false,reason:"投票不存在"});return resp(detailOf(p));}
+        if(!p||!audVisible(p))return resp({ok:false,reason:"投票不存在"});return resp(detailOf(p));}
       if(name==="poll_submit"){
         var p2=pd(body&&body.p_id||"");if(!p2)return resp({ok:false,reason:"投票不存在"});
+        if(!audVisible(p2))return resp({ok:false,reason:"投票不存在"});
         if(closedOf(p2))return resp({ok:false,reason:"投票已结束"});
         var ch=(body&&body.p_choices)||[],s2=p2.settings||{};
         var mx=s2.multi?Math.max(2,Number(s2.maxChoices)||2):1;
@@ -215,24 +259,38 @@ window.fetch=function(u,o){
         rec().submits.push({p_id:p2.id,choices:ch.slice()});
         return resp(detailOf(p2));}
       if(name==="poll_create"){
+        var aud=(body.p_audience==="committee"||body.p_audience==="league"||body.p_audience==="custom")
+          ?body.p_audience:"all";
+        var seats=aud==="custom"?normSeats(body.p_audience_seats):[];
+        if(aud==="custom"&&!seats.length)return resp({ok:false,reason:"请选择可见成员"});
         var np={id:body.p_id,title:body.p_title,description:body.p_description||"",mode:body.p_mode,
           owner_sid:ME.sid,owner_name:ME.name,settings:body.p_settings,options:body.p_options,
           deadline:Number(body.p_deadline)||0,status:"open",closed_at:0,deleted:false,
+          audience:aud,audience_count:seats.length,audience_seats:seats,
           created_at:now(),updated_at:now()};
         M.polls.push(np);M.votes[np.id]=[];
         rec().creates.push({p_id:body.p_id,title:body.p_title,desc:body.p_description,
-          mode:body.p_mode,options:body.p_options,settings:body.p_settings,deadline:body.p_deadline});
+          mode:body.p_mode,options:body.p_options,settings:body.p_settings,deadline:body.p_deadline,
+          audience:body.p_audience,seats:body.p_audience_seats});
         return resp(detailOf(np));}
       if(name==="poll_manage"){
         var p3=pd(body&&body.p_id||"");if(!p3)return resp({ok:false,reason:"投票不存在"});
         if(p3.owner_sid!==ME.sid)return resp({ok:false,reason:"无权管理该投票"});
         var act=body.p_action;
-        rec().manages.push({p_id:p3.id,action:act,title:body.p_title,deadline:body.p_deadline});
+        rec().manages.push({p_id:p3.id,action:act,title:body.p_title,deadline:body.p_deadline,
+          audience:body.p_audience,seats:body.p_audience_seats});
         if(act==="delete"){p3.deleted=true;return resp({ok:true,deleted:true});}
         if(act==="close"){p3.status="closed";p3.closed_at=now();}
         else if(act==="extend"){p3.deadline=Number(body.p_deadline)||0;p3.status="open";p3.closed_at=0;}
         else if(act==="edit"){p3.title=body.p_title;p3.description=body.p_description||"";
-          p3.options=body.p_options;p3.settings=body.p_settings;p3.deadline=Number(body.p_deadline)||0;}
+          p3.options=body.p_options;p3.settings=body.p_settings;p3.deadline=Number(body.p_deadline)||0;
+          if(body.p_audience!==undefined&&body.p_audience!==null){
+            var aud2=(body.p_audience==="committee"||body.p_audience==="league"||body.p_audience==="custom")
+              ?body.p_audience:"all";
+            var seats2=aud2==="custom"?normSeats(body.p_audience_seats):[];
+            if(aud2==="custom"&&!seats2.length)return resp({ok:false,reason:"请选择可见成员"});
+            p3.audience=aud2;p3.audience_seats=seats2;p3.audience_count=seats2.length;
+          }}
         else return resp({ok:false,reason:"不支持的操作"});
         p3.updated_at=now();return resp(detailOf(p3));}
       return resp({ok:false,reason:"mock-unknown-rpc:"+name});
@@ -382,7 +440,7 @@ def main():
         pg.wait_for("document.querySelectorAll('#voteList .vote-card').length>=8", 10)
         # ---------- B. 列表 / 筛选 / 排序 / 空态 ----------
         n_open = count(pg, "#voteList .vote-card")
-        T("B1 进入投票页：进行中列表渲染（11 场 fixture 中 9 场进行中）", n_open == 9, "n=%s" % n_open)
+        T("B1 进入投票页：进行中列表渲染（16 场 fixture 中 11 场进行中可见）", n_open == 11, "n=%s" % n_open)
         c1 = text_of(pg, '.vote-card[data-id="pqf01"]')
         T("B2 卡片信息完整（标题/发起人/已投人数/规则标签/倒计时）",
           ("周五还是周六开班会" in c1) and ("张三" in c1) and ("2人已投" in c1)
@@ -392,7 +450,7 @@ def main():
         # deadline 升序 + 不限时在后：pqf01(25m) < pqf11(2h) < pqf08(1d) < pqf02(2d) < pqf05(3d) < 不限时
         T("B3 进行中排序：按截止时间升序、不限时在后",
           order_ids[:5] == ["pqf01", "pqf11", "pqf08", "pqf02", "pqf05"] and
-          set(order_ids[5:]) == {"pqf03", "pqf06", "pqf07", "pqf13"}, str(order_ids))
+          set(order_ids[5:]) == {"pqf03", "pqf06", "pqf07", "pqf13", "pqf17", "pqf18"}, str(order_ids))
         click(pg, '#voteFilter button[data-vf="closed"]')
         pg.sleep(0.2)
         clo = json.loads(ev(pg, "JSON.stringify([].map.call(document.querySelectorAll('#voteList .vote-card'),"
@@ -819,11 +877,176 @@ def main():
         T("H11 管理操作均需确认（confirm 被调用次数 ≥2）", ev(pg, "window.__QA.confirms") >= 2,
           "confirms=%s" % ev(pg, "window.__QA.confirms"))
 
+        # ---------- J. 可见人范围（audience，2026-11-11 18:08 增量） ----------
+        click(pg, '#voteFilter button[data-vf="open"]')
+        ev(pg, "window.VOTE.pull(true)", ap=True)
+        pg.sleep(0.25)
+        T("J1 列表不渲染范围外数据（班委/团员/他人指定成员 3 场均不可见）",
+          count(pg, '.vote-card[data-id="pqf14"]') == 0
+          and count(pg, '.vote-card[data-id="pqf15"]') == 0
+          and count(pg, '.vote-card[data-id="pqf16"]') == 0)
+        probe = json.loads(ev(pg, "window.VOTE.open('pqf14').then(function(r){return JSON.stringify({r:r,"
+                                  "toast:(document.getElementById('toast')||{}).textContent||''});})", ap=True))
+        T("J1b 范围外投票直接 open()：返回 false 且提示「投票不存在」（不暴露存在性）",
+          probe.get("r") is False and "投票不存在" in probe.get("toast", ""), str(probe))
+        c17 = text_of(pg, '.vote-card[data-id="pqf17"]') or ""
+        c18 = text_of(pg, '.vote-card[data-id="pqf18"]') or ""
+        c_all = text_of(pg, '.vote-card[data-id="pqf01"]') or ""
+        T("J2 卡片范围标签：指定成员=「指定 2 人」、班委=「班委可见」、全班不显示范围标签",
+          "指定 2 人" in c17 and "班委可见" in c18
+          and ("班委可见" not in c_all and "团员可见" not in c_all and "指定" not in c_all),
+          (c17[:40] + " | " + c18[:40]))
+        open_card(pg, "pqf17")
+        T("J3 详情范围标签（发起人视角：指定 2 人）", "指定 2 人" in text_of(pg, "#voteDetailBody"))
+        close_detail(pg)
+        T("J4 发起弹层默认可见范围=全班（4 个选项、all 选中、成员区隐藏）",
+          new_poll_modal(pg) and count(pg, "#voteAudience button[data-aud]") == 4
+          and ev(pg, "(function(){var b=document.querySelector('#voteAudience button[data-aud=\"all\"]');"
+                     "return !!b&&b.classList.contains('on');})()")
+          and ev(pg, "document.getElementById('voteAudBox').hidden"))
+        # 班委
+        set_val(pg, "#voteTitle", "班委可见测试")
+        set_val(pg, '#voteOpts input[data-ot="0"]', "甲")
+        set_val(pg, '#voteOpts input[data-ot="1"]', "乙")
+        click(pg, '#voteAudience button[data-aud="committee"]')
+        pg.sleep(0.12)
+        n_cre = len(reqs(pg, "creates"))
+        click(pg, "#voteCreateGo")
+        pg.wait_for("document.querySelector('#voteDetailOv')&&document.querySelector('#voteDetailOv').style.display!=='none'", 10)
+        cr = (reqs(pg, "creates") or [{}])[-1]
+        T("J5 切「班委」：payload p_audience=committee 且成员区隐藏",
+          len(reqs(pg, "creates")) > n_cre and cr.get("audience") == "committee"
+          and ev(pg, "document.getElementById('voteAudBox').hidden"), str(cr.get("audience")))
+        close_detail(pg)
+        # 团员
+        new_poll_modal(pg)
+        set_val(pg, "#voteTitle", "团员可见测试")
+        set_val(pg, '#voteOpts input[data-ot="0"]', "甲")
+        set_val(pg, '#voteOpts input[data-ot="1"]', "乙")
+        click(pg, '#voteAudience button[data-aud="league"]')
+        pg.sleep(0.12)
+        n_cre = len(reqs(pg, "creates"))
+        click(pg, "#voteCreateGo")
+        pg.wait_for("document.querySelector('#voteDetailOv')&&document.querySelector('#voteDetailOv').style.display!=='none'", 10)
+        cr = (reqs(pg, "creates") or [{}])[-1]
+        T("J6 切「团员」：payload p_audience=league",
+          len(reqs(pg, "creates")) > n_cre and cr.get("audience") == "league")
+        close_detail(pg)
+        # 指定成员：成员区、70 chips、XSS 转义
+        new_poll_modal(pg)
+        click(pg, '#voteAudience button[data-aud="custom"]')
+        pg.sleep(0.15)
+        T("J7 切「指定成员」：成员区显示、70 个成员 chips、姓名 XSS 已转义（0 注入元素）",
+          ev(pg, "!document.getElementById('voteAudBox').hidden")
+          and count(pg, "#voteAudMem .vote-mem-b") == 70
+          and ev(pg, "(function(){var b=document.getElementById('voteAudMem');"
+                     "return b.querySelectorAll('img,[onerror]').length===0;})()")
+          and ev(pg, "typeof window.__memxss==='undefined'"))
+        T("J8 成员 chips 只显示姓名（不含学号数字）",
+          not re.search(r"\b800\d{7}\b", text_of(pg, "#voteAudMem") or ""))
+        set_val(pg, "#voteAudSearch", "05")
+        pg.sleep(0.15)
+        n_search = count(pg, "#voteAudMem .vote-mem-b")
+        set_val(pg, "#voteAudSearch", "")
+        pg.sleep(0.15)
+        T("J9 成员搜索：输入「05」过滤 chips，清空恢复 70", 0 < n_search < 70 and count(pg, "#voteAudMem .vote-mem-b") == 70,
+          "filtered=%s" % n_search)
+
+        def click_member(name_part):
+            return ev(pg, "(function(){var cs=document.querySelectorAll('#voteAudMem .vote-mem-b');"
+                          "for(var i=0;i<cs.length;i++){if(cs[i].textContent.indexOf(%s)>=0){cs[i].click();return true;}}"
+                          "return false;})()" % jsq(name_part))
+
+        # 至少 1 人校验：未选任何成员时提交被客户端拦截
+        set_val(pg, "#voteTitle", "指定成员可见测试")
+        set_val(pg, '#voteOpts input[data-ot="0"]', "甲")
+        set_val(pg, '#voteOpts input[data-ot="1"]', "乙")
+        n_cre = len(reqs(pg, "creates"))
+        click(pg, "#voteCreateGo")
+        pg.sleep(0.3)
+        T("J10 自定义范围未选成员：客户端拦截（toast「请选择可见成员」，不发请求）",
+          len(reqs(pg, "creates")) == n_cre and "请选择可见成员" in text_of(pg, "#toast"),
+          text_of(pg, "#toast")[:40])
+        # 选择 07 / 05（乱序选择，payload 应去重升序）并检查摘要
+        click_member("同学07")
+        click_member("同学05")
+        pg.sleep(0.15)
+        T("J11 成员选择：chips 选中 2 个、#voteAudSum 显示已选 2",
+          count(pg, "#voteAudMem .vote-mem-b.on") == 2 and "2" in (text_of(pg, "#voteAudSum") or ""),
+          "sum=%s" % text_of(pg, "#voteAudSum"))
+        click_member("同学07")
+        pg.sleep(0.12)
+        T("J12 成员取消：点已选 chip 取消（选中 1 个、摘要同步）",
+          count(pg, "#voteAudMem .vote-mem-b.on") == 1 and "1" in (text_of(pg, "#voteAudSum") or ""))
+        click_member("同学07")
+        pg.sleep(0.12)
+        n_cre = len(reqs(pg, "creates"))
+        click(pg, "#voteCreateGo")
+        pg.wait_for("document.querySelector('#voteDetailOv')&&document.querySelector('#voteDetailOv').style.display!=='none'", 10)
+        cr = (reqs(pg, "creates") or [{}])[-1]
+        seats_payload = cr.get("seats")
+        T("J13 custom 提交：p_audience=custom、p_audience_seats 为去重升序座号数组（[5,7]）、不含学号",
+          len(reqs(pg, "creates")) > n_cre and cr.get("audience") == "custom"
+          and seats_payload == [5, 7]
+          and not re.search(r"\b800\d{7}\b", json.dumps(cr, ensure_ascii=False)),
+          "seats=%s" % seats_payload)
+        T("J14 custom 创建后详情显示「指定 2 人」", "指定 2 人" in text_of(pg, "#voteDetailBody"))
+        close_detail(pg)
+        # 编辑回填
+        open_card(pg, "pqf17")
+        click(pg, '[data-vm="edit"]')
+        pg.wait_for("document.querySelector('#voteCreateOv')&&document.querySelector('#voteCreateOv').style.display!=='none'", 8)
+        on_seats = json.loads(ev(pg, "(function(){var cs=document.querySelectorAll('#voteAudMem .vote-mem-b.on');"
+                                     "return JSON.stringify([].map.call(cs,function(e){return e.textContent;}));})()"))
+        T("J15 编辑回填：指定成员范围选中原有成员（chips 选中 2 个：同学03/同学05）",
+          ev(pg, "(function(){var b=document.querySelector('#voteAudience button[data-aud=\"custom\"]');"
+                 "return !!b&&b.classList.contains('on');})()")
+          and ev(pg, "!document.getElementById('voteAudBox').hidden")
+          and len(on_seats) == 2 and any("03" in x for x in on_seats) and any("05" in x for x in on_seats),
+          str(on_seats))
+        set_val(pg, "#voteTitle", "指定成员投票（编辑后）")
+        n_man = len(reqs(pg, "manages"))
+        click(pg, "#voteCreateGo")
+        pg.wait_for("(function(){var e=document.getElementById('voteCreateOv');return e&&e.style.display==='none';})()", 8)
+        manages = reqs(pg, "manages")
+        edit_rec = manages[-1] if len(manages) > n_man else {}
+        T("J16 编辑保存：poll_manage edit 携带 p_audience=custom、seats=[3,5]（保持范围）",
+          edit_rec.get("action") == "edit" and edit_rec.get("audience") == "custom"
+          and edit_rec.get("seats") == [3, 5], str({k: edit_rec.get(k) for k in ("action", "audience", "seats")}))
+        if modal_open(pg, "voteDetailOv"):
+            close_detail(pg)
+        # 点按 ≥40px + 360 无横向溢出
+        new_poll_modal(pg)
+        click(pg, '#voteAudience button[data-aud="custom"]')
+        pg.sleep(0.2)
+        aud_h = [x["h"] for x in rects(pg, "#voteAudience button[data-aud]")]
+        chip_h = [x["h"] for x in rects(pg, "#voteAudMem .vote-mem-b")]
+        T("J17 范围按钮/成员 chips 点按高度 ≥40px",
+          bool(aud_h) and min(aud_h) >= 40 and bool(chip_h) and min(chip_h) >= 40,
+          "aud=%s chip=%s" % (min(aud_h) if aud_h else None, min(chip_h) if chip_h else None))
+        pg.set_device(360, 780, 2.0, True, True)
+        pg.sleep(0.35)
+        sw = ev(pg, "document.documentElement.scrollWidth")
+        vw = ev(pg, "window.innerWidth")
+        card_r = ev(pg, "(function(){var c=document.querySelector('#voteCreateOv .vote-mcard');"
+                        "return c?Math.round(c.getBoundingClientRect().right):0;})()")
+        T("J18 360px：指定成员选择区（70 chips）无横向溢出、弹层在视口内",
+          sw <= vw + 1 and card_r <= vw + 1, "scrollW=%s vw=%s cardRight=%s" % (sw, vw, card_r))
+        pg.screenshot(os.path.join(SHOTS, "ui_audience_custom_360.png"))
+        pg.set_device(430, 900, 2.0, True, True)
+        pg.sleep(0.3)
+        click(pg, "#voteCreateCancel")
+        pg.sleep(0.2)
+        T("J19 收尾：取消弹层后列表仍正常（范围外数据仍不可见）",
+          not modal_open(pg, "voteCreateOv")
+          and count(pg, '.vote-card[data-id="pqf14"]') == 0 and count(pg, '.vote-card[data-id="pqf17"]') == 1)
+
         # ---------- I. 隐私 / 报错 / 请求通道 ----------
         body_text = ev(pg, "document.body.innerText")
         sid_leak = [s for s in NAMES if s in body_text]
-        T("I1 页面文本无学号泄露（fixture sid 均不出现）", not sid_leak, str(sid_leak))
-        import re
+        T("I1 页面文本无学号泄露（fixture owner sid 均不出现）", not sid_leak, str(sid_leak))
+        T("I1b 页面文本无成员学号数字（800xxxxxxx / 10 位座号名单均不渲染）",
+          not re.search(r"\b800\d{7}\b", body_text or ""))
         T("I2 页面文本无手机号（11 位 1[3-9] 开头）泄露", not re.search(r"\b1[3-9]\d{9}\b", body_text or ""))
         T("I3 页面文本无「sid」字段名残留", "sid" not in (body_text or "").lower())
         boot_errs = json.loads(ev(pg, "JSON.stringify({e:window.__errs||[],c:window.__cerrs||[]})"))

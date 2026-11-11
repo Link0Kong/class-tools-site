@@ -29,6 +29,9 @@ REST = "https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/"
 KEY = open(os.path.join(WEB, "deploy", "cloudbase", "publish_key.txt"), encoding="utf-8").read().strip()
 TEST_SID, TEST_NAME = "3260799999", "测试账号"
 QA_A, QA_B = "qatok_vote_a", "qatok_vote_b"
+# 可见人范围测试用：真实班级身份的一次性会话（班委 seat16 / 仅团员 seat1 / 普通 seat2 / 管理员 sid）
+AUD_COMMITTEE, AUD_LEAGUE, AUD_PLAIN, AUD_ADMIN = (
+    "qatok_aud_committee", "qatok_aud_league", "qatok_aud_plain", "qatok_aud_admin")
 NOW = int(time.time() * 1000)
 RESULTS = []
 CREATED = []          # 本脚本创建的 poll id（finally 硬删除）
@@ -75,10 +78,14 @@ def settings(**kw):
     return s
 
 
-def mk(pid, title, *, options=None, st=None, deadline=0, mode="quick", desc="", tok=QA_A):
+def mk(pid, title, *, options=None, st=None, deadline=0, mode="quick", desc="", tok=QA_A, audience=None, seats=None):
     body = {"p_id": pid, "p_title": title, "p_description": desc, "p_mode": mode,
             "p_options": options or [opt(1), opt(2), opt(3)], "p_settings": st or settings(),
             "p_deadline": deadline}
+    if audience is not None:
+        body["p_audience"] = audience
+    if seats is not None:
+        body["p_audience_seats"] = seats
     return rpc("poll_create", body, tok)
 
 
@@ -94,6 +101,15 @@ def main():
         "('qatok_vote_a','9999000001','投票测试甲',now()+interval '2 days'),"
         "('qatok_vote_b','9999000002','投票测试乙',now()+interval '2 days') "
         "on conflict (token) do nothing")
+    # 可见人范围：给真实班级身份造一次性 token（班委 / 仅团员 / 普通 / 管理员），仅测试用，finally 删除
+    sql("insert into private.class_sessions(token,sid,name,expires_at) "
+        "select 'qatok_aud_committee', c.sid, c.name, now()+interval '2 hours' from private.class_ids c where c.seat=16 "
+        "union all select 'qatok_aud_league', c.sid, c.name, now()+interval '2 hours' from private.class_ids c where c.seat=1 "
+        "union all select 'qatok_aud_plain', c.sid, c.name, now()+interval '2 hours' from private.class_ids c where c.seat=2 "
+        "on conflict do nothing")
+    sql("insert into private.class_sessions(token,sid,name,expires_at) "
+        "select 'qatok_aud_admin', c.sid, c.name, now()+interval '2 hours' from private.class_ids c "
+        "where c.sid='3260707024' on conflict do nothing")
     st, mem = rpc("poll_list", {}, QA_A)
     T("QA 会话可用（poll_list ok）", bool(mem.get("ok")), str(mem)[:120])
     st, r = rpc("poll_list", {}, None)
@@ -281,6 +297,131 @@ def main():
     st, rl = rpc("poll_list", {}, QA_A)
     T("删除后列表不再返回", all(x.get("id") != p8 for x in (rl.get("polls") or [])))
 
+    # ---- 9b. 可见人范围 audience（2026-11-11 18:08 增量） ----
+    audit_raw = []
+
+    def lst(tok):
+        return rpc("poll_list", {}, tok)[1]
+
+    def has(lst_, pid_):
+        return any(x.get("id") == pid_ for x in (lst_.get("polls") or []))
+
+    # 旧客户端不传 p_audience → 默认 all（向后兼容）
+    pdef = "pqa" + str(NOW)[-8:] + "k"
+    st, r = mk(pdef, "默认范围测试")
+    audit_raw.append(json.dumps(r, ensure_ascii=False))
+    T("旧客户端不传范围：默认 audience=all",
+      r.get("ok") is True and (r.get("poll") or {}).get("audience") == "all"
+      and (r.get("poll") or {}).get("audience_count") == 0, r.get("reason"))
+    if r.get("ok"):
+        CREATED.append(pdef)
+
+    # 班委可见
+    pcom = "pqa" + str(NOW)[-8:] + "m"
+    st, r = mk(pcom, "班委可见测试", audience="committee")
+    audit_raw.append(json.dumps(r, ensure_ascii=False))
+    T("创建班委可见投票", r.get("ok") is True and (r.get("poll") or {}).get("audience") == "committee", r.get("reason"))
+    if r.get("ok"):
+        CREATED.append(pcom)
+    l_com, l_lea, l_pla, l_own = lst(AUD_COMMITTEE), lst(AUD_LEAGUE), lst(AUD_PLAIN), lst(QA_A)
+    T("班委可见：班委列表可见 / 普通成员不可见", has(l_com, pcom) and not has(l_pla, pcom),
+      "com=%s plain=%s" % (has(l_com, pcom), has(l_pla, pcom)))
+    T("班委可见：仅团员（非班委）不可见", not has(l_lea, pcom))
+    T("班委可见：发起人即使不在该范围仍可见", has(l_own, pcom))
+    st, d = rpc("poll_detail", {"p_id": pcom}, AUD_PLAIN)
+    audit_raw.append(json.dumps(d, ensure_ascii=False))
+    T("班委可见：普通成员详情返回「投票不存在」", d.get("ok") is False and "不存在" in str(d.get("reason")), d.get("reason"))
+    st, d = rpc("poll_submit", {"p_id": pcom, "p_choices": ["o1"]}, AUD_PLAIN)
+    T("班委可见：普通成员不能投票", d.get("ok") is False and "不存在" in str(d.get("reason")), d.get("reason"))
+    st, d = rpc("poll_detail", {"p_id": pcom}, AUD_ADMIN)
+    T("班委可见：管理员越权可见且 can_manage=true", d.get("ok") is True and d.get("can_manage") is True)
+
+    # 团员可见
+    pleag = "pqa" + str(NOW)[-8:] + "n"
+    st, r = mk(pleag, "团员可见测试", audience="league")
+    T("创建团员可见投票", r.get("ok") is True and (r.get("poll") or {}).get("audience") == "league", r.get("reason"))
+    if r.get("ok"):
+        CREATED.append(pleag)
+    l_com, l_lea, l_pla = lst(AUD_COMMITTEE), lst(AUD_LEAGUE), lst(AUD_PLAIN)
+    T("团员可见：团员可见 / 普通不可见 / 非团员班委不可见",
+      has(l_lea, pleag) and not has(l_pla, pleag) and not has(l_com, pleag),
+      "lea=%s plain=%s com=%s" % (has(l_lea, pleag), has(l_pla, pleag), has(l_com, pleag)))
+
+    # 指定成员（座号 1、2）
+    pcus = "pqa" + str(NOW)[-8:] + "o"
+    st, r = mk(pcus, "指定成员可见测试", audience="custom", seats=[1, 2])
+    audit_raw.append(json.dumps(r, ensure_ascii=False))
+    T("创建指定成员可见投票（audience_count=2）",
+      r.get("ok") is True and (r.get("poll") or {}).get("audience") == "custom"
+      and (r.get("poll") or {}).get("audience_count") == 2, r.get("reason"))
+    if r.get("ok"):
+        CREATED.append(pcus)
+    l_com, l_lea, l_pla, l_own = lst(AUD_COMMITTEE), lst(AUD_LEAGUE), lst(AUD_PLAIN), lst(QA_A)
+    T("指定成员：名单内团员/普通可见", has(l_lea, pcus) and has(l_pla, pcus))
+    T("指定成员：名单外班委不可见 / 发起人可见", not has(l_com, pcus) and has(l_own, pcus))
+    st, d = rpc("poll_detail", {"p_id": pcus}, AUD_PLAIN)
+    audit_raw.append(json.dumps(d, ensure_ascii=False))
+    T("指定成员：名单内成员可看详情且无管理权、不回传座号名单",
+      d.get("ok") is True and d.get("can_manage") is False
+      and (d.get("poll") or {}).get("audience_seats") == []
+      and (d.get("poll") or {}).get("audience_count") == 2, str((d.get("poll") or {}).get("audience_seats")))
+    st, d = rpc("poll_detail", {"p_id": pcus}, QA_A)
+    T("指定成员：发起人（编辑回填）可见座号数组", d.get("ok") is True and (d.get("poll") or {}).get("audience_seats") == [1, 2])
+    st, d = rpc("poll_submit", {"p_id": pcus, "p_choices": ["o1"]}, AUD_ADMIN)
+    T("指定成员：管理员不在名单内不能投票（reason=不在可见范围内）",
+      d.get("ok") is False and d.get("reason") == "不在可见范围内", d.get("reason"))
+    st, d = rpc("poll_submit", {"p_id": pcus, "p_choices": ["o1"]}, AUD_PLAIN)
+    T("指定成员：名单内成员可投票", d.get("ok") is True and d.get("has_voted") is True)
+    st, d = rpc("poll_submit", {"p_id": pcus, "p_choices": ["o2"]}, QA_A)
+    T("指定成员：发起人不在名单也可投票（owner 例外）", d.get("ok") is True)
+
+    # 范围校验
+    pbad = "pqa" + str(NOW)[-8:] + "p"
+    st, r = mk(pbad, "空名单范围", audience="custom", seats=[])
+    T("custom 无可视成员被拒绝", r.get("ok") is False and "请选择可见成员" in str(r.get("reason")), r.get("reason"))
+    st, r = mk(pbad, "不存在座号", audience="custom", seats=[9999])
+    T("custom 座号不存在被拒绝", r.get("ok") is False and "请选择可见成员" in str(r.get("reason")), r.get("reason"))
+    st, r = mk(pbad, "非法范围", audience="admin")
+    T("非法可见范围被拒绝", r.get("ok") is False and "可见范围不合法" in str(r.get("reason")), r.get("reason"))
+    pnorm = "pqa" + str(NOW)[-8:] + "q"
+    st, r = mk(pnorm, "座号归一", audience="custom", seats=[5, 2, 2, "x"])
+    audit_raw.append(json.dumps(r, ensure_ascii=False))
+    T("custom 座号去重/过滤/升序（[2,5]）",
+      r.get("ok") is True and (r.get("poll") or {}).get("audience_count") == 2, r.get("reason"))
+    if r.get("ok"):
+        CREATED.append(pnorm)
+    st, d = rpc("poll_detail", {"p_id": pnorm}, QA_A)
+    T("custom 座号归一结果正确（owner 回读 [2,5]）", d.get("ok") is True and (d.get("poll") or {}).get("audience_seats") == [2, 5])
+
+    # 编辑可见范围（无票）/ 旧客户端 edit 不改范围 / 有票后拒绝
+    ped = "pqa" + str(NOW)[-8:] + "r"
+    st, r = mk(ped, "编辑范围测试")
+    if r.get("ok"):
+        CREATED.append(ped)
+    st, r = rpc("poll_manage", {"p_id": ped, "p_action": "edit", "p_title": "改范围", "p_description": "",
+                                "p_options": [opt(1), opt(2)], "p_settings": settings(), "p_deadline": 0,
+                                "p_audience": "committee"}, QA_A)
+    T("编辑：all→committee 成功", r.get("ok") is True and (r.get("poll") or {}).get("audience") == "committee")
+    st, r = rpc("poll_manage", {"p_id": ped, "p_action": "edit", "p_title": "改范围2", "p_description": "",
+                                "p_options": [opt(1), opt(2)], "p_settings": settings(), "p_deadline": 0,
+                                "p_audience": "custom", "p_audience_seats": [1, 2]}, QA_A)
+    T("编辑：committee→custom 成功", r.get("ok") is True and (r.get("poll") or {}).get("audience") == "custom"
+      and (r.get("poll") or {}).get("audience_count") == 2)
+    st, r = rpc("poll_manage", {"p_id": ped, "p_action": "edit", "p_title": "改范围3", "p_description": "",
+                                "p_options": [opt(1), opt(2)], "p_settings": settings(), "p_deadline": 0}, QA_A)
+    T("旧客户端 edit 不传范围：保持原范围不变（custom）",
+      r.get("ok") is True and (r.get("poll") or {}).get("audience") == "custom")
+    rpc("poll_submit", {"p_id": ped, "p_choices": ["o1"]}, AUD_PLAIN)  # seat2 在 custom 名单内
+    st, r = rpc("poll_manage", {"p_id": ped, "p_action": "edit", "p_title": "x", "p_description": "",
+                                "p_options": [opt(1), opt(2)], "p_settings": settings(), "p_deadline": 0,
+                                "p_audience": "all"}, QA_A)
+    T("已有票后编辑范围被拒绝", r.get("ok") is False and "已有投票" in str(r.get("reason")), r.get("reason"))
+
+    # audience 相关响应原文扫描：不得出现 "sid" 字段/学号
+    raw_all = "".join(audit_raw)
+    T("可见范围相关 RPC 响应不含 sid 字段", '"sid"' not in raw_all and "owner_sid" not in raw_all,
+      raw_all[:120])
+
     # ---- 10. 直连表被拒（anon 无权限） ----
     for tbl in ("polls", "poll_votes"):
         try:
@@ -305,7 +446,8 @@ if __name__ == "__main__":
                 lst = ",".join("'%s'" % i for i in ids)
                 sql("delete from public.poll_votes where poll_id in (%s)" % lst)
                 sql("delete from public.polls where id in (%s)" % lst)
-            sql("delete from private.class_sessions where token in ('qatok_vote_a','qatok_vote_b')")
+            sql("delete from private.class_sessions where token in "
+                "('qatok_vote_a','qatok_vote_b','qatok_aud_committee','qatok_aud_league','qatok_aud_plain','qatok_aud_admin')")
             for t in EXTRA_TOKENS:
                 if t:
                     sql("delete from private.class_sessions where token = '%s'" % t)

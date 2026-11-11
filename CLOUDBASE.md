@@ -805,3 +805,57 @@ DROP FUNCTION IF EXISTS public.poll_results_visible(jsonb,boolean,boolean);
 DROP TABLE IF EXISTS public.poll_votes;
 DROP TABLE IF EXISTS public.polls;
 ```
+
+## 投票可见人范围 `audience` / `audience_seats`（2026-11-11 18:08 增量，已应用）
+
+> 用户需求：「投票功能新增可见人范围选项」。契约：`web/vote/CONTRACT.md` §1.6；增量迁移：`deploy/cloudbase/2026-11-11_polls_audience.sql`（幂等，已应用；基础迁移 `2026-11-11_polls.sql` 不变）。
+
+### 表结构增量（`public.polls`）
+
+| 列 | 类型 | 说明 |
+|---|---|---|
+| `audience` | text NOT NULL DEFAULT 'all' | `all` 全班 / `committee` 班委 / `league` 团员 / `custom` 指定成员；CHECK 约束 |
+| `audience_seats` | jsonb NOT NULL DEFAULT '[]' | `custom` 时的**座号**数组（去重升序，1–70，排除 `is_test`）；其它范围恒 `[]`。**不存学号** |
+
+### 内部函数（不给 anon 直连）
+
+- `public.poll_audience_visible(p_audience text, p_seats jsonb) returns boolean`（SECURITY DEFINER, STABLE）：
+  `all`→true；`committee`→`auth_is_committee()`；`league`→`auth_is_league()`；`custom`→当前 `auth_sid()` 对应 `private.class_ids.seat ∈ seats`。
+- `public.poll_norm_audience(p_audience text, p_seats jsonb) returns jsonb`：归一/校验（非法值拒绝；custom 至少 1 个真实座号；
+  去重升序；不存在/is_test 座号被过滤）。
+
+### RPC 变化（签名变更，旧签名已 DROP）
+
+| RPC | 变化 |
+|---|---|
+| `poll_create(...p_deadline bigint, p_audience text DEFAULT 'all', p_audience_seats jsonb DEFAULT NULL)` | 新增两参数；旧客户端不传=all（向后兼容） |
+| `poll_manage(...p_deadline bigint DEFAULT NULL, p_audience text DEFAULT NULL, p_audience_seats jsonb DEFAULT NULL)` | edit 可改范围；p_audience 为 NULL 时保持原范围（旧客户端兼容）；close/extend/delete 忽略 |
+| `poll_list()` | 只返回「owner / admin / 在范围内」的投票；每行增加 `audience` / `audience_count` |
+| `poll_detail(p_id)` | 范围外返回 `{ok:false,reason:"投票不存在"}`（不暴露存在性）；`poll.audience`/`audience_count` 恒返回，`poll.audience_seats` 仅 `can_manage` 返回 |
+| `poll_submit(p_id,p_choices)` | 范围外返回「投票不存在」（管理员越权可见时返回「不在可见范围内」）；owner 始终可投 |
+
+### 可见/投票语义
+
+- **范围外**：列表无、详情无、不能投票（统一「投票不存在」，不泄露存在性）；
+- **发起人**：始终可见/可管理/**可投票**（即使不在 custom 名单）；
+- **管理员**：始终可见/可管理；不在范围内时**不能投票**（reason「不在可见范围内」）；
+- 匿名投票/结果可见性规则不变；任何 RPC 不返回学号（座号只用于 custom 范围与编辑回填）。
+
+### 测试
+
+- `tools/tests/vote_cloud_check.py` **82/82**（真实云端：班委/团员/普通/管理员一次性真实身份会话；四范围可见性、范围外 detail/submit、管理员越权不可投、custom 座号校验/归一、编辑改范围、旧客户端兼容、响应无 sid；finally 硬删除）。
+- `tools/tests/vote_live_check.py` **34/34**（本地通道 + 测试身份真实 E2E：班委可见投票普通成员不可见；指定成员真实 70 人名单可见性；界面删除清理）。
+
+### 回滚（先增量后基础）
+
+```sql
+-- 1) 回滚本增量（恢复旧 7 参 RPC 时需重新执行 2026-11-11_polls.sql）
+DROP FUNCTION IF EXISTS public.poll_manage(text,text,text,text,jsonb,jsonb,bigint,text,jsonb);
+DROP FUNCTION IF EXISTS public.poll_create(text,text,text,text,jsonb,jsonb,bigint,text,jsonb);
+DROP FUNCTION IF EXISTS public.poll_audience_visible(text,jsonb);
+DROP FUNCTION IF EXISTS public.poll_norm_audience(text,jsonb);
+ALTER TABLE public.polls DROP CONSTRAINT IF EXISTS polls_audience_chk;
+ALTER TABLE public.polls DROP COLUMN IF EXISTS audience_seats;
+ALTER TABLE public.polls DROP COLUMN IF EXISTS audience;
+-- 2) 再按 2026-11-11_polls.sql 头部回滚整个投票功能
+```

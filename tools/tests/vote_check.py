@@ -69,9 +69,10 @@ SET_MULTI = {"multi": True, "maxChoices": 2, "anonymous": False, "allowChange": 
 
 
 def poll(pid, title, settings, options, deadline, status="open", closed_at=0, owner="9000000001", owner_name="测试同学01",
-         desc="", mode="long", created=None):
+         desc="", mode="long", created=None, audience="all", seats=None):
     return {"id": pid, "title": title, "description": desc, "mode": mode, "owner_sid": owner, "owner_name": owner_name,
             "settings": settings, "options": options, "deadline": deadline, "status": status, "closed_at": closed_at,
+            "audience": audience, "audience_seats": (seats or []),
             "deleted": False, "created_at": created or NOW, "updated_at": NOW}
 
 
@@ -85,20 +86,26 @@ P3 = poll("pqa3", "班服颜色（不限时·截止后可见）",
           [opt("o1", "藏青"), opt("o2", "雾青")], 0)
 P4 = poll("pqa4", "已结束的投票", SET_ANON, [opt("o1", "同意"), opt("o2", "不同意")], 0,
           status="closed", closed_at=NOW - 3600000, mode="quick")
-P5 = poll("pqa5", "可编辑的投票（暂无票）", SET_ANON, [opt("o1", "甲"), opt("o2", "乙")], NOW + 3 * 86400000)
+P5 = poll("pqa5", "可编辑的投票（暂无票）", SET_ANON, [opt("o1", "甲"), opt("o2", "乙")], NOW + 3 * 86400000,
+          audience="custom", seats=[1, 3])
+P6 = poll("pqa6", "指定成员可见的投票", SET_ANON, [opt("o1", "行"), opt("o2", "不行")], NOW + 4 * 86400000,
+          owner="9000000002", owner_name="同学02", audience="custom", seats=[1, 2])
 SEED = {
     "members": [
         {"seat": 1, "sid": "9000000001", "name": "测试同学01", "role": "", "badge": "", "is_admin": False},
         {"seat": 2, "sid": "9000000002", "name": "同学02", "role": "", "badge": "", "is_admin": False},
         {"seat": 3, "sid": "9000000003", "name": "同学03", "role": "", "badge": "", "is_admin": False},
+        {"seat": 4, "sid": "9000000004", "name": "同学04", "role": "班长", "badge": "班委", "is_admin": False},
+        {"seat": 5, "sid": "9000000005", "name": "同学05", "role": "", "badge": "", "is_admin": False},
     ],
-    "polls": [P1, P2, P3, P4, P5],
+    "polls": [P1, P2, P3, P4, P5, P6],
     "votes": {
         "pqa1": [{"sid": "9000000002", "choices": ["o1"]}, {"sid": "9000000003", "choices": ["o2"]}],
         "pqa2": [{"sid": "9000000002", "choices": ["o1", "o2"]}, {"sid": "9000000003", "choices": ["o2"]}],
         "pqa3": [{"sid": "9000000002", "choices": ["o1"]}],
         "pqa4": [{"sid": "9000000002", "choices": ["o1"]}],
         "pqa5": [],
+        "pqa6": [],
     },
 }
 
@@ -126,14 +133,17 @@ function votersArr(p){var has=!!myVote(p.id);if(!visible(p,has))return [];if(p.s
 function summary(p){var has=!!myVote(p.id),vis=visible(p,has);return {id:p.id,title:p.title,description:p.description,mode:p.mode,
   owner_name:p.owner_name,settings:p.settings,deadline:p.deadline,status:p.status,closed_at:p.closed_at,
   created_at:p.created_at,updated_at:p.updated_at,closed:closedOf(p),total:votesOf(p.id).length,
+  audience:p.audience||"all",audience_count:(p.audience==="custom"?(p.audience_seats||[]).length:0),
   has_voted:has,my_choices:has?myVote(p.id).choices:[],results_hidden:!vis,counts:vis?countsOf(p.id):{},
   mine:p.owner_sid===ME.sid,can_manage:p.owner_sid===ME.sid};}
-function detailOf(p){var has=!!myVote(p.id),vis=visible(p,has);var m=myVote(p.id);
+function detailOf(p){var has=!!myVote(p.id),vis=visible(p,has);var m=myVote(p.id);var mine=p.owner_sid===ME.sid;
   return {ok:true,now:now(),poll:{id:p.id,title:p.title,description:p.description,mode:p.mode,owner_name:p.owner_name,
     settings:p.settings,options:p.options,deadline:p.deadline,status:p.status,closed_at:p.closed_at,
-    created_at:p.created_at,updated_at:p.updated_at},closed:closedOf(p),total:votesOf(p.id).length,
+    created_at:p.created_at,updated_at:p.updated_at,audience:p.audience||"all",
+    audience_count:(p.audience==="custom"?(p.audience_seats||[]).length:0),
+    audience_seats:(mine&&p.audience==="custom"?(p.audience_seats||[]):[])},closed:closedOf(p),total:votesOf(p.id).length,
     counts:vis?countsOf(p.id):{},has_voted:has,my_choices:has?m.choices:[],results_hidden:!vis,
-    voters:vis?votersArr(p):[],mine:p.owner_sid===ME.sid,can_manage:p.owner_sid===ME.sid};}
+    voters:vis?votersArr(p):[],mine:mine,can_manage:mine};}
 function resp(o){return Promise.resolve({ok:true,status:200,json:function(){return Promise.resolve(o);},text:function(){return Promise.resolve("");}});}
 function hdrs(o){var h={},k;o=o||{};for(k in o){try{h[k]=String(o[k]);}catch(e){}}return h;}
 window.fetch=function(u,o){
@@ -166,6 +176,7 @@ window.fetch=function(u,o){
     if(name==="poll_create"){
       var np={id:body.p_id,title:body.p_title,description:body.p_description,mode:body.p_mode,owner_sid:ME.sid,
         owner_name:ME.name,settings:body.p_settings,options:body.p_options,deadline:Number(body.p_deadline)||0,
+        audience:body.p_audience||"all",audience_seats:(body.p_audience_seats||[]),
         status:"open",closed_at:0,deleted:false,created_at:now(),updated_at:now()};
       M.polls.push(np);M.votes[np.id]=[];
       return resp(detailOf(np));
@@ -177,7 +188,8 @@ window.fetch=function(u,o){
       if(act==="close"){p3.status="closed";p3.closed_at=now();}
       if(act==="extend"){p3.deadline=Number(body.p_deadline)||0;p3.status="open";p3.closed_at=0;}
       if(act==="edit"){p3.title=body.p_title;p3.description=body.p_description;p3.options=body.p_options;
-        p3.settings=body.p_settings;p3.deadline=Number(body.p_deadline)||0;}
+        p3.settings=body.p_settings;p3.deadline=Number(body.p_deadline)||0;
+        if(body.p_audience){p3.audience=body.p_audience;p3.audience_seats=(body.p_audience_seats||[]);}}
       p3.updated_at=now();return resp(detailOf(p3));
     }
     return resp({ok:false,reason:"mock-unknown-rpc:"+name});
@@ -282,7 +294,7 @@ def main():
         click(pg, '[data-open="vote"]')
         pg.wait_for("document.querySelector('#s-vote').classList.contains('on') && document.querySelectorAll('#voteList .vote-card').length>=4", 10)
         n_open = count(pg, "#voteList .vote-card")
-        T("进入投票页：进行中列表渲染", n_open == 4, "cards=%s（P1/P2/P3/P5）" % n_open)
+        T("进入投票页：进行中列表渲染", n_open == 5, "cards=%s（P1/P2/P3/P5/P6）" % n_open)
         T("进行中卡片不带 has_voted 徽标（本人未投）",
           ev(pg, "(function(){var c=document.querySelector('.vote-card[data-id=\"pqa1\"]');return !!c&&c.textContent.indexOf('我已投')<0;})()"))
         c1 = text_of(pg, '.vote-card[data-id="pqa1"]')
@@ -305,12 +317,18 @@ def main():
         pg.wait_for("(function(){var e=document.getElementById('voteCreateOv');return e&&e.style.display!=='none';})()", 5)
         T("发起投票弹层打开", modal_open(pg, "voteCreateOv"))
         T("默认选项 2 行", count(pg, "#voteOpts .vote-opt-edit") == 2)
+        T("可见范围默认「全班」且成员选择区隐藏",
+          ev(pg, "(function(){var b=document.querySelector('#voteAudience button.on');"
+                 "return !!b&&b.getAttribute('data-aud')==='all'&&document.getElementById('voteAudBox').hidden;})()"))
+        T("卡片显示可见范围标签：指定 2 人 / 班委可见标签不误显示",
+          ("指定 2 人" in text_of(pg, '.vote-card[data-id="pqa6"]')) and
+          ("班委可见" not in text_of(pg, '.vote-card[data-id="pqa1"]')))
         T("默认限时 30 分钟（契约 §3.3）",
           ev(pg, "(function(){var b=document.querySelector('#voteQuick button.on');return !!b&&b.getAttribute('data-min')==='30';})()"),
           ev(pg, "(function(){var b=document.querySelector('#voteQuick button.on');return b?b.getAttribute('data-min'):'';})()"))
         T("发起弹层小控件点按高度 ≥40px",
           ev(pg, "(function(){var els=[document.getElementById('voteSync'),document.getElementById('voteAddOpt')];"
-                 "document.querySelectorAll('#voteDeadlineType button,#voteQuick button,#voteOpts .vote-opt-btns button').forEach(function(e){els.push(e);});"
+                 "document.querySelectorAll('#voteDeadlineType button,#voteQuick button,#voteOpts .vote-opt-btns button,#voteAudience button').forEach(function(e){els.push(e);});"
                  "var bad=els.filter(function(e){return e&&e.getBoundingClientRect().height<39.5;});return bad.length===0;})()"))
         set_val(pg, "#voteTitle", "投票测试·临时班会")
         set_val(pg, "#voteDesc", "投完即用")
@@ -332,6 +350,10 @@ def main():
         pg.sleep(0.1)
         T("多选开启后出现最多可选输入", ev(pg, "!document.getElementById('voteMaxWrap').hidden"))
         set_val(pg, "#voteMax", "2")
+        click(pg, '#voteAudience button[data-aud="committee"]')
+        pg.sleep(0.1)
+        T("可见范围切到班委（按钮态）",
+          ev(pg, "(function(){var b=document.querySelector('#voteAudience button.on');return !!b&&b.getAttribute('data-aud')==='committee';})()"))
         click(pg, "#voteCreateGo")
         pg.wait_for("(function(){var e=document.getElementById('voteCreateOv');return e&&e.style.display==='none';})()", 8)
         pg.wait_for("(function(){var e=document.getElementById('voteDetailOv');return e&&e.style.display!=='none';})()", 8)
@@ -354,7 +376,10 @@ def main():
         T("提交参数：多选 2 项 / 匿名 / 允许改票 / 投票后可见",
           st.get("multi") is True and st.get("maxChoices") == 2 and st.get("anonymous") is True and
           st.get("allowChange") is True and st.get("resultVisibility") == "afterVote")
+        T("提交参数：可见范围（班委）", cre.get("p_audience") == "committee" and (cre.get("p_audience_seats") or []) == [],
+          str(cre.get("p_audience")) + "/" + str(cre.get("p_audience_seats")))
         T("创建后直接打开详情", modal_open(pg, "voteDetailOv") and "投票测试·临时班会" in text_of(pg, "#voteDetailBody"))
+        T("详情显示可见范围标签（班委可见）", "班委可见" in text_of(pg, "#voteDetailBody"))
         new_id = ev(pg, "window.__MOCKV.polls[window.__MOCKV.polls.length-1].id")
         T("创建后未投票时结果隐藏（无结果条）", count(pg, "#voteDetailBody .vd-bar") == 0)
 
@@ -406,6 +431,54 @@ def main():
           and ("剩" in text_of(pg, "#voteDetailBody")))
         close_detail(pg)
 
+        # ---------- B3. 指定成员可见（自定义名单，只显示姓名、内部座号） ----------
+        click(pg, "#voteNew")
+        pg.wait_for("(function(){var e=document.getElementById('voteCreateOv');return e&&e.style.display!=='none';})()", 5)
+        set_val(pg, "#voteTitle", "指定成员可见测试")
+        set_val(pg, '#voteOpts input[data-ot="0"]', "甲")
+        set_val(pg, '#voteOpts input[data-ot="1"]', "乙")
+        click(pg, '#voteAudience button[data-aud="custom"]')
+        T("指定成员：打开成员选择区", ev(pg, "!document.getElementById('voteAudBox').hidden"))
+        T("指定成员：加载班级名单 chips（5 人）",
+          pg.wait_for("document.querySelectorAll('#voteAudMem .vote-mem-b').length===5", 8))
+        T("指定成员：初始未选择", "未选择" in text_of(pg, "#voteAudSum"))
+        n_create_before = len(reqs(pg, "poll_create"))
+        click(pg, "#voteCreateGo")
+        pg.sleep(0.25)
+        T("指定成员未选人：客户端拦截（toast 且未发请求）",
+          "请选择可见成员" in text_of(pg, "#toast") and len(reqs(pg, "poll_create")) == n_create_before)
+        set_val(pg, "#voteAudSearch", "同学02")
+        pg.sleep(0.12)
+        T("成员搜索过滤", count(pg, "#voteAudMem .vote-mem-b") == 1 and "同学02" in text_of(pg, "#voteAudMem"))
+        set_val(pg, "#voteAudSearch", "")
+        pg.sleep(0.12)
+        click(pg, '#voteAudMem .vote-mem-b[data-seat="1"]')
+        click(pg, '#voteAudMem .vote-mem-b[data-seat="2"]')
+        pg.sleep(0.12)
+        T("选中 2 人并显示摘要（姓名）",
+          count(pg, "#voteAudMem .vote-mem-b.on") == 2 and "已选" in text_of(pg, "#voteAudSum")
+          and "测试同学01" in text_of(pg, "#voteAudSum"))
+        T("成员 chips 点按高度 ≥40px",
+          ev(pg, "(function(){var bad=[].slice.call(document.querySelectorAll('#voteAudMem .vote-mem-b'))"
+                 ".filter(function(e){return e.getBoundingClientRect().height<39.5;});return bad.length===0;})()"))
+        T("成员选择区不出现学号",
+          ev(pg, "(function(){var h=document.getElementById('voteAudMem').innerHTML;"
+                 "return h.indexOf('9000')<0&&h.indexOf('sid')<0;})()"))
+        pg.sleep(1.3)  # 等 toast 消失，便于截图
+        ev(pg, "document.getElementById('voteAudience').scrollIntoView({block:'center'})")
+        pg.sleep(0.25)
+        pg.screenshot(os.path.join(SHOTS, "vote_create_audience_430.png"))
+        click(pg, "#voteCreateGo")
+        pg.wait_for("(function(){var e=document.getElementById('voteCreateOv');return e&&e.style.display==='none';})()", 8)
+        pg.wait_for("(function(){var e=document.getElementById('voteDetailOv');return e&&e.style.display!=='none';})()", 8)
+        customs = [x for x in reqs(pg, "poll_create") if (x["body"] or {}).get("p_title") == "指定成员可见测试"]
+        T("提交参数：custom + 座号数组 [1,2]",
+          len(customs) == 1 and (customs[-1]["body"] or {}).get("p_audience") == "custom"
+          and (customs[-1]["body"] or {}).get("p_audience_seats") == [1, 2],
+          str(customs[-1]["body"])[:160] if customs else "")
+        T("详情显示可见范围标签（指定 2 人）", "指定 2 人" in text_of(pg, "#voteDetailBody"))
+        close_detail(pg)
+
         # ---------- D. 单选投票 + 改票 + 列表回显 ----------
         open_card(pg, "pqa1")
         T("打开单选详情", "周五还是周六开班会" in text_of(pg, "#voteDetailBody"))
@@ -444,12 +517,22 @@ def main():
         click(pg, '[data-vm="edit"]')
         pg.wait_for("(function(){var e=document.getElementById('voteCreateOv');return e&&e.style.display!=='none';})()", 5)
         T("编辑入口：弹层预填原值", ev(pg, "document.getElementById('voteTitle').value") == "可编辑的投票（暂无票）")
+        T("编辑入口：可见范围回填自定义（座号 1、3）",
+          pg.wait_for("document.querySelectorAll('#voteAudMem .vote-mem-b.on').length===2", 8) and
+          ev(pg, "(function(){var b=document.querySelector('#voteAudience button.on');"
+                 "var on=[].slice.call(document.querySelectorAll('#voteAudMem .vote-mem-b.on'))"
+                 ".map(function(e){return e.getAttribute('data-seat');}).sort();"
+                 "return !!b&&b.getAttribute('data-aud')==='custom'&&on.join(',')==='1,3';})()"))
         set_val(pg, "#voteTitle", "改后的标题")
         click(pg, "#voteCreateGo")
         pg.wait_for("(function(){var e=document.getElementById('voteCreateOv');return e&&e.style.display==='none';})()", 8)
         pg.sleep(0.4)
         edits = reqs(pg, "poll_manage")
         T("编辑已提交（poll_manage action=edit）", len(edits) == 1 and (edits[-1]["body"] or {}).get("p_action") == "edit")
+        T("编辑提交带可见范围字段",
+          len(edits) == 1 and (edits[-1]["body"] or {}).get("p_audience") == "custom"
+          and (edits[-1]["body"] or {}).get("p_audience_seats") == [1, 3],
+          str((edits[-1]["body"] or {}) if edits else {}))
         T("编辑后详情标题更新", "改后的标题" in text_of(pg, "#voteDetailBody"))
         T("编辑后（0 票）仍显示编辑入口", count(pg, '#voteDetailBody [data-vm="edit"]') == 1)
         T("详情管理按钮点按高度 ≥40px",
@@ -478,22 +561,22 @@ def main():
         T("删除后弹层关闭且列表不再出现该投票", count(pg, '.vote-card[data-id="pqa5"]') == 0)
 
         # ---------- I. 倒计时到点自动截止 ----------
-        ev(pg, "(function(){var p={id:'pqa6',title:'倒计时测试',description:'',mode:'long',owner_sid:'9000000001',"
+        ev(pg, "(function(){var p={id:'pqa9',title:'倒计时测试',description:'',mode:'long',owner_sid:'9000000001',"
                "owner_name:'测试同学01',settings:{multi:false,maxChoices:1,anonymous:true,allowChange:true,resultVisibility:'always'},"
                "options:[{id:'o1',text:'甲',desc:'',img:''},{id:'o2',text:'乙',desc:'',img:''}],"
                "deadline:Date.now()+3500,status:'open',closed_at:0,deleted:false,created_at:Date.now(),updated_at:Date.now()};"
-               "window.__MOCKV.polls.push(p);window.__MOCKV.votes['pqa6']=[];return window.__MOCKV.polls.length;})()")
+               "window.__MOCKV.polls.push(p);window.__MOCKV.votes['pqa9']=[];return window.__MOCKV.polls.length;})()")
         ev(pg, "window.VOTE.pull(true)", ap=True)
         pg.wait_for("document.querySelectorAll('#voteList .vote-card').length>=1", 5)
         pg.sleep(0.2)
-        open_card(pg, "pqa6")
+        open_card(pg, "pqa9")
         T("倒计时测试详情打开", "倒计时测试" in text_of(pg, "#voteDetailBody"))
         pg.wait_for("(function(){var e=document.querySelector('#voteDetailBody .vcd');return e&&e.textContent.indexOf('已截止')>=0;})()", 9)
         T("到点自动截止：详情显示已截止且无投票按钮",
           "已截止" in text_of(pg, "#voteDetailBody") and count(pg, "#voteSubmit") == 0)
         close_detail(pg)
         pg.sleep(0.3)
-        T("列表卡片同步显示已截止", "已截止" in text_of(pg, '.vote-card[data-id="pqa6"]') or count(pg, '.vote-card[data-id="pqa6"]') == 0)
+        T("列表卡片同步显示已截止", ("已截止" in text_of(pg, '.vote-card[data-id="pqa9"]')) or count(pg, '.vote-card[data-id="pqa9"]') == 0)
 
         # ---------- J. 截图 + 宽度/溢出 ----------
         pg.screenshot(os.path.join(SHOTS, "vote_list_430.png"))

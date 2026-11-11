@@ -1,0 +1,342 @@
+{
+  "at": "2026-11-11 18:17:55",
+  "pass": 67,
+  "fail": 0,
+  "results": [
+    {
+      "name": "0.1 角色准备：班委/仅团员/普通成员×2/管理员均存在",
+      "ok": true,
+      "note": "missing=[]"
+    },
+    {
+      "name": "0.2 一次性 QA 会话创建（班委/仅团员/普通×2/管理员/发起人）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "0.3 六个一次性会话均可用（poll_list ok）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "0.4 测试身份（is_test）登录成功",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "0.5 角色互斥：班委不在团员名单、仅团员非班委、普通成员两者都不是、管理员非测试",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "1.1 audience=all 创建成功（返回 audience=all、audience_count=0）",
+      "ok": true,
+      "note": "None"
+    },
+    {
+      "name": "1.2 旧客户端不传 p_audience/p_audience_seats → 等价 all（向后兼容）",
+      "ok": true,
+      "note": "None"
+    },
+    {
+      "name": "1.3 p_audience='' 归一为 all",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "1.4 audience=all 时误传座号被忽略（seats=[]）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "1.5 非法 audience 值被拒「可见范围不合法」",
+      "ok": true,
+      "note": "可见范围不合法"
+    },
+    {
+      "name": "2.1 custom 创建成功：去重升序、过滤不存在座号（返回 [班委,普通]）",
+      "ok": true,
+      "note": "[2, 16]"
+    },
+    {
+      "name": "2.2 custom audience_count = 有效座号数",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "2.3 custom 空座号被拒「请选择可见成员」",
+      "ok": true,
+      "note": "请选择可见成员"
+    },
+    {
+      "name": "2.4 custom 座号非数组被拒「请选择可见成员」",
+      "ok": true,
+      "note": "请选择可见成员"
+    },
+    {
+      "name": "2.5 custom 全部座号不存在被拒「请选择可见成员」",
+      "ok": true,
+      "note": "请选择可见成员"
+    },
+    {
+      "name": "2.6 custom 排除 is_test 测试身份座号（只保留真实成员座号）",
+      "ok": true,
+      "note": "[2]"
+    },
+    {
+      "name": "2.7 custom 座号为字符串被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "3.1 audience=committee 创建成功（audience_count=0）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "3.2 audience=league 创建成功",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "4.1 all：六种身份列表全部可见（含范围外普通成员）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "4.2 committee：班委/发起人/管理员可见；仅团员/普通成员×2 不可见",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "4.3 league：团员/发起人/管理员可见；班委/普通成员×2 不可见",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "4.4 custom：指定成员(普通A)/发起人/管理员可见；班委(在custom内)/仅团员/普通B 按名单判定",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "4.5 custom 未列入指定成员：普通B 列表完全看不到，并且无法通过列表拿到行数据",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "4.6 列表不返回 audience_seats 字段（只有 audience/audience_count）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "4.7 列表返回 audience=+audience_count（custom=2）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "5.1 仅团员看班委投票：detail 返回「投票不存在」",
+      "ok": true,
+      "note": "投票不存在"
+    },
+    {
+      "name": "5.2 班委看团员投票：detail 返回「投票不存在」",
+      "ok": true,
+      "note": "投票不存在"
+    },
+    {
+      "name": "5.3 普通B看custom投票：detail 返回「投票不存在」",
+      "ok": true,
+      "note": "投票不存在"
+    },
+    {
+      "name": "5.4 测试身份看custom投票：detail 返回「投票不存在」",
+      "ok": true,
+      "note": "投票不存在"
+    },
+    {
+      "name": "5.5 范围内普通成员 detail 成功，且 can_manage=false / audience_seats=[] / audience_count=2",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "5.6 发起人（不在 custom 名单内）detail 可见且 audience_seats 完整（仅 can_manage 返回）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "5.7 管理员（不在 custom 名单内）detail 可见、can_manage=true、能看到座号数组",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "6.1 范围外普通成员提交 → 「投票不存在」",
+      "ok": true,
+      "note": "投票不存在"
+    },
+    {
+      "name": "6.2 custom 名单外普通成员提交 → 「投票不存在」",
+      "ok": true,
+      "note": "投票不存在"
+    },
+    {
+      "name": "6.3 管理员可见但不在范围内提交 → 「不在可见范围内」",
+      "ok": true,
+      "note": "不在可见范围内"
+    },
+    {
+      "name": "6.4 发起人（不在 custom 名单内）始终可投票",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "6.5 custom 名单内成员可投票",
+      "ok": true,
+      "note": "total=2"
+    },
+    {
+      "name": "6.6 班委在 committee 范围可投票",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "6.7 团员在 league 范围可投票",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "6.8 all 范围任意成员可投票",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "7.1 管理员可管理他人投票（close）",
+      "ok": true,
+      "note": "None"
+    },
+    {
+      "name": "7.2 管理员可延长/重开他人投票",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "7.3 管理员 (can_manage=true) 详情可见 audience_seats（committee 为 []）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "7.4 范围外非管理员不能管理（无权管理该投票）",
+      "ok": true,
+      "note": "无权管理该投票"
+    },
+    {
+      "name": "8.1 旧客户端 edit 不传 p_audience → 可见范围保持不变（committee）",
+      "ok": true,
+      "note": "None"
+    },
+    {
+      "name": "8.2 无票时 edit 可改可见范围（all → custom 普通B）",
+      "ok": true,
+      "note": "None"
+    },
+    {
+      "name": "8.3 改范围后：普通B 可见、普通A 不可见",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "8.4 edit 传 custom 空座号被拒「请选择可见成员」",
+      "ok": true,
+      "note": "请选择可见成员"
+    },
+    {
+      "name": "8.5 edit 传非法范围被拒「可见范围不合法」",
+      "ok": true,
+      "note": "可见范围不合法"
+    },
+    {
+      "name": "8.6 已有票时 edit（含改范围）被拒「已有投票，不能修改内容」",
+      "ok": true,
+      "note": "已有投票，不能修改内容"
+    },
+    {
+      "name": "8.7 旧签名 style 的 manage（不传 audience 参数）可正常执行 close",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "9.1 范围外 + 已结束：先返回「投票不存在」（不泄露存在性/状态）",
+      "ok": true,
+      "note": "投票不存在"
+    },
+    {
+      "name": "9.2 范围内 + 已结束：返回「投票已结束」",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "9.3 管理员 + 范围外（即便已结束）优先返回「不在可见范围内」",
+      "ok": true,
+      "note": "不在可见范围内"
+    },
+    {
+      "name": "10.1 所有 poll_* 原始响应无 sid 字段/真实学号值（80 份响应扫描）",
+      "ok": true,
+      "note": "[]"
+    },
+    {
+      "name": "10.2 响应原文无 10 位学号数字",
+      "ok": true,
+      "note": "n=0"
+    },
+    {
+      "name": "10.3 直连 polls 表仍被拒（401/403）",
+      "ok": true,
+      "note": "status=401"
+    },
+    {
+      "name": "10.4 直连 poll_votes 表仍被拒（401/403）",
+      "ok": true,
+      "note": "status=401"
+    },
+    {
+      "name": "10.5 无 token 仍拒绝",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "11.1 同 id 幂等创建返回原投票（audience 保持 custom，不被覆盖）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "11.2 p_deadline 省略（默认 0）创建成功",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "清理 1 测试投票硬删除（poll_votes + polls）",
+      "ok": true,
+      "note": "n=15"
+    },
+    {
+      "name": "清理 2 硬删后详情均不可查（逐 id 复查）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "清理 3 列表无残留测试投票",
+      "ok": true,
+      "note": "[]"
+    },
+    {
+      "name": "清理 4 一次性 class_sessions 全部删除（含测试身份本次会话）",
+      "ok": true,
+      "note": "n=7"
+    },
+    {
+      "name": "清理 5 清除后 QA token 已失效",
+      "ok": true,
+      "note": ""
+    }
+  ]
+}

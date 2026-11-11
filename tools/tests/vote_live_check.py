@@ -39,6 +39,7 @@ SHOTS = os.path.join(HERE, "_shots_vote")
 os.makedirs(SHOTS, exist_ok=True)
 RESULTS = []
 POLL_ID = [""]
+AUD_POLL_IDS = []
 LIVE_TOKENS = []
 
 _spec = importlib.util.spec_from_file_location("apply_sql", os.path.join(WEB, "deploy", "cloudbase", "apply_sql.py"))
@@ -260,6 +261,81 @@ def main():
         st, d = rpc("poll_detail", {"p_id": pid}, tok)
         T("真实 RPC 校验：删除后不可见", d.get("ok") is False and "不存在" in str(d.get("reason")), d.get("reason"))
 
+        # ---- 可见人范围（真实云端）：班委可见 + 指定成员 ---- 
+        aud_title = "E2E班委可见_%d" % int(time.time())
+        click(pg, "#voteNew")
+        pg.wait_for("(function(){var e=document.getElementById('voteCreateOv');return e&&e.style.display!=='none';})()", 8)
+        set_val(pg, "#voteTitle", aud_title)
+        set_val(pg, '#voteOpts input[data-ot="0"]', "同意")
+        set_val(pg, '#voteOpts input[data-ot="1"]', "不同意")
+        click(pg, '#voteAudience button[data-aud="committee"]')
+        pg.sleep(0.15)
+        click(pg, "#voteCreateGo")
+        T("界面发起班委可见投票", pg.wait_for(
+            "(function(){var e=document.getElementById('voteDetailOv');return e&&e.style.display!=='none';})()", 20))
+        apid = ""
+        try:
+            apid = ev(pg, "(function(){try{return window.VOTE.detail().poll.id;}catch(e){return '';}})()")
+        except Exception:
+            apid = ""
+        if apid:
+            AUD_POLL_IDS.append(apid)
+        T("详情返回班委可见投票 id", bool(apid), apid)
+        st, d = rpc("poll_detail", {"p_id": apid}, tok)
+        T("真实 RPC：audience=committee 且 can_manage",
+          d.get("ok") is True and (d.get("poll") or {}).get("audience") == "committee" and d.get("can_manage") is True,
+          str((d.get("poll") or {}).get("audience")))
+        T("界面显示「班委可见」标签", "班委可见" in text_of(pg, "#voteDetailBody"))
+        pg.screenshot(os.path.join(SHOTS, "live_detail_audience_430.png"))
+        # 真实普通成员（seat2 一次性会话）在列表/详情里完全看不到班委投票
+        sql("insert into private.class_sessions(token,sid,name,expires_at) "
+            "select 'qatok_vote_member', c.sid, c.name, now()+interval '1 hour' from private.class_ids c "
+            "where c.seat=2 on conflict (token) do nothing")
+        st, ml = rpc("poll_list", {}, "qatok_vote_member")
+        T("普通成员列表看不到班委可见投票", all(x.get("id") != apid for x in (ml.get("polls") or [])))
+        st, md = rpc("poll_detail", {"p_id": apid}, "qatok_vote_member")
+        T("普通成员 detail 返回「投票不存在」", md.get("ok") is False and "不存在" in str(md.get("reason")), md.get("reason"))
+        # 删除班委投票（界面）
+        click(pg, '[data-vm="delete"]')
+        T("界面删除班委投票", pg.wait_for("(function(){var e=document.getElementById('voteDetailOv');return e&&e.style.display==='none';})()", 15))
+
+        # 指定成员可见（界面从真实班级名单选 seat2）
+        cus_title = "E2E指定成员_%d" % int(time.time())
+        click(pg, "#voteNew")
+        pg.wait_for("(function(){var e=document.getElementById('voteCreateOv');return e&&e.style.display!=='none';})()", 8)
+        set_val(pg, "#voteTitle", cus_title)
+        set_val(pg, '#voteOpts input[data-ot="0"]', "行")
+        set_val(pg, '#voteOpts input[data-ot="1"]', "不行")
+        click(pg, '#voteAudience button[data-aud="custom"]')
+        T("指定成员：真实班级名单加载",
+          pg.wait_for("document.querySelectorAll('#voteAudMem .vote-mem-b').length>=60", 12),
+          "chips=%s" % ev(pg, "document.querySelectorAll('#voteAudMem .vote-mem-b').length"))
+        click(pg, '#voteAudMem .vote-mem-b[data-seat="2"]')
+        pg.sleep(0.15)
+        T("指定成员：选中 1 人摘要", "已选 1" in text_of(pg, "#voteAudSum"))
+        click(pg, "#voteCreateGo")
+        T("界面发起指定成员投票", pg.wait_for(
+            "(function(){var e=document.getElementById('voteDetailOv');return e&&e.style.display!=='none';})()", 20))
+        cpid = ""
+        try:
+            cpid = ev(pg, "(function(){try{return window.VOTE.detail().poll.id;}catch(e){return '';}})()")
+        except Exception:
+            cpid = ""
+        if cpid:
+            AUD_POLL_IDS.append(cpid)
+        st, d = rpc("poll_detail", {"p_id": cpid}, tok)
+        T("真实 RPC：audience=custom、名单 1 人、座号仅发起人可见",
+          d.get("ok") is True and (d.get("poll") or {}).get("audience") == "custom"
+          and (d.get("poll") or {}).get("audience_count") == 1
+          and (d.get("poll") or {}).get("audience_seats") == [2],
+          str((d.get("poll") or {}).get("audience_seats")))
+        st, ml = rpc("poll_list", {}, "qatok_vote_member")
+        T("指定成员：名单内普通成员可见", any(x.get("id") == cpid for x in (ml.get("polls") or [])))
+        st, ml2 = rpc("poll_list", {}, "qatok_vote_live")
+        T("指定成员：名单外成员不可见", all(x.get("id") != cpid for x in (ml2.get("polls") or [])))
+        click(pg, '[data-vm="delete"]')
+        T("界面删除指定成员投票", pg.wait_for("(function(){var e=document.getElementById('voteDetailOv');return e&&e.style.display==='none';})()", 15))
+
         # ---- 写保护 / 报错 ----
         T("云端写保护生效（拦截了非投票云写）", guard["blocked"] >= 1,
           "blocked=%d allowed_rpc=%d seen=%d" % (guard["blocked"], guard["allowed_rpc"], guard["seen"]))
@@ -277,10 +353,15 @@ def main():
             if POLL_ID[0]:
                 sql("delete from public.poll_votes where poll_id = '%s'" % POLL_ID[0])
                 sql("delete from public.polls where id = '%s'" % POLL_ID[0])
-            sql("delete from private.class_sessions where token = 'qatok_vote_live'")
+            for apid in AUD_POLL_IDS:
+                if not apid:
+                    continue
+                sql("delete from public.poll_votes where poll_id = '%s'" % apid)
+                sql("delete from public.polls where id = '%s'" % apid)
+            sql("delete from private.class_sessions where token in ('qatok_vote_live','qatok_vote_member')")
             for t in LIVE_TOKENS:
                 sql("delete from private.class_sessions where token = '%s'" % t)
-            print("[cleanup] poll=%s sessions=cleaned" % (POLL_ID[0] or "-"))
+            print("[cleanup] poll=%s aud_polls=%d sessions=cleaned" % (POLL_ID[0] or "-", len(AUD_POLL_IDS)))
         except Exception as e:  # noqa: BLE001
             print("[cleanup] FAILED: %s" % e)
         try:

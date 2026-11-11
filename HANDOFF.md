@@ -2750,3 +2750,117 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - **实测**：预热用户 deck 4 文件后，本机下载 37.25MB compat：**5.22MB/s（7.14s）**，另测 7.2–9.1MB/s；冷未缓存直下 2.56MB/s + 边下边发；缓存后 15.2MB/s；ECS 缓存 5 文件 110.84MB。真实 E2E 10/10 PASS（主链接 3 行均 ECS、备用 OSS、sha256 与 manifest 一致、0 JS error）。
 - **客户端**：网页已加速；**小程序/安卓仍走 OSS 直链**（微信/Android HTTPS 限制，ECS 目前只有 http）→ 备案 + `tool.furina.fun` HTTPS 启用后，把下载前缀换成同源 `https://tool.furina.fun/pptfiles/...` 即可同样加速（Caddy 路由已就绪）。
 - **回滚**：`systemctl disable --now class-tools-pptfiles`（客户端回退备用 OSS 链接）；从 `ecs_site.py` 去掉 `/pptfiles` handle 后 apply；网页回滚 `tools/_backup/index_online_20261111-1241_preDlAccel.html`（870,349B/`ea799a28…`，不含投票）。
+
+## 2026-11-11 18:0x–18:3x · 增量 35：投票「可见人范围」（网页已上线 OSS+ECS / 小程序源码待用户上传发布）
+
+> 用户原话：「投票功能新增可见人范围选项」。已确认口径：**全班 / 班委 / 团员 / 指定成员（座号多选，不存/不显示学号）**；
+> **范围内的人才能看到并投票**（范围外列表完全不可见，detail/submit 返回「投票不存在」，不暴露存在性）；
+> **发起人始终可见可管理可投票**（即使不在 custom 名单）；**管理员始终可见可管理，不在范围内时不能投票**（reason「不在可见范围内」）。
+
+### 1. 契约与云端
+- 契约：`web/vote/CONTRACT.md`（新增 §1.6；§2.1/§2.2/§2.3/§2.4/§3/§4 同步更新）。
+- 增量迁移：`deploy/cloudbase/2026-11-11_polls_audience.sql`（已应用，幂等；基础迁移 `2026-11-11_polls.sql` 保持不动）。
+  - `polls` 加列 `audience text NOT NULL DEFAULT 'all'`（`all|committee|league|custom`，CHECK）+ `audience_seats jsonb NOT NULL DEFAULT '[]'`（**座号**数组，去重升序，1–70）。
+  - 新增内部函数：`poll_audience_visible(p_audience,p_seats)`（SECURITY DEFINER：all→true、committee→`auth_is_committee()`、league→`auth_is_league()`、custom→当前 `auth_sid()` 对应 `class_ids.seat ∈ seats`）、`poll_norm_audience(p_audience,p_seats)`（归一/校验/custom 至少 1 个有效座号/排除 `is_test`/去重升序）。
+  - **DROP 旧 7 参 `poll_create`/`poll_manage` 后重建 9 参**：新增 `p_audience text DEFAULT 'all'`、`p_audience_seats jsonb DEFAULT NULL`；旧版缓存页面不传 → create=all、manage edit 保持原范围（向后兼容）。
+  - `poll_list`/`poll_detail`/`poll_submit` 服务端按范围过滤（范围外 detail/submit 一律「投票不存在」；管理员越权可见时 submit 返回「不在可见范围内」；owner 例外可投）；
+    `poll_detail.poll.audience_seats` 仅 `can_manage` 返回，普通成员恒 `[]`；`poll_list`/`detail` 只回 `audience`/`audience_count`，**任何 RPC 不返回学号**。
+  - 编辑：仅「尚无票」时可改范围（`poll_manage action='edit'` 带 `p_audience`/`p_audience_seats`）。
+
+### 2. 网页（`tools/index.html` `__VOTE_V1__` 增量，APP_VER 2.0.0）
+- 发起/编辑弹层：`#voteAudience button[data-aud="all|committee|league|custom"]`；选「指定成员」显示 `#voteAudBox`（`#voteAudSearch` 姓名搜索 + `#voteAudMem` 成员 chips + `#voteAudSum` 已选摘要），chips 只显示姓名、内部用 `data-seat` 座号；至少 1 人，否则客户端 toast「请选择可见成员」；点按高度 ≥40px。
+- 提交/编辑 payload：`p_audience` + `p_audience_seats`（custom 为升序座号数组，其它为 `[]`）。
+- 卡片/详情：范围标签「班委可见 / 团员可见 / 指定 N 人」，`all` 不显示；编辑按服务端返回的 `audience`/`audience_seats` 回填。
+- 说明：「可见范围」位于弹层「结果可见」之后；使用说明页/契约同步更新。
+
+### 3. 小程序（源码 `mp-class-tools/`，版本 2.0.0，**待用户上传发布**）
+- `utils/vote.js`：`AUD/AUD_TEXT/AUD_TAG`、`normAudience/normAudienceSeats/normAudienceChoice`、`audienceTag/audienceText/audienceTagOf`；buildPayload 输出范围；editorFromPoll 回填；cardView/detailView 追加范围标签（all 不显示）。
+- `utils/cloud.js`：`pollCreate` 带 `p_audience/p_audience_seats`；`pollManage` 仅显式传范围时携带（edit 带 → 可改范围；close/extend/delete 不带 → 保持原范围，兼容旧版）。
+- `pages/vote`：范围 4 段 + `utils/roster.js` 成员多选（页面 data 只保留 `{seat,name,sel}`，**剥离 sid**）；`pages/votedetail`：范围标签经共享 `detailView().tags` 渲染、编辑入口回填。
+- 测试：`vote_unit_tests.js` 新增 A15/A16/B7/C7/D9 用例；`node unit.js` **402/0**（VOTE-* 39）、staticcheck/code_quality 通过。
+
+### 4. 测试（本机全绿，真实执行）
+| 脚本 | 结果 | 覆盖 |
+|---|---|---|
+| `tools/tests/vote_check.py` | **83/83** | 默认 all；班委/指定成员 payload 与座号数组；真实文件配图；编辑回填（座号 1、3）；范围标签（指定 2 人/班委可见）；成员搜索/选中/空选拦截；成员区无学号；点按 ≥40px；360/390/430 无溢出；0 JS 报错/0 外部请求 |
+| `tools/tests/vote_cloud_check.py` | **82/82** | 真实云端 API：班委/团员/普通/管理员一次性真实身份会话；all/committee/league/custom 列表可见性；范围外 detail/submit「投票不存在」；管理员越权可见但不在范围不可投；custom 空/不存在/去重/非法值；编辑改范围；旧客户端 create/edit 兼容；响应原文无 sid；finally 清理 16 场测试投票+全部会话 |
+| `tools/tests/vote_live_check.py` | **34/34** | 本地临时通道+测试身份真实 E2E：班委可见投票普通成员列表/详情不可见；指定成员真实 70 人名单选 seat2 → 名单内可见/名单外不可见；界面发起/删除；写保护 blocked≥1；0 未捕获异常 |
+| 回归 | 全绿 | overflow_check 430 = 0、v2_ui_check 27/27、v2_drag_check 69/69（前次偶发浏览器超时，重跑通过） |
+| 小程序 | 全绿 | unit 402/0、staticcheck（26 页、handlers/share 无缺失）、code_quality 退出 0 |
+
+### 5. 上线（2026-11-11 18:3x）
+- 部署前线上备份：`tools/_backup/index_online_20261111-1829_preVoteAudience.html`（962,121 B / sha256 `0254a4b8…`）。
+- 部署：`python deploy/sync_tools.py` + `python deploy/ecs_site.py apply` → OSS/ECS 对象 **963,583 B / sha256 `c2f8ce718a2baf6e0e1a4eb1c655c1c5e3222e37967f2eccca1182ced2ba82cb`**（`deploy/oss_object.py check` MATCH、ECS verify MATCH；DNS 暂停期以对象字节为准）。
+- 说明：该文件同时包含并行会话的大屏 CSS 改动（同文件）；若并行会话后续再部署，以其最终字节为准，本功能代码不受影响。
+
+### 6. 回滚 / 已知限制
+- 回滚：DB 先执行 `2026-11-11_polls_audience.sql` 头部（DROP 新签名 create/manage、audience 两列与两个内部函数），再按 `2026-11-11_polls.sql` 头部回滚整功能；网页重传上面备份；小程序回退源码。
+- 限制：范围外完全不可见（不暴露存在性）；管理员是否在范围内只影响投票权（可见/管理始终有）；指定成员只存/回填座号（RPC 不返回学号）；旧数据无 `audience` 字段按 all 处理、不显示范围标签。
+
+## 2026-11-11 18:0x–18:3x · 增量 36：网页卡片拖动定位基准 v2.1（卡片本体）+ 全部卡片可拖入顶部工具栏 + 删除云端测试 PPT
+
+> 用户原话（2026-11-11 18:08）：「1、删除测试ppt，2、将网页版卡片拖动的定位基准设成卡片本体而不是鼠标位置，3、修复部分卡片无法拖动至上方工具栏的问题」。
+> 本增量只负责上述三项；`tools/index.html` 同时含并行会话的投票可见范围/大屏 CSS 改动（同文件合并部署），本条目只对拖动与测试 PPT 清理负责。
+> APP_VER 仍 `2.0.0`；单文件零依赖、无新增外部请求、无 DB schema 变更。
+
+### 1. 问题定位（Lead 本机 CDP 复现，非猜测）
+
+| 问题 | 现象 | 根因 |
+|---|---|---|
+| ② 定位基准 | 拖卡片时「落点/让位」跟卡片看得见的位置对不上 | 幽灵视觉本来就是「卡片本体锚定」（`ghost = 指针 - offX/offY`，既有 H4 测试锁定）；但**命中/插入位置全部用指针坐标**：`updateDropTarget` 命中区用 `DRAG.x/y`、`calcTabsDrop(DRAG.x)`、`calcCardsDrop(DRAG.x,DRAG.y)`。抓手在卡片右上 handle → 指针≈卡片右边缘，与卡片本体中心差约半个卡宽。 |
+| ③ 部分卡片不能进工具栏 | 14 张卡片中「宿舍电费 / 反馈建议 / 使用说明」拖到顶部栏无高亮、不写 homeTools | `updateDropTarget` 里 `if(zone&&!isToolKey(DRAG.key))zone=false;` 硬挡：这三张不是 `TOOLS` 里的工具（独立页），但都有 handle，看起来可拖。 |
+| ① 测试 PPT | 「演示」页可见「测试·嵌入视频演示」「测试·4:3 演示」两个测试 deck | `test_cloud_contract.py` 为网页验收保留的 ready fixture deck（README §9 注明交付前 Lead 统一 soft-delete，此前未执行）。 |
+
+### 2. 实现（`tools/index.html` 全部页卡片拖动块，搜「全部页卡片拖动 v2」）
+
+- **本体矩形**：`beginGhost` 缓存 `DRAG.cardW/cardH`；新增 `dragCardBox()`（= `DRAG.x-offX / DRAG.y-offY` + 缓存尺寸，不逐帧 `getBoundingClientRect`），返回 `{left,top,right,bottom,cx,cy}`。
+- **工具栏命中（本体）**：`updateDropTarget` 改为 `box.top<=topLim && box.right>=bar.left+side && box.left<=bar.right-side`；常量 `DRAG_TABS_OVER=2`（上沿压进栏 ≥2px 进入）/ `DRAG_TABS_STAY=18`（离开迟滞 18px，防边界抖动）；指针不再参与。保留 sticky `.tabs` 滚动换位后的 `refreshBarRect()`。
+- **工具栏插入位置（本体）**：`calcTabsDrop(box.cx)`：本体中心 x 相对各 tab 中线选 idx（竖屏 3 槽/横屏 4 槽均可命中，dropToTabs 的满员替换规则不变）。
+- **卡片排序（本体）**：`calcCardsDrop(box.cx,box.cy)` 重写为阅读顺序算法——按 `others` 顺序：`cy<icy-rowTol` → 插到该卡前；同一视觉行（`cy<=icy+rowTol`）按 `cx` 判左右；两中心几乎重合时按拖动方向（净位移向上/向左=插到前）决定前后；保留 `candPos/candN>=2` 迟滞与 `applyInsertPos` + WAAPI FLIP。单列布局不再需要「拖过一格才动」（旧 `rowHasOther` 特殊分支已删除）。
+- **全部卡片可入栏**：新增 `SPECIAL_TAB={power:"电费",fb:"反馈",ug:"说明"}`、`tabInfoOf(k)`（TOOLS→原名；特殊页→短标签）、`isTabKey(k)`；`renderTabs` 的 stored 过滤与按钮文案改走 `tabInfoOf`（特殊 key 不被过滤、显示短标签）；`dropToTabs` 校验改 `isTabKey`；`updateDropTarget` 放行改 `isTabKey`。`gotoTab`（既支持 power/fb/ug）+ 滑动引擎 + POS 恢复均不改。homeTools 仍 ≤4、仍走 UD v6，`renderTabs` 补齐项不写回语义不变。
+- **调试探针**：`window.__dragState()` 增加 `cardBox`（left/top/right/bottom/cx/cy/w/h），供测试断言「本体矩形=幽灵位置」。
+- **代码注释**：拖动块头注释更新为 v2.1（定位基准/命中带/特殊卡片），避免后继误改回指针口径。
+
+### 3. 测试（`tools/tests/v2_drag_check.py` 56→69 项，全部保留旧用例）
+
+| 组 | 覆盖 |
+|---|---|
+| R | 本体命中：抓 handle 偏下（抓取偏移 38px）→ 指针在旧「指针命中区」(bar.bottom+26) 之外，卡片上沿已压进栏 → `mode=tabs` + 工具栏高亮；`cardBox` 与幽灵 `translate3d` ≤2px；下移 >18px 回到 cards 态 |
+| S | 桌面 1280 四列：把卡片本体中心精确压到第 4 张卡中心 → 松手后该卡 index==3（对照：旧指针口径会偏 2 格） |
+| T | 电费/反馈/使用说明各拖入工具栏 → homeTools 含 key、tab 短标签 电费/反馈/说明、点击可切页、刷新保持 |
+| U | 工具栏插入位=本体中心：本体中心压第 2 格 → `homeTools[1]=water`；对照「指针压第 3 格中心」时仍插到第 1 槽（证明不是指针） |
+
+- 测试基座：HTTP/CDP 改**动态端口**、预览副本改 `_drag_preview_<pid>.html`（并行会话同跑 `v2_drag_check`/回归时曾撞 8965/9465 与 `_power_preview.html` 导致 connection reset 假失败）；本次实跑 **69/69 PASS**（另由并行投票会话回归时实跑 69/69）。
+- 结果落盘：`tools/tests/_drag_regress_20261111/`（`summary.json` + 各 case log；临时目录，不入库）。
+
+### 4. 回归（本机实跑，真实输出）
+
+| 套件 | 结果 |
+|---|---|
+| `overflow_check.py 360/390/430` | 全部 `overflowCount=0` |
+| `v2_ui_check.py` | 27/27 |
+| `v2_pos_restore_check.py` | 12/12 |
+| `v2_x5_anim_check.py` | 28/28 |
+| `optim_v1_check.py` | GREEN（0 fails） |
+| `v2_orient_power_check.py` | 33/33 |
+| `sync_check.py` | 144/144（UD v6 契约不变） |
+| `export_check.py draw` | 正常落盘 |
+
+### 5. 删除测试 PPT（云端软删 + 可复跑脚本）
+
+- 清理前 `ppt_decks?deleted=eq.false`：3 行 = 真实 deck `dmwalrdlgevz90l` + 测试 deck `dtestvidnu3wy4gfvefa`、`dtest437clgn2cbiopo`。
+- 软删（PATCH `ppt_decks?id=in.(dtestvidnu3wy4gfvefa,dtest437clgn2cbiopo)&deleted=eq.false`，body `{"deleted":true}`）：**HTTP 200、affected 2**；写前 GET 复核并断言目标 owner_sid 全为测试身份 3260799999（防止误删真实 deck）。
+- 清理后 `deleted=eq.false` 仅 1 行（真实 deck）；网页 LIST_SELECT 口径复核同样 1 行；表总行数仍 46（软删、无 DELETE）；幂等复跑 `--apply` = 0 行。
+- 新增 `ppt/tests/cleanup_test_decks.py`：默认 `--dry-run` 只列计划；`--apply` 幂等软删（写前断言 owner）；`--report-oss [--all-test]` 只读统计 OSS 前缀对象数/字节（本轮**未删任何 OSS 对象**：两个测试 deck 26 obj/2.40MiB，全部测试身份 deck 78 obj/7.20MiB；用户未要求清存储）。`ppt/README.md` §9 已补「交付前 `--apply`」说明。
+
+### 6. 上线与证据
+
+- 本改动**随并行会话 2026-11-11 18:36 的合并部署上线**：OSS+ECS 对象 **963,583 B / sha256 `c2f8ce718a2baf6e0e1a4eb1c655c1c5e3222e37967f2eccca1182ced2ba82cb`**；`python deploy/oss_object.py check index.html` = **MATCH**；线上对象字节级含 `dragCardBox/SPECIAL_TAB/DRAG_TABS_OVER/calcCardsDrop(cx,cy)` 标记（另一并行会话的投票可见范围改动亦在同一文件，已由其文档记录）。
+- 冻结副本：`tools/tests/frozen/index_drag_body_c2f8ce71.html`（= 线上字节；可用 `SPEC_CHECK` 让测试基座对线上冻结对象复跑）。
+- 部署前线上备份：`tools/_backup/index_online_20261111-1829_preVoteAudience.html`（962,121 B / `0254a4b8…`）；未含本增量拖动 v2.1 的旧线上 920,368 B / `db91fe6c…`。
+- 独立验收：`web/验收报告/拖动修复与测试PPT清理_独立验收_20261111.md`（QA 独立出具，含 OSS/ECS 双端字节复核）。
+
+### 7. 回滚 / 已知取舍
+
+- 回滚：重传 `index_online_20261111-1829_preVoteAudience.html`（会连同并行投票可见范围/大屏 CSS 一起回退）；仅回退拖动手感 → 局部还原 `updateDropTarget`（指针命中）/`calcTabsDrop`/`calcCardsDrop` 与 `isToolKey` 拦截，并把 `v2_drag_check.py` 回退到 56 项版本。
+- 取舍（如实）：① 鼠标不再参与命中/插入（以卡片本体为准）→ 工具栏插入位置相对旧「指针位置」约左移半个卡宽（本体中心口径，测试已锁定）；② 只能从卡片右上 handle 起手（未改起手方式）；③ 跨端：小程序 `utils/tools.js normalizeHome` 会过滤 power/fb/ug（noHome/未知 key）——网页工具栏里的特殊 key 在小程序首页不显示，且小程序编辑首页后可能回写覆盖（本轮不改 mp，按用户「网页版」范围）。
