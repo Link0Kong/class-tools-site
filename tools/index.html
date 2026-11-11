@@ -3916,8 +3916,15 @@ var UD={
         var pExplicit=!!(typeof POWER!=="undefined"&&POWER&&POWER._clearedAt);
         var pValid=function(x){try{return !!(x&&POWER&&POWER.catOf(x));}catch(e){return false;}};
         if(pBsel&&!pValid(pBsel))pBsel="";                 /* 非法基线（旧版本脏数据）不参与比较 */
-        if(!pLsel&&pBsel&&!pExplicit){val=UD.clone(base.power);out[k]=val;dirty=true;} /* 隐式空沿用基线并强推恢复 */
-        else if(!pLsel&&!pBsel&&!pExplicit){val={sel:"",at:0,low:(base&&base.power&&base.power.low)||30};out[k]=val;dirty=false;} /* 没选过 ≠ 本机改成空 */
+        if(!pLsel&&!pExplicit){
+          if(pBsel){val=UD.clone(base.power);out[k]=val;dirty=true;} /* 隐式空沿用基线并强推恢复 */
+          else{
+            /* 基线为空但云端有非空选择：即使本机缓存里空值时间戳更新（历史 bug 留下的陈旧空缓存），也以云端非空为准 */
+            var pRsel=String((remote&&remote.power&&remote.power.sel)||"");
+            if(pRsel&&pValid(pRsel)){val=UD.clone(remote.power);out[k]=val;dirty=false;}
+            else{val={sel:"",at:0,low:(base&&base.power&&base.power.low)||30};out[k]=val;dirty=false;} /* 没选过 ≠ 本机改成空 */
+          }
+        }
       }
       if(force.indexOf(k)>=0)dirty=true; /* 显式强制：无基线/兜底恢复后确保本地值赢 */
       var la=ba;

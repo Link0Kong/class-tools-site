@@ -341,6 +341,18 @@ def main():
       (s3["select"], s3["remote"], empties3))
     p3.close()
 
+    # C3b: 本机缓存为空（且时间戳比云端新，历史 bug 留下的陈旧空缓存），云端 423 → 仍以云端非空为准
+    stale_empty = blob("", at=int(time.time() * 1000))
+    p3b = new_page(remote=blob(REAL_ROOM, at=int(time.time() * 1000) - 3600 * 1000), cache=stale_empty)
+    time.sleep(2.5)
+    open_power(p3b)
+    s3b = snap(p3b)
+    empties3b = [w for w in s3b["writes"] if (w or {}).get("sel") == ""]
+    T("C3b 本机陈旧空缓存（时间戳更新）+ 云端 423 → 仍恢复 423、不推空",
+      s3b["select"] == REAL_ROOM and (s3b["remote"] or {}).get("sel") == REAL_ROOM and not empties3b,
+      (s3b["select"], s3b["remote"], empties3b))
+    p3b.close()
+
     # C4: 本机缓存 423 较新、云端为空 → 恢复并补推 423
     remote_empty = blob("", at=int(time.time() * 1000) - 7200 * 1000)
     p4 = new_page(remote=remote_empty, cache=blob(REAL_ROOM, at=int(time.time() * 1000) - 600 * 1000))

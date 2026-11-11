@@ -2890,7 +2890,7 @@ sync-repos.cmd "feat: 说明本次改了什么"
 
 ### 38.2 修复（`tools/index.html`）
 1. `POWER.bootRestore()`：启动即从 UD 缓存 → 本机兜底恢复 `sel/selAt/low`（幂等）；`UD.sections()` 读取 power 前兜底调用；`POWER.enter` 开头也调用；`WATER.restoreSel` 改为复用。
-2. `UD.localView` power 防丢：隐式空（未初始化/非法旧值/无基线）不得覆盖非空基线/云端；只有 `POWER._clearedAt`（用户显式清空）允许推空；非法基线（旧脏数据）视作无基线。
+2. `UD.localView` power 防丢：隐式空（未初始化/非法旧值/无基线）不得覆盖非空基线/云端；只有 `POWER._clearedAt`（用户显式清空）允许推空；非法基线（旧脏数据）视作无基线；**本机陈旧空缓存（即使时间戳比云端更新）也以云端非空为准**（`localView` 直接用云端非空值恢复）。
 3. `UD.pull` 自愈：云端 `power.sel` 为空、本机仍有非空选择且非显式清空 → 合并结果保留本机选择并补推一次，修复历史上被冒烟清空的云端。
 4. 显式清空：`POWER.pick("")` / 水量页选空 设置 `_clearedAt`；`applyRemote` 重置。语义：非空选择不会被其他端的隐式空值覆盖。
 
@@ -2901,14 +2901,14 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 使用说明补一句：「点『关注宿舍』按楼栋选房间；选择随账号同步，换设备自动恢复。」
 
 ### 38.4 测试（本机实跑）
-- 新增 `tools/tests/v2_power_pick_mem_check.py`：**47/47 PASS**（静态 12 + 选择器交互 23 + 记忆链路 8 + 多宽度 4；mock fetch 无真实云端/无真实写；截图 `_shots_power_pick/{390_open,390_closed,1280_open}.png`）；对修复前冻结副本（`frozen/index_drag_body_c2f8ce71.html`）实跑 FAIL（证明能抓住回归）。
+- 新增 `tools/tests/v2_power_pick_mem_check.py`：**48/48 PASS**（静态 12 + 选择器/布局交互 27 + 记忆链路 9；mock fetch 无真实云端/无真实写；截图 `_shots_power_pick/{390_open,390_closed,1280_open}.png`）；对修复前冻结副本（`frozen/index_drag_body_c2f8ce71.html`）实跑 FAIL（证明能抓住回归）。
 - 回归：`power_check` **155/155**、`sync_check` **144/144**、`v2_power_detail_check` 30、`v2_power_tip_fixed_check` 21、`v2_power_cadence_check` 84、`v2_power_slow_check` 45、`v2_orient_power_check` 33、`v2_power_sync_hardening_check` 29、`water_check` 169、`v2_water_sync_check` 116、`v2_water_layout_check` 29、`v2_water_month_check`、`v2_pos_restore_check` 12、`v2_ui_check` 27、`v2_drag_check` 69、overflow 430 = 0；0 JS 报错/无外部请求。
 - 测试适配：`power_check` 下拉框高度断言改为「自定义触发器 ≥40px + 原生 select opacity 0」；`sync_check` static 断言改为 sections power IIFE/`bootRestore`；`v2_water_sync_check` G09/G16 在「power 恢复后启动不再产生空值脏推送」后改为显式强拉一次再断言 sid 过滤（原断言依赖旧 bug 产生的 GET）。
 - 部署后真实环境冒烟（ECS `121.196.47.2`，字节=OSS=本次产物）：真实身份 + CDP 拦截全部云端写（blocked=2: visits/userdata，未污染云端）→ 电费页恢复云端 `4-23B---423`、选择器面板 4 楼栋/4 房间/1 选中、390 无溢出、0 JS 报错；截图 `tools/tests/_shots_power_pick/live_ecs_390.png`。
 
 ### 38.5 上线 / 回滚 / 副作用
 - 备份线上：`python deploy/oss_object.py get index.html tools/_backup/index_online_20261111-1915_prePowerPick.html`（963,583B/`c2f8ce71…`）。
-- 部署：`python deploy/sync_tools.py index.html` + `python deploy/ecs_site.py apply`，`oss_object.py check` MATCH / ECS verify MATCH；线上对象 **974,922 B / sha256 `e352ff18…`**（DNS 暂停期以 OSS/ECS 字节为准）。
+- 部署：`python deploy/sync_tools.py index.html` + `python deploy/ecs_site.py apply`，`oss_object.py check` MATCH / ECS verify MATCH；线上对象 **975,287 B / sha256 `56667b04…`**（DNS 暂停期以 OSS/ECS 字节为准）。
 - 回滚：重传备份（会连同同批大屏/投票等一起回退到 963,583 版本）。
 - 副作用/已知取舍（如实）：① 未改电费数据/统计口径；② 非空优先策略下，一端「显式取消关注」后其他仍持有非空选择的端可能把它补推恢复（用户首要诉求是永不丢失选择；如需严格联动取消，需新增显式清空标记字段并改 UD 契约）；③ 选择器为纯前端，17 间静态目录不变（增删宿舍仍需 `PW_ROOMS` 与同步脚本两处同改）；④ 隐藏原生 select 保留但视觉不可见，键盘/读屏走自定义按钮（aria 标注）。
 
