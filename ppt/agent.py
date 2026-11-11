@@ -657,6 +657,32 @@ def warm_ppt_files(base_url, cache_prefix, names, log=None, opener=None,
     return results
 
 
+def _split_cache_asset_names(assets):
+    """资产拆成（build 根目录文件名, media/ 子目录文件名），供 ECS 预热用。"""
+    root_names = []
+    media_names = []
+    for asset in assets or []:
+        name = str(asset.get("name") or "").strip()
+        if not name:
+            continue
+        if name.startswith("media/"):
+            media_names.append(name[len("media/"):])
+        else:
+            root_names.append(name)
+    return root_names, media_names
+
+
+def warm_media_assets(base_url, cache_prefix, assets, log=None, force=True,
+                      timeout=WARM_TIMEOUT_S, opener=None):
+    """预热 media/ 子目录下的独立视频/音频（CONTRACT §12.8；best-effort）。"""
+    _root, media_names = _split_cache_asset_names(assets)
+    if not media_names:
+        return []
+    prefix = str(cache_prefix or "").rstrip("/") + "/media/"
+    return warm_ppt_files(base_url, prefix, media_names, log=log, force=force,
+                          timeout=timeout, opener=opener)
+
+
 def format_error(exc, elapsed=None):
     """异常 → 云端 error 中文短句（≤300 字，脱敏）。"""
     if isinstance(exc, convert.ConvertTimeout):
@@ -758,10 +784,13 @@ class DeckJob(object):
                       progress=lambda p, ph="": self.patch_progress(deck_id, p, ph),
                       dry_run=False, retries=2)
         # ECS 本地缓存预热（best-effort，小超时；失败不影响 ready）
+        root_names, _media_names = _split_cache_asset_names(result["assets"])
         warm_ppt_files(WARM_BASE,
                        "ppt/a/%s/%s/" % (deck_id, result["build_id"]),
-                       [a.get("name") for a in result["assets"]],
-                       log=self.log, timeout=WARM_TIMEOUT_S)
+                       root_names, log=self.log, timeout=WARM_TIMEOUT_S)
+        warm_media_assets(WARM_BASE,
+                          "ppt/a/%s/%s/" % (deck_id, result["build_id"]),
+                          result["assets"], log=self.log)
         self.patch_progress(deck_id, 95, "写入 ready")
         manifest = result["manifest"]
         cover = result.get("cover") or ""
@@ -1294,6 +1323,12 @@ def run_compat_only(cloud, uploader, log, host, deck_id, dry_run=False):
         merged = dict(manifest)
         merged["files"] = files
         merged["compat"] = compat_meta  # 只新增/覆盖 files+compat，其余字段原样保留
+        # v2.3：media_files 以本次转换结果为准（旧值清掉，避免下载到不存在的独立媒体）
+        new_media_files = (result.get("manifest") or {}).get("media_files") or []
+        if new_media_files:
+            merged["media_files"] = new_media_files
+        else:
+            merged.pop("media_files", None)
         errors = pptx_xml.validate_manifest(merged)
         if errors:
             raise convert.ConvertError("合并兼容文件后的 manifest 校验失败：%s"
@@ -1306,15 +1341,17 @@ def run_compat_only(cloud, uploader, log, host, deck_id, dry_run=False):
             "pdf_pages": int(stats.get("pdf_pages") or 0),
             "fonts_embedded": int(stats.get("fonts_embedded") or 0),
             "warnings": len(compat_meta.get("warnings") or []),
+            "media_files": len(new_media_files),
         })
         if dry_run:
             log("[dry-run] 跳过上传/写云端：目标前缀 %s；compat %.2fMB sha=%s / PDF %d 页 "
-                "%.2fMB / 字体 %d / 外链告警 %d 条；manifest 合并校验通过"
-                "（保留 slides=%d, keys=%s）"
+                "%.2fMB / 字体 %d / 外链告警 %d 条 / 单独下载媒体 %d 个；"
+                "manifest 合并校验通过（保留 slides=%d, keys=%s）"
                 % (prefix, summary["compat_bytes"] / 1048576.0,
                    summary["compat_sha256"][:16], summary["pdf_pages"],
                    summary["pdf_bytes"] / 1048576.0, summary["fonts_embedded"],
-                   summary["warnings"], len(manifest.get("slides") or []),
+                   summary["warnings"], summary["media_files"],
+                   len(manifest.get("slides") or []),
                    ",".join(sorted(merged.keys()))))
             log("[dry-run] 本地产物保留（供核对 size/sha256/页数/媒体）：%s" % work_dir)
             summary["action"] = "dry-run"
@@ -1324,9 +1361,10 @@ def run_compat_only(cloud, uploader, log, host, deck_id, dry_run=False):
             % (len(result["assets"]), prefix))
         upload_compat_assets(uploader, prefix, result["assets"], log, retries=2)
         # ECS 本地缓存预热（存量 deck 写回原 build 目录；best-effort）
-        warm_ppt_files(WARM_BASE, prefix,
-                       [a.get("name") for a in result["assets"]],
+        root_names, _media_names = _split_cache_asset_names(result["assets"])
+        warm_ppt_files(WARM_BASE, prefix, root_names,
                        log=log, timeout=WARM_TIMEOUT_S)
+        warm_media_assets(WARM_BASE, prefix, result["assets"], log=log)
         code, data = cloud.patch(
             "ppt_decks?id=eq.%s" % _q(deck_id),
             {"manifest": merged, "updated_at": int(time.time() * 1000)},

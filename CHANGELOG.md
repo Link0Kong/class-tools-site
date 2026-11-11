@@ -2,6 +2,22 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-11 19:4x · PPT v2.3（网页端）：下载详情新增「视频单独下载」分组（**本地完成，待 Lead 统一部署；真实 deck media_files 待转换机重转**）
+
+> 契约：`web/ppt/CONTRACT.md` **§12.8**（转换机从最终 compat 包抽取音视频 → `manifest.media_files`；客户端下载详情新增分组）。本条只记**网页端**（`tools/index.html` + 专项测试）；转换机 media_files 由后端实现（`PptConvertAgent` 当前暂停，等其完成）。`APP_VER` 仍 `2.0.0`、单文件零依赖、无新增外部请求。
+> 写作用域：`tools/index.html`（PPT 下载详情块内增量）+ `tools/tests/` + 本 CHANGELOG；未改其它文件、未部署、未 git。
+
+- **数据**：读 `manifest.media_files`（数组，元素 `{s,name,size,sha256,kind:"video"|"audio",dur,w,h,slides:[7],src}`）；无该字段/空数组的旧 deck **不渲染分组**（向后兼容）。
+- **UI（下载详情，位于「兼容版/PDF/原始文件」三行之后）**：分组头「视频单独下载」+ 数量胶囊；每行主标签 `视频N · 第 X 页`（音频 `音频N · 第 X 页`；同一媒体多页用「、」并列），副行 `时长 · 分辨率 · 大小`（如 `2:30 · 1024×576 · 19MB`；音频无分辨率）；下载按钮主 href 复用 `pptDlHref`（http→ECS `/pptfiles`+pathname；https→同源 `/pptfiles`；非 `/ppt/` 回退 OSS），`download` 用 manifest `name`；行内小字「备用」= 原 OSS 直链（`title="备用下载（较慢）"`），回退场景不重复。
+- **CSS**：收在 PPT 块 `__PPT_DL_V1__` 段内（`.ppt-mgroup/.ppt-mg-hd/.ppt-mg-n/.ppt-mfile`），暖白/雾青、横向分隔虚线；430px 底部弹层与文件行不横向溢出（实测 `rowMaxRight ≤ vw`）。
+- **探针**：`window.PPT.mediaRows()` 返回当前下载详情 media 行数（无分组/未打开=0，供测试与后续 E2E）。
+- **测试（真实输出，最终文件 978,482 B / sha256 `d48d858bf92a06a5d8806894a814c2802aac342ff3b7fef5d25dd641fb8451d8`）**：
+  - [`v2_ppt_download_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_download_check.py) **65/65 PASS**（12.6s；新增：media_files 2 视频 → 分组/数量 2/标签「视频1 · 第 7 页」「视频2 · 第 12 页」/时长 2:30、3:45/分辨率 1024×576、1280×720/大小 19MB、30MB/主 href ECS（pathname 百分号编码）+ `download=manifest name`/备用 OSS+title/`PPT.mediaRows()==2`；音频 fixture → 「音频1 · 第 3 页」+ 1:35 + 1.2MB 且无分辨率、ECS/备用规则一致；无 media_files 的 deck → 分组不显示、探针 0；430px 文件行不溢出；0 JS 报错/0 console.error/0 真实云端写）
+  - 既有 [`v2_ppt_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_check.py) **92/92**、[`v2_ppt_video_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_video_check.py) **100/100**；回归 `overflow_check 430`=**0**、`v2_ui_check` **27/27**
+  - 真实 deck `dmwalrdlgevz90l`（当前 manifest **无** media_files）：下载详情仍 3 行 + 兼容提示 + 在线预览，**不显示视频分组**、`PPT.mediaRows()==0`、0 JS error（向后兼容）；真实 2 视频的 media_files 待转换机重转后由 Lead 复测（契约预期第 7 页 150.92s、第 12 页 225.582s 两行）
+- **已知限制/注意**：① 真实 deck 当前尚无 media_files（转换机暂停中，后端实现后需重转/补转，网页无需再改）；② ECS href 的 pathname 由 `URL` 规范化为百分号编码（与 OSS/ECS key 一致，浏览器可直接下载）；③ 分组按转换机上限最多 20 个文件，详情弹层内部滚动；④ 音频行也放在「视频单独下载」分组内（契约统一分组名）。
+- **并行改动/回滚**：改前工作区备份 `tools/_backup/index_online_20261111-1940_preMediaDl.html`（**975,287 B / sha256 `56667b04…`**，不含本次 media 分组；本次 diff 仅 **+55 / -1 行**，全部在 PPT 下载详情块内）；并行大屏/投票/电费改动未动；未部署/未 git。最终工作区 `tools/index.html` **978,482 B / sha256 `d48d858b…`**（部署前请 Lead 以最终文件重新备份/部署）。
+
 ## 2026-11-11 19:0x · v2.0.0 增量 38：电费「关注宿舍」记忆修复 + 选择器优化（网页已上线 OSS+ECS）
 
 > 用户需求（2026-11-11 18:33）：「把网页端的电费宿舍选择框优化一下，然后修复网页端还是无法记住我的宿舍的问题」。

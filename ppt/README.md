@@ -42,15 +42,15 @@
 
 | 文件 | 作用 |
 |---|---|
-| `agent.py` | 入口：轮询/认领/分片拼装/OSS 上传/心跳/token 刷新/单实例锁/进度 PATCH/日志；v2.0 默认 `--once` 走 **compat**（`--legacy` 保留旧流程）、`--compat-only --deck <id>` 为存量 ready deck 补兼容文件并合并 manifest（保留旧 slides/video）；**上传后 best-effort 预热 ECS 文件缓存**（`PPT_WARM_BASE`，见 §7.1） |
+| `agent.py` | 入口：轮询/认领/分片拼装/OSS 上传/心跳/token 刷新/单实例锁/进度 PATCH/日志；v2.0 默认 `--once` 走 **compat**（`--legacy` 保留旧流程）、`--compat-only --deck <id>` 为存量 ready deck 补兼容文件并合并 manifest（保留旧 slides/video）；**上传后 best-effort 预热 ECS 文件缓存**（build 根目录 4 文件 + `media/` 子目录独立媒体；`PPT_WARM_BASE`，见 §7.1） |
 | `convert.py` | 转换核心：v2.0 `convert_compat()`（compat.pptx 字体嵌入/规范化 + preview.pdf + cover.webp + original.<ext> + manifest v2 + sha256；不重编码媒体）；v1.2 `convert_deck()`/`export_video_only()`（分步图+原样播放视频）保留给 `--legacy` |
 | `pptx_xml.py` | 纯函数：尺寸/页序/媒体/切换/step 规划/buildId；v1.2 视频章节/限流/ffprobe/`manifest.video` 校验；**v2.0** 文件名清洗/路径尾/外链媒体告警/包内媒体 sha256/`manifest.files` 校验（v1/v2 兼容）；**v2.0.1** `repair_broken_video_links` 断链视频修复（rels 重写） |
 | `oss_upload.py` | OSS 封装（`oss2`，凭据复用 `web/deploy/sync_tools.py::load_creds()`，不打印）；`download_to()` 供补转取回原件 |
 | `install_agent.ps1` | 注册计划任务 `PptConvertAgent`（每分钟 + 登录后 30s、InteractiveToken、pythonw、StartWhenAvailable、单实例、`ExecutionTimeLimit=PT45M`；compat 转换预算 ≥20min） |
 | `tests/make_fixture_pptx.py` | 用 COM 生成测试 fixture（16:9 五页、4:3 三页、**.ppt 旧格式三页**；含动画/退场/嵌入视频+音轨/外链/备注/切换） |
-| `tests/test_pure_logic.py` | **159 项**纯逻辑单测（无 COM/网络；v1.2 视频 46 项 + v2.0 compat 26 项 + v2.0.1 断链视频修复 8 项 + v2.2 媒体编码兼容 20 项：策略矩阵/Content-Types/rels 重写/zip 安全重写/manifest；另含预热/强制刷新 8 项） |
+| `tests/test_pure_logic.py` | **171 项**纯逻辑单测（无 COM/网络；v1.2 视频 46 项 + v2.0 compat 26 项 + v2.0.1 断链视频修复 8 项 + v2.2 媒体编码兼容 20 项 + **v2.3 单独下载 9 项**：文件名/页号引用/manifest 校验/上传 key/预热 URL；另含预热/强制刷新 8 项） |
 | `tests/test_convert_integration.py` | **22 项**真实 COM 旧链路断言（图片尺寸/step 去重/视频 hot区/4:3/外链跳过/笔记/耗时 + v1.2 video/帧级/降级/tuanri；`--legacy` 路径回归） |
-| `tests/test_compat_integration.py` | **31 项** v2.0 compat 真实 COM 断言（manifest v2/files 存在+sha/size、页数=源、PowerPoint 可打开、**keep 媒体 sha256 逐字节一致**、PDF 页数、cover、字体、外链告警且不删除、`.ppt→pptx`、失败路径 + **断链视频修复 6 项** + **媒体编码兼容 6 项**：真实 convert_compat 内注入 h264-MKV/HEVC/WMV+AC3/WMA → remux 1/transcode 3、输出 h264/aac、时长差、页数/PDF、原始文件不变、PowerPoint 可打开） |
+| `tests/test_compat_integration.py` | **36 项** v2.0 compat 真实 COM 断言（manifest v2/files 存在+sha/size、页数=源、PowerPoint 可打开、**keep 媒体 sha256 逐字节一致**、PDF 页数、cover、字体、外链告警且不删除、`.ppt→pptx`、失败路径 + 断链视频修复 6 项 + 媒体编码兼容 6 项 + **单独下载 5 项**：注入被引用 HEVC/WMA 媒体 → media_files 3 个、页号/时长/大小/sha、单独文件与 compat 字节一致、上传 key、PowerPoint 可打开） |
 | `tests/test_cloud_contract.py` | 云端 RLS/分片/失败路径/token 刷新/心跳冒烟 + 真实 OSS E2E（E2E 显式走 `legacy=True` 保持旧断言） |
 | `logs/` | `agent-YYYYMMDD.log`（按天，保留 14 天）；`agent.lock` 单实例锁 |
 | `work/` | 每个 deck 的临时工作目录（转换结束删除；陈旧目录 >24h 自动清） |
@@ -371,6 +371,34 @@ PowerPoint 若在 SaveAs 时已自动修复的包，本阶段无操作（幂等�
 - 已知限制：转码会增加兼容包体积（HEVC/WMV 样本 1.5–2×）；`>200MiB/30min` 大媒体只告警不转；外链媒体仍只告警；
   PowerPoint 对极少数封装（如带字幕轨的 mkv）可能需先 remux，remux 只保留首视频轨+首音频轨（不保留字幕轨）。
 
+### 6.5 视频/音频单独下载（v2.3，CONTRACT §12.8）
+
+**问题**：教室电脑/旧 PowerPoint/WPS 打不开内嵌视频时，用户仍需要「单独下载视频到本机用任意播放器播放」。
+
+**实现**（compat 流水线，媒体编码兼容 §12.7 之后、size/sha/上传之前）：
+- 从**最终 compat 包**的 `ppt/media/*` 抽取音视频：ffprobe 识别 video/audio（非图片）；只抽被幻灯片
+  `ppt/slides/_rels/*.rels` 的 video/media/audio 关系引用且**非外链**的媒体（Target 反查 `../media/<file>` → `slides:[页...]`，同媒体多页列出）；
+- 独立文件：`assets/media/<safe>_视频1_第7页.mp4` / `<safe>_音频1_第X页.m4a`（扩展名按 compat 包内媒体）；
+  **字节与 compat 包内媒体完全一致**（keep/remux/transcode 后的成品，不重新编码）；文件名清洗/长度限制/去重/防穿越；
+- 上限：≤20 个文件、单文件 ≤200MiB（`compat_media_files_max` / `compat_media_file_max_bytes` 可调），
+  超限/无法识别/纯外链 → 跳过 + warning（不影响 ready）；
+- 上传：`ppt/a/<deck>/<build>/media/<name>`（同一 build 目录的 `media/` 子目录，`upload_assets`/`upload_compat_assets`
+  复用现有重试）；**所有资产（含 media）上传成功后才 PATCH ready**；
+- ECS 预热：先预热 build 根目录 4 文件，再预热 `media/` 子目录下所有 media 文件（同样 `?force=1`）；
+- manifest：`media_files=[{s:"media/<name>",name,size,sha256,kind:"video"|"audio",dur,w,h,slides,src}]`；
+  无媒体时省略该字段（向后兼容）；`validate_manifest` 校验 s 前缀/name/size/sha/kind/slides（去重升序）；
+  旧 deck 无 `media_files` 客户端不显示分组。
+
+**实测**：
+- fixture（注入被引用的 HEVC 视频 + WMA 音频）：`media_files` **3 个** —— 视频1 第4页 3.0s 640x360 51,232B、
+  视频2 第4页（HEVC→h264 转码后）3.0s 168,001B、音频1 第4页 2.996s 47,910B（AAC m4a）；单独文件与 compat
+  包内同源媒体 sha256 逐字节一致；PDF 5 页/PowerPoint 打开正常；
+- 真实 user deck `dmwalrdlgevz90l`（两段 h264/aac）：`media_files` **2 条** —— 第 7 页 150.92s 1024x576
+  20,158,796B sha256 `7c7cf971…`（src media1.mp4）、第 12 页 225.582s 1024x576 15,870,426B sha256
+  `1792662734c6…`（src media2.mp4）；与 compat 包内媒体字节一致、`s` 为 `media/...`。
+- 已知限制：同媒体被多页引用只抽 1 个文件并在 `slides` 列出多页；媒体编码兼容阶段超限保留原样的媒体仍会抽（原格式）；
+  超过 20 个/200MiB 的仅告警不抽；单独文件与 compat 包内媒体共用同一份磁盘字节（无额外转码开销）。
+
 ---
 
 ## 7. 云端行为（agent）
@@ -417,6 +445,8 @@ PowerPoint 若在 SaveAs 时已自动修复的包，本阶段无操作（幂等�
 
 - 配置：`PPT_WARM_BASE` 环境变量（默认 `http://121.196.47.2`）；预热函数 `agent.warm_ppt_files()`，
   URL 规则 `<base>/pptfiles/__warm/<manifest.base 相对 OSS 的路径前缀><文件名>?force=1`；
+- **预热列表**：build 根目录 `compat.pptx/preview.pdf/original.*/cover.webp` + `media/` 子目录下全部
+  `media_files`（两次 warm 调用，均 `?force=1`）；v2.3 起以 `warm_media_assets()` 实现；
 - **同一 build 重转的缓存一致性（v2.1+）**：`--compat-only` 复用原 build 目录上传 compat（同 URL 内容会变），
   所以预热默认带 **`?force=1`**：服务先 HEAD OSS 比对本地 `.meta`（Content-Length/ETag/Last-Modified），
   不一致才 `.part` 回源原子替换并更新 meta；普通下载命中缓存直接下发（不 HEAD）。

@@ -2921,3 +2921,15 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 真实 user deck `--compat-only` 重转：manifest names 已更新；compat **39,063,746B / sha256 `f1532d7c…`**、media kept=2、repairs slide7、warnings 0；ECS 缓存 force 刷新后独立 QA **14/14 PASS**（8.0MB/s）。
 - 排查建议：教室电脑请打开文件名带 `_兼容版` 的那份（约 37.25MB）；`_原始文件` 保留原链接会媒体不可用；下载文件可能进 PowerPoint「受保护视图」→ 点「启用编辑」；
   教室若为 Office 2007 不支持内嵌视频，请用 Office 2010+/WPS 新版。视频编码已核实 H.264 Main L3.1 + AAC-LC，本身兼容。
+
+## 2026-11-11 19:4x–20:0x · 增量 40：PPT v2.3 视频/音频单独下载（三端）
+
+> 用户要求「加入视频单独下载功能」：教室电脑/旧 PowerPoint/WPS 打不开内嵌视频时，可单独下载视频用任意播放器播放。
+- **契约**：`ppt/CONTRACT.md §12.8`（media_files 结构/抽取规则/上限/三端行为/测试）。
+- **转换机**（`ppt/`）：媒体编码兼容后从最终 compat 包 `ppt/media/*` 抽取被幻灯片引用的音视频：`pptx_xml.media_slide_refs()` 反查页号、`convert._extract_media_files()` 复制 compat 内最终字节到 `assets/media/`，命名 `<标题>_视频N_第X页.<ext>` / `_音频N_第X页.<ext>`；≤20 个/单文件≤200MiB；上传 `ppt/a/<deck>/<build>/media/<name>`；manifest `media_files:[{s,name,size,sha256,kind,dur,w,h,slides,src}]`；`agent.py` 上传后对 build 根 + media/ 全部 force 预热；`--compat-only` 合并以本次 media_files 为准。测试 pure **171** / compat **36** / legacy 22 / cloud 7 全绿。
+- **真实 user deck**：media_files **2 条**（第7页 150.92s 20,158,796B `7c7cf971…`；第12页 225.582s 15,870,426B `1792662734…`，均 1024x576，与 compat 内 media1/media2 逐字节一致）；compat 39,063,744B `9dda8776…`、PDF 16 页、warnings 0；ECS force 刷新后独立 QA **28/28 PASS**（含 media_files 下载 sha/大小/ffprobe 时长；compat 下载 5.8–8.5MB/s、视频单独下载 7–9MB/s）。
+- **网页** `tools/index.html` **1,048,353B / sha256 `7524ba8d…`**（含并行投票/电费/大屏改动；PPT 详情新增「视频单独下载」分组、主 ECS+备用 OSS、旧 deck 无字段隐藏）；`v2_ppt_download_check` **65/65**、v2_ppt_check 92/92、v2_ppt_video 100/100；真实 E2E **13/13**（两行文案/ECS href/download 名/真实下载 sha/0 JS error）；OSS+ECS 已上线 MATCH。
+- **小程序**（`mp-class-tools`）：`utils/ppt.js` normMediaFile/mediaRows + `pages/pptdl` 分组（下载/进度/取消→保存相册[授权引导]/转发/复制链接；音频 openDocument）；`unit.js 412/0`、`ppt_dl_unit_tests 36/0`、automator 17/0；**待用户上传发布**（真机需配 request+downloadFile 域名）。
+- **安卓**：`3.6.0 / vc12`，`PptMediaFile` 解析 + `PptMediaDownloadLogic` 行模型 + 详情分组（DownloadManager→ACTION_VIEW/分享）；`testDebugUnitTest 994/0`（+12，无回退）、`assembleRelease` 成功；APK **2,757,826B / sha256 `514527F0…`**（已交付桌面 `班级工具站_3.6.0.apk`）。
+- **回滚**：网页重传 `tools/_backup/index_online_20261111-1940_preMediaDl.html`（975,287B/`56667b04…`，注意含并行大屏/电费改动）；manifest 去掉 media_files 即客户端隐藏分组；转换机无独立开关（随 compat 流程）；小程序/安卓回退上一版。
+- **已知**：同媒体多页只抽一个文件（slides 列全）；纯外链/超限仅 warning；旧 build media/ 残留不清理（manifest 不引用）；小程序需域名+发布；安卓下载落应用外部下载目录。

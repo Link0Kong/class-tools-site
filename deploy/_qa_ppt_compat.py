@@ -15,6 +15,7 @@ import sys
 import time
 import urllib.request
 import zipfile
+from urllib.parse import quote
 
 PUB = open(r"C:\Users\Ko_Li\.openclaw\workspace\web\deploy\cloudbase\publish_key.txt", encoding="utf-8").read().strip()
 BASE = "https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/"
@@ -90,7 +91,7 @@ def main(deck_id):
     for kind, f in files.items():
         if not isinstance(f, dict) or not f.get("s"):
             continue
-        data, hdr = fetch(man["base"] + f["s"])
+        data, hdr = fetch("http://121.196.47.2/pptfiles/" + quote(man["base"].split("aliyuncs.com/")[1] + f["s"]))
         sha = hashlib.sha256(data).hexdigest()
         blobs[kind] = data
         check("%s 下载 size/sha256 与 manifest 一致" % kind,
@@ -141,6 +142,44 @@ def main(deck_id):
         check("PDF 页数=slide_count", pp == pages, (pp, pages))
     except Exception as e:  # noqa: BLE001
         check("PDF 检查", False, str(e)[:100])
+    # 视频/音频单独下载（v2.3 §12.8）
+    try:
+        import subprocess as _sp
+        import tempfile as _tf
+        FF = r"C:\Users\Ko_Li\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffprobe.exe"
+        mf = man.get("media_files") or []
+        check("media_files 为非空列表", isinstance(mf, list) and len(mf) > 0, len(mf) if isinstance(mf, list) else mf)
+        for i, m in enumerate(mf):
+            rel = str(m.get("s") or "")
+            check("media_files[%d].s 在 media/ 前缀" % i, rel.startswith("media/"), rel)
+            check("media_files[%d] 有 name/size/sha256/slides" % i,
+                  bool(m.get("name")) and bool(m.get("size")) and bool(m.get("sha256")) and bool(m.get("slides")),
+                  {k: m.get(k) for k in ("name", "size", "kind", "dur", "slides")})
+            path = man["base"].split("aliyuncs.com/")[1] + rel
+            url = "http://121.196.47.2/pptfiles/" + quote(path)
+            data, _ = fetch(url, timeout=300)
+            sha = hashlib.sha256(data).hexdigest()
+            check("media_files[%d] ECS 下载 sha=manifest" % i, sha == m.get("sha256"), sha[:16])
+            check("media_files[%d] 大小=manifest" % i, len(data) == int(m.get("size", -1)), len(data))
+            try:
+                with _tf.NamedTemporaryFile(suffix=".bin", delete=False) as tf:
+                    tf.write(data)
+                    tmp_name = tf.name
+                r = _sp.run([FF, "-v", "error", "-show_streams", "-show_format", "-of", "json", tmp_name],
+                            capture_output=True, text=True, timeout=120)
+                info = json.loads(r.stdout or "{}")
+                streams = info.get("streams") or []
+                kinds = [s.get("codec_type") for s in streams]
+                dur = float((info.get("format") or {}).get("duration") or 0)
+                ok_kind = m.get("kind") in kinds or (m.get("kind") == "audio" and "audio" in kinds)
+                check("media_files[%d] ffprobe 类型/时长" % i,
+                      ok_kind and abs(dur - float(m.get("dur") or 0)) <= 1.0, {"kinds": kinds, "dur": round(dur, 2)})
+                import os as _os
+                _os.unlink(tmp_name)
+            except Exception as e:  # noqa: BLE001
+                check("media_files[%d] ffprobe 检查" % i, False, str(e)[:100])
+    except Exception as e:  # noqa: BLE001
+        check("media_files 单独下载检查", False, str(e)[:120])
     # ECS 缓存（真实下载 + 速度）
     try:
         path = man["base"].split("aliyuncs.com/")[1] + files["compat"]["s"]

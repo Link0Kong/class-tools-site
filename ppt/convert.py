@@ -105,6 +105,9 @@ DEFAULT_OPTIONS = {
     "compat_media_max_dur_s": 30 * 60.0,           # 单段 >30min 不转换
     "compat_media_max_total_dur_s": 60 * 60.0,     # 总时长 >60min 不转换
     "compat_media_ffmpeg_timeout": 900,            # 单个媒体转码/remux 超时（秒）
+    # v2.3 视频/音频单独下载（CONTRACT §12.8）
+    "compat_media_files_max": 20,                  # 最多抽取多少个独立音视频文件
+    "compat_media_file_max_bytes": 200 * 1024 * 1024,  # 单文件 >200MiB 不抽取
     # DESIGN §5.1 性能预算：主图 1600 长边 ≤200KB（超了降 q62 重试一次），
     # 缩略图 400 宽 ≤25KB（超了再降一次 quality）
     "image_max_bytes": 200 * 1024,
@@ -1033,6 +1036,149 @@ def _compat_media(ctx, compat_path, tmp_dir, opts):
     else:
         ctx.log("compat: 全部 %d 个媒体已兼容，字节未变" % summary["total"])
     return {"actions": actions, "summary": summary, "changed": changed}
+
+
+MEDIA_FILE_CONTENT_TYPES = {
+    ".mp4": "video/mp4",
+    ".m4v": "video/mp4",
+    ".mov": "video/quicktime",
+    ".m4a": "audio/mp4",
+    ".mp3": "audio/mpeg",
+    ".aac": "audio/aac",
+    ".m4b": "audio/mp4",
+}
+
+
+def media_download_name(safe_title, kind, index, page, ext, max_len=80, used=None):
+    """独立媒体文件名：``<标题>_视频1_第7页.mp4`` / ``<标题>_音频1_第7页.m4a``。
+
+    文件名清洗（防路径分隔符/控制字符）+ 长度限制 + 去重（同标题/页号重复时加 ``_2``）。
+    """
+    label = "视频" if kind == "video" else "音频"
+    base = "%s_%s%d_第%d页" % (str(safe_title or "演示"), label,
+                              max(1, int(index)), max(1, int(page)))
+    limit = min(120, max(40, int(max_len or 80) + 24))
+    base = pptx_xml.sanitize_filename(base, fallback="媒体", max_len=limit)
+    ext = str(ext or "").lower()
+    if ext and not ext.startswith("."):
+        ext = "." + ext
+    candidate = base + ext
+    if used is not None:
+        seq = 2
+        while candidate in used:
+            candidate = "%s_%d%s" % (base, seq, ext)
+            seq += 1
+        used.add(candidate)
+    return candidate
+
+
+def _extract_media_files(ctx, compat_path, assets_dir, safe_title, tmp_dir, opts):
+    """从最终 compat 包抽取被幻灯片引用的内嵌音视频 → 独立下载文件（CONTRACT §12.8）。
+
+    返回 ``(media_files, assets, warnings)``：
+    - ``media_files`` 写 manifest（``s`` 为 ``media/<name>``，字节与 compat 包内媒体完全一致）；
+    - ``assets`` 供上传（name 带 ``media/`` 前缀 → OSS key ``ppt/a/<deck>/<build>/media/<name>``）；
+    - ``warnings`` 仅收集跳过原因（超上限/无法识别/过大），不影响 ready。
+    """
+    media_files = []
+    assets = []
+    warnings = []
+    try:
+        refs = pptx_xml.media_slide_refs(compat_path)
+    except Exception as exc:  # noqa: BLE001
+        ctx.warn("compat: 媒体单独下载跳过（包解析失败：%s）" % exc.__class__.__name__)
+        return media_files, assets, warnings
+    if not refs:
+        return media_files, assets, warnings
+    max_files = int(opts.get("compat_media_files_max") or 20)
+    max_bytes = int(opts.get("compat_media_file_max_bytes") or 200 * 1024 * 1024)
+    ffprobe = _find_tool("ffprobe", opts.get("ffprobe"))
+    media_dir = os.path.join(assets_dir, "media")
+    os.makedirs(media_dir, exist_ok=True)
+    counts = {"video": 0, "audio": 0}
+    used = set()
+    skipped = []
+    skipped_limits = False
+    with zipfile.ZipFile(compat_path) as zf:
+        for part, slides in refs.items():
+            ext = os.path.splitext(part)[1].lower()
+            if not pptx_xml.media_kind_of(part):
+                continue  # 图片等非音视频
+            base_name = _media_part_basename(part)
+            if len(media_files) >= max_files:
+                skipped.append("%s（超过 %d 个上限）" % (base_name, max_files))
+                skipped_limits = True
+                continue
+            try:
+                data = zf.read(part)
+            except KeyError:
+                skipped.append("%s（部件缺失）" % base_name)
+                continue
+            if len(data) > max_bytes:
+                skipped.append("%s（%.1fMB 超过单文件上限）"
+                               % (base_name, len(data) / 1048576.0))
+                continue
+            probe = _media_probe_part(ffprobe, part, data, tmp_dir)
+            if probe is None:
+                skipped.append("%s（ffprobe 无法识别）" % base_name)
+                continue
+            if probe.get("codec"):
+                kind = "video"
+            elif probe.get("audio_codec"):
+                kind = "audio"
+            else:
+                skipped.append("%s（无音视频编码信息）" % base_name)
+                continue
+            if kind != pptx_xml.media_kind_of(part):
+                skipped.append("%s（扩展名与编码类型不符）" % base_name)
+                continue
+            counts[kind] += 1
+            name = media_download_name(safe_title, kind, counts[kind], slides[0], ext,
+                                       max_len=int(opts.get("compat_filename_max") or 80),
+                                       used=used)
+            dst_path = os.path.join(media_dir, name)
+            try:
+                with open(dst_path, "wb") as fh:
+                    fh.write(data)
+            except OSError as exc:
+                counts[kind] -= 1
+                skipped.append("%s（写入失败：%s）" % (base_name, exc.__class__.__name__))
+                continue
+            entry = {
+                "s": "media/" + name,
+                "name": name,
+                "size": len(data),
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "kind": kind,
+                "dur": round(float(probe.get("dur") or 0.0), 3),
+                "w": int(probe.get("w") or 0),
+                "h": int(probe.get("h") or 0),
+                "slides": list(slides),
+                "src": base_name,
+            }
+            media_files.append(entry)
+            assets.append({
+                "name": "media/" + name,
+                "path": dst_path,
+                "size": len(data),
+                "content_type": MEDIA_FILE_CONTENT_TYPES.get(
+                    ext, "application/octet-stream"),
+                "kind": "media",
+            })
+    if skipped:
+        text = ("视频/音频单独下载：%d 处未抽取（%s）"
+                % (len(skipped), "、".join(skipped[:4])))
+        if len(skipped) > 4:
+            text = text[:-1] + " 等）"
+        warnings.append(text)
+        ctx.warn("compat: " + text)
+    if media_files:
+        ctx.log("compat: 可单独下载媒体 %d 个（视频 %d / 音频 %d）"
+                % (len(media_files), sum(1 for x in media_files if x["kind"] == "video"),
+                   sum(1 for x in media_files if x["kind"] == "audio")))
+    elif not skipped_limits and refs:
+        ctx.log("compat: 无可单独下载的内嵌音视频")
+    return media_files, assets, warnings
 
 
 # ---------------------------------------------------------------------------
@@ -2009,6 +2155,20 @@ def convert_compat(src_path, work_dir, opts=None):
             ctx.log("compat: 媒体编码兼容摘要：total=%d keep=%d remux=%d transcode=%d"
                     % (media_summary["total"], media_summary["kept"],
                        media_summary["remux"], media_summary["transcode"]))
+        # v2.3 视频/音频单独下载（CONTRACT §12.8）：媒体编码兼容后、size/sha/上传之前
+        title = str(opts.get("title") or "").strip()
+        source_name = str(opts.get("source_name") or os.path.basename(src_path))
+        max_len = int(opts.get("compat_filename_max") or 80)
+        safe_title = pptx_xml.sanitize_filename(
+            title or os.path.splitext(os.path.basename(source_name))[0],
+            fallback="演示", max_len=max_len)
+        safe_source = pptx_xml.sanitize_filename(os.path.basename(source_name),
+                                                 fallback="original" + src_ext,
+                                                 max_len=max_len)
+        if not safe_source.lower().endswith(src_ext):
+            safe_source += src_ext
+        media_files, media_assets, media_file_warnings = _extract_media_files(
+            ctx, compat_path, assets_dir, safe_title, tmp_dir, opts)
         ctx.log("compat: 字体部件 %d 个（embedTrueTypeFonts=%s, saveSubsetFonts=%s）"
                 % (pkg["fonts"], pkg["embed_attr"], pkg["subset_attr"]))
         # 55 生成兼容包：原始文件副本 + 外链媒体告警 + 封面
@@ -2031,6 +2191,7 @@ def convert_compat(src_path, work_dir, opts=None):
             text = "字体未嵌入（可能无 TrueType 字体或许可受限），版式可能在其他设备变化"
             warnings_text.append(text)
             ctx.warn("compat: " + text)
+        warnings_text.extend(media_file_warnings)
         # 75 导出 PDF + 封面
         ctx.progress(75, "导出 PDF/封面")
         pdf_path = os.path.join(assets_dir, "preview.pdf")
@@ -2052,17 +2213,6 @@ def convert_compat(src_path, work_dir, opts=None):
                 % (os.path.getsize(pdf_path) / 1048576.0, pages,
                    "cover.webp" if exported["cover"] else "无"))
         # 资产 + manifest v2
-        title = str(opts.get("title") or "").strip()
-        source_name = str(opts.get("source_name") or os.path.basename(src_path))
-        max_len = int(opts.get("compat_filename_max") or 80)
-        safe_title = pptx_xml.sanitize_filename(
-            title or os.path.splitext(os.path.basename(source_name))[0],
-            fallback="演示", max_len=max_len)
-        safe_source = pptx_xml.sanitize_filename(os.path.basename(source_name),
-                                                 fallback="original" + src_ext,
-                                                 max_len=max_len)
-        if not safe_source.lower().endswith(src_ext):
-            safe_source += src_ext
         compat_entry = _compat_file_entry(
             compat_path, _download_name(safe_title, "_兼容版", ".pptx", max_len),
             content_type=MIME_PPTX, ext="pptx")
@@ -2096,6 +2246,8 @@ def convert_compat(src_path, work_dir, opts=None):
             "files": files,
             "compat": compat_meta,
         }
+        if media_files:
+            manifest["media_files"] = media_files
         assets = [
             {"name": "compat.pptx", "path": compat_path, "size": compat_entry["size"],
              "content_type": MIME_PPTX, "kind": "compat"},
@@ -2112,6 +2264,7 @@ def convert_compat(src_path, work_dir, opts=None):
             assets.append({"name": cover_name, "path": cover_path,
                            "size": os.path.getsize(cover_path),
                            "content_type": MIME_WEBP, "kind": "cover"})
+        assets.extend(media_assets)
         build_id = pptx_xml.compute_build_id(assets, manifest)
         prefix = "%s%s/%s/" % (ASSET_PREFIX, opts["deck_id"], build_id)
         manifest["base"] = str(opts["oss_base"]) + prefix
@@ -2134,18 +2287,20 @@ def convert_compat(src_path, work_dir, opts=None):
             "media_kept": int(media_summary.get("kept") or 0),
             "media_remux": int(media_summary.get("remux") or 0),
             "media_transcode": int(media_summary.get("transcode") or 0),
+            "media_files": len(media_files),
             "warnings": len(ctx.warnings),
             "converted_from": compat_meta["converted_from"],
             "build_prefix": prefix,
         })
         ctx.log("compat 完成：%d 页 / compat %.2fMB sha=%s / pdf %d 页 %.2fMB / "
                 "字体 %d / 外链媒体 %d 处 / 断链视频修复 %d 处 / "
-                "媒体 keep %d remux %d transcode %d / 耗时 %.1fs / build=%s"
+                "媒体 keep %d remux %d transcode %d / 单独下载 %d / 耗时 %.1fs / build=%s"
                 % (slide_count, stats["compat_size"] / 1048576.0,
                    compat_entry["sha256"][:12], pages, stats["pdf_size"] / 1048576.0,
                    stats["fonts_embedded"], len(external_media), len(repairs),
                    stats["media_kept"], stats["media_remux"],
-                   stats["media_transcode"], stats["elapsed_s"], build_id))
+                   stats["media_transcode"], len(media_files),
+                   stats["elapsed_s"], build_id))
         return {
             "manifest": manifest,
             "assets": assets,
@@ -2160,6 +2315,7 @@ def convert_compat(src_path, work_dir, opts=None):
             "source_key": "%s%s%s/source%s" % (SRC_PREFIX, opts["deck_id"], "", src_ext),
             "files": files,
             "compat": compat_meta,
+            "media_files": media_files,
             "render_w": int(round(slide_w)),
             "render_h": int(round(slide_h)),
         }

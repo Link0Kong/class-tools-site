@@ -205,10 +205,11 @@ class TestCompatFixture16x9(unittest.TestCase):
             self.assertEqual(entry["sha256"], sha256(asset["path"]), key)
             self.assertEqual(len(entry["sha256"]), 64)
         # 下载文件名（中文可用）
-        self.assertEqual(manifest["files"]["compat"]["name"], "测试·兼容版.pptx")
+        self.assertEqual(manifest["files"]["compat"]["name"], "测试·兼容版_兼容版.pptx")
         self.assertEqual(manifest["files"]["compat"]["ext"], "pptx")
-        self.assertEqual(manifest["files"]["pdf"]["name"], "测试·兼容版.pdf")
-        self.assertEqual(manifest["files"]["source"]["name"], os.path.basename(FIXTURE))
+        self.assertEqual(manifest["files"]["pdf"]["name"], "测试·兼容版_预览.pdf")
+        self.assertEqual(manifest["files"]["source"]["name"],
+                         "fixture_deck_原始文件.pptx")
         self.assertEqual(manifest["files"]["source"]["ext"], "pptx")
 
     def test_03_pages_source_and_compat(self):
@@ -237,7 +238,7 @@ class TestCompatFixture16x9(unittest.TestCase):
         pages = pdf_pages(pdf_path)
         self.assertEqual(pages, 5)
         self.assertEqual(self.manifest["files"]["pdf"]["pages"], pages)
-        self.assertEqual(self.manifest["files"]["pdf"]["name"], "测试·兼容版.pdf")
+        self.assertEqual(self.manifest["files"]["pdf"]["name"], "测试·兼容版_预览.pdf")
 
     def test_06_cover_webp(self):
         cover = self.assets.get("cover.webp")
@@ -698,6 +699,145 @@ class TestCompatMediaEncode(unittest.TestCase):
         self.assertEqual(self.manifest["files"]["source"]["sha256"], src_sha)
         self.assertEqual(self.manifest["files"]["source"]["size"],
                          os.path.getsize(FIXTURE))
+
+
+WORK_MEDIA_FILES = os.path.join(OUT_DIR, "compat_work_media_files")
+NS_AUDIO_REL = ("http://schemas.openxmlformats.org/officeDocument/2006/"
+                "relationships/audio")
+
+
+def inject_referenced_media(path):
+    """向 compat 包注入「被 slide4 引用」的 HEVC 视频 + WMA 音频（模拟真实音视频混合）。
+
+    注入发生在媒体编码兼容阶段前：HEVC 会被 transcode 成 h264（同扩展名），
+    WMA 会被 transcode 成 AAC m4a（改扩展名）；随后 §12.8 抽取应得到 3 个独立文件。
+    """
+    import zipfile
+    ensure_media_fixtures()
+    extra = [
+        ("ppt/media/media_hevc.mp4", "hevc.mp4"),
+        ("ppt/media/media_audio.wma", "audio.wma"),
+    ]
+    with zipfile.ZipFile(path) as zf:
+        entries = {info.filename: zf.read(info.filename) for info in zf.infolist()}
+    for part, src_name in extra:
+        with open(os.path.join(MEDIA_FIX_DIR, src_name), "rb") as fh:
+            entries[part] = fh.read()
+    rels_name = "ppt/slides/_rels/slide4.xml.rels"
+    rels = entries[rels_name].decode("utf-8")
+    rels = rels.replace("</Relationships>",
+                       '<Relationship Id="rId91" Type="http://schemas.openxmlformats.org/'
+                       'officeDocument/2006/relationships/video" '
+                       'Target="../media/media_hevc.mp4"/>'
+                       '<Relationship Id="rId92" Type="%s" '
+                       'Target="../media/media_audio.wma"/></Relationships>'
+                       % NS_AUDIO_REL)
+    entries[rels_name] = rels.encode("utf-8")
+    ct = entries["[Content_Types].xml"].decode("utf-8")
+    ct = pptx_xml.ensure_content_types_defaults(ct, {"wma": "audio/x-ms-wma"})
+    entries["[Content_Types].xml"] = ct.encode("utf-8")
+    tmp = path + ".ref.tmp"
+    with zipfile.ZipFile(tmp, "w") as zout:
+        for name, data in entries.items():
+            zout.writestr(name, data)
+    os.replace(tmp, path)
+
+
+class TestCompatMediaFiles(unittest.TestCase):
+    """v2.3 视频/音频单独下载（CONTRACT §12.8）：从最终 compat 包抽取独立媒体文件。"""
+
+    @classmethod
+    def setUpClass(cls):
+        ensure_fixtures()
+        require_powerpoint_free()
+        ensure_media_fixtures()
+        cls.calls = 0
+        real_media = convert._compat_media
+
+        def inject_then_media(ctx, compat_path, tmp_dir, opts):
+            inject_referenced_media(compat_path)
+            cls.calls += 1
+            return real_media(ctx, compat_path, tmp_dir, opts)
+
+        with mock.patch.object(convert, "_compat_media", side_effect=inject_then_media):
+            cls.result = convert.convert_compat(FIXTURE, WORK_MEDIA_FILES, {
+                "deck_id": "dmediafiles",
+                "title": "媒体单独下载",
+                "source_name": os.path.basename(FIXTURE),
+                "timeout_s": 900,
+                "log": lambda msg: print("[compat-mediafiles] " + msg, flush=True),
+            })
+        cls.manifest = cls.result["manifest"]
+        cls.assets = {a["name"]: a for a in cls.result["assets"]}
+        cls.compat = cls.assets["compat.pptx"]["path"]
+        cls.media_files = cls.result.get("media_files") or []
+        print("[compat] 单独下载媒体：%d 个 %s"
+              % (len(cls.media_files),
+                 [(m["kind"], m["slides"], m["dur"], m["size"])
+                  for m in cls.media_files]), flush=True)
+
+    def test_00_stage_and_counts(self):
+        self.assertEqual(self.calls, 1)
+        self.assertEqual(len(self.media_files), 3)
+        kinds = sorted(m["kind"] for m in self.media_files)
+        self.assertEqual(kinds, ["audio", "video", "video"])
+        self.assertEqual(pptx_xml.validate_manifest(self.manifest), [])
+
+    def test_01_entries_fields_and_names(self):
+        by_kind = {}
+        for item in self.media_files:
+            by_kind.setdefault(item["kind"], []).append(item)
+        video1 = [m for m in by_kind["video"] if m["src"] == "media1.mp4"][0]
+        self.assertEqual(video1["slides"], [4])
+        self.assertAlmostEqual(video1["dur"], 3.0, delta=0.2)
+        self.assertEqual((video1["w"], video1["h"]), (640, 360))
+        self.assertEqual(video1["size"], 51232)
+        self.assertRegex(video1["name"], r"_视频1_第4页\.mp4$")
+        video2 = [m for m in by_kind["video"] if m["src"] == "media_hevc.mp4"][0]
+        self.assertEqual(video2["slides"], [4])
+        self.assertRegex(video2["name"], r"_视频2_第4页\.mp4$")
+        audio = by_kind["audio"][0]
+        self.assertEqual(audio["slides"], [4])
+        self.assertEqual(audio["kind"], "audio")
+        self.assertTrue(audio["name"].endswith("_音频1_第4页.m4a"))
+        for item in self.media_files:
+            self.assertTrue(item["s"].startswith("media/"))
+            self.assertEqual(item["s"], "media/" + item["name"])
+
+    def test_02_files_match_compat_bytes(self):
+        import hashlib
+        import zipfile
+        required = {m["name"]: m for m in self.media_files}
+        with zipfile.ZipFile(self.compat) as zf:
+            compat_media = {n.rsplit("/", 1)[-1]: zf.read(n)
+                            for n in zf.namelist()
+                            if n.startswith("ppt/media/")}
+        for name, item in required.items():
+            path = os.path.join(OUT_DIR, "compat_work_media_files", "assets",
+                                "media", name)
+            self.assertTrue(os.path.exists(path), name)
+            with open(path, "rb") as fh:
+                data = fh.read()
+            self.assertEqual(len(data), item["size"])
+            self.assertEqual(hashlib.sha256(data).hexdigest(), item["sha256"])
+            # 单独文件与 compat 包内同源媒体逐字节一致
+            self.assertEqual(data, compat_media[item["src"]])
+            # assets 列表里的 uploading key 正确（media/ 前缀）
+            asset = self.assets["media/" + name]
+            self.assertEqual(asset["size"], item["size"])
+            self.assertEqual(asset["path"], path)
+
+    def test_03_pdf_pages_and_powerpoint_open(self):
+        pages = pdf_pages(self.assets["preview.pdf"]["path"])
+        self.assertEqual(pages, 5)
+        self.assertEqual(open_slide_count(self.compat), 5)
+        self.assertEqual(self.result["slide_count"], 5)
+
+    def test_04_original_unchanged(self):
+        import hashlib
+        with open(FIXTURE, "rb") as fh:
+            src_sha = hashlib.sha256(fh.read()).hexdigest()
+        self.assertEqual(self.manifest["files"]["source"]["sha256"], src_sha)
 
 
 class TestCompatFailures(unittest.TestCase):

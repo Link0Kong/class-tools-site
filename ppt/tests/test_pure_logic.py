@@ -1919,5 +1919,168 @@ class TestMediaPackageRewrite(unittest.TestCase):
         self.assertIn("bytes_after", text)
 
 
+# ---------------------------------------------------------------------------
+# 13. v2.3 视频/音频单独下载（CONTRACT §12.8 纯逻辑）
+# ---------------------------------------------------------------------------
+def _media_file_manifest_entry(**kw):
+    base = {"s": "media/演示_视频1_第7页.mp4",
+            "name": "演示_视频1_第7页.mp4", "size": 12345,
+            "sha256": "a" * 64, "kind": "video", "dur": 150.92,
+            "w": 1024, "h": 576, "slides": [7], "src": "media1.mp4"}
+    base.update(kw)
+    return base
+
+
+class TestMediaDownloadName(unittest.TestCase):
+    def test_pattern_video_audio(self):
+        self.assertEqual(
+            convert.media_download_name("本草", "video", 1, 7, ".mp4", max_len=80),
+            "本草_视频1_第7页.mp4")
+        self.assertEqual(
+            convert.media_download_name("本草", "audio", 2, 12, ".m4a", max_len=80),
+            "本草_音频2_第12页.m4a")
+
+    def test_dedupe(self):
+        used = set()
+        first = convert.media_download_name("t", "video", 1, 4, ".mp4", used=used)
+        second = convert.media_download_name("t", "video", 1, 4, ".mp4", used=used)
+        self.assertNotEqual(first, second)
+        self.assertTrue(second.endswith("_2.mp4"))
+
+    def test_sanitize_and_length(self):
+        name = convert.media_download_name("../../非法/标题:*?", "video", 1, 2,
+                                           ".mp4", max_len=20)
+        self.assertNotIn("/", name)
+        self.assertNotIn("\\", name)
+        self.assertLessEqual(len(name), 20 + 24 + 4)
+        long_name = convert.media_download_name("长" * 200, "video", 1, 3, ".mp4",
+                                               max_len=80)
+        self.assertLessEqual(len(long_name), 120 + 4)
+
+
+class TestMediaSlideRefs(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ppt_mfrefs_")
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _make(self, pages):
+        path = os.path.join(self.tmp, "refs.pptx")
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("ppt/presentation.xml",
+                       '<p:presentation xmlns:p="%s" xmlns:r="%s">'
+                       '<p:sldIdLst><p:sldId id="256" r:id="rId1"/>'
+                       '<p:sldId id="257" r:id="rId2"/>'
+                       '<p:sldId id="258" r:id="rId3"/></p:sldIdLst>'
+                       '</p:presentation>' % (P_NS, R_NS))
+            z.writestr("ppt/_rels/presentation.xml.rels",
+                       RELS_HEAD
+                       + '<Relationship Id="rId1" Type="%s" Target="slides/slide1.xml"/>'
+                       '<Relationship Id="rId2" Type="%s" Target="slides/slide2.xml"/>'
+                       '<Relationship Id="rId3" Type="%s" Target="slides/slide3.xml"/>'
+                       % (NS_SLIDE, NS_SLIDE, NS_SLIDE) + RELS_TAIL)
+            z.writestr("ppt/slides/slide1.xml", "<p:sld/>")
+            z.writestr("ppt/slides/slide2.xml", "<p:sld/>")
+            z.writestr("ppt/slides/slide3.xml", "<p:sld/>")
+            z.writestr("ppt/slides/_rels/slide1.xml.rels", pages["1"])
+            z.writestr("ppt/slides/_rels/slide2.xml.rels", pages["2"])
+            z.writestr("ppt/slides/_rels/slide3.xml.rels", pages["3"])
+            for name in ("media1.mp4", "media2.mp4", "image1.png"):
+                z.writestr("ppt/media/" + name, b"x")
+        return path
+
+    def test_maps_slides_and_ignores_external_and_image(self):
+        external = ('<Relationships><Relationship Id="rId1" '
+                    'Type="http://schemas.openxmlformats.org/officeDocument/2006/'
+                    'relationships/video" Target="../media/media2.mp4" '
+                    'TargetMode="External"/></Relationships>')
+        video = ('<Relationships><Relationship Id="rId1" '
+                 'Type="http://schemas.openxmlformats.org/officeDocument/2006/'
+                 'relationships/video" Target="../media/media1.mp4"/>'
+                 '<Relationship Id="rId2" '
+                 'Type="http://schemas.openxmlformats.org/officeDocument/2006/'
+                 'relationships/image" Target="../media/image1.png"/></Relationships>')
+        audio = ('<Relationships><Relationship Id="rId1" '
+                 'Type="http://schemas.microsoft.com/office/2007/relationships/media" '
+                 'Target="../media/media1.mp4"/></Relationships>')
+        path = self._make({"1": video, "2": audio, "3": external})
+        refs = pptx_xml.media_slide_refs(path)
+        self.assertEqual(refs.get("ppt/media/media1.mp4"), [1, 2])
+        self.assertNotIn("ppt/media/media2.mp4", refs)
+        self.assertNotIn("ppt/media/image1.png", refs)
+
+
+class TestMediaFilesManifest(unittest.TestCase):
+    def test_accept(self):
+        manifest = _compat_manifest()
+        manifest["media_files"] = [_media_file_manifest_entry()]
+        self.assertEqual(pptx_xml.validate_manifest(manifest), [])
+
+    def test_audio_accept(self):
+        manifest = _compat_manifest()
+        manifest["media_files"] = [_media_file_manifest_entry(
+            s="media/a_音频1_第2页.m4a", name="a_音频1_第2页.m4a",
+            kind="audio", w=0, h=0)]
+        self.assertEqual(pptx_xml.validate_manifest(manifest), [])
+
+    def test_reject_bad_entries(self):
+        manifest = _compat_manifest()
+        manifest["media_files"] = [
+            {"s": "wrong/x.mp4", "name": "../x.mp4", "size": 0,
+             "sha256": "zz", "kind": "image", "slides": []},
+            _media_file_manifest_entry(name="dup.mp4"),
+            _media_file_manifest_entry(name="dup.mp4"),
+        ]
+        text = "; ".join(pptx_xml.validate_manifest(manifest))
+        for needle in ("s 必须", "name 不能", "size", "sha256", "kind", "slides",
+                       "重复"):
+            self.assertIn(needle, text)
+
+
+class TestMediaUploadKeysAndWarm(unittest.TestCase):
+    def test_upload_key_under_media_prefix(self):
+        tmp = tempfile.mkdtemp(prefix="ppt_mfup_")
+        try:
+            path = os.path.join(tmp, "v.mp4")
+            with open(path, "wb") as fh:
+                fh.write(b"x")
+            uploader = FakeVideoUploader()
+            keys = agent.upload_compat_assets(
+                uploader, "ppt/a/d1/b1/",
+                [{"name": "media/v_视频1_第4页.mp4", "path": path, "size": 1,
+                  "content_type": "video/mp4"}], lambda m: None)
+            self.assertEqual(keys, ["ppt/a/d1/b1/media/v_视频1_第4页.mp4"])
+            self.assertEqual(uploader.puts[0][0], keys[0])
+            keys2 = agent.upload_assets(
+                uploader, "d2", "b2",
+                [{"name": "media/a_音频1_第2页.m4a", "path": path, "size": 1,
+                  "content_type": "audio/mp4"}], lambda m: None)
+            self.assertEqual(keys2, ["ppt/a/d2/b2/media/a_音频1_第2页.m4a"])
+        finally:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_warm_media_assets_uses_media_subdir_and_force(self):
+        calls = []
+
+        def opener(url, timeout=None):
+            calls.append(url)
+            return _FakeWarmResponse(200)
+
+        results = agent.warm_media_assets(
+            "http://x", "ppt/a/d1/b1/",
+            [{"name": "media/a_视频1_第4页.mp4"},
+             {"name": "media/b_音频1_第2页.m4a"},
+             {"name": "compat.pptx"}],
+            opener=opener)
+        self.assertEqual(len(results), 2)
+        self.assertIn("http://x/pptfiles/__warm/ppt/a/d1/b1/media/", calls[0])
+        self.assertIn("a_%E8%A7%86%E9%A2%911_%E7%AC%AC4%E9%A1%B5.mp4?force=1",
+                      calls[0])
+        self.assertTrue(calls[0].endswith("?force=1"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

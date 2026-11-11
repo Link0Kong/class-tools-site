@@ -1574,6 +1574,189 @@ body.opt2-lock{overflow:hidden!important}
 @media (prefers-reduced-motion:reduce){
   .opt2-stage *{animation:none!important;transition:none!important}
 }
+  /* ---------- 大屏 V4 增强：模块聚焦 / 灵动岛 / 编辑易用 / 投票完整发起 / 抽签名单 / 跨端互联 ---------- */
+  .opt2-bodywrap{position:relative;flex:1;min-height:0;display:flex}
+  .opt2-grid{position:absolute;inset:0;display:grid;grid-template-columns:repeat(12,1fr);gap:12px;
+    pointer-events:none;z-index:1;padding:0}
+  .opt2-grid i{border-left:1px dashed rgba(95,168,149,.18);border-right:1px dashed rgba(95,168,149,.18);
+    background:rgba(95,168,149,.03)}
+  .opt2-grid[hidden]{display:none!important}
+  .opt2-body{position:relative;z-index:2}
+  #o2sBody.opt2-focusmode{grid-template-columns:1fr!important;gap:0}
+  .opt2-panel.opt2-focused{grid-column:span 12!important;box-shadow:0 24px 70px rgba(0,0,0,.45)}
+  .opt2-panel.opt2-selected{outline:2px solid var(--s-acc);outline-offset:2px}
+  .opt2-panel.opt2-focused .opt2-phd{cursor:pointer}
+  .opt2-phd{cursor:pointer}
+  .opt2-zbtn{appearance:none;flex:none;width:28px;height:28px;border:1px solid rgba(244,247,246,.12);
+    border-radius:8px;background:transparent;color:var(--s-dim);font-size:13px;line-height:1;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;margin-left:4px}
+  .opt2-zbtn:hover{border-color:rgba(95,168,149,.5);color:var(--s-acc)}
+  .opt2-editing .opt2-zbtn{display:none}
+  .opt2-ppt-hint{font-size:11px;line-height:1.5;color:var(--s-dim);margin-top:6px}
+  .opt2-tag.on{background:rgba(95,168,149,.22);color:#BCE7DB;border-color:rgba(95,168,149,.55)}
+  .opt2-dim{font-size:11.5px;color:var(--s-dim);line-height:1.5}
+  .opt2-vimg{width:34px;height:34px;object-fit:cover;border-radius:7px;flex:none;margin-right:7px;
+    border:1px solid rgba(244,247,246,.12)}
+  /* 选中面板控制条 */
+  .opt2-selbar{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;
+    padding:8px 12px;border-radius:12px;background:rgba(14,26,30,.92);border:1px solid rgba(95,168,149,.35);
+    box-shadow:0 12px 30px rgba(0,0,0,.4)}
+  .opt2-selbar[hidden]{display:none!important}
+  .opt2-sel-lab{font-size:12px;font-weight:800;color:var(--s-acc);letter-spacing:.04em;margin-right:2px}
+  .opt2-btn.sm{min-height:34px;height:34px;padding:0 12px;font-size:12.5px;border-radius:9px}
+  /* 灵动岛 */
+  .opt2-island{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:9;
+    display:flex;align-items:center;gap:6px}
+  .opt2-island[hidden]{display:none!important}
+  .opt2-is-core{appearance:none;display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:0 14px;
+    border-radius:999px;border:1px solid rgba(95,168,149,.4);background:rgba(10,20,23,.9);color:var(--s-ink);
+    font-size:12.5px;font-weight:700;cursor:pointer;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    box-shadow:0 8px 24px rgba(0,0,0,.45);transition:padding .22s var(--ease, ease),border-radius .22s ease}
+  .opt2-island.open .opt2-is-core{border-radius:18px;padding:0 16px}
+  .opt2-is-i{font-size:14px;line-height:1}
+  .opt2-is-t{max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .opt2-is-caret{font-size:10px;color:var(--s-dim)}
+  .opt2-is-exit{appearance:none;min-height:30px;padding:0 12px;border-radius:999px;border:1px solid rgba(201,168,124,.45);
+    background:rgba(10,20,23,.9);color:var(--s-acc2);font-size:12px;font-weight:700;cursor:pointer}
+  .opt2-isdrop{position:absolute;top:52px;left:50%;transform:translateX(-50%);z-index:9;width:min(420px,calc(100vw - 32px));
+    padding:12px;border-radius:16px;background:rgba(12,22,26,.96);border:1px solid rgba(95,168,149,.3);
+    box-shadow:0 20px 50px rgba(0,0,0,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+  .opt2-isdrop[hidden]{display:none!important}
+  .opt2-isd-hd{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--s-dim);margin:6px 2px}
+  .opt2-isd-empty{font-size:12px;color:var(--s-dim);padding:6px 2px}
+  .opt2-isd-it{appearance:none;display:flex;align-items:center;gap:9px;width:100%;min-height:44px;padding:0 10px;
+    border:0;border-radius:10px;background:transparent;color:var(--s-ink);text-align:left;cursor:pointer}
+  .opt2-isd-it:hover{background:rgba(95,168,149,.12)}
+  .opt2-isd-it b{font-size:13px;font-weight:800}
+  .opt2-isd-it em{font-style:normal;font-size:11.5px;color:var(--s-dim);margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%}
+  .opt2-isd-chips{display:flex;flex-wrap:wrap;gap:6px}
+  /* 弹出表单通用 */
+  .opt2-crtmodal,.opt2-rstmodal,.opt2-dropmodal{max-height:min(86vh,760px);display:flex;flex-direction:column}
+  .opt2-crtmodal .opt2-mbd,.opt2-rstmodal .opt2-mbd,.opt2-dropmodal .opt2-mbd{overflow:auto;flex:1;min-height:0}
+  .opt2-crtrow{display:flex;align-items:center;gap:6px;margin-bottom:7px}
+  .opt2-crtrow .opt2-inp{flex:1;min-width:0}
+  .opt2-crtimg{appearance:none;flex:none;width:40px;height:40px;border-radius:9px;border:1px dashed rgba(95,168,149,.45);
+    background:rgba(95,168,149,.06);color:var(--s-acc);display:inline-flex;align-items:center;justify-content:center;
+    font-size:12px;cursor:pointer;overflow:hidden}
+  .opt2-crtimg img{width:100%;height:100%;object-fit:cover}
+  .opt2-crtdel{appearance:none;flex:none;width:32px;height:32px;border-radius:8px;border:1px solid rgba(244,247,246,.12);
+    background:transparent;color:var(--s-dim);font-size:13px;cursor:pointer}
+  .opt2-crtmem{margin-top:8px;padding:8px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(244,247,246,.08)}
+  .opt2-crtmem-all{display:flex;gap:12px;margin-bottom:6px}
+  .opt2-crtmemg{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:6px;max-height:190px;overflow:auto}
+  .opt2-memb{appearance:none;min-height:38px;border-radius:9px;border:1px solid rgba(244,247,246,.12);
+    background:rgba(255,255,255,.03);color:var(--s-ink);font-size:12.5px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:5px;padding:4px 8px}
+  .opt2-memb i{font-style:normal;font-size:10.5px;color:var(--s-dim)}
+  .opt2-memb.on{border-color:rgba(95,168,149,.6);background:rgba(95,168,149,.18);color:#DFF5EE}
+  .opt2-rstg{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px;
+    max-height:min(46vh,420px);overflow:auto;margin:8px 0}
+  .opt2-check{display:inline-flex;align-items:center;gap:6px;min-height:34px;font-size:12.5px;color:var(--s-dim)}
+  .opt2-check input{width:16px;height:16px}
+  /* 大屏互联·面板 */
+  .opt2-dropbtn{position:relative}
+  .opt2-dropbtn.on::after{content:"";position:absolute;right:5px;top:5px;width:7px;height:7px;border-radius:50%;
+    background:var(--s-acc);box-shadow:0 0 8px var(--s-acc)}
+  .opt2-dropmodal .opt2-mbd{padding-bottom:4px}
+  .opt2-drop-st{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;margin-bottom:8px}
+  .opt2-drop-st b{font-weight:800}
+  .opt2-drop-dot{width:8px;height:8px;border-radius:50%;background:var(--s-acc);box-shadow:0 0 8px var(--s-acc);flex:none}
+  .opt2-drop-dot.off{background:#6E7B7A;box-shadow:none}
+  .opt2-drop-link{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+  .opt2-drop-link input{flex:1;min-width:0;height:38px;border-radius:9px;border:1px solid rgba(95,168,149,.28);
+    background:rgba(255,255,255,.04);color:var(--s-ink);padding:0 10px;font-size:12px}
+  .opt2-drop-sec{display:flex;align-items:center;gap:8px;margin:12px 0 6px;font-size:12px;color:var(--s-dim)}
+  .opt2-drop-sec b{font-size:12.5px;color:var(--s-ink);font-weight:800}
+  .opt2-drop-sec .opt2-link{margin-left:auto}
+  .opt2-drop-row{display:flex;align-items:center;gap:8px;min-height:44px;padding:4px 6px;border-radius:10px}
+  .opt2-drop-row:hover{background:rgba(95,168,149,.07)}
+  .opt2-drop-ico{flex:none;font-size:16px}
+  .opt2-drop-nm{flex:1;min-width:0;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .opt2-drop-nm i{display:block;font-style:normal;font-size:10.5px;color:var(--s-dim);font-weight:500}
+  .opt2-drop-txt .opt2-drop-nm{white-space:normal;line-height:1.5}
+  .opt2-drop-row .opt2-btn{flex:none;min-height:32px;height:32px;padding:0 10px;font-size:12px}
+  /* 大屏互联·手机控制器 */
+  .dropctl{position:fixed;inset:0;z-index:140;display:none;align-items:flex-end;justify-content:center;
+    background:rgba(4,10,12,.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+  .dropctl.on{display:flex}
+  .dropctl-lock{overflow:hidden!important}
+  .dropctl-card{width:min(560px,100%);max-height:92vh;display:flex;flex-direction:column;background:#F7F8F8;
+    color:#1C2A28;border-radius:20px 20px 0 0;box-shadow:0 -20px 60px rgba(0,0,0,.4);
+    padding-bottom:env(safe-area-inset-bottom,0)}
+  .dropctl-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;
+    border-bottom:1px solid rgba(0,0,0,.06)}
+  .dropctl-hd b{font-size:15px;font-weight:800;letter-spacing:.02em}
+  .dropctl-x{appearance:none;width:36px;height:36px;border:0;border-radius:50%;background:transparent;
+    font-size:18px;color:#6E7370;cursor:pointer}
+  .dropctl-x:active{background:rgba(0,0,0,.06)}
+  .dropctl-bd{overflow:auto;padding:12px 16px calc(16px + env(safe-area-inset-bottom,0px));flex:1;min-height:0}
+  .dropctl-empty{text-align:center;padding:22px 8px;font-size:13px;color:#6E7370;line-height:1.7}
+  .dropctl-empty b{display:block;font-size:15px;color:#1C2A28;margin-bottom:6px}
+  .dropctl-err{color:#B4553E;font-size:12px;margin-top:6px}
+  .dropctl-st{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px}
+  .dropctl-dot{width:8px;height:8px;border-radius:50%;background:#4E9082;box-shadow:0 0 8px rgba(78,144,130,.8)}
+  .dropctl-code{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#6E7370;margin-left:auto}
+  .dropctl-sec{border-top:1px solid rgba(0,0,0,.06);padding-top:10px;margin-top:10px;font-size:12.5px;color:#3A4644}
+  .dropctl-sec>b{display:block;font-size:13px;color:#1C2A28;margin-bottom:8px}
+  .dropctl-up{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .dropctl-btn{appearance:none;display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 16px;
+    border-radius:12px;border:1px solid rgba(78,144,130,.35);background:#fff;color:#2E5C53;font-size:13px;font-weight:700;
+    cursor:pointer;text-decoration:none;gap:6px}
+  .dropctl-btn.pri{background:#4E9082;border-color:#4E9082;color:#fff}
+  .dropctl-btn:active{transform:scale(.98)}
+  .dropctl-btn.sm{min-height:34px;padding:0 12px;font-size:12px}
+  .dropctl-dim{font-size:11.5px;color:#8A8F8C;line-height:1.5}
+  .dropctl-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .dropctl-inp{flex:1;min-width:0;height:42px;border-radius:12px;border:1px solid rgba(0,0,0,.12);background:#fff;
+    padding:0 12px;font-size:13px;color:#1C2A28}
+  .dropctl-sec textarea{width:100%;min-height:84px;border-radius:12px;border:1px solid rgba(0,0,0,.12);background:#fff;
+    padding:10px 12px;font-size:13px;line-height:1.6;resize:vertical;color:#1C2A28;font-family:inherit}
+  .dropctl-ops{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .dropctl-op{appearance:none;min-height:46px;border-radius:12px;border:1px solid rgba(78,144,130,.3);background:#fff;
+    color:#2E5C53;font-size:12.5px;font-weight:700;cursor:pointer}
+  .dropctl-op:active{background:#E8F3F0}
+  .dropctl-op.danger{border-color:rgba(180,85,62,.35);color:#B4553E}
+  .dropctl-file{font-size:12.5px;color:#3A4644}
+  .dropctl-file span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dropctl-file span i{display:block;font-style:normal;font-size:10.5px;color:#8A8F8C}
+  .dropctl-up-item{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px}
+  .dropctl-up-item>span{max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dropctl-bar{flex:1;height:6px;border-radius:3px;background:rgba(78,144,130,.18);overflow:hidden}
+  .dropctl-bar i{display:block;height:100%;background:#4E9082;transition:width .2s}
+  .dropctl-up-item em{font-style:normal;font-size:11px;color:#6E7370;min-width:44px;text-align:right}
+  /* 名单工具（班委 / 团员 / 全班） */
+  .cmtabs{display:flex;gap:8px;margin:10px 0 4px}
+  .cmtab{appearance:none;flex:1;min-height:40px;border-radius:11px;border:1px solid rgba(78,144,130,.28);
+    background:#fff;color:#4E7370;font-size:13px;font-weight:700;cursor:pointer}
+  .cmtab.on{background:#4E9082;border-color:#4E9082;color:#fff}
+  .cmtab em{font-style:normal;font-weight:800;margin-left:4px;font-size:12px;opacity:.85}
+  .cmnote{font-size:11.5px;line-height:1.5;color:#8A8F8C;margin:6px 2px 2px}
+  @media (max-width:900px){
+    .opt2-bodywrap{display:flex;flex-direction:column}
+    #o2sBody{display:block!important;overflow-y:auto;-webkit-overflow-scrolling:touch;
+      flex:1;min-height:0;padding-bottom:4px}
+    .opt2-panel{display:block!important;margin:0 0 10px}
+    .opt2-island{position:static;transform:none;margin:6px auto 2px;justify-content:center}
+    .opt2-is-t{max-width:46vw}
+    .opt2-isdrop{position:fixed;left:12px;right:12px;bottom:12px;top:auto;width:auto;transform:none;
+      max-height:60vh;overflow:auto}
+    .opt2-grid{display:none}
+    .opt2-selbar{position:sticky;bottom:0;z-index:8}
+    .opt2-zbtn{width:34px;height:34px}
+    .dropctl-ops{grid-template-columns:repeat(2,1fr)}
+    .opt2-crtrow{flex-wrap:wrap}
+    .opt2-crtrow .opt2-inp{flex:1 1 100%}
+  }
+  @media (max-width:560px){
+    .opt2-is-t{max-width:34vw;font-size:11.5px}
+    .dropctl-card{border-radius:18px 18px 0 0}
+    .dropctl-card{max-height:94vh}
+    .dropctl-ops{grid-template-columns:repeat(2,1fr)}
+    .opt2-zbtn{width:38px;height:38px;font-size:14px}
+    .opt2-crtmemg{grid-template-columns:repeat(auto-fill,minmax(76px,1fr));max-height:160px}
+    .opt2-rstg{grid-template-columns:repeat(auto-fill,minmax(82px,1fr))}
+  }
+
 /* 打印 / 存 PDF（仅桌面浏览器；微信内不触发） */
 @media print{
   body.opt-printing{background:#fff!important;padding:0!important}
@@ -1903,6 +2086,14 @@ body.ppt-dl-lock{overflow:hidden!important}
 .ppt-office:active{color:#3C7568;border-bottom-color:#3C7568}
 .ppt-office-hint{font-size:11px;line-height:1.5;color:#8A8F8C;margin:2px 2px 8px}
 .ppt-file .ppt-file-no{flex:none;font-size:12px;color:#A6ABA8}
+/* v2.3 视频/音频单独下载分组（契约 §12.8；旧 deck 无 media_files 不渲染该分组） */
+.ppt-mgroup{margin:2px 0 10px;padding-top:10px;border-top:1px dashed rgba(110,115,112,.28)}
+.ppt-mg-hd{display:flex;align-items:center;gap:8px;margin:0 2px 8px}
+.ppt-mg-hd b{font-size:12.5px;font-weight:800;color:var(--ink2);line-height:1.4}
+.ppt-mg-n{font-size:11px;font-weight:700;line-height:1.5;color:var(--cy);background:#F1F7F5;
+  border-radius:8px;padding:1px 7px;font-variant-numeric:tabular-nums}
+.ppt-mfile{background:#fff}
+.ppt-mfile .ppt-file-d b{font-size:13.5px}
 .ppt-warn{background:#FBF4E9;border:1px solid #F0E2C8;border-radius:12px;padding:10px 12px;margin:4px 0 10px}
 .ppt-warn b{display:block;font-size:12.5px;font-weight:800;color:#9A7B45;line-height:1.5}
 .ppt-warn ul{margin:5px 0 0 16px;padding:0}
@@ -2342,10 +2533,16 @@ body.ppt-dl-lock{overflow:hidden!important}
   </section>
 
   <!-- ==================== 统计（仅管理员） ==================== -->
-  <!-- ==================== 班委名单 ==================== -->
+  <!-- ==================== 名单（班委 / 团员 / 全班） ==================== -->
   <section id="s-committee">
     <div class="card">
-      <div class="lghead" style="margin-bottom:2px"><span class="lgico">⌁</span><div><b>班委名单</b><div class="lgsub">班级身份与分工</div></div><span style="flex:1"></span><button class="btn sm" id="cmEdit" style="display:none">管理</button></div>
+      <div class="lghead" style="margin-bottom:2px"><span class="lgico">⌁</span><div><b>名单</b><div class="lgsub">班委 / 团员 / 全班</div></div><span style="flex:1"></span><button class="btn sm" id="cmEdit" style="display:none">管理</button></div>
+      <div class="cmtabs" id="cmTabs">
+        <button type="button" class="cmtab on" data-cmtab="committee">班委<em id="cmCntC"></em></button>
+        <button type="button" class="cmtab" data-cmtab="league">团员<em id="cmCntL"></em></button>
+        <button type="button" class="cmtab" data-cmtab="all">全班<em id="cmCntA"></em></button>
+      </div>
+      <div class="cmnote" id="cmNote">仅显示姓名与座号；班委职务可在「管理」中设置</div>
       <div id="cmOut"><div class="cmempty">加载中…</div></div>
     </div>
   </section>
@@ -4672,7 +4869,17 @@ function rstRetry(){
   ["#aStart","#aEnd","#aExcl"].forEach(function(s){var el=$(s);if(el)el.addEventListener("input",updateDrawHint);});
 })();
 
-var CM_EDIT=false;
+var CM_EDIT=false,CM_TAB="committee",CM_LEAGUE=null,CM_LEAGUE_ERR="";
+function cmLeagueFetch(force){
+  if(CM_LEAGUE&&!force)return Promise.resolve(CM_LEAGUE);
+  try{
+    return cbRpc("class_league",{}).then(function(r){
+      if(r&&r.ok&&r.seats instanceof Array){CM_LEAGUE=r.seats;CM_LEAGUE_ERR="";}
+      else{CM_LEAGUE=[];CM_LEAGUE_ERR=(r&&r.reason)||"团员名单不可用";}
+      return CM_LEAGUE;
+    }).catch(function(){CM_LEAGUE=[];CM_LEAGUE_ERR="网络不可用";return CM_LEAGUE;});
+  }catch(e){CM_LEAGUE=[];CM_LEAGUE_ERR="团员名单不可用";return Promise.resolve(CM_LEAGUE);}
+}
 function classSetRole(sid,role){
   return fetch(CB+"rpc/class_set_role",{method:"POST",headers:cbH(false),cache:"no-store",body:JSON.stringify({p_sid:sid,p_role:role||"",p_badge:role?"班委":""})})
     .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();})
@@ -4681,28 +4888,66 @@ function classSetRole(sid,role){
 var ROLE_RANK={"班长":1,"副班长":2,"团支部书记":3,"副团支部书记":4,"学习委员":5,"生活委员":6,"纪律委员":7,"文娱委员":8,"劳动委员":9,"体育委员":10,"心理委员":11,"组织委员":12,"宣传委员":13,"廉政监督员":14};
 function renderCommittee(){
   var box=$("#cmOut"); if(!box)return;
-  var btn=$("#cmEdit"); if(btn){btn.style.display=canManage()?"":"none";btn.textContent=CM_EDIT?"完成":"管理";}
-  var list=(D.d.members||[]).filter(function(m){return CM_EDIT||m.role||m.badge;});
-  list.sort(function(a,b){return ((ROLE_RANK[a.role]||99)-(ROLE_RANK[b.role]||99))||(a.seat-b.seat);});
-  if(!list.length){box.innerHTML='<div class="cmempty">'+(CM_EDIT?"暂无成员":"暂无班委身份信息")+'</div>';return;}
-  box.innerHTML=list.map(function(m){
-    return '<div class="cmrow'+(CM_EDIT?" cmedit":"")+'" data-cm-sid="'+esc(m.sid)+'" data-cm-name="'+esc(m.name)+'" data-cm-role="'+esc(m.role||"")+'"><span class="cmseat">'+m.seat+'</span><span class="cmname">'+esc(m.name)+'</span>'+
-      '<span class="cmspacer"></span>'+
-      (m.role?'<span class="cmrole">'+esc(m.role)+'</span>':'')+
-      (m.badge?'<span class="cmbadge">'+esc(m.badge)+'</span>':'')+
-      (CM_EDIT&&!m.role&&!m.badge?'<span class="cmempty-role">设置职务</span>':'')+'</div>';
-  }).join("");
-  if(CM_EDIT && !box._cmBound){
+  var members=D.d.members||[];
+  var btn=$("#cmEdit");
+  if(btn){btn.style.display=(canManage()&&CM_TAB==="committee")?"":"none";btn.textContent=CM_EDIT?"完成":"管理";}
+  var tabs=document.querySelectorAll("#cmTabs [data-cmtab]");
+  for(var ti=0;ti<tabs.length;ti++)tabs[ti].classList.toggle("on",tabs[ti].getAttribute("data-cmtab")===CM_TAB);
+  var bySeat={};members.forEach(function(m){bySeat[Math.round(Number(m.seat))]=m;});
+  var list=[];
+  if(CM_TAB==="league"){
+    if(CM_LEAGUE===null){list=[];if(!CM_LEAGUE_ERR)cmLeagueFetch().then(function(){renderCommittee();});}
+    else list=(CM_LEAGUE||[]).map(function(x){
+      var m=bySeat[Math.round(Number(x.seat))]||{};
+      return {seat:Math.round(Number(x.seat)),name:x.name||m.name||"",role:m.role||"",badge:m.badge||"",league:true};
+    });
+  }else if(CM_TAB==="all"){
+    list=members.slice().sort(function(a,b){return (a.seat-b.seat);});
+  }else{
+    list=(CM_EDIT?members.slice():members.filter(function(m){return m.role||m.badge;}));
+    list.sort(function(a,b){return ((ROLE_RANK[a.role]||99)-(ROLE_RANK[b.role]||99))||(a.seat-b.seat);});
+  }
+  var cntC=members.filter(function(m){return m.role||m.badge;}).length,cntA=members.length,cntL=(CM_LEAGUE===null)?"":CM_LEAGUE.length;
+  var elC=$("#cmCntC"),elL=$("#cmCntL"),elA=$("#cmCntA");
+  if(elC)elC.textContent=cntC||0;if(elL)elL.textContent=cntL;if(elA)elA.textContent=cntA||0;
+  var note=$("#cmNote");
+  if(note){
+    var noteTxt=CM_TAB==="all"?"全班 "+cntA+" 人 · 仅姓名与座号":"班委职务可在「管理」中设置";
+    if(CM_TAB==="league")noteTxt="团员名单来自班级团员库"+(CM_LEAGUE_ERR?("（"+CM_LEAGUE_ERR+"）"):"");
+    note.textContent=noteTxt;
+  }
+  var rowCls="cmrow"+(CM_EDIT?" cmedit":"");
+  if(!list.length){
+    box.innerHTML='<div class="cmempty">'+(CM_TAB==="league"?(CM_LEAGUE_ERR||"团员名单加载中…"):(CM_TAB==="all"?"暂无名单":"暂无班委身份信息"))+'</div>';
+  }else{
+    box.innerHTML=list.map(function(m){
+      return '<div class="'+rowCls+'"'+(CM_TAB==="committee"&&m.sid?' data-cm-sid="'+esc(m.sid)+'" data-cm-name="'+esc(m.name)+'" data-cm-role="'+esc(m.role||"")+'"':'')+'>'+
+        '<span class="cmseat">'+m.seat+'</span><span class="cmname">'+esc(m.name)+'</span><span class="cmspacer"></span>'+
+        (m.role?'<span class="cmrole">'+esc(m.role)+'</span>':'')+
+        (m.badge?'<span class="cmbadge">'+esc(m.badge)+'</span>':'')+
+        (CM_TAB==="league"?'<span class="cmrole">团员</span>':'')+
+        (CM_EDIT&&!m.role&&!m.badge?'<span class="cmempty-role">设置职务</span>':'')+'</div>';
+    }).join("");
+  }
+  if(CM_EDIT&&!box._cmBound){
     box._cmBound=true;
     box.addEventListener("click",function(e){
-      var row=e.target.closest?e.target.closest("[data-cm-sid]"):null; if(!row)return;
-      var name=row.getAttribute("data-cm-name"), sid=row.getAttribute("data-cm-sid");
+      var row=e.target.closest?e.target.closest("[data-cm-sid]"):null;if(!row)return;
+      var name=row.getAttribute("data-cm-name"),sid=row.getAttribute("data-cm-sid");
       var r=prompt("设置「"+name+"」的班委职务（留空取消）",row.getAttribute("data-cm-role")||"");
       if(r===null)return;
       classSetRole(sid,r.trim()).then(function(){return membersPull(true);}).then(function(){toast("已更新班委名单");}).catch(function(){toast("更新失败");});
     });
   }
 }
+(function(){
+  var tabs=$("#cmTabs");if(!tabs)return;
+  tabs.addEventListener("click",function(e){
+    var b=e.target.closest?e.target.closest("[data-cmtab]"):null;if(!b)return;
+    CM_TAB=b.getAttribute("data-cmtab")||"committee";CM_EDIT=false;renderCommittee();
+    if(CM_TAB==="league"&&CM_LEAGUE===null)cmLeagueFetch().then(function(){renderCommittee();});
+  });
+})();
 $("#cmEdit").addEventListener("click",function(){CM_EDIT=!CM_EDIT;renderCommittee();});
 function bucketInit(){
   if(!AUTH.sid)return;
@@ -4763,7 +5008,7 @@ function bodyLockAudit(){
 var TOOLS=[
  {k:"draw",n:"抽签",d:"抽签 · 分组 · 结果单，可剔除重抽，一键导出规范图片"},
  {k:"tt",n:"课表",d:"班级课表与下一节课；教务自动同步，全员查看"},
- {k:"committee",n:"班委",d:"班委名单与班级身份气泡"},
+ {k:"committee",n:"名单",d:"班委、团员与全班名单；班级身份气泡"},
  {k:"hw",n:"作业",d:"作业清单与截止倒计时；进入班级后可发布"},
  {k:"nt",n:"通知",d:"班级通知板；AI 拆分要点，附件可预览"},
  {k:"ft",n:"体测",d:"大学体测七项算分、附加分与等级，实时出分"},
@@ -11290,6 +11535,7 @@ var PPT=(function(){
      - https 页面 → 同源 `/pptfiles` + pathname（tool.furina.fun 备案后由 Caddy 反代到同一 ECS 缓存）；
      - 仅对 OSS 的 `/ppt/...` 资产路径生效；其它路径（或 data:/blob:、解析失败）→ 回退原 OSS 直链。 */
   var PPT_ECS_BASE="http://121.196.47.2/pptfiles";
+  var PPT_OSS_BASE="https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/";
   function pptDlHref(man,f){
     var oss=resolveUrl(man&&man.base,(f&&f.s)||"");
     try{
@@ -11300,6 +11546,48 @@ var PPT=(function(){
       if(location.protocol==="https:")return location.origin+"/pptfiles"+path;
     }catch(e){}
     return oss;
+  }
+  /* v2.3 视频/音频单独下载（契约 §12.8）：数据来自 manifest.media_files（转换机从最终 compat 包抽取，逐字节复制）。
+     每行「视频N/音频N · 第 X 页」+ 时长/分辨率 + 大小；主 href 复用 pptDlHref（ECS 缓存），小字「备用」原 OSS；
+     无 media_files 的旧 deck 不渲染该分组。 */
+  function mediaDurText(s){
+    s=Math.max(0,num(s,0));
+    var m=Math.floor(s/60),sec=Math.floor(s%60);
+    return m+":"+(sec<10?"0":"")+sec;
+  }
+  function mediaFilesOf(man){
+    var arr=(man&&man.media_files instanceof Array)?man.media_files:[];
+    return arr.filter(function(f){return f&&typeof f==="object"&&f.s;});
+  }
+  function mediaFilesHtml(man){
+    var arr=mediaFilesOf(man);
+    if(!arr.length)return "";
+    var nv=0,na=0;
+    var h='<div class="ppt-mgroup" id="pptMediaFiles"><div class="ppt-mg-hd"><b>视频单独下载</b>'+
+      '<span class="ppt-mg-n">'+arr.length+'</span></div>';
+    arr.forEach(function(f){
+      var kind=(f.kind==="audio")?"audio":"video";
+      var seq;
+      if(kind==="audio"){na++;seq=na;}else{nv++;seq=nv;}
+      var label=(kind==="audio"?"音频":"视频")+seq;
+      var slides=(f.slides instanceof Array)?f.slides.filter(function(x){return num(x,0)>0;})
+        .map(function(x){return Math.round(num(x,0));}):[];
+      if(slides.length)label+=" · 第 "+slides.join("、")+" 页";
+      var sub=[];
+      if(num(f.dur,0)>0)sub.push(mediaDurText(f.dur));
+      if(kind==="video"&&num(f.w,0)>0&&num(f.h,0)>0)sub.push(num(f.w,0)+"×"+num(f.h,0));
+      sub.push(fmtSize(num(f.size,0)));
+      var name=String(f.name||((kind==="audio"?"音频":"视频")+seq+".mp4"));
+      var oss=resolveUrl(man&&man.base,f.s);
+      var href=pptDlHref(man,f);
+      var alt=(href!==oss)?'<a class="ppt-alt" href="'+esc(oss)+'" download="'+esc(name)+
+        '" rel="noopener" title="备用下载（较慢）">备用</a>':'';
+      h+='<div class="ppt-file ppt-mfile ppt-mfile-'+kind+'"><div class="ppt-file-d"><b>'+esc(label)+
+        '</b><em>'+esc(sub.join(" · "))+'</em></div><span class="ppt-file-a">'+
+        '<a class="btn pri" href="'+esc(href)+'" download="'+esc(name)+'" rel="noopener">下载</a>'+
+        alt+'</span></div>';
+    });
+    return h+'</div>';
   }
   function fileRow(kind,label,f,man){
     if(!f){
@@ -11323,10 +11611,11 @@ var PPT=(function(){
           '" title="用本机 PowerPoint 打开（需已安装 Office；WPS 请下载后打开）">PowerPoint 打开</a>';
       }
     }catch(e){}
+    var deckId="";try{deckId=String((D&&D.deck&&D.deck.id)||"");}catch(e0){}
     return '<div class="ppt-file ppt-file-'+kind+'">'+
       '<div class="ppt-file-d"><b>'+esc(label)+'</b><em>'+esc(sub)+'</em></div>'+
       '<span class="ppt-file-a"><a class="btn pri" href="'+esc(href)+'" download="'+esc(name)+
-      '" rel="noopener">下载</a>'+office+alt+'</span></div>';
+      '" data-ppt-dl="'+esc(kind)+'" data-ppt-deck="'+esc(deckId)+'" rel="noopener">下载</a>'+office+alt+'</span></div>';
   }
   function hasPreview(man){
     if(!man||typeof man!=="object")return false;
@@ -11446,6 +11735,7 @@ var PPT=(function(){
       return w&&String(w).trim();
     });
     if(files)h2+='<div class="ppt-office-hint">兼容版可「PowerPoint 打开」（需本机 Office）；WPS 请下载后用本机 WPS 打开</div>';
+    h2+=mediaFilesHtml(man);
     if(warns.length){
       h2+='<div class="ppt-warn"><b>兼容提示</b><ul>';
       warns.forEach(function(w){h2+='<li>'+esc(String(w))+'</li>';});
@@ -13009,7 +13299,11 @@ var PPT=(function(){
     list:function(){return (S.list||[]).slice();},
     loaded:function(){return !!S.loaded;},
     err:function(){return S.err;},
-    filesOf:function(id){return filesOf(findDeck(id));}};
+    filesOf:function(id){return filesOf(findDeck(id));},
+    hrefOf:function(id,kind){var f=filesOf(findDeck(id));if(!f||!f[kind])return "";return pptDlHref({base:PPT_OSS_BASE},f[kind]);},
+    /* v2.3 探针（测试用）：当前下载详情里「视频单独下载」分组的行数（无分组/未打开=0） */
+    mediaRows:function(){var g=document.getElementById('pptMediaFiles');
+      return g?g.querySelectorAll('.ppt-mfile').length:0;}};
 })();
 try{window.PPT=PPT;}catch(e){}
 /* ============================================================
@@ -14375,13 +14669,19 @@ function optSaveCanvas(c,o){
     });
   }
 
-  /* ---------- 11. 大屏 V3（团日主持台 · 自定义面板布局 · 投票投屏 · PPT 放映/资料） ---------- */
-  var STAGE={open:false,editing:false,timer:300,running:false,tickIv:0,tickN:0,
-    layout:null,drag:null,keyBound:false,drawName:"",crtMins:10,crtOpts:2,
+  /* ---------- 11. 大屏 V4（主持台 · 模块聚焦/灵动岛 · 高度自定义 · 投票完整发起 · 抽签名单 · 跨端互联） ---------- */
+  var STAGE={open:false,editing:false,focus:"",sel:"",timer:300,running:false,tickIv:0,tickN:0,
+    layout:null,drag:null,keyBound:false,drawName:"",drawSel:null,islandOpen:false,
+    crt:{title:"",opts:[],multi:false,max:2,anonymous:true,allowChange:true,vis:"always",aud:"all",audSeats:[],mins:10,dt:"quick"},
+    league:null,leagueLoading:false,
     ppt:{lastId:""},
-    vote:{list:[],id:"",detail:null,listLoading:false,detLoading:false,err:"",listAt:0,detAt:0}};
+    vote:{list:[],id:"",detail:null,listLoading:false,detLoading:false,err:"",listAt:0,detAt:0},
+    drop:{active:false,session:null,events:[],cursor:0,iv:0,err:"",busy:false,lastCount:0},
+    ctl:{open:false,timer:0,cursor:0,events:[],err:"",busy:false,uploads:[]},
+    fsWant:false,fsLost:false,visBound:false};
   var STG_DECK_KEY="zq_stage_deck_v1";
   var STG_LAYOUT_KEY="zq_stage_layout_v1";
+  var STG_PPT_DL_KEY="zq_stage_ppt_dl_v1";
   var STG_PANELS=[{k:"ppt",n:"演示"},{k:"vote",n:"投票"},{k:"timer",n:"计时"},{k:"draw",n:"抽签"}];
   var STG_DEFAULT={order:["ppt","vote","timer","draw"],span:{ppt:8,vote:4,timer:6,draw:6},hidden:[]};
   var STG_PRESETS={
@@ -14389,13 +14689,15 @@ function optSaveCanvas(c,o){
     dual:{order:["ppt","vote","timer","draw"],span:{ppt:6,vote:6,timer:6,draw:6}},
     focus:{order:["ppt","vote","timer","draw"],span:{ppt:12,vote:4,timer:4,draw:4}}
   };
-  var STG_CREATE_MINS=[5,10,30,60];
+  var STG_CREATE_MINS=[5,10,30,60,120];
+  var STG_MAX_OPTS=20;
+  var STG_IMG_MAX=150000;
 
   function stgPanel(k){var i;for(i=0;i<STG_PANELS.length;i++)if(STG_PANELS[i].k===k)return STG_PANELS[i];return null;}
   function stgPName(k){var p=stgPanel(k);return p?p.n:k;}
   function stgKeys(){var out=[];STG_PANELS.forEach(function(p){out.push(p.k);});return out;}
   function stgSpanVal(v){v=Number(v)||6;v=Math.round(v/2)*2;return Math.max(4,Math.min(12,v));}
-  function stgSize(n){n=Number(n)||0;if(n>=1048576)return (n/1048576).toFixed(n>=10485760?0:1)+"MB";return Math.max(1,Math.round(n/1024))+"KB";}
+  function stgSize(n){n=Number(n)||0;if(n>=1048576)return (n/1048576).toFixed(n>=10485760?0:1)+"MB";if(n>=1024)return Math.max(1,Math.round(n/1024))+"KB";return n+"B";}
   function stgDateText(){var d=new Date(),w="日一二三四五六".charAt(d.getDay());return d.getFullYear()+"年"+(d.getMonth()+1)+"月"+d.getDate()+"日 · 周"+w;}
   function stgTimerText(){return pad2(Math.floor(STAGE.timer/60))+":"+pad2(STAGE.timer%60);}
   function stgPb(k){var root=el("opt2Stage");return root?root.querySelector('[data-pbd="'+k+'"]'):null;}
@@ -14408,6 +14710,14 @@ function optSaveCanvas(c,o){
     if(m>0)return "剩 "+pad2(m)+":"+pad2(ss);
     return "剩 "+ss+" 秒";
   }
+  function stgClip(t){
+    t=String(t==null?"":t);return t.length>10?t.slice(0,10)+"…":t;
+  }
+  function stgToken(){
+    try{if(typeof AUTH!=="undefined"&&AUTH&&AUTH.token)return String(AUTH.token);}catch(e){}
+    try{var x=JSON.parse(localStorage.getItem("zq_class_identity")||"null");return (x&&x.token)||"";}catch(e){return "";}
+  }
+  function stgIsAdmin(){try{return !!(typeof canManage==="function"&&canManage());}catch(e){return false;}}
 
   /* ---------- 布局模型（本机 localStorage，不进 UD 同步） ---------- */
   function stgLayoutLoad(){
@@ -14442,6 +14752,27 @@ function optSaveCanvas(c,o){
       if(map[p.k]){d.hidden=false;d.style.gridColumn="span "+map[p.k];}
       else{d.hidden=true;d.style.gridColumn="";}
     });
+    stgApplyFocus();
+  }
+  function stgApplyFocus(){
+    var root=el("opt2Stage");if(!root)return;
+    var body=el("o2sBody");if(body)body.classList.toggle("opt2-focusmode",!!STAGE.focus&&!STAGE.editing);
+    STG_PANELS.forEach(function(p){
+      var d=root.querySelector('[data-panel="'+p.k+'"]');if(!d)return;
+      var on=!!STAGE.focus&&p.k===STAGE.focus&&!STAGE.editing;
+      d.classList.toggle("opt2-focused",on);
+      if(on){d.hidden=false;d.style.gridColumn="span 12";}
+      else if(STAGE.focus&&!STAGE.editing){d.hidden=true;}
+    });
+    var zb=root.querySelector("#o2sFocusExit");
+    if(zb)zb.hidden=!STAGE.focus;
+  }
+  function stgSetFocus(k){
+    if(k&&!stgPanel(k))k="";
+    if(STAGE.editing){STAGE.focus="";}
+    else{STAGE.focus=(k&&k!==STAGE.focus)?k:"";}
+    stgIslandClose();
+    stgRenderAll();
   }
   function stgRenderLbar(){
     var root=el("opt2Stage");if(!root)return;
@@ -14451,13 +14782,23 @@ function optSaveCanvas(c,o){
       STAGE.layout.hidden.forEach(function(k){h+='<button type="button" class="opt2-preset" data-stg="layshow" data-k="'+esc(k)+'">＋ '+esc(stgPName(k))+'</button>';});
       hid.innerHTML=h;
     }
+    var selb=el("o2sSelbar");
+    if(selb){
+      selb.hidden=!(STAGE.editing&&STAGE.sel);
+      var lab=el("o2sSelLab");
+      if(lab)lab.textContent=STAGE.sel?("已选 · "+stgPName(STAGE.sel)):"";
+    }
   }
   function stgSetEditing(on){
     STAGE.editing=!!on;
+    if(STAGE.editing){STAGE.focus="";STAGE.sel="";}
     var root=el("opt2Stage");if(root)root.classList.toggle("opt2-editing",STAGE.editing);
     var lay=el("o2sLay");if(lay)lay.classList.toggle("on",STAGE.editing);
     var bar=el("o2sLbar");if(bar)bar.hidden=!STAGE.editing;
-    if(!STAGE.editing)stgLayoutSave();else stgRenderLbar();
+    var gd=el("o2sGrid");if(gd)gd.hidden=!STAGE.editing;
+    if(!STAGE.editing)stgLayoutSave();
+    stgRenderLbar();
+    stgApplyLayout();
     setTimeout(stgFit,0);
   }
   function stgPreset(name){
@@ -14480,17 +14821,22 @@ function optSaveCanvas(c,o){
     for(i=0;i<seq.length;i++){if(seq[i]>cur){next=seq[i];break;}}
     STAGE.layout.span[k]=next;stgLayoutSave();stgApplyLayout();
   }
+  function stgSetSel(k){STAGE.sel=(k&&k!==STAGE.sel)?k:"";stgRenderLbar();stgApplyFocus();
+    var root=el("opt2Stage");if(root){STG_PANELS.forEach(function(p){var d=root.querySelector('[data-panel="'+p.k+'"]');if(d)d.classList.toggle("opt2-selected",p.k===STAGE.sel&&STAGE.editing);});}
+  }
 
-  /* ---------- 拖拽排序 / 拖拽改宽（编辑模式） ---------- */
+  /* ---------- 拖拽排序 / 拖拽改宽（编辑模式；整条表头可拖） ---------- */
   function stgStartDrag(e){
     if(!STAGE.editing)return;
     var t=e.target;if(!t||!t.closest)return;
-    var hd=t.closest("[data-drag]"),rz=t.closest("[data-resize]");
+    if(t.closest("button,a,input,select,textarea,label"))return;
+    var hd=t.closest("[data-drag],[data-dragpanel]"),rz=t.closest("[data-resize]");
     if(!hd&&!rz)return;
     var body=el("o2sBody"),sec=t.closest(".opt2-panel");
     if(!body||!sec)return;
-    var k=hd?hd.getAttribute("data-drag"):rz.getAttribute("data-resize");
+    var k=hd?(hd.getAttribute("data-drag")||hd.getAttribute("data-dragpanel")):rz.getAttribute("data-resize");
     if(e.preventDefault)e.preventDefault();
+    STAGE.sel=k;stgSetSel(k);
     if(rz){
       STAGE.drag={mode:"resize",k:k,startX:e.clientX,colW:Math.max(16,body.clientWidth/12),
         startSpan:stgSpanVal(STAGE.layout.span[k]),el:sec};
@@ -14536,17 +14882,18 @@ function optSaveCanvas(c,o){
     }
   }
 
-  /* ---------- 面板骨架 / 通用渲染 ---------- */
+  /* ---------- 面板骨架 / 通用渲染 / 灵动岛 ---------- */
   function stgBuildPanel(k){
     var sec=document.createElement("section");sec.className="opt2-panel";sec.setAttribute("data-panel",k);
-    sec.innerHTML='<div class="opt2-phd">'+
+    sec.innerHTML='<div class="opt2-phd" data-panelhd="'+k+'" data-dragpanel="'+k+'">'+
       '<span class="opt2-drag" data-drag="'+k+'" aria-hidden="true">⋮⋮</span>'+
       '<span class="opt2-plabel">'+esc(stgPName(k))+'</span>'+
       '<span class="opt2-pacts" data-pacts="'+k+'"></span>'+
+      '<button type="button" class="opt2-zbtn" data-stg="zoom" data-k="'+k+'" title="点击放大 / 还原" aria-label="放大">⤢</button>'+
       '<span class="opt2-etools">'+
         '<button type="button" class="opt2-etool" data-stg="layup" data-k="'+k+'" title="前移" aria-label="前移">↑</button>'+
         '<button type="button" class="opt2-etool" data-stg="laydown" data-k="'+k+'" title="后移" aria-label="后移">↓</button>'+
-        '<button type="button" class="opt2-etool" data-stg="laysize" data-k="'+k+'" title="切换大小" aria-label="切换大小">⤢</button>'+
+        '<button type="button" class="opt2-etool" data-stg="laysize" data-k="'+k+'" title="切换宽度" aria-label="切换宽度">⤢</button>'+
         '<button type="button" class="opt2-etool" data-stg="layhide" data-k="'+k+'" title="隐藏" aria-label="隐藏">×</button>'+
       '</span></div>'+
       '<div class="opt2-pbd" data-pbd="'+k+'"></div>'+
@@ -14571,7 +14918,8 @@ function optSaveCanvas(c,o){
     var root=el("opt2Stage");if(!root)return;
     var defs={
       ppt:'<button type="button" class="opt2-link" data-stg="pptlib">演示库</button><button type="button" class="opt2-link" data-stg="pptrefresh">刷新</button>',
-      vote:'<button type="button" class="opt2-link" data-stg="votecreate">发起</button><button type="button" class="opt2-link" data-stg="voterefresh">刷新</button>'
+      vote:'<button type="button" class="opt2-link" data-stg="votecreate">发起</button><button type="button" class="opt2-link" data-stg="voterefresh">刷新</button>',
+      draw:'<button type="button" class="opt2-link" data-stg="drawroster">名单</button>'
     };
     STG_PANELS.forEach(function(p){var w=root.querySelector('[data-pacts="'+p.k+'"]');if(w)w.innerHTML=defs[p.k]||"";});
   }
@@ -14584,13 +14932,64 @@ function optSaveCanvas(c,o){
   function stgRenderAll(){
     stgEnsurePanels();
     stgRenderPpt();stgRenderVote();stgRenderTimer();stgRenderDraw();
-    stgApplyLayout();stgRenderLbar();
+    stgApplyLayout();stgRenderLbar();stgRenderIsland();
     var tm=el("o2sTime");if(tm)tm.textContent=clockText();
     var dt=el("o2sDate");if(dt)dt.textContent=stgDateText();
+    var db=el("o2sDropBtn");if(db)db.classList.toggle("on",!!(STAGE.drop.active));
     setTimeout(stgFit,0);
   }
 
-  /* ---------- 演示面板（PPT v2：放映 / 兼容包下载） ---------- */
+  /* ---------- 灵动岛：进行中模块（计时 / 投票 / 互联 / 演示） ---------- */
+  function stgIslandItems(){
+    var out=[];
+    if(STAGE.timer!==300||STAGE.running){
+      out.push({k:"timer",icon:"⏱",text:"计时 "+(STAGE.running?"":"暂停 ")+stgTimerText(),cls:STAGE.running?"run":""});
+    }
+    if(STAGE.vote.id&&STAGE.vote.detail){
+      var p=(STAGE.vote.detail&&STAGE.vote.detail.poll)||{},tot=Number(STAGE.vote.detail.total||0);
+      out.push({k:"vote",icon:"🗳",text:stgClip(p.title||"投票")+" · "+tot+" 票",cls:""});
+    }
+    if(STAGE.drop.active){
+      out.push({k:"drop",icon:"🛰",text:"互联"+(STAGE.drop.lastCount?(" · "+STAGE.drop.lastCount+" 件"):""),cls:"run"});
+    }
+    if(STAGE.fsLost)out.push({k:"fs",icon:"⛶",text:"点击恢复全屏",cls:"run"});
+    return out;
+  }
+  function stgIslandClose(){STAGE.islandOpen=false;var d=el("o2sIslandDrop");if(d)d.hidden=true;
+    var i=el("o2sIsland");if(i)i.classList.remove("open");}
+  function stgRenderIsland(){
+    var root=el("opt2Stage");if(!root)return;
+    var island=el("o2sIsland");if(!island)return;
+    var items=stgIslandItems();
+    var show=items.length>0||!!STAGE.focus;
+    island.hidden=!show;
+    if(!show){stgIslandClose();return;}
+    var icons="",txt="";
+    items.forEach(function(it){icons+='<span class="opt2-is-i">'+it.icon+'</span>';});
+    if(items.length===1){txt='<span class="opt2-is-t">'+esc(items[0].text)+'</span>';}
+    else if(items.length>1){txt='<span class="opt2-is-t">'+items.length+' 个进行中</span>';}
+    else if(STAGE.focus){txt='<span class="opt2-is-t">'+esc(stgPName(STAGE.focus))+' 聚焦中</span>';}
+    var extra=STAGE.focus?'<span class="opt2-is-exit" data-stg="focusclear">退出聚焦</span>':"";
+    island.innerHTML='<button type="button" class="opt2-is-core" data-stg="islandtoggle" aria-label="进行中的模块">'+icons+txt+'<span class="opt2-is-caret">'+(STAGE.islandOpen?"▴":"▾")+'</span></button>'+extra;
+    var drop=el("o2sIslandDrop");
+    if(drop){
+      drop.hidden=!STAGE.islandOpen;
+      if(STAGE.islandOpen){
+        var h='<div class="opt2-isd-hd">进行中</div>';
+        if(!items.length)h+='<div class="opt2-isd-empty">暂无进行中的模块</div>';
+        items.forEach(function(it){
+          h+='<button type="button" class="opt2-isd-it" data-stg="focus" data-k="'+it.k+'"><span>'+it.icon+'</span>'+
+            '<b>'+(it.k==="fs"?"全屏":esc(stgPName(it.k)))+'</b><em>'+esc(it.text)+'</em></button>';
+        });
+        h+='<div class="opt2-isd-hd">全部模块</div><div class="opt2-isd-chips">';
+        STG_PANELS.forEach(function(p){h+='<button type="button" class="opt2-preset'+(STAGE.focus===p.k?" on":"")+'" data-stg="focus" data-k="'+p.k+'">'+esc(p.n)+'</button>';});
+        h+='</div>';
+        drop.innerHTML=h;
+      }
+    }
+  }
+
+  /* ---------- 演示面板（PPT v2：下载 / 打开本机 PowerPoint 放映） ---------- */
   function stgPptDecks(){
     try{return (window.PPT&&window.PPT.list)?window.PPT.list().filter(function(d){return d&&String(d.status||"")==="ready";}):[];}
     catch(e){return [];}
@@ -14598,6 +14997,36 @@ function optSaveCanvas(c,o){
   function stgPptFiles(id){try{return (window.PPT&&window.PPT.filesOf)?window.PPT.filesOf(id):null;}catch(e){return null;}}
   function stgPptLast(){try{return String(localStorage.getItem(STG_DECK_KEY)||"");}catch(e){return "";}}
   function stgPptSetLast(id){try{if(id)localStorage.setItem(STG_DECK_KEY,String(id));}catch(e){}}
+  function stgPptDlMap(){try{var o=JSON.parse(localStorage.getItem(STG_PPT_DL_KEY)||"null");return (o&&typeof o==="object")?o:{};}catch(e){return {};}}
+  function stgPptDownloaded(id){var m=stgPptDlMap();var v=m[String(id)];return !!(v&&v.at);}
+  function stgPptMarkDownloaded(id,kind){
+    if(!id)return;
+    try{
+      var m=stgPptDlMap();m[String(id)]={at:Date.now(),kind:String(kind||"compat")};
+      localStorage.setItem(STG_PPT_DL_KEY,JSON.stringify(m));
+      stgRenderPpt();
+    }catch(e){}
+  }
+  function stgPptHref(id,kind){
+    try{if(window.PPT&&window.PPT.hrefOf)return String(window.PPT.hrefOf(id,kind)||"");}catch(e){}
+    return "";
+  }
+  function stgIsWin(){try{return /Windows|Win32|Win64/i.test(String(navigator.userAgent||""));}catch(e){return false;}}
+  function stgPptOpenLocal(id){
+    id=String(id||STAGE.ppt.lastId||"");if(!id)return;
+    var href=stgPptHref(id,"compat")||stgPptHref(id,"pdf")||"";
+    if(!href){toast("未找到可打开的文件","error");return;}
+    if(!stgIsWin()){toast("本机非 Windows，已为你打开资料详情");stgPptAct("dl",id);return;}
+    try{
+      var absHref=new URL(href,location.href).href;
+      if(!/^https?:/i.test(absHref)){toast("链接不可用","error");return;}
+      var uri="ms-powerpoint:ofv|u|"+absHref;
+      var a=document.createElement("a");a.href=uri;a.style.display="none";document.body.appendChild(a);
+      try{a.click();}finally{setTimeout(function(){if(a.parentNode)a.parentNode.removeChild(a);},1000);}
+      STAGE.fsWant=true;
+      toast("已调起本机 PowerPoint · 按 F5 全屏放映");
+    }catch(e){toast("调起失败，请下载后打开","error");}
+  }
   function stgPptMeta(d){
     var out=[],n=Number(d&&d.slide_count)||0,f=stgPptFiles(d&&d.id);
     if(n)out.push(n+" 页");
@@ -14618,6 +15047,7 @@ function optSaveCanvas(c,o){
   function stgPptAct(kind,id){
     id=String(id||STAGE.ppt.lastId||"");if(!id)return;
     STAGE.ppt.lastId=id;stgPptSetLast(id);
+    if(kind==="open"){stgPptOpenLocal(id);stgRenderPpt();return;}
     try{stgRenderPpt();}catch(e){}
     if(kind==="dl"){
       try{if(window.PPT&&window.PPT.openDetail)window.PPT.openDetail(id);else toast("资料详情不可用","error");}
@@ -14647,39 +15077,55 @@ function optSaveCanvas(c,o){
     STAGE.ppt.lastId=String(hero.id||"");
     var used=String(hero.id)===last;
     if(!used)stgPptSetLast(hero.id);
-    var f=stgPptFiles(hero.id),canDl=!!(f&&(f.compat||f.pdf)),tags=[];
+    var f=stgPptFiles(hero.id),hasFiles=!!(f&&(f.compat||f.pdf)),canOpen=!!(f&&f.compat)&&stgPptDownloaded(hero.id);
+    var tags=[];
     if(f&&f.compat)tags.push('<span class="opt2-tag">兼容包</span>');
     if(f&&f.pdf)tags.push('<span class="opt2-tag sand">PDF</span>');
     if(!f&&Number(hero.slide_count)>0)tags.push('<span class="opt2-tag">可放映</span>');
-    var primary=canDl?'<button type="button" class="opt2-play" data-pptact="dl">⤓ 下载资料</button>'
-                     :'<button type="button" class="opt2-play" data-pptact="play">▶ 开始放映</button>';
-    var secondary=canDl?'<button type="button" class="opt2-btn" data-pptact="play">在线放映</button>'
-                       :'<button type="button" class="opt2-btn" data-pptact="dl">资料详情</button>';
+    if(canOpen)tags.push('<span class="opt2-tag on">已下载</span>');
+    var primary,secondary;
+    if(canOpen){primary='<button type="button" class="opt2-play" data-pptact="open">▶ 打开放映</button>';
+      secondary='<button type="button" class="opt2-btn" data-pptact="dl">下载 / 详情</button>';}
+    else if(hasFiles){primary='<button type="button" class="opt2-play" data-pptact="dl">⤓ 下载资料</button>';
+      secondary='<button type="button" class="opt2-btn" data-pptact="open" title="若已下载过可直接打开">打开</button>';}
+    else{primary='<button type="button" class="opt2-play" data-pptact="play">▶ 开始放映</button>';
+      secondary='<button type="button" class="opt2-btn" data-pptact="dl">资料详情</button>';}
+    var hint=(canOpen&&stgIsWin())?'<div class="opt2-ppt-hint">PowerPoint 打开后按 F5 全屏放映；切回浏览器大屏仍在</div>':"";
     var h='<div class="opt2-ppt"><div class="opt2-ppt-hero">'+
-      '<div class="opt2-ppt-eyebrow">'+(used?"上次使用":"演示就绪")+'</div>'+
+      '<div class="opt2-ppt-eyebrow">'+(canOpen?"准备放映":(used?"上次使用":"演示就绪"))+'</div>'+
       '<div class="opt2-ppt-ttl">'+esc(String(hero.title||hero.source_name||"演示"))+'</div>'+
       '<div class="opt2-ppt-meta">'+esc(stgPptMeta(hero))+'</div>'+
       (tags.length?'<div class="opt2-tags">'+tags.join("")+'</div>':'')+
-      '<div class="opt2-ppt-acts">'+primary+secondary+'</div></div>';
+      '<div class="opt2-ppt-acts">'+primary+secondary+'</div>'+hint+'</div>';
     var rest=[];
     for(i=0;i<decks.length;i++)if(String(decks[i].id)!==String(hero.id))rest.push(decks[i]);
     if(rest.length){
       h+='<div class="opt2-plist">';
       rest.forEach(function(d){
-        var df=stgPptFiles(d.id),dl=!!(df&&(df.compat||df.pdf));
+        var df=stgPptFiles(d.id),dl=!!(df&&(df.compat||df.pdf)),op=dl&&stgPptDownloaded(d.id);
         h+='<div class="opt2-prow" data-pptsel="'+esc(String(d.id))+'">'+
           '<span class="opt2-prow-t">'+esc(String(d.title||d.source_name||"演示"))+'</span>'+
           (df&&df.compat?'<span class="opt2-tag">兼容包</span>':'')+
           '<span class="opt2-prow-m">'+esc(stgPptMeta(d))+'</span>'+
-          '<button type="button" class="opt2-prow-act" data-pptact="'+(dl?"dl":"play")+'" data-ppt-id="'+esc(String(d.id))+'">'+(dl?"下载":"放映")+'</button></div>';
+          '<button type="button" class="opt2-prow-act" data-pptact="'+(op?"open":(dl?"dl":"play"))+'" data-ppt-id="'+esc(String(d.id))+'">'+(op?"打开":(dl?"下载":"放映"))+'</button></div>';
       });
       h+='</div>';
     }
     h+='</div>';
     bd.innerHTML=h;
   }
+  /* PPT 下载详情里点了下载 → 记住「已下载」，大屏主按钮变「打开」 */
+  function stgPptDlWatch(e){
+    try{
+      var t=e.target;if(!t||!t.closest)return;
+      var a=t.closest("[data-ppt-dl]");if(!a)return;
+      var deckId=a.getAttribute("data-ppt-deck")||"";var kind=a.getAttribute("data-ppt-dl")||"compat";
+      if(deckId)setTimeout(function(){stgPptMarkDownloaded(deckId,kind);},60);
+    }catch(x){}
+  }
+  document.addEventListener("click",stgPptDlWatch,true);
 
-  /* ---------- 投票面板（投屏 + 大屏快速发起） ---------- */
+  /* ---------- 投票面板（投屏 + 完整发起：图片/多选/匿名/可见范围/限时） ---------- */
   function stgVoteOpen(){
     return (STAGE.vote.list||[]).filter(function(p){
       return p&&!p.closed&&!(Number(p.deadline)>0&&Date.now()>=Number(p.deadline));
@@ -14698,7 +15144,7 @@ function optSaveCanvas(c,o){
         var opens=stgVoteOpen(),ids=[],has=false;
         opens.forEach(function(p){ids.push(String(p.id));if(String(p.id)===String(STAGE.vote.id))has=true;});
         if(!has){STAGE.vote.id=ids[0]||"";STAGE.vote.detail=null;}
-        stgRenderVote();
+        stgRenderVote();stgRenderIsland();
         if(STAGE.vote.id)stgVoteDetail();
       }).catch(function(){
         STAGE.vote.listLoading=false;STAGE.vote.err="网络不可用";stgRenderVote();
@@ -14713,7 +15159,7 @@ function optSaveCanvas(c,o){
         STAGE.vote.detLoading=false;
         if(!r||!r.ok)return;
         if(String(STAGE.vote.id)!==id)return;
-        STAGE.vote.detail=r;STAGE.vote.detAt=Date.now();stgRenderVote();
+        STAGE.vote.detail=r;STAGE.vote.detAt=Date.now();stgRenderVote();stgRenderIsland();
       }).catch(function(){STAGE.vote.detLoading=false;});
     }catch(e){STAGE.vote.detLoading=false;}
   }
@@ -14725,13 +15171,20 @@ function optSaveCanvas(c,o){
     else if(s.resultVisibility==="afterClose")out.push("截止后可见");
     return out;
   }
+  function stgVoteAudTag(p){
+    var a=(p&&p.audience)||"all";
+    if(a==="committee")return "班委可见";
+    if(a==="league")return "团员可见";
+    if(a==="custom")return "指定 "+(Number(p.audience_count)||0)+" 人";
+    return "";
+  }
   function stgRenderVote(){
     var bd=stgPb("vote");if(!bd)return;
     var opens=stgVoteOpen(),h="";
     if(opens.length){
       h+='<div class="opt2-vchips">';
       opens.forEach(function(p){
-        h+='<button type="button" class="opt2-vchip'+(String(p.id)===String(STAGE.vote.id)?" on":"")+'" data-votesel="'+esc(String(p.id))+'">'+esc(String(p.title||"投票"))+'</button>';
+        h+='<button type="button" class="opt2-vchip'+(String(p.id)===String(STAGE.vote.id)?" on":"")+'" data-votesel="'+esc(String(p.id))+'">'+esc(stgClip(String(p.title||"投票")))+'</button>';
       });
       h+='</div>';
     }
@@ -14748,14 +15201,18 @@ function optSaveCanvas(c,o){
     var s=p.settings||{};
     var closed=!!d.closed||(Number(p.deadline)>0&&Date.now()>=Number(p.deadline));
     var total=Number(d.total||0),counts=d.counts||{},vis=!d.results_hidden;
+    var audTag=stgVoteAudTag(p);
     h+='<div class="opt2-vbody"><div class="opt2-vttl">'+esc(String(p.title||""))+'</div>'+
       '<div class="opt2-vmeta"><span><b>'+total+'</b> 人已投</span>'+
       '<span id="o2sVoteCd" data-vote-cd="'+(Number(p.deadline)||0)+'">'+esc(closed?"已截止":(Number(p.deadline)?stgCd(p.deadline):"不限时"))+'</span>'+
+      (audTag?'<span class="opt2-tag">'+esc(audTag)+'</span>':'')+
       stgVoteTags(p).map(function(t){return '<span class="opt2-tag">'+esc(t)+'</span>';}).join("")+'</div>';
     h+='<div class="opt2-vopts">';
     (p.options||[]).forEach(function(o){
       var n=Number(counts[o.id]||0),pct=total>0?Math.round(n*100/total):0;
-      h+='<div class="opt2-vopt"><div class="opt2-vopt-h"><span class="opt2-vopt-t">'+esc(String(o.text||""))+'</span>'+
+      h+='<div class="opt2-vopt"><div class="opt2-vopt-h">'+
+        (o.img?'<img class="opt2-vimg" src="'+esc(o.img)+'" alt="">':'')+
+        '<span class="opt2-vopt-t">'+esc(String(o.text||""))+'</span>'+
         (vis?'<span class="opt2-vopt-n">'+n+' 票 · '+pct+'%</span>':'')+'</div>'+
         (vis?'<div class="opt2-vbar"><i style="width:'+pct+'%"></i></div>':'')+'</div>';
     });
@@ -14764,75 +15221,227 @@ function optSaveCanvas(c,o){
     h+='</div>';
     bd.innerHTML=h;
   }
-  function stgCreateChips(){
-    var box=el("o2sCrtMins");if(!box)return;
-    box.innerHTML=STG_CREATE_MINS.map(function(m){
-      return '<button type="button" class="opt2-chipbtn'+(Number(STAGE.crtMins)===m?" on":"")+'" data-crtmins="'+m+'">'+m+' 分钟</button>';
-    }).join("");
+  /* 团员名单缓存（class_league RPC；队员/抽签名单快捷预设用） */
+  function stgLeagueFetch(){
+    if(STAGE.league)return Promise.resolve(STAGE.league);
+    STAGE.leagueLoading=true;
+    try{
+      return cbRpc("class_league",{}).then(function(r){
+        STAGE.leagueLoading=false;
+        if(r&&r.ok&&r.seats instanceof Array){STAGE.league=r.seats;return STAGE.league;}
+        STAGE.league=[];return [];
+      }).catch(function(){STAGE.leagueLoading=false;STAGE.league=[];return [];});
+    }catch(e){STAGE.leagueLoading=false;return Promise.resolve([]);}
   }
-  function stgCreateOpts(){
-    var box=el("o2sCrtOpts");if(!box)return;
-    var n=Number(STAGE.crtOpts)||2,h="",i;
-    for(i=0;i<n;i++)h+='<input class="opt2-inp" data-crtopt="'+(i+1)+'" maxlength="80" placeholder="选项 '+(i+1)+'" autocomplete="off">';
-    box.innerHTML=h;
+  function stgMemberSeats(){var out=[];((D&&D.d&&D.d.members)||[]).forEach(function(m){if(m&&m.seat)out.push(Math.round(Number(m.seat)));});return out;}
+  function stgCommitteeSeats(){var out=[];((D&&D.d&&D.d.members)||[]).forEach(function(m){if(m&&(m.role||m.badge))out.push(Math.round(Number(m.seat)));});return out;}
+  function stgSeatsNorm(a){try{return normSeats(a);}catch(e){return [];}}
+  function ensureStageMembers(){
+    if((D&&D.d&&D.d.members||[]).length)return Promise.resolve(true);
+    try{if(typeof ensureMembers==="function")return ensureMembers().then(function(){stgRenderCreateAud();return true;}).catch(function(){return false;});}catch(e){}
+    return Promise.resolve(false);
   }
-  function stgVoteCreateOpen(){
+  function stgImgCompress(file,cb){
+    try{
+      if(!file||!/^image\//i.test(String(file.type||""))){cb("非图片文件");return;}
+      var fr=new FileReader();
+      fr.onload=function(){
+        try{
+          var img=new Image();
+          img.onload=function(){
+            try{
+              var mw=640,mh=640,w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+              var r=Math.min(1,mw/w,mh/h);w=Math.max(1,Math.round(w*r));h=Math.max(1,Math.round(h*r));
+              var c=document.createElement("canvas");c.width=w;c.height=h;
+              c.getContext("2d").drawImage(img,0,0,w,h);
+              var q=0.82,url=c.toDataURL("image/jpeg",q);
+              while(url.length>STG_IMG_MAX&&q>0.4){q-=0.12;url=c.toDataURL("image/jpeg",q);}
+              if(url.length>STG_IMG_MAX){cb("图片过大，请换一张");return;}
+              cb(null,url);
+            }catch(e){cb("图片处理失败");}
+          };
+          img.onerror=function(){cb("图片读取失败");};
+          img.src=String(fr.result||"");
+        }catch(e){cb("图片处理失败");}
+      };
+      fr.onerror=function(){cb("图片读取失败");};
+      fr.readAsDataURL(file);
+    }catch(e){cb("图片处理失败");}
+  }
+
+  /* ---------- 大屏发起投票（完整表单，除“指定截止日期/选项说明”外全支持） ---------- */
+  function stgCrtNewOpt(){return {id:"o"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),text:"",img:""};}
+  function stgCrtTotalImg(){var s=0;STAGE.crt.opts.forEach(function(o){s+=String(o.img||"").length;});return s;}
+  function stgCrtEnsure(){
+    if(!STAGE.crt.opts||STAGE.crt.opts.length<2)STAGE.crt.opts=[stgCrtNewOpt(),stgCrtNewOpt()];
+  }
+  function stgCreateModal(){
     var ov=el("o2sModal");
-    STAGE.crtMins=10;STAGE.crtOpts=2;
     if(!ov){
       ov=document.createElement("div");ov.id="o2sModal";ov.className="opt2-mask";ov.hidden=true;
-      ov.innerHTML='<div class="opt2-modal" role="dialog" aria-modal="true" aria-label="发起投票">'+
+      ov.innerHTML='<div class="opt2-modal opt2-crtmodal" role="dialog" aria-modal="true" aria-label="发起投票">'+
         '<div class="opt2-mhd"><b>发起投票</b><button type="button" class="opt2-ibtn" data-stg="votecreateclose" aria-label="关闭">×</button></div>'+
-        '<div class="opt2-mbd">'+
-        '<label class="opt2-field"><span>标题</span><input id="o2sCrtTitle" class="opt2-inp" maxlength="80" placeholder="投票标题" autocomplete="off"></label>'+
-        '<div class="opt2-field"><span>选项</span><div class="opt2-crtopts" id="o2sCrtOpts"></div><div><button type="button" class="opt2-link" data-stg="votecreateadd">＋ 添加选项</button></div></div>'+
-        '<div class="opt2-field"><span>限时</span><div class="opt2-chips" id="o2sCrtMins"></div></div>'+
-        '<label class="opt2-check"><input type="checkbox" id="o2sCrtAnon" checked> 匿名投票</label>'+
-        '</div><div class="opt2-mfoot"><button type="button" class="opt2-btn" data-stg="votecreateclose">取消</button>'+
+        '<div class="opt2-mbd" id="o2sCrtBody"></div>'+
+        '<div class="opt2-mfoot"><button type="button" class="opt2-btn" data-stg="votecreateclose">取消</button>'+
         '<button type="button" class="opt2-btn pri" id="o2sCrtGo">发起</button></div></div>';
       var root=el("opt2Stage");if(root)root.appendChild(ov);else document.body.appendChild(ov);
       var go=el("o2sCrtGo");if(go)go.addEventListener("click",stgVoteCreateGo);
+      ov.addEventListener("change",stgCreateChange,true);
+      ov.addEventListener("click",stgCreateClick,true);
     }
-    ov.hidden=false;
-    var ti=el("o2sCrtTitle");if(ti)ti.value="";
-    stgCreateOpts();stgCreateChips();
-    if(ti){try{ti.focus();}catch(e){}}
+    return ov;
   }
+  function stgVoteCreateOpen(){
+    var ov=stgCreateModal();
+    STAGE.crt={title:"",opts:[stgCrtNewOpt(),stgCrtNewOpt()],multi:false,max:2,anonymous:true,allowChange:true,
+      vis:"always",aud:"all",audSeats:[],mins:10,dt:"quick"};
+    ov.hidden=false;
+    stgRenderCreate();
+    ensureStageMembers();
+    setTimeout(function(){var ti=el("o2sCrtTitle");if(ti){try{ti.focus();}catch(e){}}},60);
+  }
+  function stgCreateCapture(){
+    var c=STAGE.crt;
+    try{
+      var ti=el("o2sCrtTitle");if(ti)c.title=String(ti.value||"");
+      var ins=document.querySelectorAll("#o2sCrtOpts [data-crtopt]");
+      for(var i=0;i<ins.length;i++){var idx=Number(ins[i].getAttribute("data-crtopt"));if(c.opts[idx])c.opts[idx].text=String(ins[i].value||"");}
+      var an=el("o2sCrtAnon");if(an)c.anonymous=!!an.checked;
+      var ch=el("o2sCrtChange");if(ch)c.allowChange=!!ch.checked;
+    }catch(e){}
+  }
+  function stgRenderCreate(){
+    var body=el("o2sCrtBody");if(!body)return;
+    stgCreateCapture();
+    var c=STAGE.crt,h="";
+    h+='<label class="opt2-field"><span>标题</span><input id="o2sCrtTitle" class="opt2-inp" maxlength="80" placeholder="投票标题" value="'+esc(c.title)+'" autocomplete="off"></label>';
+    h+='<div class="opt2-field"><span>选项 · '+c.opts.length+'/'+STG_MAX_OPTS+'</span><div class="opt2-crtopts" id="o2sCrtOpts">';
+    c.opts.forEach(function(o,i){
+      h+='<div class="opt2-crtrow" data-crtrow="'+i+'">'+
+        '<input class="opt2-inp" data-crtopt="'+i+'" maxlength="80" placeholder="选项 '+(i+1)+'" value="'+esc(o.text||"")+'" autocomplete="off">'+
+        '<label class="opt2-crtimg" title="上传配图">'+(o.img?'<img src="'+esc(o.img)+'" alt="">':"图")+
+          '<input type="file" accept="image/*" data-crtfile="'+i+'" hidden></label>'+
+        (o.img?'<button type="button" class="opt2-crtdel" data-crtimgdel="'+i+'" title="移除配图">✕</button>':'')+
+        (c.opts.length>2?'<button type="button" class="opt2-crtdel" data-crtoptdel="'+i+'" title="删除选项">－</button>':'')+
+        '</div>';
+    });
+    h+='</div><button type="button" class="opt2-link" data-stg="votecreateadd">＋ 添加选项</button></div>';
+    h+='<div class="opt2-field"><span>规则</span><div class="opt2-chips">'+
+      '<button type="button" class="opt2-chipbtn'+(c.multi?"":" on")+'" data-crtmode="single">单选</button>'+
+      '<button type="button" class="opt2-chipbtn'+(c.multi?" on":"")+'" data-crtmode="multi">多选</button></div>'+
+      (c.multi?'<div class="opt2-chips" style="margin-top:6px"><span class="opt2-dim">最多可选</span>'+
+        [2,3,4,5,6].filter(function(n){return n<=c.opts.length;}).map(function(n){
+          return '<button type="button" class="opt2-chipbtn'+(Number(c.max)===n?" on":"")+'" data-crtmax="'+n+'">'+n+' 项</button>';
+        }).join("")+'</div>':'')+'</div>';
+    h+='<div class="opt2-field"><span>可见范围</span><div class="opt2-chips">'+
+      [["all","全班"],["committee","班委"],["league","团员"],["custom","指定成员"]].map(function(x){
+        return '<button type="button" class="opt2-chipbtn'+(c.aud===x[0]?" on":"")+'" data-crtaud="'+x[0]+'">'+x[1]+'</button>';
+      }).join("")+'</div>';
+    if(c.aud==="custom")h+='<div class="opt2-crtmem" id="o2sCrtMem"></div><div class="opt2-dim" id="o2sCrtMemSum">已选 '+c.audSeats.length+' 人</div>';
+    h+='</div>';
+    h+='<div class="opt2-field"><span>结果</span><div class="opt2-chips">'+
+      [["always","始终可见"],["afterVote","投票后"],["afterClose","截止后"]].map(function(x){
+        return '<button type="button" class="opt2-chipbtn'+(c.vis===x[0]?" on":"")+'" data-crtvis="'+x[0]+'">'+x[1]+'</button>';
+      }).join("")+'</div></div>';
+    h+='<div class="opt2-field"><span>限时</span><div class="opt2-chips" id="o2sCrtMins">'+
+      STG_CREATE_MINS.map(function(m){return '<button type="button" class="opt2-chipbtn'+(c.dt==="quick"&&Number(c.mins)===m?" on":"")+'" data-crtmins="'+m+'">'+m+' 分</button>';}).join("")+
+      '<button type="button" class="opt2-chipbtn'+(c.dt==="none"?" on":"")+'" data-crtmins="0">不限时</button></div></div>';
+    h+='<div class="opt2-chips">'+
+      '<label class="opt2-check"><input type="checkbox" id="o2sCrtAnon"'+(c.anonymous?" checked":"")+'> 匿名</label>'+
+      '<label class="opt2-check"><input type="checkbox" id="o2sCrtChange"'+(c.allowChange?" checked":"")+'> 允许改票</label></div>';
+    body.innerHTML=h;
+    stgRenderCreateAud();
+  }
+  function stgRenderCreateAud(){
+    var box=el("o2sCrtMem");if(!box)return;
+    var ms=(D&&D.d&&D.d.members)||[];
+    if(!ms.length){box.innerHTML='<div class="opt2-dim">名单加载中…</div>';ensureStageMembers();return;}
+    var sel=STAGE.crt.audSeats||[];
+    box.innerHTML='<div class="opt2-crtmem-all"><button type="button" class="opt2-link" data-crtmemall="1">全选</button>'+
+      '<button type="button" class="opt2-link" data-crtmemall="0">清空</button></div><div class="opt2-crtmemg">'+
+      ms.map(function(m){var on=sel.indexOf(Math.round(Number(m.seat)))>=0;
+        return '<button type="button" class="opt2-memb'+(on?" on":"")+'" data-crtmemseat="'+m.seat+'">'+esc(m.name)+'</button>';
+      }).join("")+'</div>';
+  }
+  function stgCreateChange(e){
+    var t=e.target;if(!t)return;
+    try{
+      if(t.id==="o2sCrtAnon"){STAGE.crt.anonymous=!!t.checked;return;}
+      if(t.id==="o2sCrtChange"){STAGE.crt.allowChange=!!t.checked;return;}
+      var fi=t.getAttribute&&t.getAttribute("data-crtfile");
+      if(fi!=null&&fi!==""){
+        var f=t.files&&t.files[0];if(!f)return;
+        stgImgCompress(f,function(err,url){
+          if(err){toast(err,"error");return;}
+          var i=Number(fi);if(!STAGE.crt.opts[i])return;
+          var total=stgCrtTotalImg()-String(STAGE.crt.opts[i].img||"").length+String(url).length;
+          if(total>1600000){toast("选项图片总量过大","error");return;}
+          STAGE.crt.opts[i].img=url;stgRenderCreate();
+        });
+      }
+    }catch(x){}
+  }
+  function stgCreateClick(e){
+    var t=e.target;if(!t||!t.closest)return;
+    try{
+      var mode=t.closest("[data-crtmode]");
+      if(mode){STAGE.crt.multi=mode.getAttribute("data-crtmode")==="multi";if(!STAGE.crt.multi)STAGE.crt.max=1;stgRenderCreate();return;}
+      var mx=t.closest("[data-crtmax]");if(mx){STAGE.crt.max=Number(mx.getAttribute("data-crtmax"))||2;stgRenderCreate();return;}
+      var aud=t.closest("[data-crtaud]");if(aud){var a=aud.getAttribute("data-crtaud");STAGE.crt.aud=a;if(a!=="custom")STAGE.crt.audSeats=[];stgRenderCreate();if(a==="custom")ensureStageMembers();return;}
+      var vis=t.closest("[data-crtvis]");if(vis){STAGE.crt.vis=vis.getAttribute("data-crtvis");stgRenderCreate();return;}
+      var mins=t.closest("[data-crtmins]");if(mins){var m=Number(mins.getAttribute("data-crtmins"))||0;if(m>0){STAGE.crt.dt="quick";STAGE.crt.mins=m;}else STAGE.crt.dt="none";stgRenderCreate();return;}
+      var all=t.closest("[data-crtmemall]");if(all){STAGE.crt.audSeats=(all.getAttribute("data-crtmemall")==="1")?stgMemberSeats():[];stgRenderCreateAud();return;}
+      var ms=t.closest("[data-crtmemseat]");if(ms){var seat=Math.round(Number(ms.getAttribute("data-crtmemseat")));var i=STAGE.crt.audSeats.indexOf(seat);if(i>=0)STAGE.crt.audSeats.splice(i,1);else STAGE.crt.audSeats.push(seat);STAGE.crt.audSeats=stgSeatsNorm(STAGE.crt.audSeats);stgRenderCreateAud();return;}
+      var imd=t.closest("[data-crtimgdel]");if(imd){STAGE.crt.opts[Number(imd.getAttribute("data-crtimgdel"))].img="";stgRenderCreate();return;}
+      var del=t.closest("[data-crtoptdel]");if(del){if(STAGE.crt.opts.length>2){STAGE.crt.opts.splice(Number(del.getAttribute("data-crtoptdel")),1);stgRenderCreate();}return;}
+      var add=t.closest('[data-stg="votecreateadd"]');if(add){return;} /* 交给通用 stgAct */
+    }catch(x){}
+  }
+  var _stgCrtAdd=0;
   function stgCreateAddOpt(){
-    if((Number(STAGE.crtOpts)||2)>=8){toast("最多 8 个选项");return;}
-    STAGE.crtOpts=(Number(STAGE.crtOpts)||2)+1;stgCreateOpts();
+    if(STAGE.crt.opts.length>=STG_MAX_OPTS){toast("最多 "+STG_MAX_OPTS+" 个选项");return;}
+    STAGE.crt.opts.push(stgCrtNewOpt());stgRenderCreate();
   }
   function stgVoteCreateClose(){var m=el("o2sModal");if(m)m.hidden=true;}
   function stgVoteCreateGo(){
-    var ti=el("o2sCrtTitle"),title=ti?String(ti.value||"").trim():"";
-    if(!title){toast("请输入标题","error");return;}
-    var inputs=document.querySelectorAll("#o2sCrtOpts [data-crtopt]"),opts=[],i;
-    for(i=0;i<inputs.length;i++){
-      var v=String(inputs[i].value||"").trim();
-      if(v)opts.push({id:"o"+i+Math.random().toString(36).slice(2,6),text:v});
+    var c=STAGE.crt;
+    c.title=String((el("o2sCrtTitle")||{}).value||"").trim();
+    var inputs=document.querySelectorAll("#o2sCrtOpts [data-crtopt]");
+    for(var i=0;i<inputs.length;i++){if(c.opts[i])c.opts[i].text=String(inputs[i].value||"").trim();}
+    if(!c.title){toast("请输入标题","error");return;}
+    var opts=[],n=0;
+    for(i=0;i<c.opts.length;i++){
+      var t=String(c.opts[i].text||"").trim();if(!t)continue;
+      opts.push({id:c.opts[i].id,text:t,desc:"",img:String(c.opts[i].img||"")});n++;
     }
-    if(opts.length<2){toast("至少填 2 个选项","error");return;}
-    var mins=Number(STAGE.crtMins)||10;
+    if(n<2){toast("至少填 2 个选项","error");return;}
+    if(stgCrtTotalImg()>1600000){toast("选项图片总量过大","error");return;}
+    var multi=!!c.multi,max=multi?Math.min(Math.max(2,Number(c.max)||2),n):1;
+    var aud=(c.aud==="committee"||c.aud==="league"||c.aud==="custom")?c.aud:"all";
+    var seats=[];
+    if(aud==="custom"){seats=stgSeatsNorm(c.audSeats);if(!seats.length){toast("请选择可见成员","error");return;}}
+    var dl=(c.dt==="none")?0:(Date.now()+Number(c.mins)*60000);
     var pid="p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-    var anon=!!(el("o2sCrtAnon")&&el("o2sCrtAnon").checked);
-    var settings={multi:false,maxChoices:1,anonymous:anon,allowChange:true,resultVisibility:"always"};
+    var payload={p_id:pid,p_title:c.title,p_description:"",p_mode:(c.dt==="none"?"long":"quick"),
+      p_options:opts,
+      p_settings:{multi:multi,maxChoices:max,anonymous:!!c.anonymous,allowChange:!!c.allowChange,resultVisibility:c.vis||"always"},
+      p_audience:aud,p_audience_seats:seats,p_deadline:dl};
     var go=el("o2sCrtGo");if(go){go.disabled=true;go.textContent="发起中…";}
     try{
-      cbRpc("poll_create",{p_id:pid,p_title:title,p_description:"",p_mode:"quick",p_options:opts,p_settings:settings,p_deadline:Date.now()+mins*60000})
-        .then(function(r){
-          if(go){go.disabled=false;go.textContent="发起";}
-          if(!r||!r.ok){toast((r&&r.reason)||"发起失败","error");return;}
-          var np=(r.poll&&r.poll.id)?String(r.poll.id):pid;
-          STAGE.vote.id=np;STAGE.vote.detail=r;STAGE.vote.detAt=Date.now();STAGE.vote.listAt=0;
-          stgVoteCreateClose();toast("已发起");stgRenderVote();stgVoteRefresh();
-        }).catch(function(){
-          if(go){go.disabled=false;go.textContent="发起";}
-          toast("网络不可用，稍后重试","error");
-        });
+      cbRpc("poll_create",payload).then(function(r){
+        if(go){go.disabled=false;go.textContent="发起";}
+        if(!r||!r.ok){toast((r&&r.reason)||"发起失败","error");return;}
+        var np=(r.poll&&r.poll.id)?String(r.poll.id):pid;
+        STAGE.vote.id=np;STAGE.vote.detail=r;STAGE.vote.detAt=Date.now();STAGE.vote.listAt=0;
+        stgVoteCreateClose();toast("已发起");stgRenderVote();stgRenderIsland();stgVoteRefresh();
+      }).catch(function(){
+        if(go){go.disabled=false;go.textContent="发起";}
+        toast("网络不可用，稍后重试","error");
+      });
     }catch(e){if(go){go.disabled=false;go.textContent="发起";}toast("发起失败","error");}
   }
 
-  /* ---------- 计时 / 抽签 ---------- */
+  /* ---------- 计时 / 抽签（名单快捷选择） ---------- */
   function stgRenderTimer(){
     var bd=stgPb("timer");if(!bd)return;
     var label=STAGE.running?"暂停":"开始";
@@ -14843,28 +15452,41 @@ function optSaveCanvas(c,o){
       '<div class="opt2-actions"><button type="button" class="opt2-btn pri" data-o2timer="1">'+label+'</button>'+
       '<button type="button" class="opt2-btn" data-o2timer="0">重置</button></div>';
   }
+  function stgDrawPool(){
+    var ms=(D&&D.d&&D.d.members)||[],sel=null;
+    try{sel=(D.d.rosterSel instanceof Array)?D.d.rosterSel:null;}catch(e){sel=null;}
+    var out=[];
+    if(ms.length){
+      var use=sel&&sel.length?sel:null;
+      ms.forEach(function(m){
+        var seat=Math.round(Number(m.seat));
+        if(use&&use.indexOf(seat)<0)return;
+        if(m.name)out.push(m.name);
+      });
+      if(out.length)return out;
+    }
+    return opt2StageNames();
+  }
+  function stgDrawPoolSize(){
+    try{
+      var ms=(D&&D.d&&D.d.members)||[],sel=(D.d.rosterSel instanceof Array)?D.d.rosterSel:null;
+      if(ms.length)return (sel&&sel.length)?sel.length:ms.length;
+    }catch(e){}
+    return 0;
+  }
   function stgRenderDraw(){
     var bd=stgPb("draw");if(!bd)return;
+    var n=stgDrawPoolSize(),hint=n?("抽签池 "+n+" 人"):"未选名单";
     bd.innerHTML='<div class="opt2-num opt2-pick" id="o2sPick">'+(STAGE.drawName?esc(STAGE.drawName):"?")+'</div>'+
-      '<div class="opt2-actions"><button type="button" class="opt2-btn" data-o2pick="1">抽 1 人</button></div>';
-  }
-  function stgTimerTap(btn){
-    var isStart=btn.getAttribute("data-o2timer")==="1";
-    if(isStart){
-      if(STAGE.timer<=0)STAGE.timer=300;
-      STAGE.running=!STAGE.running;
-      btn.textContent=STAGE.running?"暂停":"开始";
-    }else{
-      STAGE.running=false;STAGE.timer=300;
-      var b=el("opt2Stage")?el("opt2Stage").querySelector('[data-o2timer="1"]'):null;
-      if(b)b.textContent="开始";
-      var tv=el("o2sTimer");if(tv)tv.textContent=stgTimerText();
-    }
+      '<div class="opt2-dhint" id="o2sDrawHint">'+esc(hint)+'</div>'+
+      '<div class="opt2-actions"><button type="button" class="opt2-btn pri" data-o2pick="1">抽 1 人</button>'+
+      '<button type="button" class="opt2-btn" data-stg="drawroster">名单</button></div>';
   }
   function stgDrawTap(){
-    var names=opt2StageNames(),pv=el("o2sPick");
-    if(!names.length){if(pv)pv.textContent="无名单";STAGE.drawName="";return;}
-    var nm=names[rndInt(names.length)];STAGE.drawName=nm;if(pv)pv.textContent=nm;
+    var pool=stgDrawPool(),pv=el("o2sPick");
+    if(!pool.length){if(pv)pv.textContent="无名单";STAGE.drawName="";return;}
+    var nm=pool[rndInt(pool.length)];STAGE.drawName=nm;if(pv)pv.textContent=nm;
+    var h=el("o2sDrawHint");if(h)h.textContent="抽签池 "+pool.length+" 人";
   }
   function opt2StageNames(){
     try{
@@ -14880,8 +15502,75 @@ function optSaveCanvas(c,o){
     }catch(e){}
     return [];
   }
+  function stgRosterModal(){
+    var ov=el("o2sRoster");
+    if(!ov){
+      ov=document.createElement("div");ov.id="o2sRoster";ov.className="opt2-mask";ov.hidden=true;
+      ov.innerHTML='<div class="opt2-modal opt2-rstmodal" role="dialog" aria-modal="true" aria-label="抽签名单">'+
+        '<div class="opt2-mhd"><b>抽签名单</b><button type="button" class="opt2-ibtn" data-stg="rosterclose" aria-label="关闭">×</button></div>'+
+        '<div class="opt2-mbd"><div class="opt2-chips" id="o2sRstQuick">'+
+        '<button type="button" class="opt2-chipbtn" data-rstquick="all">全班</button>'+
+        '<button type="button" class="opt2-chipbtn" data-rstquick="committee">班委</button>'+
+        '<button type="button" class="opt2-chipbtn" data-rstquick="league">团员</button>'+
+        '<button type="button" class="opt2-chipbtn" data-rstquick="none">清空</button></div>'+
+        '<div class="opt2-rstg" id="o2sRstGrid"></div><div class="opt2-dim" id="o2sRstSum"></div></div>'+
+        '<div class="opt2-mfoot"><button type="button" class="opt2-btn" data-stg="rosterclose">取消</button>'+
+        '<button type="button" class="opt2-btn pri" id="o2sRstOk">应用</button></div></div>';
+      var root=el("opt2Stage");if(root)root.appendChild(ov);else document.body.appendChild(ov);
+      var ok=el("o2sRstOk");if(ok)ok.addEventListener("click",stgRosterApply);
+      ov.addEventListener("click",stgRosterClick,true);
+    }
+    return ov;
+  }
+  function stgRosterOpen(){
+    var ov=stgRosterModal();
+    if(!(D&&D.d&&D.d.members||[]).length)ensureStageMembers().then(function(){stgRosterRender();});
+    try{
+      var cur=(D.d.rosterSel instanceof Array)?D.d.rosterSel.slice():[];
+      if(!cur.length){cur=(D.d.members||[]).map(function(m){return Math.round(Number(m.seat));});}
+      STAGE.rosterSel=cur;
+    }catch(e){STAGE.rosterSel=[];}
+    ov.hidden=false;stgRosterRender();
+  }
+  function stgRosterRender(){
+    var box=el("o2sRstGrid");if(!box)return;
+    var ms=(D&&D.d&&D.d.members)||[],sel=STAGE.rosterSel||[];
+    var qs=document.querySelectorAll("#o2sRstQuick [data-rstquick]");for(var qi=0;qi<qs.length;qi++)qs[qi].classList.remove("on");
+    box.innerHTML=ms.map(function(m){
+      var on=sel.indexOf(Math.round(Number(m.seat)))>=0;
+      return '<button type="button" class="opt2-memb'+(on?" on":"")+'" data-rstseat="'+m.seat+'">'+esc(m.name)+'<i>'+m.seat+'</i></button>';
+    }).join("")||'<div class="opt2-dim">名单加载中…</div>';
+    var sum=el("o2sRstSum");if(sum)sum.textContent="已选 "+sel.length+" 人";
+  }
+  function stgRosterClick(e){
+    var t=e.target;if(!t||!t.closest)return;
+    try{
+      var q=t.closest("[data-rstquick]");
+      if(q){
+        var kind=q.getAttribute("data-rstquick");
+        if(kind==="all")STAGE.rosterSel=stgMemberSeats();
+        else if(kind==="committee")STAGE.rosterSel=stgCommitteeSeats();
+        else if(kind==="none")STAGE.rosterSel=[];
+        else if(kind==="league"){stgLeagueFetch().then(function(seats){STAGE.rosterSel=stgSeatsNorm((seats||[]).map(function(x){return x.seat;}));stgRosterRender();});}
+        stgRosterRender();
+        var act=document.querySelectorAll("#o2sRstQuick [data-rstquick]");
+        for(var i2=0;i2<act.length;i2++)act[i2].classList.toggle("on",act[i2]===q);
+        return;
+      }
+      var b=t.closest("[data-rstseat]");
+      if(b){var seat=Math.round(Number(b.getAttribute("data-rstseat")));var i2=STAGE.rosterSel.indexOf(seat);if(i2>=0)STAGE.rosterSel.splice(i2,1);else STAGE.rosterSel.push(seat);STAGE.rosterSel=stgSeatsNorm(STAGE.rosterSel);stgRosterRender();return;}
+    }catch(x){}
+  }
+  function stgRosterApply(){
+    var sel=stgSeatsNorm(STAGE.rosterSel||[]);
+    try{if(typeof applyDrawSel==="function")applyDrawSel(sel);}catch(e){}
+    var ov=el("o2sRoster");if(ov)ov.hidden=true;
+    stgRenderDraw();
+    toast(sel.length?("名单已更新 · "+sel.length+" 人"):"已清空名单");
+  }
+  function stgRosterClose(){var ov=el("o2sRoster");if(ov)ov.hidden=true;}
 
-  /* ---------- 1s 心跳：时钟 / 计时 / 投票倒计时与刷新 ---------- */
+  /* ---------- 1s 心跳：时钟 / 计时 / 投票倒计时与刷新 / 灵动岛 ---------- */
   function stgTick(){
     try{
       var tm=el("o2sTime");if(tm)tm.textContent=clockText();
@@ -14899,10 +15588,405 @@ function optSaveCanvas(c,o){
         cd.textContent=!dl?"不限时":(dl<=Date.now()?"已截止":stgCd(dl));
         if(dl>0&&dl<=Date.now())cd.className="opt2-vclosed";
       }
+      stgRenderIsland();
       STAGE.tickN++;
       if(!STAGE.open)return;
       if(STAGE.tickN%5===0&&STAGE.vote.id&&Date.now()-(STAGE.vote.detAt||0)>4200)stgVoteDetail();
       if(STAGE.tickN%20===0&&Date.now()-(STAGE.vote.listAt||0)>17000)stgVoteRefresh();
+    }catch(e){}
+  }
+
+  /* ---------- 跨端互联（同账号临时通道：传文件/文字 + 遥控大屏） ---------- */
+  var STG_DROP_BASE=(function(){
+    try{
+      if(window.__DROP_BASE)return String(window.__DROP_BASE).replace(/\/+$/,"");
+      return (location.protocol==="https:")?(location.origin+"/drop"):"http://121.196.47.2/drop";
+    }catch(e){return "http://121.196.47.2/drop";}
+  })();
+  function stgDropReq(path,opt){
+    opt=opt||{};
+    var url=STG_DROP_BASE+path,init={method:opt.method||"GET",cache:"no-store",headers:{}};
+    var tk=stgToken();if(tk)init.headers["X-Device-Id"]=tk;
+    if(opt.body!==undefined){
+      if(typeof opt.body==="string"){init.body=opt.body;}
+      else{init.headers["Content-Type"]="application/json";init.body=JSON.stringify(opt.body);}
+    }
+    var ctrl=null;try{ctrl=new AbortController();init.signal=ctrl.signal;}catch(e){}
+    var timer=setTimeout(function(){try{if(ctrl)ctrl.abort();}catch(e){}},opt.timeout||30000);
+    return fetch(url,init).then(function(r){
+      clearTimeout(timer);
+      return r.json().catch(function(){return {ok:false,reason:"服务响应异常"};}).then(function(j){
+        if(!j||typeof j!=="object")j={ok:false,reason:"服务响应异常"};
+        if(!r.ok&&j.ok===undefined)j.ok=false;
+        if(r.status>=400&&j.ok!==false)j.ok=false;
+        return j;
+      });
+    }).catch(function(){
+      clearTimeout(timer);
+      return {ok:false,reason:(navigator.onLine===false?"网络不可用":"互联服务不可达")};
+    });
+  }
+  function stgDropLink(){
+    try{return location.origin+location.pathname+"#drop";}catch(e){return "#drop";}
+  }
+  function stgDropCopyLink(){
+    var link=stgDropLink();
+    try{
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(link).then(function(){toast("链接已复制");},function(){stgDropFallbackCopy(link);});return;}
+    }catch(e){}
+    stgDropFallbackCopy(link);
+  }
+  function stgDropFallbackCopy(txt){
+    try{
+      var ta=document.createElement("textarea");ta.value=txt;ta.style.position="fixed";ta.style.opacity="0";
+      document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);
+      toast("已复制");
+    }catch(e){toast("复制失败，请长按选择","error");}
+  }
+  function stgDropModal(){
+    var ov=el("o2sDropModal");
+    if(!ov){
+      ov=document.createElement("div");ov.id="o2sDropModal";ov.className="opt2-mask";ov.hidden=true;
+      ov.innerHTML='<div class="opt2-modal opt2-dropmodal" role="dialog" aria-modal="true" aria-label="大屏互联">'+
+        '<div class="opt2-mhd"><b>大屏互联</b><button type="button" class="opt2-ibtn" data-stg="dropclose" aria-label="关闭">×</button></div>'+
+        '<div class="opt2-mbd" id="o2sDropBody"></div>'+
+        '<div class="opt2-mfoot"><button type="button" class="opt2-btn" data-stg="dropclose">关闭通道</button>'+
+        '<button type="button" class="opt2-btn pri" data-stg="droplink">复制链接</button></div></div>';
+      var root=el("opt2Stage");if(root)root.appendChild(ov);else document.body.appendChild(ov);
+    }
+    return ov;
+  }
+  function stgDropPanelOpen(){
+    if(!STAGE.drop.active){stgDropEnsure().then(function(ok){if(ok)stgDropRender();});}
+    var ov=stgDropModal();ov.hidden=false;stgDropRender();
+    if(STAGE.drop.active)stgDropStartPoll();
+  }
+  function stgDropEnsure(){
+    if(STAGE.drop.active&&STAGE.drop.session)return Promise.resolve(true);
+    if(STAGE.drop.busy)return Promise.resolve(false);
+    STAGE.drop.busy=true;
+    return stgDropReq("/open",{method:"POST",body:{}}).then(function(r){
+      STAGE.drop.busy=false;
+      if(!r||!r.ok){STAGE.drop.err=(r&&r.reason)||"通道开启失败";stgDropRender();return false;}
+      STAGE.drop.active=true;STAGE.drop.session=r.session||null;STAGE.drop.err="";
+      STAGE.drop.events=[];STAGE.drop.cursor=0;STAGE.drop.lastCount=0;
+      var db=el("o2sDropBtn");if(db)db.classList.add("on");
+      stgDropStartPoll();
+      return true;
+    });
+  }
+  function stgDropStartPoll(){
+    stgDropStopPoll();
+    if(!STAGE.drop.active)return;
+    STAGE.drop.iv=setInterval(function(){stgDropPoll();},2000);
+  }
+  function stgDropStopPoll(){if(STAGE.drop.iv){clearInterval(STAGE.drop.iv);STAGE.drop.iv=0;}}
+  function stgDropPoll(){
+    if(!STAGE.drop.active||!STAGE.drop.session)return;
+    var sid=String(STAGE.drop.session.id||"");
+    return stgDropReq("/state?sessionId="+encodeURIComponent(sid)+"&since="+Number(STAGE.drop.cursor||0)).then(function(r){
+      if(!r||!r.ok){STAGE.drop.err=(r&&r.reason)||"";return;}
+      STAGE.drop.err="";
+      if(r.session)STAGE.drop.session=r.session;
+      var evs=(r.events instanceof Array)?r.events:[];
+      if(evs.length){
+        evs.forEach(function(ev){
+          STAGE.drop.events.push(ev);
+          if(String(ev.kind)==="cmd"){
+            try{stgDropApplyCmd(ev.payload||{});}catch(e){}
+          }else if(String(ev.kind)==="file"){
+            toast("收到文件："+String((ev.payload&&ev.payload.name)||""));
+          }else if(String(ev.kind)==="text"){
+            toast("收到文字："+stgClip(String((ev.payload&&ev.payload.text)||"")));
+          }
+        });
+        if(STAGE.drop.events.length>200)STAGE.drop.events=STAGE.drop.events.slice(-200);
+        STAGE.drop.lastCount=STAGE.drop.events.filter(function(e){return e.kind==="file";}).length;
+        var dm=el("o2sDropModal");if(dm&&!dm.hidden)stgDropRender();
+        stgRenderIsland();
+        var db=el("o2sDropBtn");if(db)db.classList.toggle("on",true);
+      }
+      if(typeof r.cursor==="number")STAGE.drop.cursor=r.cursor;
+    });
+  }
+  function stgDropApplyCmd(p){
+    var op=String(p.op||""),a=(p.args&&typeof p.args==="object")?p.args:{};
+    if(op==="focus"&&a.panel)stgSetFocus(String(a.panel));
+    else if(op==="focus_clear")stgSetFocus("");
+    else if(op==="timer"){
+      var act=String(a.action||"");
+      if(act==="start"){if(STAGE.timer<=0)STAGE.timer=300;STAGE.running=true;stgRenderTimer();}
+      else if(act==="pause"){STAGE.running=false;stgRenderTimer();}
+      else if(act==="reset"){STAGE.running=false;STAGE.timer=300;stgRenderTimer();}
+      else if(act==="set"){STAGE.timer=Math.max(0,Number(a.sec)||300);STAGE.running=false;stgRenderTimer();}
+      stgRenderIsland();
+    }
+    else if(op==="draw")stgDrawTap();
+    else if(op==="vote_select"){var pid=String(a.pollId||"");if(pid){STAGE.vote.id=pid;STAGE.vote.detail=null;stgRenderVote();stgVoteDetail();}}
+    else if(op==="toast"){toast(String(a.text||"收到遥控指令"));}
+    else if(op==="restore_fs"){STAGE.fsWant=true;try{stgToggleFs();}catch(e){}}
+    else if(op==="stage_close"){opt2StageClose();}
+    else if(op==="ppt"){var dk=String(a.deckId||"");if(a.action==="open")stgPptAct("open",dk);else stgPptAct("dl",dk);}
+    stgRenderIsland();
+  }
+  function stgDropRender(){
+    var body=el("o2sDropBody");if(!body)return;
+    var d=STAGE.drop,sess=d.session||{};
+    var files=(d.events||[]).filter(function(e){return e.kind==="file";});
+    var texts=(d.events||[]).filter(function(e){return e.kind==="text";});
+    var h='<div class="opt2-drop-st">';
+    if(d.active){
+      h+='<span class="opt2-drop-dot"></span><b>通道已开启</b><span class="opt2-tag">'+esc(String(sess.code||""))+'</span>';
+      if(sess.expiresAt)h+='<span class="opt2-dim" id="o2sDropExp" data-exp="'+(Number(sess.expiresAt)||0)+'">剩余 '+Math.max(0,Math.ceil((Number(sess.expiresAt)-Date.now())/60000))+' 分钟</span>';
+    }else{
+      h+='<span class="opt2-drop-dot off"></span><b>通道未开启</b>'+(d.err?'<span class="opt2-dim">'+esc(d.err)+'</span>':'');
+    }
+    h+='</div>';
+    h+='<div class="opt2-drop-link"><input readonly value="'+esc(stgDropLink())+'" id="o2sDropLink"><button type="button" class="opt2-btn" data-stg="droplink">复制链接</button></div>';
+    h+='<div class="opt2-drop-sec"><b>收到的文件 · '+files.length+'</b>'+(files.length?'<button type="button" class="opt2-link" data-stg="dropfileclear">清空列表</button>':'')+'</div>';
+    if(!files.length)h+='<div class="opt2-dim">其他设备（同账号登录）在「全部 → 大屏互联」中上传</div>';
+    files.slice(-30).reverse().forEach(function(ev,i){
+      var f=ev.payload||{},u=String(f.downloadUrl||""),mime=String(f.mime||"");
+      h+='<div class="opt2-drop-row"><span class="opt2-drop-ico">'+(/^image\//.test(mime)?"🖼":"📄")+'</span>'+
+        '<span class="opt2-drop-nm">'+esc(String(f.name||"文件"))+'<i>'+esc(stgSize(f.size))+' · '+esc(String((ev.from&&ev.from.name)||""))+'</i></span>'+
+        '<a class="opt2-btn" href="'+esc(u)+'" download="'+esc(String(f.name||"file"))+'" rel="noopener">下载</a>'+
+        (/^image\//.test(mime)?'<a class="opt2-link" href="'+esc(u)+'&inline=1" target="_blank" rel="noopener">预览</a>':'')+'</div>';
+    });
+    h+='<div class="opt2-drop-sec"><b>收到的文字 · '+texts.length+'</b></div>';
+    if(!texts.length)h+='<div class="opt2-dim">暂无（手机复制一段文字发到大屏）</div>';
+    texts.slice(-20).reverse().forEach(function(ev,i){
+      var t=String((ev.payload&&ev.payload.text)||"");
+      h+='<div class="opt2-drop-row opt2-drop-txt"><span class="opt2-drop-nm">'+esc(t.length>160?t.slice(0,160)+"…":t)+'<i>'+esc(String((ev.from&&ev.from.name)||""))+'</i></span>'+
+        '<button type="button" class="opt2-btn" data-stg="droptextcopy" data-t="'+esc(t)+'">复制</button></div>';
+    });
+    body.innerHTML=h;
+  }
+  function stgDropCloseSession(){
+    var sess=STAGE.drop.session;
+    stgDropStopPoll();
+    STAGE.drop.active=false;STAGE.drop.session=null;STAGE.drop.events=[];STAGE.drop.cursor=0;STAGE.drop.lastCount=0;
+    var db=el("o2sDropBtn");if(db)db.classList.remove("on");
+    var ov=el("o2sDropModal");if(ov)ov.hidden=true;
+    stgRenderIsland();
+    if(sess&&sess.id)stgDropReq("/close",{method:"POST",body:{sessionId:String(sess.id)}}).catch(function(){});
+  }
+
+  /* ---------- 手机/其他设备：大屏遥控 + 传文件 ---------- */
+  function dropCtlModal(){
+    var ov=el("dropCtl");
+    if(!ov){
+      ov=document.createElement("div");ov.id="dropCtl";ov.className="dropctl";
+      ov.innerHTML='<div class="dropctl-card" role="dialog" aria-modal="true" aria-label="大屏互联">'+
+        '<div class="dropctl-hd"><b>大屏互联</b><button type="button" class="dropctl-x" id="dropCtlClose" aria-label="关闭">×</button></div>'+
+        '<div class="dropctl-bd" id="dropCtlBody"></div></div>';
+      document.body.appendChild(ov);
+      ov.addEventListener("click",dropCtlClick,true);
+      el("dropCtlClose").addEventListener("click",dropCtlClose);
+    }
+    return ov;
+  }
+  function dropCtlOpen(){
+    var ov=dropCtlModal();ov.classList.add("on");
+    document.body.classList.add("dropctl-lock");
+    STAGE.ctl.open=true;STAGE.ctl.cursor=0;STAGE.ctl.events=[];STAGE.ctl.err="";
+    dropCtlRefresh();
+    dropCtlStartPoll();
+  }
+  function dropCtlClose(){
+    var ov=el("dropCtl");if(ov)ov.classList.remove("on");
+    document.body.classList.remove("dropctl-lock");
+    STAGE.ctl.open=false;
+    dropCtlStopPoll();
+  }
+  function dropCtlStartPoll(){dropCtlStopPoll();STAGE.ctl.timer=setInterval(function(){dropCtlRefresh(true);},2500);}
+  function dropCtlStopPoll(){if(STAGE.ctl.timer){clearInterval(STAGE.ctl.timer);STAGE.ctl.timer=0;}}
+  function dropCtlRefresh(quiet){
+    if(!STAGE.ctl.open)return;
+    var p=STAGE.ctl.session?stgDropReq("/state?sessionId="+encodeURIComponent(STAGE.ctl.session.id)+"&since="+Number(STAGE.ctl.cursor||0)):stgDropReq("/mine");
+    p.then(function(r){
+      if(!r||!r.ok){if(!quiet){STAGE.ctl.err=(r&&r.reason)||"互联服务不可达";}dropCtlRender();return;}
+      STAGE.ctl.err="";
+      if(r.session!==undefined){
+        STAGE.ctl.session=r.session||null;
+        if(STAGE.ctl.session&&r.cursor===undefined)STAGE.ctl.cursor=0;
+        if(STAGE.ctl.session&&!STAGE.ctl.timer)dropCtlStartPoll();
+        if(!STAGE.ctl.session){dropCtlStopPoll();STAGE.ctl.events=[];}
+      }
+      if(r.events instanceof Array&&r.events.length){
+        r.events.forEach(function(ev){STAGE.ctl.events.push(ev);if(ev.kind==="file")toast("已送达大屏");});
+        if(STAGE.ctl.events.length>200)STAGE.ctl.events=STAGE.ctl.events.slice(-200);
+      }
+      if(typeof r.cursor==="number")STAGE.ctl.cursor=r.cursor;
+      dropCtlRender(r.events instanceof Array?r.events:null);
+    });
+  }
+  function dropCtlRender(newEvents){
+    var body=el("dropCtlBody");if(!body)return;
+    var oldTa=el("dropCtlText"),draft=oldTa?String(oldTa.value||""):"";
+    var focusId="";try{focusId=document.activeElement&&document.activeElement.id||"";}catch(e){}
+    var sess=STAGE.ctl.session,e=STAGE.ctl;
+    var files=(e.events||[]).filter(function(x){return x.kind==="file";});
+    var texts=(e.events||[]).filter(function(x){return x.kind==="text";});
+    var h="";
+    if(!sess){
+      h+='<div class="dropctl-empty"><b>大屏未开启互联</b><div>在电脑上打开「大屏」后，此处会自动连上（同账号）</div>'+
+        (e.err?'<div class="dropctl-err">'+esc(e.err)+'</div>':'')+
+        '<button type="button" class="dropctl-btn" id="dropCtlRetry">刷新</button></div>';
+      body.innerHTML=h;
+      return;
+    }
+    h+='<div class="dropctl-st"><span class="dropctl-dot"></span><b>已连接大屏</b><span class="dropctl-code">'+esc(String(sess.code||""))+'</span></div>';
+    h+='<div class="dropctl-sec"><b>传文件</b><div class="dropctl-up">'+
+      '<label class="dropctl-btn pri">选择文件<input type="file" id="dropCtlFile" multiple hidden></label>'+
+      '<span class="dropctl-dim">可多选 · 大文件分片直传 ECS</span></div><div id="dropCtlUps"></div></div>';
+    h+='<div class="dropctl-sec"><b>发文字</b><textarea id="dropCtlText" maxlength="10000" placeholder="粘贴文字，发送到大屏"></textarea>'+
+      '<div class="dropctl-row"><button type="button" class="dropctl-btn pri" data-ctl="text">发送到大屏</button></div></div>';
+    h+='<div class="dropctl-sec"><b>遥控大屏</b><div class="dropctl-ops">'+
+      '<button type="button" class="dropctl-op" data-ctl="focus_ppt">聚焦演示</button>'+
+      '<button type="button" class="dropctl-op" data-ctl="focus_vote">聚焦投票</button>'+
+      '<button type="button" class="dropctl-op" data-ctl="focus_timer">聚焦计时</button>'+
+      '<button type="button" class="dropctl-op" data-ctl="focus_draw">聚焦抽签</button>'+
+      '<button type="button" class="dropctl-op" data-ctl="focus_clear">退出聚焦</button>'+
+      '<button type="button" class="dropctl-op" data-ctl="timer_start">计时开始</button>'+
+      '<button type="button" class="dropctl-op" data-ctl="timer_pause">计时暂停</button>'+
+      '<button type="button" class="dropctl-op" data-ctl="timer_reset">计时重置</button>'+
+      '<button type="button" class="dropctl-op" data-ctl="draw">抽签 1 人</button>'+
+      '<button type="button" class="dropctl-op" data-ctl="ppt_open">打开当前 PPT</button>'+
+      '<button type="button" class="dropctl-op" data-ctl="restore_fs">恢复全屏</button>'+
+      '<button type="button" class="dropctl-op danger" data-ctl="stage_close">关闭大屏</button>'+
+      '</div><div class="dropctl-row"><input class="dropctl-inp" id="dropCtlToast" maxlength="80" placeholder="发一条提示到大屏">'+
+      '<button type="button" class="dropctl-btn" data-ctl="toast">发送提示</button></div></div>';
+    h+='<div class="dropctl-sec"><b>大屏收到的文件 · '+files.length+'</b>';
+    if(!files.length)h+='<div class="dropctl-dim">暂无</div>';
+    files.slice(-20).reverse().forEach(function(ev){
+      var f=ev.payload||{},u=String(f.downloadUrl||"");
+      h+='<div class="dropctl-row dropctl-file"><span>'+esc(String(f.name||"文件"))+'<i>'+esc(stgSize(f.size))+'</i></span>'+
+        '<a class="dropctl-btn" href="'+esc(u)+'" download="'+esc(String(f.name||"file"))+'" rel="noopener">下载</a></div>';
+    });
+    h+='</div>';
+    h+='<div class="dropctl-sec"><b>文字记录 · '+texts.length+'</b>';
+    texts.slice(-10).reverse().forEach(function(ev){
+      var t=String((ev.payload&&ev.payload.text)||"");
+      h+='<div class="dropctl-row dropctl-file"><span>'+esc(t.length>120?t.slice(0,120)+"…":t)+'</span>'+
+        '<button type="button" class="dropctl-btn" data-ctl="copy" data-t="'+esc(t)+'">复制</button></div>';
+    });
+    h+='</div>';
+    body.innerHTML=h;
+    try{var nt=el("dropCtlText");if(nt&&draft)nt.value=draft;if(focusId==="dropCtlText"&&nt){nt.focus();nt.selectionStart=nt.selectionEnd=String(nt.value||"").length;}}catch(e){}
+    dropCtlRenderUps();
+    if(newEvents&&newEvents.length){var tb=el("dropCtlText");/* 保留用户输入 */}
+  }
+  function dropCtlRenderUps(){
+    var box=el("dropCtlUps");if(!box)return;
+    var ups=STAGE.ctl.uploads||[];
+    if(!ups.length){box.innerHTML="";return;}
+    box.innerHTML=ups.map(function(u){
+      return '<div class="dropctl-up-item"><span>'+esc(u.name)+'</span>'+
+        '<div class="dropctl-bar"><i style="width:'+Math.round(u.pct||0)+'%"></i></div>'+
+        '<em>'+(u.err?esc(u.err):(u.done?"已发送":Math.round(u.pct||0)+"%"))+'</em></div>';
+    }).join("");
+  }
+  function dropCtlUpload(files){
+    if(!files||!files.length)return;
+    if(!STAGE.ctl.session){toast("大屏未开启互联","error");return;}
+    var sid=String(STAGE.ctl.session.id||"");
+    var arr=[].slice.call(files);
+    arr.forEach(function(f){
+      var item={name:f.name,pct:0,done:false,err:""};
+      STAGE.ctl.uploads.push(item);dropCtlRenderUps();
+      dropCtlUploadOne(sid,f,item);
+    });
+  }
+  function dropCtlUploadOne(sid,file,item){
+    var CHUNK=8*1024*1024,total=Math.max(1,Math.ceil(file.size/CHUNK)),uploadId="";
+    var mime=file.type||"application/octet-stream";
+    stgDropReq("/upload/init",{method:"POST",body:{sessionId:sid,name:file.name,size:file.size,mime:mime,totalChunks:total}}).then(function(r){
+      if(!r||!r.ok){item.err=(r&&r.reason)||"初始化失败";dropCtlRenderUps();return;}
+      uploadId=String(r.uploadId||"");
+      var idx=0;
+      function nextChunk(){
+        if(idx>=total){
+          stgDropReq("/upload/finish",{method:"POST",body:{sessionId:sid,uploadId:uploadId},timeout:60000}).then(function(r2){
+            if(!r2||!r2.ok){item.err=(r2&&r2.reason)||"完成失败";}
+            else{item.done=true;item.pct=100;toast("已发送："+file.name);dropCtlRefresh(true);}
+            dropCtlRenderUps();
+          });
+          return;
+        }
+        var start=idx*CHUNK,end=Math.min(file.size,start+CHUNK),blob=file.slice(start,end);
+        var url=STG_DROP_BASE+"/upload/chunk?uploadId="+encodeURIComponent(uploadId)+"&index="+idx;
+        var xhr=new XMLHttpRequest();xhr.open("POST",url,true);
+        try{xhr.setRequestHeader("X-Device-Id",stgToken());}catch(e){}
+        xhr.onload=function(){
+          if(xhr.status>=200&&xhr.status<300){
+            idx++;item.pct=Math.round(idx*100/total);dropCtlRenderUps();nextChunk();
+          }else{
+            var msg="分片上传失败";try{var j=JSON.parse(xhr.responseText);if(j&&j.reason)msg=j.reason;}catch(e){}
+            item.err=msg;dropCtlRenderUps();
+          }
+        };
+        xhr.onerror=function(){item.err="网络中断";dropCtlRenderUps();};
+        xhr.send(blob);
+      }
+      nextChunk();
+    });
+  }
+  function dropCtlSendText(){
+    var ta=el("dropCtlText");var txt=ta?String(ta.value||"").trim():"";
+    if(!txt){toast("请输入文字","error");return;}
+    if(txt.length>10000){toast("文字过长","error");return;}
+    if(!STAGE.ctl.session){toast("大屏未开启互联","error");return;}
+    stgDropReq("/text",{method:"POST",body:{sessionId:String(STAGE.ctl.session.id),text:txt}}).then(function(r){
+      if(!r||!r.ok){toast((r&&r.reason)||"发送失败","error");return;}
+      if(ta)ta.value="";toast("已发送到大屏");dropCtlRefresh(true);
+    });
+  }
+  function dropCtlOp(op){
+    if(!STAGE.ctl.session){toast("大屏未开启互联","error");return;}
+    var sid=String(STAGE.ctl.session.id),payload={sessionId:sid,op:"",args:{}};
+    if(op.indexOf("focus_")===0){
+      if(op==="focus_clear")payload.op="focus_clear";
+      else{payload.op="focus";payload.args={panel:op.replace("focus_","")};}
+    }else if(op.indexOf("timer_")===0){payload.op="timer";payload.args={action:op.replace("timer_","")};}
+    else if(op==="draw")payload.op="draw";
+    else if(op==="restore_fs")payload.op="restore_fs";
+    else if(op==="stage_close")payload.op="stage_close";
+    else if(op==="ppt_open")payload.op="ppt";
+    else if(op==="toast"){
+      var ti=el("dropCtlToast");var t=ti?String(ti.value||"").trim():"";
+      if(!t){toast("请输入提示文字","error");return;}
+      payload.op="toast";payload.args={text:t};
+    }else return;
+    stgDropReq("/cmd",{method:"POST",body:payload}).then(function(r){
+      if(!r||!r.ok){toast((r&&r.reason)||"指令发送失败","error");return;}
+      toast("已发送指令");
+    });
+  }
+  function dropCtlClick(e){
+    var t=e.target;if(!t||!t.closest)return;
+    try{
+      var b=t.closest("[data-ctl]");
+      if(b){var ctl=b.getAttribute("data-ctl");
+        if(ctl==="text")dropCtlSendText();
+        else if(ctl==="copy")stgDropFallbackCopy(b.getAttribute("data-t")||"");
+        else if(ctl==="toast")dropCtlOp("toast");
+        else dropCtlOp(ctl);
+        return;
+      }
+      if(t.id==="dropCtlRetry"){STAGE.ctl.session=null;STAGE.ctl.cursor=0;STAGE.ctl.events=[];dropCtlRefresh();return;}
+    }catch(x){}
+  }
+  function dropCtlFileChange(e){
+    if(!e||!e.target||e.target.id!=="dropCtlFile")return;
+    dropCtlUpload(e.target.files);
+    try{e.target.value="";}catch(x){}
+  }
+  document.addEventListener("change",dropCtlFileChange,true);
+  function dropHashOpen(){
+    try{
+      if(String(location.hash||"")!=="#drop")return;
+      if(typeof AUTH!=="undefined"&&AUTH&&AUTH.ready)dropCtlOpen();
+      else setTimeout(dropHashOpen,800);
     }catch(e){}
   }
 
@@ -14913,17 +15997,33 @@ function optSaveCanvas(c,o){
       if(document.fullscreenElement||document.webkitFullscreenElement){
         if(document.exitFullscreen)document.exitFullscreen();
         else if(document.webkitExitFullscreen)document.webkitExitFullscreen();
+        STAGE.fsWant=false;
         return;
       }
       var req=ov&&(ov.requestFullscreen||ov.webkitRequestFullscreen||ov.mozRequestFullScreen||ov.msRequestFullscreen);
-      if(req)req.call(ov);else toast("当前浏览器不支持全屏","error");
+      if(req){req.call(ov);STAGE.fsWant=true;}else toast("当前浏览器不支持全屏","error");
     }catch(e){try{toast("当前浏览器不支持全屏","error");}catch(e2){}}
+  }
+  function stgRestoreFs(){
+    try{
+      if(document.fullscreenElement)return;
+      var ov=el("opt2Stage");
+      var req=ov&&(ov.requestFullscreen||ov.webkitRequestFullscreen||ov.mozRequestFullScreen||ov.msRequestFullscreen);
+      if(req)req.call(ov);
+    }catch(e){}
   }
   function stgAct(a,node){
     var k=node?node.getAttribute("data-k"):"";
+    if(!k)k=STAGE.sel||"";
     switch(a){
       case "close":opt2StageClose();break;
       case "fs":stgToggleFs();break;
+      case "focusclear":stgSetFocus("");break;
+      case "focus":
+        if(k==="fs"){STAGE.fsLost=false;stgRestoreFs();break;}
+        stgSetFocus(k);break;
+      case "zoom":stgSetFocus(k);break;
+      case "islandtoggle":STAGE.islandOpen=!STAGE.islandOpen;stgRenderIsland();break;
       case "laytoggle":stgSetEditing(!STAGE.editing);break;
       case "laydone":stgSetEditing(false);break;
       case "layreset":stgPreset("host");break;
@@ -14939,20 +16039,41 @@ function optSaveCanvas(c,o){
       case "voterefresh":stgVoteRefresh();break;
       case "votecreateclose":stgVoteCreateClose();break;
       case "votecreateadd":stgCreateAddOpt();break;
-      case "timerset":STAGE.timer=(Number(node.getAttribute("data-min"))||5)*60;STAGE.running=false;stgRenderTimer();break;
+      case "timerset":STAGE.timer=(Number(node.getAttribute("data-min"))||5)*60;STAGE.running=false;stgRenderTimer();stgRenderIsland();break;
+      case "drawroster":stgRosterOpen();break;
+      case "rosterclose":stgRosterClose();break;
+      case "dropopen":stgDropPanelOpen();break;
+      case "dropclose":stgDropCloseSession();break;
+      case "droplink":stgDropCopyLink();break;
+      case "droptextcopy":stgDropFallbackCopy(node.getAttribute("data-t")||"");break;
+      case "dropfileclear":STAGE.drop.events=STAGE.drop.events.filter(function(e){return e.kind!=="file";});stgDropRender();break;
+      case "restorefs":STAGE.fsWant=true;stgRestoreFs();break;
     }
   }
   function stgClick(e){
     var t=e.target;if(!t||!t.closest)return;
-    var modal=el("o2sModal");
-    if(modal&&!modal.hidden){
-      var mi=t.closest("[data-crtmins]");
-      if(mi){STAGE.crtMins=Number(mi.getAttribute("data-crtmins"))||10;stgCreateChips();return;}
-      if(t===modal){stgVoteCreateClose();return;}
+    if(STAGE.fsLost&&STAGE.open){STAGE.fsLost=false;if(STAGE.fsWant)stgRestoreFs();}
+    var crt=el("o2sModal");
+    if(crt&&!crt.hidden){
+      if(t===crt){stgVoteCreateClose();return;}
     }
+    var rso=el("o2sRoster");
+    if(rso&&!rso.hidden&&t===rso){stgRosterClose();return;}
+    var dpm=el("o2sDropModal");
+    if(dpm&&!dpm.hidden&&t===dpm){var dmo=el("o2sDropModal");if(dmo)dmo.hidden=true;return;}
     var a=t.closest("[data-stg]");
     if(a){stgAct(a.getAttribute("data-stg"),a);return;}
-    if(STAGE.editing)return;
+    if(STAGE.editing){
+      var sec=t.closest(".opt2-panel");
+      if(sec&&!t.closest("button,a,input,select,textarea,label")){stgSetSel(sec.getAttribute("data-panel"));}
+      return;
+    }
+    var hd=t.closest("[data-panelhd]");
+    if(hd&&!t.closest("button,a,input,select,textarea,label")){
+      var kk=hd.getAttribute("data-panelhd");
+      stgSetFocus(kk===STAGE.focus?"":kk);
+      return;
+    }
     var tb=t.closest("[data-o2timer]");
     if(tb){stgTimerTap(tb);return;}
     var pb=t.closest("[data-o2pick]");
@@ -14964,6 +16085,20 @@ function optSaveCanvas(c,o){
     var ps=t.closest("[data-pptsel]");
     if(ps){stgPptSetLast(ps.getAttribute("data-pptsel"));stgRenderPpt();return;}
   }
+  function stgTimerTap(btn){
+    var isStart=btn.getAttribute("data-o2timer")==="1";
+    if(isStart){
+      if(STAGE.timer<=0)STAGE.timer=300;
+      STAGE.running=!STAGE.running;
+      btn.textContent=STAGE.running?"暂停":"开始";
+    }else{
+      STAGE.running=false;STAGE.timer=300;
+      var b=el("opt2Stage")?el("opt2Stage").querySelector('[data-o2timer="1"]'):null;
+      if(b)b.textContent="开始";
+      var tv=el("o2sTimer");if(tv)tv.textContent=stgTimerText();
+    }
+    stgRenderIsland();
+  }
   function stgKey(e){
     if(!STAGE.open)return;
     try{
@@ -14972,12 +16107,26 @@ function optSaveCanvas(c,o){
     }catch(x){}
     var k=e.key||"";
     if(k==="Escape"){
+      var ctl=el("dropCtl");
+      if(ctl&&ctl.classList.contains("on")){dropCtlClose();if(e.preventDefault)e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();return;}
+      var dv=el("o2sDropModal");if(dv&&!dv.hidden){dv.hidden=true;if(e.preventDefault)e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();return;}
+      var rv=el("o2sRoster");if(rv&&!rv.hidden){stgRosterClose();if(e.preventDefault)e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();return;}
       if(el("o2sModal")&&!el("o2sModal").hidden){stgVoteCreateClose();if(e.preventDefault)e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();return;}
       if(STAGE.editing){stgSetEditing(false);if(e.preventDefault)e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();return;}
+      if(STAGE.focus){stgSetFocus("");if(e.preventDefault)e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();return;}
       opt2StageClose();if(e.preventDefault)e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();return;
     }
     if(k==="f"||k==="F"){stgToggleFs();if(e.preventDefault)e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();return;}
     if(k==="l"||k==="L"){stgSetEditing(!STAGE.editing);if(e.preventDefault)e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();}
+  }
+  function stgOnFocusBack(){
+    if(!STAGE.open)return;
+    try{
+      if(STAGE.fsWant&&!document.fullscreenElement){STAGE.fsLost=true;stgRenderIsland();}
+    }catch(e){}
+  }
+  function stgOnVis(){
+    if(document.visibilityState==="visible")stgOnFocusBack();
   }
 
   /* ---------- 打开 / 关闭 ---------- */
@@ -14988,11 +16137,15 @@ function optSaveCanvas(c,o){
       '<div class="opt2-brand"><span class="opt2-mark" aria-hidden="true"></span><b>大屏</b>'+
       '<span class="opt2-date" id="o2sDate"></span></div>'+
       '<div class="opt2-topright">'+
-      '<span class="opt2-clock" id="o2sTime"></span>'+
+      '<button type="button" class="opt2-ibtn opt2-dropbtn'+(STAGE.drop.active?" on":"")+'" id="o2sDropBtn" data-stg="dropopen" title="大屏互联（同账号传文件/遥控）" aria-label="大屏互联">🛰</button>'+
+      '<button type="button" class="opt2-ibtn opt2-fexit" id="o2sFocusExit" data-stg="focusclear" title="退出聚焦" aria-label="退出聚焦" hidden>⤡</button>'+
       '<button type="button" class="opt2-ibtn" id="o2sLay" data-stg="laytoggle" title="布局（L）" aria-label="布局">▦</button>'+
       '<button type="button" class="opt2-ibtn" id="o2sFs" data-stg="fs" title="全屏（F）" aria-label="全屏">⛶</button>'+
       '<button type="button" class="opt2-ibtn" id="o2sClose" data-stg="close" title="退出（Esc）" aria-label="退出">×</button>'+
+      '<span class="opt2-clock" id="o2sTime"></span>'+
       '</div></div>'+
+      '<div class="opt2-island" id="o2sIsland" hidden></div>'+
+      '<div class="opt2-isdrop" id="o2sIslandDrop" hidden></div>'+
       '<div class="opt2-lbar" id="o2sLbar" hidden><span class="opt2-lbar-lbl">布局</span>'+
       '<button type="button" class="opt2-preset" data-stg="preset" data-preset="host">主持台</button>'+
       '<button type="button" class="opt2-preset" data-stg="preset" data-preset="dual">双栏</button>'+
@@ -15000,7 +16153,15 @@ function optSaveCanvas(c,o){
       '<button type="button" class="opt2-link" data-stg="layreset">恢复默认</button>'+
       '<span class="opt2-lbar-sp"></span><span class="opt2-lhidden" id="o2sLhid"></span>'+
       '<button type="button" class="opt2-btn pri" data-stg="laydone">完成</button></div>'+
-      '<div class="opt2-body" id="o2sBody"></div>'+
+      '<div class="opt2-bodywrap"><div class="opt2-grid" id="o2sGrid" hidden aria-hidden="true">'+
+        '<i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>'+
+        '<div class="opt2-body" id="o2sBody"></div></div>'+
+      '<div class="opt2-selbar" id="o2sSelbar" hidden><span class="opt2-sel-lab" id="o2sSelLab"></span>'+
+        '<button type="button" class="opt2-btn sm" data-stg="layup" data-k="">↑ 前移</button>'+
+        '<button type="button" class="opt2-btn sm" data-stg="laydown" data-k="">↓ 后移</button>'+
+        '<button type="button" class="opt2-btn sm" data-stg="laysize" data-k="">宽窄切换</button>'+
+        '<button type="button" class="opt2-btn sm" data-stg="layhide" data-k="">隐藏</button>'+
+        '<button type="button" class="opt2-btn pri sm" data-stg="laydone">完成</button></div>'+
       '<div class="opt2-foot"><span>仅管理员 · 团日活动</span><span id="o2sFootR"></span></div>';
     ov.addEventListener("click",stgClick);
     ov.addEventListener("pointerdown",stgStartDrag,{passive:false});
@@ -15014,23 +16175,28 @@ function optSaveCanvas(c,o){
       var ov=el("opt2Stage");
       if(!ov){ov=stgBuild();document.body.appendChild(ov);}
       stgLayoutLoad();
-      ov.style.display="flex";ov.hidden=false;STAGE.open=true;
+      ov.style.display="flex";ov.hidden=false;STAGE.open=true;STAGE.focus="";STAGE.fsLost=false;
       O2.inert.stage=true;opt2SyncInert();
       try{document.body.classList.add("opt2-lock");}catch(e){}
       try{ov.classList.remove("opt2-in");void ov.offsetWidth;}catch(e){}
       stgRenderAll();
       if(!STAGE.keyBound){document.addEventListener("keydown",stgKey,true);STAGE.keyBound=true;}
+      if(!STAGE.visBound){window.addEventListener("focus",stgOnFocusBack);document.addEventListener("visibilitychange",stgOnVis);STAGE.visBound=true;}
       stgStartTimers();stgTick();
       window.addEventListener("resize",stgOnResize);
       stgPptRefresh();stgVoteRefresh();
+      stgDropEnsure();
       try{setTimeout(function(){try{ov.classList.add("opt2-in");}catch(e){}},20);}catch(e){}
     }catch(e){}
   }
   function opt2StageClose(){
     try{
       STAGE.open=false;stgStopTimers();
-      stgVoteCreateClose();
+      stgVoteCreateClose();stgRosterClose();
+      var dpm=el("o2sDropModal");if(dpm)dpm.hidden=true;
       if(STAGE.editing)stgSetEditing(false);
+      if(STAGE.focus){STAGE.focus="";}
+      if(STAGE.drop.active)stgDropCloseSession();
       var ov=el("opt2Stage");if(ov)ov.style.display="none";
       STAGE.running=false;
       try{var sb=ov?ov.querySelector('[data-o2timer="1"]'):null;if(sb)sb.textContent="开始";}catch(e){}
@@ -15038,6 +16204,7 @@ function optSaveCanvas(c,o){
       O2.inert.stage=false;opt2SyncInert();
       if(STAGE.keyBound){document.removeEventListener("keydown",stgKey,true);STAGE.keyBound=false;}
       window.removeEventListener("resize",stgOnResize);
+      STAGE.fsWant=false;
       try{if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen();}catch(e){}
     }catch(e){}
   }
@@ -15045,15 +16212,26 @@ function optSaveCanvas(c,o){
     try{
       var all=el("allCards");if(!all)return;
       var row=el("opt2StageRow");
-      if(!canManage()){if(row&&row.parentNode)row.parentNode.removeChild(row);return;}
+      var admin=canManage();
+      var auth=false;try{auth=!!(typeof isVerified==="function"&&isVerified())||!!(AUTH&&AUTH.ready);}catch(e){}
+      if(!admin&&!auth){if(row&&row.parentNode)row.parentNode.removeChild(row);return;}
       if(row)return;
       row=document.createElement("div");row.id="opt2StageRow";row.className="opt-backup-row";
-      var b=document.createElement("button");b.type="button";b.id="opt2StageBtn";b.className="btn ghost sm";b.textContent="大屏";
-      row.appendChild(b);
+      if(admin){
+        var b=document.createElement("button");b.type="button";b.id="opt2StageBtn";b.className="btn ghost sm";b.textContent="大屏";
+        row.appendChild(b);b.addEventListener("click",opt2StageOpen);
+      }
+      var c=document.createElement("button");c.type="button";c.id="opt2DropBtn";c.className="btn ghost sm";c.textContent="大屏互联";
+      row.appendChild(c);c.addEventListener("click",dropCtlOpen);
       if(all.parentNode)all.parentNode.insertBefore(row,all.nextSibling);
-      b.addEventListener("click",opt2StageOpen);
     }catch(e){}
   }
+  function stgOpenHash(){
+    try{if(String(location.hash||"")==="#drop")dropCtlOpen();}catch(e){}
+  }
+  window.addEventListener("hashchange",stgOpenHash);
+  setTimeout(dropHashOpen,1200);
+  setTimeout(dropHashOpen,3000);
 
   /* ---------- 初始化：注入 UI / 包装 ---------- */
   try{

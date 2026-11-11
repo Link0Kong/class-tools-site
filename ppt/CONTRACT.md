@@ -629,3 +629,29 @@ PATCH /ppt_decks?id=eq.<id>  { "status":"queued", "progress":0, "error":"", "upd
 10. **测试**：纯函数策略矩阵（keep/remux/transcode/音频/上限）；用 ffmpeg 生成 h264/aac-MKV（remux 预期）、MPEG-4/WMV 视频 + AC3 音频（transcode 预期）、HEVC（transcode）少量 fixture，
     以 zip 方式替换进 fixture pptx 并同步 rels/Content_Types，真实跑 `convert_compat` + PowerPoint 打开；断言输出 media 为 h264/aac MP4、时长差、页面/媒体数、PDF、manifest actions、原始文件不变、已兼容媒体 sha 不变；
     真实 user deck（两段已 h264/aac）应为 kept=2、字节不变。
+
+---
+
+# 12.8 视频/音频单独下载（v2.3，2026-11-11 用户要求）
+
+> 用户要求「加入视频单独下载功能」：教室电脑/旧 PowerPoint/WPS 打不开内嵌视频时，可把视频/音频单独下载到本机，用任意播放器播放。
+- **转换机**：`compat.pptx` 完成媒体编码兼容（§12.7）后，从**最终 compat 包**的 `ppt/media/*` 中抽取音视频部件：
+  - 识别：ffprobe `codec_type=video/audio` 且非图片；只抽取被幻灯片引用且未外链的媒体；
+  - 映射页号：用所有 `ppt/slides/_rels/*.rels` 的 media/video Target 反查 `../media/<file>` → `slides:[7]`（同一媒体多页则列出）；
+  - 文件：复制为独立文件 `assets/media/<safe>_视频1_第7页.mp4`（音频 `_音频N_第X页.m4a`；扩展名以 compat 包内媒体为准），不改字节；
+  - 上传：`ppt/a/<deck>/<build>/media/<name>`（同缓存头/长缓存），manifest 新增：
+```jsonc
+"media_files": [
+  {"s":"media/本草…_视频1_第7页.mp4","name":"本草…_视频1_第7页.mp4","size":20158796,"sha256":"…",
+   "kind":"video","dur":150.92,"w":1024,"h":576,"slides":[7],"src":"media1.mp4"}
+]
+```
+  - 上限：≤20 个文件、单文件 ≤200MiB；超过/无法识别只跳过并 warning（不影响 ready）；纯外链媒体无内嵌副本不抽。
+  - 所有文件须先上传成功再 PATCH ready；ECS 预热列表包含 media_files（force）。
+- **客户端**（三端）：下载详情在「兼容版/PDF/原始文件」之后新增分组「视频单独下载」：
+  - 每行：序号/页号 + 时长/分辨率 + 大小 + 下载按钮；文件名用 manifest `name`；
+  - 网页：主 href 走 ECS 缓存（同 §12.6 规则），小字「备用」OSS；`download` 属性；
+  - 小程序：`wx.downloadFile`（进度/取消）→ 视频用 `wx.saveVideoToPhotosAlbum`（授权失败提示）或 `wx.shareFileMessage` 转发到聊天/电脑，音频 `openDocument`/分享；同时提供复制链接；
+  - 安卓：DownloadManager 下载后 ACTION_VIEW（video/* 交给系统播放器/WPS），分享；
+  - 无 `media_files` 的旧 deck 不显示该分组（向后兼容）。
+- **测试**：转换机 fixture 含视频+音频 → `media_files` 数量/页号/时长/大小/sha 正确、compat 内媒体字节与单独文件一致、上传 key 正确；真实 user deck（2 视频）→ media_files 2 条（第 7 页 150.92s、第 12 页 225.582s）；网页/小程序/安卓单测与真实 E2E（网页真实下载单独视频并 ffprobe 时长）。

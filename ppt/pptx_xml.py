@@ -639,6 +639,52 @@ def validate_manifest(manifest):
                         value = media_summary.get(key)
                         if not isinstance(value, int) or value < 0:
                             errors.append("compat.media_summary.%s 必须是非负整数" % key)
+    media_files = manifest.get("media_files")
+    if media_files is not None:
+        if not isinstance(media_files, list):
+            errors.append("media_files 必须是数组")
+        else:
+            seen_names = set()
+            for k, item in enumerate(media_files):
+                if not isinstance(item, dict):
+                    errors.append("media_files[%d] 必须是对象" % k)
+                    continue
+                rel = item.get("s")
+                if not isinstance(rel, str) or not rel.startswith("media/"):
+                    errors.append("media_files[%d].s 必须以 media/ 开头" % k)
+                name = item.get("name")
+                if not isinstance(name, str) or not name:
+                    errors.append("media_files[%d].name 必须是非空字符串" % k)
+                elif "/" in name or "\\" in name:
+                    errors.append("media_files[%d].name 不能包含路径分隔符" % k)
+                elif name in seen_names:
+                    errors.append("media_files[%d].name 重复" % k)
+                else:
+                    seen_names.add(name)
+                size = item.get("size")
+                if not isinstance(size, int) or size <= 0:
+                    errors.append("media_files[%d].size 必须是正整数" % k)
+                sha = item.get("sha256")
+                if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{64}", sha):
+                    errors.append("media_files[%d].sha256 必须是 64 位十六进制" % k)
+                if item.get("kind") not in ("video", "audio"):
+                    errors.append("media_files[%d].kind 必须是 video/audio" % k)
+                media_slides = item.get("slides")
+                if (not isinstance(media_slides, list) or not media_slides
+                        or any(not isinstance(x, int) or x < 1 for x in media_slides)):
+                    errors.append("media_files[%d].slides 必须是非空正整数数组" % k)
+                elif media_slides != sorted(set(media_slides)):
+                    errors.append("media_files[%d].slides 必须去重升序" % k)
+                dur = item.get("dur")
+                if dur is not None and (not isinstance(dur, (int, float)) or dur < 0):
+                    errors.append("media_files[%d].dur 必须是非负数" % k)
+                for key in ("w", "h"):
+                    value = item.get(key)
+                    if value is not None and (not isinstance(value, int) or value < 0):
+                        errors.append("media_files[%d].%s 必须是非负整数" % (k, key))
+                src_name = item.get("src")
+                if src_name is not None and not isinstance(src_name, str):
+                    errors.append("media_files[%d].src 必须是字符串" % k)
     if not slides:
         # compat 新 deck 无分步 slides：跳过逐页校验，只校验可选 video
         video = manifest.get("video")
@@ -1454,6 +1500,45 @@ MEDIA_DEFAULT_LIMITS = {
     "max_single_dur": 30 * 60.0,
     "max_total_dur": 60 * 60.0,
 }
+
+
+MEDIA_REL_SUFFIXES = ("/relationships/video", "/relationships/media",
+                       "/relationships/audio")
+
+
+def media_slide_refs(zf_or_path):
+    """反查「内嵌媒体部件 → 引用它的幻灯片页码」``{part: [slide,...]}``（CONTRACT §12.8）。
+
+    只统计非外链的 video/media/audio 关系，Target 解析后必须落在 ``ppt/media/`` 且部件存在。
+    """
+    zf, owned = open_zip(zf_or_path)
+    try:
+        names = set(zf.namelist())
+        refs = {}
+        for index, part in enumerate(slide_part_names(zf), start=1):
+            rels_name = rels_part_name(part)
+            if rels_name not in names:
+                continue
+            try:
+                text = zf.read(rels_name).decode("utf-8", "replace")
+            except KeyError:
+                continue
+            for _rid, rel in parse_rels_text(text).items():
+                if rel.get("external"):
+                    continue
+                rel_type = str(rel.get("type") or "").lower()
+                if not rel_type.endswith(MEDIA_REL_SUFFIXES):
+                    continue
+                target = resolve_relationship_target(part, rel.get("target"))
+                if not target or not target.startswith("ppt/media/"):
+                    continue
+                if target not in names:
+                    continue
+                refs.setdefault(target, set()).add(index)
+        return {part: sorted(pages) for part, pages in sorted(refs.items())}
+    finally:
+        if owned:
+            zf.close()
 
 
 def media_kind_of(part_name):

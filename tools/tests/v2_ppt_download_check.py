@@ -26,6 +26,7 @@ import os
 import re
 import sys
 import time
+import urllib.parse
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -45,6 +46,10 @@ BASE_URL = "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/ppt/a/dtestdl1/
 ECS_BASE = "http://121.196.47.2/pptfiles"
 # 本地测试页是 http://127.0.0.1:<port> → 主下载链接应走固定 ECS 缓存地址 + OSS pathname
 EXP_ECS = ECS_BASE + "/ppt/a/dtestdl1/b1/"
+MEDIA_BASE = "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/ppt/a/dtestdlmedia1/b1/"
+EXP_MEDIA_ECS = ECS_BASE + "/ppt/a/dtestdlmedia1/b1/"
+AUDIO_BASE = "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/ppt/a/dtestdlaudio1/b1/"
+EXP_AUDIO_ECS = ECS_BASE + "/ppt/a/dtestdlaudio1/b1/"
 OTHER_BASE = "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/other/dtestdlother1/b1/"
 SHA_A = "a" * 64
 SHA_B = "b" * 64
@@ -102,6 +107,33 @@ def backfilled_manifest():
     return man
 
 
+def media_manifest():
+    """契约 §12.8：compat 完成后额外提供 media_files（视频/音频单独下载，逐字节复制）。"""
+    m = json.loads(json.dumps(v2_manifest()))
+    m["base"] = MEDIA_BASE
+    m["media_files"] = [
+        {"s": "media/本草孝心_视频1_第7页.mp4", "name": "本草孝心_视频1_第7页.mp4",
+         "size": 20158796, "sha256": SHA_A, "kind": "video", "dur": 150.92,
+         "w": 1024, "h": 576, "slides": [7], "src": "media1.mp4"},
+        {"s": "media/本草孝心_视频2_第12页.mp4", "name": "本草孝心_视频2_第12页.mp4",
+         "size": 31500000, "sha256": SHA_B, "kind": "video", "dur": 225.582,
+         "w": 1280, "h": 720, "slides": [12], "src": "media2.mp4"},
+    ]
+    return m
+
+
+def audio_manifest():
+    """只有音频的 media_files（音频N 标签、无分辨率）。"""
+    m = json.loads(json.dumps(v2_manifest()))
+    m["base"] = AUDIO_BASE
+    m["media_files"] = [
+        {"s": "media/班会_音频1_第3页.m4a", "name": "班会_音频1_第3页.m4a",
+         "size": 1234567, "sha256": SHA_D, "kind": "audio", "dur": 95.5,
+         "slides": [3], "src": "media1.m4a"},
+    ]
+    return m
+
+
 def make_decks():
     def row(did, title, man, created, **kw):
         r = B.deck(id=did, title=title, manifest=man, created_at=created,
@@ -113,6 +145,12 @@ def make_decks():
         row("dtestdl1", "班会兼容版", v2_manifest(), NOW - 1000,
             slide_count=16, step_count=0, cover_url=B.THUMB2, source_name="班会.pptx",
             source_size=12345678),
+        row("dtestdlmedia1", "本草孝心（含媒体）", media_manifest(), NOW - 1200,
+            slide_count=16, step_count=0, cover_url=B.THUMB1, source_name="本草孝心.pptx",
+            source_size=39063746),
+        row("dtestdlaudio1", "班会音频演示", audio_manifest(), NOW - 1300,
+            slide_count=3, step_count=0, cover_url=B.THUMB3, source_name="班会音频.pptx",
+            source_size=2048),
         row("dtestdlboth1", "存量补转演示", backfilled_manifest(), NOW - 1500,
             slide_count=3, step_count=4, cover_url=B.THUMB1, source_name="存量.pptx",
             source_size=12345678),
@@ -174,25 +212,36 @@ def detail_state(page):
       var o=document.getElementById('pptDl');
       if(!o||o.hidden)return null;
       var card=document.getElementById('pptDlCard');
-      var files=[].slice.call(o.querySelectorAll('.ppt-file')).map(function(r){
-        var a=r.querySelector('a[download]:not(.ppt-alt)');
-        var alt=r.querySelector('a.ppt-alt');
-        var d=r.querySelector('.ppt-file-d');
-        var rect=r.getBoundingClientRect();
-        return {cls:r.className, label:d?d.querySelector('b').textContent:'',
-          sub:d&&d.querySelector('em')?d.querySelector('em').textContent:'',
-          href:a?a.getAttribute('href'):'', name:a?a.getAttribute('download'):'',
-          hasDl:!!a,
-          altHref:alt?alt.getAttribute('href'):'', altName:alt?alt.getAttribute('download'):'',
-          altTitle:alt?alt.getAttribute('title'):'',
-          right:Math.round(rect.right)};
-      });
+      function rows(list){
+        return [].slice.call(list).map(function(r){
+          var a=r.querySelector('a[download]:not(.ppt-alt)');
+          var alt=r.querySelector('a.ppt-alt');
+          var d=r.querySelector('.ppt-file-d');
+          var rect=r.getBoundingClientRect();
+          return {cls:r.className, label:d?d.querySelector('b').textContent:'',
+            sub:d&&d.querySelector('em')?d.querySelector('em').textContent:'',
+            href:a?a.getAttribute('href'):'', name:a?a.getAttribute('download'):'',
+            hasDl:!!a,
+            altHref:alt?alt.getAttribute('href'):'', altName:alt?alt.getAttribute('download'):'',
+            altTitle:alt?alt.getAttribute('title'):'',
+            right:Math.round(rect.right)};
+        });
+      }
+      var files=rows(o.querySelectorAll('.ppt-file:not(.ppt-mfile)'));
+      var mg=document.getElementById('pptMediaFiles');
+      var media=rows(mg?mg.querySelectorAll('.ppt-mfile'):[]);
       var warns=o.querySelectorAll('.ppt-warn li');
       var wt=o.querySelector('.ppt-warn');
+      var all=files.concat(media);
       return {open:!o.hidden,title:(document.getElementById('pptDlTitle')||{}).textContent||'',
         meta:(document.getElementById('pptDlMeta')||{}).textContent||'',
         txt:(document.getElementById('pptDlBody')||{}).innerText||'',
         files:files, nFiles:files.length,
+        media:media, nMedia:media.length,
+        mediaGroup:!!mg,
+        mediaGroupTitle:mg&&mg.querySelector('.ppt-mg-hd b')?mg.querySelector('.ppt-mg-hd b').textContent:'',
+        mediaCount:mg&&mg.querySelector('.ppt-mg-n')?mg.querySelector('.ppt-mg-n').textContent:'',
+        mediaRowsProbe:(window.PPT&&window.PPT.mediaRows)?window.PPT.mediaRows():-1,
         warn:!!wt, warnings:[].slice.call(warns).map(function(li){return li.textContent;}),
         warnBg:wt?getComputedStyle(wt).backgroundColor:'',
         preview:!!o.querySelector('[data-dlact="preview"]'),
@@ -204,7 +253,7 @@ def detail_state(page):
         lock:document.body.classList.contains('ppt-dl-lock'),
         cardRect:card?(function(){var q=card.getBoundingClientRect();
           return [Math.round(q.left),Math.round(q.right),Math.round(q.width),Math.round(q.height)];})():null,
-        rowMaxRight:files.length?Math.max.apply(null,files.map(function(x){return x.right;})):0,
+        rowMaxRight:all.length?Math.max.apply(null,all.map(function(x){return x.right;})):0,
         docSW:document.documentElement.scrollWidth, vw:innerWidth};})()""")
 
 
@@ -279,6 +328,13 @@ def static_checks():
           and 'indexOf("/ppt/")!==0' in flat)
     R.add("静态：「备用」小字 OSS 直链 + title 提示（不破坏主按钮布局）",
           "ppt-alt" in html and "备用下载（较慢）" in html and "ppt-file-a" in html)
+    R.add("静态：v2.3 视频/音频单独下载分组（media_files → 视频N/音频N · 第 X 页）",
+          "media_files" in flat and "视频单独下载" in html and "ppt-mfile" in html
+          and "mediaFilesHtml" in flat and "mediaDurText" in flat)
+    R.add("静态：media 行主 href 复用 pptDlHref、备用 OSS、download 用 manifest name",
+          "pptDlHref(man,f)" in flat and "备用下载（较慢）" in html
+          and "mediaFilesOf" in flat and "download=" in flat)
+    R.add("静态：window.PPT.mediaRows 测试探针", "mediaRows" in flat)
     R.add("静态：无外部脚本/字体/CDN（单文件零依赖）",
           "<script src=" not in html and "fonts.googleapis" not in html and "cdn." not in html)
     R.add("静态：不新增密钥（无 AccessKey / LTAI）",
@@ -381,6 +437,81 @@ def scenario_v2_deck(sess):
     R.add("外部调用 PPT.open(兼容版 deck)：打开下载详情（不报错、不进空播放器）",
           bool(api_open) and api_open.get("dl") and not api_open.get("player"),
           json.dumps(api_open, ensure_ascii=False))
+    close_detail(page)
+
+
+# ---------------------------------------------------------------- A2 视频/音频单独下载（§12.8）
+def scenario_media_files(sess):
+    page = sess.page
+    ok = open_card(page, "dtestdlmedia1")
+    ready = wait_detail_ready(page) if ok else False
+    st = detail_state(page) if ready else None
+    R.add("视频单独下载：有 media_files 时显示分组「视频单独下载」+ 数量 2",
+          bool(st) and st.get("mediaGroup") and st.get("mediaGroupTitle") == "视频单独下载"
+          and str(st.get("mediaCount")) == "2" and st.get("nFiles") == 3,
+          json.dumps({k: (st or {}).get(k) for k in
+                      ("mediaGroup", "mediaGroupTitle", "mediaCount", "nFiles")}, ensure_ascii=False))
+    media = (st or {}).get("media") or []
+    R.add("视频单独下载：2 行标签 = 视频1 · 第 7 页 / 视频2 · 第 12 页",
+          len(media) == 2 and media[0].get("label") == "视频1 · 第 7 页"
+          and media[1].get("label") == "视频2 · 第 12 页",
+          json.dumps([m.get("label") for m in media], ensure_ascii=False))
+    v1 = media[0] if len(media) > 0 else {}
+    v2 = media[1] if len(media) > 1 else {}
+    R.add("视频单独下载：视频1 时长/分辨率/大小（2:30 · 1024×576 · 19MB）",
+          all(x in str(v1.get("sub")) for x in ("2:30", "1024×576", "19MB")), v1.get("sub"))
+    R.add("视频单独下载：视频2 时长/分辨率/大小（3:45 · 1280×720 · 30MB）",
+          all(x in str(v2.get("sub")) for x in ("3:45", "1280×720", "30MB")), v2.get("sub"))
+    R.add("视频单独下载：主 href 走 ECS 缓存（/pptfiles + /ppt/a/.../media/...）、download=manifest name",
+          v1.get("href") == EXP_MEDIA_ECS + urllib.parse.quote("media/本草孝心_视频1_第7页.mp4")
+          and v1.get("name") == "本草孝心_视频1_第7页.mp4" and v1.get("hasDl") is True
+          and v2.get("href") == EXP_MEDIA_ECS + urllib.parse.quote("media/本草孝心_视频2_第12页.mp4")
+          and v2.get("name") == "本草孝心_视频2_第12页.mp4",
+          json.dumps([{k: m.get(k) for k in ("href", "name")} for m in media],
+                     ensure_ascii=False)[:360])
+    R.add("视频单独下载：行内小字「备用」= 原 OSS 直链（title=备用下载（较慢）、同名下载）",
+          v1.get("altHref") == MEDIA_BASE + "media/本草孝心_视频1_第7页.mp4"
+          and v1.get("altName") == "本草孝心_视频1_第7页.mp4"
+          and v1.get("altTitle") == "备用下载（较慢）"
+          and v2.get("altHref") == MEDIA_BASE + "media/本草孝心_视频2_第12页.mp4"
+          and v2.get("altTitle") == "备用下载（较慢）",
+          json.dumps([{k: m.get(k) for k in ("altHref", "altTitle")} for m in media],
+                     ensure_ascii=False)[:360])
+    R.add("视频单独下载：window.PPT.mediaRows 探针 = 2",
+          st is not None and st.get("mediaRowsProbe") == 2,
+          "probe=%s" % ((st or {}).get("mediaRowsProbe")))
+    R.add("视频单独下载：分组 + 行在 430px 内不横向溢出",
+          bool(st) and st.get("docSW", 9999) <= st.get("vw", 0) + 1
+          and st.get("rowMaxRight", 9999) <= st.get("vw", 0) + 1,
+          json.dumps({k: (st or {}).get(k) for k in ("rowMaxRight", "docSW", "vw")}, ensure_ascii=False))
+    time.sleep(0.35)
+    shot(page, "M1_media_detail")
+    # 无 media_files → 不显示分组
+    close_detail(page)
+    ok2 = open_card(page, "dtestdl1")
+    ready2 = wait_detail_ready(page) if ok2 else False
+    st2 = detail_state(page) if ready2 else None
+    R.add("视频单独下载：无 media_files 的 deck 不显示该分组（向后兼容）",
+          bool(st2) and st2.get("mediaGroup") is False and st2.get("nMedia") == 0
+          and st2.get("mediaRowsProbe") == 0,
+          json.dumps({k: (st2 or {}).get(k) for k in ("mediaGroup", "nMedia", "mediaRowsProbe")},
+                     ensure_ascii=False))
+    close_detail(page)
+    # 音频单独下载（音频N + 无分辨率）
+    ok3 = open_card(page, "dtestdlaudio1")
+    ready3 = wait_detail_ready(page) if ok3 else False
+    st3 = detail_state(page) if ready3 else None
+    aud = ((st3 or {}).get("media") or [{}])[0]
+    R.add("视频单独下载：音频行标签「音频1 · 第 3 页」+ 时长/大小（无分辨率）",
+          bool(st3) and (st3.get("nMedia") == 1) and aud.get("label") == "音频1 · 第 3 页"
+          and "1:35" in str(aud.get("sub")) and "1.2MB" in str(aud.get("sub"))
+          and "×" not in str(aud.get("sub")),
+          json.dumps({k: aud.get(k) for k in ("label", "sub")}, ensure_ascii=False))
+    R.add("视频单独下载：音频主 href ECS / 备用 OSS 与视频同规则",
+          aud.get("href") == EXP_AUDIO_ECS + urllib.parse.quote("media/班会_音频1_第3页.m4a")
+          and aud.get("name") == "班会_音频1_第3页.m4a"
+          and aud.get("altHref") == AUDIO_BASE + "media/班会_音频1_第3页.m4a",
+          json.dumps({k: aud.get(k) for k in ("href", "name", "altHref")}, ensure_ascii=False)[:300])
     close_detail(page)
 
 
@@ -556,6 +687,7 @@ def main():
     try:
         sess = DlSession(server)
         scenario_v2_deck(sess)
+        scenario_media_files(sess)
         scenario_nonppt_fallback(sess)
         scenario_backfilled(sess)
         scenario_legacy_deck(sess)
