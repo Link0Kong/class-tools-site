@@ -1,0 +1,587 @@
+{
+  "at": "2026-11-11 13:12:16",
+  "pass": 116,
+  "fail": 0,
+  "results": [
+    {
+      "name": "0.1 测试身份登录（class_verify，非管理员）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "0.2 一次性 QA 会话可用（poll_list ok=true）",
+      "ok": true,
+      "note": "None"
+    },
+    {
+      "name": "A1 无班级 token：poll_list 拒绝且无学号泄露",
+      "ok": true,
+      "note": "身份已失效，请重新进入班级"
+    },
+    {
+      "name": "A2 伪造 token：拒绝",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "A3 过期 token（DB expires_at 已过）：拒绝",
+      "ok": true,
+      "note": "身份已失效，请重新进入班级"
+    },
+    {
+      "name": "A4 小程序头 X-Class-Token 同样有效（auth_hdr 双头）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "A5 直连 GET /polls 被拒（401/403 或空）",
+      "ok": true,
+      "note": "status=401"
+    },
+    {
+      "name": "A6 直连 GET /poll_votes 被拒",
+      "ok": true,
+      "note": "status=401"
+    },
+    {
+      "name": "A7 直连 POST /polls 被拒",
+      "ok": true,
+      "note": "status=401"
+    },
+    {
+      "name": "A8 直连 POST /poll_votes 被拒",
+      "ok": true,
+      "note": "status=401"
+    },
+    {
+      "name": "A9 无 token 发起投票被拒",
+      "ok": true,
+      "note": "身份已失效，请重新进入班级"
+    },
+    {
+      "name": "B1 标题全空白被拒",
+      "ok": true,
+      "note": "标题需 1–80 字"
+    },
+    {
+      "name": "B2 标题 81 字被拒",
+      "ok": true,
+      "note": "标题需 1–80 字"
+    },
+    {
+      "name": "B3 标题 80 字接受",
+      "ok": true,
+      "note": "None"
+    },
+    {
+      "name": "B4 说明 500 字接受",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B5 说明 501 字被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B6 选项 1 个被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B7 选项 21 个被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B8 选项 20 个 + 选项文字 80 字 + 说明 200 字接受",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B9 选项文字 81 字被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B10 选项文字空白被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B11 选项说明 201 字被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B12 选项 id 非法字符被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B13 选项 id 重复被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B14 选项 img 非 data:image/ 被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B15 单张 img >150000 字符被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B16 选项 img 合计 >1.6MB 被拒",
+      "ok": true,
+      "note": "选项图片总大小过大"
+    },
+    {
+      "name": "B17 resultVisibility 非法被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B18 multi=true 且 maxChoices=1 被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B19 maxChoices>选项数时归一为选项数",
+      "ok": true,
+      "note": "max=3"
+    },
+    {
+      "name": "B20 单选时 maxChoices 强制 1",
+      "ok": true,
+      "note": "max=1"
+    },
+    {
+      "name": "B21 deadline 早于服务端当前时间被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B22 deadline 负数被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B23 p_id 不合法被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B24 p_id 超长（p+33）被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B25 mode 非法归一为 long（不写库非法值）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "B26 同 p_id 重复发起幂等（不覆盖内容、列表仅 1 条）",
+      "ok": true,
+      "note": "same=True title_keep=True n=1"
+    },
+    {
+      "name": "C1 正常发起成功且 HTTP/Content-Type 为 JSON",
+      "ok": true,
+      "note": "status=200 ct=application/json; charset=utf-8"
+    },
+    {
+      "name": "C2 发起人姓名由服务端按名单写入（测试账号）",
+      "ok": true,
+      "note": "测试账号"
+    },
+    {
+      "name": "C3 发起人返回 mine/can_manage=true、未投结果隐藏、total=0",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "C4 不存在的投票：详情返回 ok=false「投票不存在」",
+      "ok": true,
+      "note": "投票不存在"
+    },
+    {
+      "name": "C5 列表返回契约 §2.2 全部字段",
+      "ok": true,
+      "note": "missing=[]"
+    },
+    {
+      "name": "C6 列表按 created_at 倒序（新投票出现在旧投票之前）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "C7 详情返回契约 §2.3 全部字段",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "C8 任何 poll_* RPC 响应不含 sid 字段",
+      "ok": true,
+      "note": "n_resp=34"
+    },
+    {
+      "name": "C9 任何 poll_* RPC 响应不含学号值（测试身份/合成 sid）",
+      "ok": true,
+      "note": "[]"
+    },
+    {
+      "name": "D1 单选投票成功（counts 正确、has_voted）",
+      "ok": true,
+      "note": "None"
+    },
+    {
+      "name": "D2 投票后 total=1 且我的选项回显",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "D3 单选提交 2 项被拒「只能选 1 项」",
+      "ok": true,
+      "note": "只能选 1 项"
+    },
+    {
+      "name": "D4 空选项被拒「选项不合法」",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "D5 不存在的选项被拒「选项不合法」",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "D6 非字符串选项被拒「选项不合法」",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "D7 allowChange=true 时改票成功（一人一票 upsert，total 仍 1、counts 替换）",
+      "ok": true,
+      "note": "{'o2': 1}"
+    },
+    {
+      "name": "D8 第二人投票计数累加（total=2）",
+      "ok": true,
+      "note": "{'o1': 1, 'o2': 1}"
+    },
+    {
+      "name": "D9 匿名投票 voters 恒为空数组",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "D10 非发起人 mine/can_manage=false",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "D11 不可改票投票创建成功",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "D12 不可改票：首次投票成功",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "D13 不可改票：再次投票被拒「已投过票，不可改票」",
+      "ok": true,
+      "note": "已投过票，不可改票"
+    },
+    {
+      "name": "D14 不可改票：记录仍为首次选择",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "D15 多选投票创建（maxChoices=2）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "D16 多选超上限被拒「最多选 2 项」",
+      "ok": true,
+      "note": "最多选 2 项"
+    },
+    {
+      "name": "D17 多选重复选项被拒「重复的选项」",
+      "ok": true,
+      "note": "重复的选项"
+    },
+    {
+      "name": "D18 多选 2 项提交成功",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "E1 afterVote：未投时 results_hidden=true 且 counts={}（发起人视角）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "E2 afterVote：第三方未投时看不到 counts，但 has_voted=false",
+      "ok": true,
+      "note": "{}"
+    },
+    {
+      "name": "E3 always：0 票时发起人也直接可见计数（counts={} + results_hidden=false）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "E4 always：未投票第三方也能看到 counts",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "E5 afterClose 创建成功（未投/未截止时隐藏）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "E6 afterClose：投票后仍隐藏 counts，但 my_choices 回显本人选择",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "E7 afterClose：提前结束后结果可见（counts 出现）",
+      "ok": true,
+      "note": "{'o1': 1}"
+    },
+    {
+      "name": "E8 afterClose：他人结束后同样可见",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "E9 列表可见性与详情一致（afterClose 结束后 results_hidden=false）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "F1 实名投票创建",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "F2 实名：投票后返回投票人条目（name/choices，且不含 sid 键）",
+      "ok": true,
+      "note": "[{'name': '', 'choices': ['o1']}]"
+    },
+    {
+      "name": "F3 实名：测试身份投票人姓名 = 测试账号（服务端按名单）",
+      "ok": true,
+      "note": "['', '测试账号']"
+    },
+    {
+      "name": "F4 实名：voters 不含 sid 键、name 均非数字学号（合成会话不在真实名单时 name 可为空，服务端未伪造学号）",
+      "ok": true,
+      "note": "['', '测试账号']"
+    },
+    {
+      "name": "F5 afterClose+实名：未截止时 voters 为空（即使结果可见性关闭）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "G1 限时投票创建成功",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "G2 SQL 把 deadline 改为过去（模拟 DB 时间到达）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "G3 已到截止：服务端拒绝投票「投票已结束」",
+      "ok": true,
+      "note": "投票已结束"
+    },
+    {
+      "name": "G4 已到截止：详情 closed=true 且 status 仍是 open（到期不写库）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "G5 列表 closed 标记与 DB deadline 一致",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "H1 管理测试准备：1 票已投",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "H2 非发起人不能提前结束（无权管理该投票）",
+      "ok": true,
+      "note": "无权管理该投票"
+    },
+    {
+      "name": "H3 非发起人不能删除",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "H4 非发起人不能延长",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "H5 发起人提前结束成功（closed=true, closed_at>0）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "H6 结束后 status=closed",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "H7 提前结束后再投票被拒「投票已结束」",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "H8 延长的截止时间不晚于当前被拒",
+      "ok": true,
+      "note": "截止时间需晚于当前时间"
+    },
+    {
+      "name": "H9 延长/重开成功（closed=false，status=open）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "H10 重开后他人可投票",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "H11 0 票时发起人编辑成功（标题/选项/规则/截止全部更新）",
+      "ok": true,
+      "note": "None"
+    },
+    {
+      "name": "H12 编辑参数不合法（1 个选项）被拒",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "H13 编辑缺 options/settings/deadline 被拒「参数不完整」",
+      "ok": true,
+      "note": "参数不完整"
+    },
+    {
+      "name": "H14 已有票时编辑被拒「已有投票，不能修改内容」",
+      "ok": true,
+      "note": "已有投票，不能修改内容"
+    },
+    {
+      "name": "H15 未知管理动作被拒「不支持的操作」",
+      "ok": true,
+      "note": "不支持的操作"
+    },
+    {
+      "name": "I1 发起人软删除成功（{ok:true,deleted:true}）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "I2 软删后详情不可查「投票不存在」",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "I3 软删后列表不返回",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "I4 软删后不可投票（投票不存在）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "I5 已软删的投票再管理返回不存在",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "J1 标题/选项含 SQL 注入串被当作普通文本存储（无报错）",
+      "ok": true,
+      "note": "None"
+    },
+    {
+      "name": "J2 详情原样返回注入文本（转义责任在前端 esc）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "J3 注入串未破坏表（列表仍正常返回）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "J4 p_id 注入串被正则拒绝（投票编号不合法）",
+      "ok": true,
+      "note": "投票编号不合法"
+    },
+    {
+      "name": "J5 p_options 非数组被拒（选项格式不合法）",
+      "ok": true,
+      "note": "选项格式不合法"
+    },
+    {
+      "name": "J6 p_choices 非数组被拒（选项不合法）",
+      "ok": true,
+      "note": "选项不合法"
+    },
+    {
+      "name": "J7 p_id=null 返回「投票不存在」（不抛 500）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "K1 全部 poll_* RPC 响应体均为 JSON 对象",
+      "ok": true,
+      "note": "n_resp=97 bad=0"
+    },
+    {
+      "name": "清理 1 测试投票硬删除（poll_votes + polls）",
+      "ok": true,
+      "note": "n=19"
+    },
+    {
+      "name": "清理 2 硬删后详情均不可查（逐 id 复查）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "清理 3 硬删后列表无残留测试投票",
+      "ok": true,
+      "note": "[]"
+    },
+    {
+      "name": "清理 4 一次性 class_sessions token 全部删除",
+      "ok": true,
+      "note": "n=5"
+    },
+    {
+      "name": "清理 5 清除后 QA token 已失效",
+      "ok": true,
+      "note": ""
+    }
+  ]
+}

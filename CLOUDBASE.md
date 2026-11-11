@@ -753,3 +753,55 @@ PATCH {REST}/ppt_decks?id=eq.<id> {"deleted":true}           # 软删 / 失败�
 香港 OSS 默认域名能否过微信校验未查证，发布前必须真机正式版验一张图 + 一段视频；OSS 防盗链需放行空 Referer 与
 `servicewechat.com`（当前 bucket 无防盗链、allow_empty_referer=true，已实测）。
 
+
+## 投票：`polls` / `poll_votes` + 5 个 RPC（2026-11-11，已应用）
+
+> 需求：临时限时投票 + 可设立截止日期的长时投票；标题/选项高度自定义；全班成员可发起、发起人+管理员管理；一人一票。
+> 契约唯一真源：`web/vote/CONTRACT.md`；迁移：`deploy/cloudbase/2026-11-11_polls.sql`（已应用，幂等）。
+
+### 表
+
+`public.polls`（一行=一场投票）：`id text PK`（`p`+cbId）、`title`、`description`、`mode(quick|long)`、`owner_sid`、`owner_name`、
+`options jsonb`（2–20 项 `{id,text,desc,img}`）、`settings jsonb`（`multi/maxChoices/anonymous/allowChange/resultVisibility`）、
+`deadline bigint ms`（0=不限时）、`status(open|closed)`、`closed_at`、`deleted`、`created_at`、`updated_at`。
+
+`public.poll_votes`（一人一票）：`id text PK = "<poll_id>|<sid>"`、`poll_id FK`（ON DELETE CASCADE）、`sid`、`choices jsonb`、`ts`；`UNIQUE(poll_id,sid)`。
+
+**权限**：两表 `enable row level security` 且**不建任何策略** + `REVOKE ALL ... FROM PUBLIC/anon` → anon 直连一律 401；
+所有访问只经 `SECURITY DEFINER` RPC（函数 owner 权限）。任何 RPC 响应都不返回 sid；匿名投票不返回投票人。
+
+### RPC（`POST {REST}/rpc/<name>`，班级 token：网页 `X-Device-Id` / 小程序 `X-Class-Token`）
+
+| RPC | 作用 |
+|---|---|
+| `poll_create(p_id,p_title,p_description,p_mode,p_options,p_settings,p_deadline)` | 发起；幂等（同 id 返回已建）；服务端全量校验（标题/说明/选项/配图/规则/截止 > now） |
+| `poll_list()` | 列表（≤100，created_at desc）+ total/counts/has_voted/my_choices/results_hidden/mine/can_manage |
+| `poll_detail(p_id)` | 详情 + 结果（按可见性裁剪）+ 实名 voters + mine/can_manage |
+| `poll_submit(p_id,p_choices)` | 投票/改票；服务端 `clock_timestamp()` 判截止、单选/多选上限、选项合法性、upsert（UNIQUE 一人一票）、allowChange |
+| `poll_manage(p_id,p_action,p_title?,p_description?,p_options?,p_settings?,p_deadline?)` | edit（仅无票）/close/extend（含截止后重开）/delete（软删，返回 `{ok:true,deleted:true}`）；owner 或 `auth_admin()` |
+
+### 可见性（服务端裁剪）
+
+`resultVisibility = always | afterVote | afterClose`：未到可见条件时 `counts={}`、`results_hidden=true`（`total` 仍可见）；
+实名（`anonymous=false`）且结果可见时附加 `voters:[{name,choices}]`；匿名恒 `voters=[]`。
+
+### 网页/小程序与测试
+
+- 网页 `tools/index.html` `__VOTE_V1__`（`#s-vote` + 2 弹层 + `window.VOTE` 探针）；小程序 `pages/vote`/`pages/votedetail`/`utils/vote.js` + `utils/cloud.js` 5 封装（源码 2.0.0，待用户上传发布）。
+- 测试：`tools/tests/vote_check.py` 63/63（mock UI）、`vote_cloud_check.py` 54/54（真实 API）、`vote_live_check.py` 20/20（本地通道+测试身份真实 E2E）；小程序 `unit 397/0`。
+- 上线对象 **920,140 B / sha256 `489c87ea…`**（OSS MATCH；DNS 暂停期以字节为准）。
+
+### 回滚
+
+```sql
+DROP FUNCTION IF EXISTS public.poll_manage(text,text,text,text,jsonb,jsonb,bigint);
+DROP FUNCTION IF EXISTS public.poll_submit(text,jsonb);
+DROP FUNCTION IF EXISTS public.poll_detail(text);
+DROP FUNCTION IF EXISTS public.poll_list();
+DROP FUNCTION IF EXISTS public.poll_create(text,text,text,text,jsonb,jsonb,bigint);
+DROP FUNCTION IF EXISTS public.poll_norm_settings(jsonb,integer);
+DROP FUNCTION IF EXISTS public.poll_norm_options(jsonb);
+DROP FUNCTION IF EXISTS public.poll_results_visible(jsonb,boolean,boolean);
+DROP TABLE IF EXISTS public.poll_votes;
+DROP TABLE IF EXISTS public.polls;
+```

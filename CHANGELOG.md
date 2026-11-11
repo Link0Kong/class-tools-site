@@ -2,6 +2,19 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-11 13:0x · 投票功能（网页已上线 OSS+ECS；小程序源码待用户上传发布）
+
+> 用户需求（2026-11-11）：「新增投票功能，该功能需同时可用于临时的限时投票和可设立截止日期的长时投票，投票选项和投票标题需可高度自定义化」。
+> 已确认取舍：先做**网页 + 小程序**（安卓后续）；**完整版自定义**；**全班成员可发起**，发起人+管理员可管理。
+> 契约唯一真源：`web/vote/CONTRACT.md`；云端迁移：`deploy/cloudbase/2026-11-11_polls.sql`（已应用）；APP_VER 仍 2.0.0、单文件零依赖、无新增外部请求。
+
+- **云端**：`public.polls` + `public.poll_votes`；两表 **RLS 开启、无策略、REVOKE ALL**（anon 完全无直连权限，直连 401），全部读写只经 5 个 `SECURITY DEFINER` RPC：`poll_create`（幂等；标题 1–80/说明 ≤500/选项 2–20/选项文字 1–80/说明 ≤200/配图 `data:image` 单张 ≤150000 字符且合计 ≤1.6MB/规则归一/截止必须晚于服务端当前时间）、`poll_list`、`poll_detail`、`poll_submit`（服务端 `clock_timestamp()` 判截止、单选/多选上限、`UNIQUE(poll_id,sid)` 一人一票、allowChange）、`poll_manage`（编辑仅限无票/提前结束/延长重开/软删；owner 或管理员）。**任何 RPC 响应不返回学号**；匿名投票不返回投票人（服务端仍按 sid 去重）。
+- **网页**：`__VOTE_V1__` 块（CSS/HTML/JS 纯增量）——列表（进行中/已结束、15s 刷新、倒计时、规则标签、已投人数/我已投）、详情弹层（单选/多选提交·改票、结果百分比条 `.vd-pct`、实名投票人、结果隐藏提示、管理按钮）、发起/编辑弹层（限时快捷 5/10/30/60/120 分钟【默认 30】、指定截止 `datetime-local`、不限时；2–20 选项含说明与配图【canvas 压缩成长边 ≤640 JPEG data URL】；单选/多选+最多可选；匿名/实名；允许改票；结果始终/投票后/截止后可见）；桌面 ≥960px 列表双栏；小控件点按 ≥40px。
+- **小程序（源码）**：`pages/vote` + `pages/votedetail` + `utils/vote.js` + `utils/cloud.js` 5 个 poll RPC 封装 + `utils/tools.js` 入口 + `images/tool-vote.png` + `app.json` 注册；`node unit.js` **397/0**（vote 34）、`staticcheck.py` exit 0、`code_quality_check.js` exit 0；**待用户上传发布**。
+- **测试**：`tools/tests/vote_check.py` **66/66**（mock UI）、`vote_cloud_check.py` **54/54**（真实云端 API，测试数据 finally 硬删）、`vote_live_check.py` **20/20**（本地临时通道+测试身份真实 E2E，写白名单只放行 poll_*）；独立 QA `vote_qa_cloud/ui/live.py` **116/78/19 全 PASS**，报告 `web/验收报告/投票功能_独立验收_20261111.md`；回归 overflow=0、v2_ui 27/27、v2_drag 56/56。
+- **上线（2026-11-11 13:0x）**：部署前线上备份 `tools/_backup/index_online_20261111-1257_preVote.html`（870,349 B/`ea799a28…`）；首版部署 920,140 B/`489c87ea…`，按独立验收修复 P1（默认限时 30 分钟）与 P2（`.vd-pct`、点按 ≥40px）后最终 **920,368 B / sha256 `db91fe6c0d850376fa8ceccb54069b6c5fe7c56d653813d8eb6ecbb27849973d`**；OSS `oss_object check` = MATCH，ECS `ecs_site.py apply/verify` = MATCH（QA 独立公网拉取两处字节一致）。
+- **回滚**：网页重传上述备份；DB 回滚用迁移文件头部 `DROP FUNCTION` ×5 + `DROP TABLE poll_votes/polls`；小程序回退源码。已知限制：投票页不导出图片；配图 data URL 单投票 ≤1.6MB；匿名只对外不返回投票人；投票数据不进 userdata v6。
+
 ## 2026-11-11 12:4x · PPT 下载加速（网页端）：下载详情优先走 ECS 缓存 `/pptfiles` + 备用 OSS 直链（**本地完成，待 Lead 部署网页；ECS 已上线**）
 
 > 背景（Lead 任务）：实测本机→OSS 香港单连接 74KB/s、用户→ECS 杭州 4.7MB/s；ECS 提供 `/pptfiles/ppt/a/...` 缓存下载（服务由另一 agent 部署，地址 `http://121.196.47.2/pptfiles/`，https 备案后同源 `/pptfiles/`）。本次把网页下载详情的三行下载链接改为优先走 ECS 缓存，OSS 保留为「备用」。

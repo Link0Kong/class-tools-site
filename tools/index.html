@@ -1784,6 +1784,7 @@ body.ppt-dl-lock{overflow:hidden!important}
 .vote-hd{display:flex;align-items:center;gap:10px}
 .vote-hd>b{font-size:17px;font-weight:800;letter-spacing:.01em}
 .vote-hd .row{margin:0 0 0 auto;padding:0;flex-wrap:nowrap}
+#voteSync{min-height:40px}
 .vote-filter{display:flex;gap:6px;margin:10px 0 12px}
 .vote-filter button{flex:1;min-height:40px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink2);font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;transition:background-color .15s ease,border-color .15s ease,color .15s ease}
 .vote-filter button.on{border-color:var(--cy);color:var(--cy);background:#F1F7F5}
@@ -1812,13 +1813,14 @@ body.ppt-dl-lock{overflow:hidden!important}
 .vote-mcard .lghead{margin-bottom:8px}
 .vote-mcard textarea#voteDesc{min-height:58px}
 .vote-dt{display:flex;gap:6px;flex-wrap:wrap}
-.vote-dt button{flex:1;min-width:88px;min-height:38px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.vote-dt button{flex:1;min-width:88px;min-height:40px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
 .vote-dt button.on{border-color:var(--cy);color:var(--cy);background:#F1F7F5}
 .vote-quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.vote-quick button{min-height:36px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink2);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+.vote-quick button{min-height:40px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink2);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
 .vote-quick button.on{border-color:var(--cy);color:var(--cy);background:#F1F7F5}
 #voteLongBox{margin-top:8px}
 .vote-opt-count{font-size:11.5px;color:var(--ink3);font-weight:600;margin-left:6px}
+#voteAddOpt{min-height:40px}
 #voteOpts{margin-top:6px}
 .vote-opt-edit{display:flex;gap:8px;align-items:flex-start;padding:8px;border:1px solid var(--line);border-radius:12px;background:#FBFCFC;margin-bottom:8px}
 .vote-opt-edit .vnum{flex:none;width:22px;height:22px;margin-top:9px;border-radius:6px;background:#EDF2F7;color:#4C6B85;font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
@@ -1827,8 +1829,9 @@ body.ppt-dl-lock{overflow:hidden!important}
 .vote-opt-thumb{position:relative;flex:none;width:58px;height:58px;border-radius:10px;border:1px dashed var(--line);background:#fff;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:11px;font-weight:600;cursor:pointer;overflow:hidden;text-align:center;line-height:1.3}
 .vote-opt-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .vote-opt-thumb .vx{position:absolute;top:0;right:0;width:22px;height:22px;border:0;border-radius:0 0 0 8px;background:rgba(35,48,46,.55);color:#fff;font-size:13px;line-height:1;cursor:pointer;padding:0}
-.vote-opt-btns{flex:none;display:flex;flex-direction:column;gap:4px}
-.vote-opt-btns button{width:30px;height:28px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--ink2);font-size:12px;line-height:1;cursor:pointer;padding:0;font-family:inherit}
+.vote-opt-btns{flex:none;display:flex;flex-wrap:wrap;width:84px;gap:4px}
+.vote-opt-btns button{width:40px;height:40px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink2);font-size:13px;line-height:1;cursor:pointer;padding:0;font-family:inherit}
+.vote-opt-btns button[data-rm]{width:84px}
 .vote-rules{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:6px}
 .vote-rules .ck{cursor:pointer;user-select:none}
 #voteMaxWrap{font-size:12px;color:var(--ink2);display:inline-flex;align-items:center;gap:4px}
@@ -1856,13 +1859,14 @@ body.ppt-dl-lock{overflow:hidden!important}
 .vd-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cy),#83B7A9);border-radius:4px;transition:width .4s var(--ui-ease,cubic-bezier(.2,.8,.3,1))}
 .vd-nums{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;font-size:11.5px;color:var(--ink3);font-variant-numeric:tabular-nums}
 .vd-nums b{color:var(--ink2);font-weight:700}
+.vd-pct{font-variant-numeric:tabular-nums}
 .vd-voters{margin-top:5px;font-size:11.5px;color:var(--ink3);line-height:1.6;word-break:break-word}
 .vd-hidden{display:flex;align-items:center;gap:8px;margin-top:10px;padding:9px 11px;border:1px dashed var(--line);border-radius:10px;font-size:12.5px;color:var(--ink3);background:#FBFCFC}
 .vd-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .vd-acts .btn{min-height:40px}
 .vd-acts .vd-main{flex:1;min-width:140px}
 .vd-manage{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
-.vd-manage .btn{min-height:36px;font-size:12.5px}
+.vd-manage .btn{min-height:40px;font-size:12.5px}
 .vd-extend{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;padding:10px;border:1px dashed var(--line);border-radius:10px;background:#FBFCFC}
 .vd-extend input[type=datetime-local]{flex:1;min-width:180px;padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:#fff;font-family:inherit;font-size:13px}
 .vd-selinfo{font-size:12px;color:var(--ink3);margin-top:8px;min-height:18px}
@@ -12799,7 +12803,7 @@ var VOTE=(function(){
       (o.img&&/^data:image\//.test(o.img)?'<img class="vd-img" alt="" src="'+esc(o.img)+'">':'');
     if(vis){
       h+='<div class="vd-barwrap"><div class="vd-bar"><i style="width:'+pct+'%"></i></div>'+
-        '<div class="vd-nums"><span><b>'+n+'</b> 票</span><span>'+pct+'%</span></div>'+
+        '<div class="vd-nums"><span><b>'+n+'</b> 票</span><span class="vd-pct">'+pct+'%</span></div>'+
         (function(){var vd=votersFor(oid);return vd?'<div class="vd-voters">'+esc(vd)+'</div>':'';})()+
         '</div>';
     }
@@ -13068,7 +13072,7 @@ var VOTE=(function(){
     var an=el("voteAnon");if(an)an.checked=poll?(s.anonymous!==false):true;
     var ch=el("voteChange");if(ch)ch.checked=poll?(s.allowChange!==false):true;
     setVis(poll?(s.resultVisibility||"afterVote"):"afterVote");
-    var dt="quick",qi=1;
+    var dt="quick",qi=2; /* 契约 §3.3：限时默认 30 分钟（QUICK_MINS[2]） */
     if(poll){
       if(!Number(poll.deadline))dt="none";else dt="long";
     }

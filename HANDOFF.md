@@ -2719,15 +2719,15 @@ sync-repos.cmd "feat: 说明本次改了什么"
 
 | 脚本 | 结果 | 覆盖 |
 |---|---|---|
-| `tools/tests/vote_check.py` | **63/63** | mock 网页 UI：发起[限时/长时/多选/选项配图]/投票/改票/可见性/管理/倒计时到点自动截止/360·390·430 无横向溢出/0 JS 报错/0 外部请求 |
+| `tools/tests/vote_check.py` | **66/66** | mock 网页 UI：发起[限时/长时/多选/选项配图]/投票/改票/可见性/管理/倒计时到点自动截止/360·390·430 无横向溢出/0 JS 报错/0 外部请求 |
 | `tools/tests/vote_cloud_check.py` | **54/54** | 真实云端 API：鉴权/参数上下限/规则/一人一票/匿名/实名/三种可见性/服务端截止/编辑限制/权限/软删/直连表 401（测试身份 + 合成 QA 会话，finally 硬删除） |
 | `tools/tests/vote_live_check.py` | **20/20** | 本地临时通道 + 测试身份**真实 E2E**：界面发起→界面投票→第二成员真实投票→匿名校验→界面删除；CDP 写白名单只放行 poll_* 与登录/名单只读 RPC（拦截 visits/userdata 等云写） |
 | 回归 | 全绿 | `overflow_check.py 430` overflowCount=0、`v2_ui_check.py` 27/27、`v2_drag_check.py` 56/56、`optim_v1_check.py`/`optim_v2_check.py` GREEN、`export_check.py draw` 正常 |
 
 ### 5. 上线（2026-11-11 13:0x）
 
-- 线上备份（部署前）：`tools/_backup/index_online_20261111-1257_preVote.html`（**870,349 B / sha256 `ea799a28…`**）。
-- 部署：`python deploy/sync_tools.py` → OSS 对象 **920,140 B / sha256 `489c87eaf55ab19dc26b443152929baa6de1c7c8fe25425b4c32cf82304c5298`**；
+- 线上备份（部署前）：`tools/_backup/index_online_20261111-1257_preVote.html`（**870,349 B / `ea799a28…`**，部署前线上版）；修复前线上备份：`tools/_backup/index_online_20261111-1308_preVoteFix.html`（920,140 B / `489c87ea…`）。
+- 部署：`python deploy/sync_tools.py` → OSS 对象 **920,140 B / sha256 `489c87ea…`**（首版）；随后按独立验收 QAv 修复默认限时 30 分钟 + 点按 ≥40px 后再次部署 → 最终 **920,368 B / sha256 `db91fe6c0d850376fa8ceccb54069b6c5fe7c56d653813d8eb6ecbb27849973d`**（ECS 已同步 MATCH）；
   `python deploy/oss_object.py check index.html` = **MATCH**；OSS 直连对象字节复核含 `__VOTE_V1__`（DNS 暂停期以 OSS 字节为准，恢复解析后生效）。
 - 说明：本次部署文件同时包含**并行会话的 PPT 下载加速改动**（其自行验收中）；回滚到上面备份会连同该并行改动一起回退。
 - 独立验收：`web/验收报告/投票功能_独立验收_20261111.md`（QA 独立出具，含小程序门禁与安全隐私审计）。

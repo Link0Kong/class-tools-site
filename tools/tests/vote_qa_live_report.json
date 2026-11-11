@@ -1,0 +1,102 @@
+{
+  "at": "2026-11-11 13:11:30",
+  "pass": 19,
+  "fail": 0,
+  "results": [
+    {
+      "name": "L1 本地临时通道 + 真实页面加载（身份页出现）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "L2 测试身份真实登录成功（class_verify）+ VOTE 装载",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "L3 登录后取得真实班级 token（不打印）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "L4 进入投票页（真实 poll_list 请求返回、无白屏）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "L5 界面发起投票成功并打开详情（真实云端）",
+      "ok": true,
+      "note": "pmwbnvojbk3a0"
+    },
+    {
+      "name": "L6 真实 RPC：详情可读、0 票、owner_name=测试账号、无 sid",
+      "ok": true,
+      "note": "{'ok': True, 'now': 1794373881951, 'mine': True, 'poll': {'id': 'pmwbnvojbk3a0', 'mode': 'quick', 'title': 'QA独立验收投票_1794373881', 'status': 'open', 'o"
+    },
+    {
+      "name": "L7 真实 RPC：限时 5 分钟（deadline-now≈5min）",
+      "ok": true,
+      "note": "delta=299426"
+    },
+    {
+      "name": "L8 真实 RPC：匿名 + 投票后可见 + 允许改票 + 单选（服务端 canonical settings）",
+      "ok": true,
+      "note": "{'multi': False, 'anonymous': True, 'maxChoices': 1, 'allowChange': True, 'resultVisibility': 'afterVote'}"
+    },
+    {
+      "name": "L9 未投票时详情无结果条（afterVote 隐藏）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "L10 界面投票成功（真实 poll_submit，结果条出现）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "L11 真实 RPC：1 票、本人已投、counts 正确",
+      "ok": true,
+      "note": "{'onvoj9q4kn': 1}"
+    },
+    {
+      "name": "L12 列表卡片回显「1人已投 / 我已投」",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "L13 390px：真实投票列表无横向溢出",
+      "ok": true,
+      "note": "scrollW=390 vw=390"
+    },
+    {
+      "name": "L14 真实页面文本无测试身份学号/手机号泄露",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "L15 界面删除成功（软删，弹层关闭）",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "L16 真实 RPC：删除后详情不可查（投票不存在）",
+      "ok": true,
+      "note": "投票不存在"
+    },
+    {
+      "name": "L17 真实 RPC：删除后列表不再返回该投票",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "L18 云端写保护生效（非投票云写被拦截，poll_* 放行）",
+      "ok": true,
+      "note": "blocked=2 allowed_rpc=11 seen=17"
+    },
+    {
+      "name": "L19 真实云端页面 0 未捕获 JS 异常",
+      "ok": true,
+      "note": "{\"exceptions\": [], \"win\": []}"
+    }
+  ]
+}
