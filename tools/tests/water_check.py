@@ -1088,6 +1088,9 @@ def sc_e_power(cdp):
     select_power_room(cdp, RV305)
     wait_text(cdp, "#pwNum", "100", 12)
     sleep(0.8)
+    # 16/13 号楼用户界面已隐藏 24h 档；本用例验证 24h 数据口径，显式切到 24h
+    ev(cdp, "(function(){var b=document.querySelector('#pwRanges [data-range=\"24h\"]');if(b)b.click();return true;})()")
+    sleep(0.5)
     chip_hidden = True
     try:
         chip_hidden = bool(ev(cdp, "(function(){var e=document.getElementById('pwDeduct');"

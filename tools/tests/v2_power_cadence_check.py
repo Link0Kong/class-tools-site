@@ -291,6 +291,8 @@ def run_phase_a(cdp):
     # ===== S1：13-324 单段观测 =====
     ok = pick(cdp, "1-13---324")
     time.sleep(0.9)
+    set_range(cdp, "24h", "24h")   # 13/16 用户界面已隐藏 24h 档；测试显式切到 24h 验证内部慢频 24h 口径
+    time.sleep(0.4)
     a = state(cdp)
     T("S1.0 13-324 加载（88.8）", ok and a["num"] == "88.8", a["num"])
     T("S1.1 日更 chip + title", (not a["chipHidden"]) and a["chipText"] == "日更"
@@ -325,6 +327,8 @@ def run_phase_a(cdp):
     # ===== S2：16-305 24h 无更新 =====
     ok = pick(cdp, "1-16---305")
     time.sleep(0.9)
+    set_range(cdp, "24h", "24h")
+    time.sleep(0.4)
     b = state(cdp)
     T("S2.0 16-305 加载（38.0）", ok and b["num"] == "38.0", b["num"])
     T("S2.1 日更 chip", (not b["chipHidden"]) and b["chipText"] == "日更", b["chipText"])
@@ -344,6 +348,8 @@ def run_phase_a(cdp):
     # ===== S3：13-308 多段 =====
     ok = pick(cdp, "1-13---308")
     time.sleep(0.9)
+    set_range(cdp, "24h", "24h")
+    time.sleep(0.4)
     c = state(cdp)
     T("S3.0 13-308 加载（83.0）", ok and c["num"] == "83.0", c["num"])
     T("S3.1 估算 15.1 天 / 5.5 度/天 / 多段不标参考",
@@ -463,7 +469,7 @@ def run_phase_b(cdp):
     T("S5.6 切 30 天：x 轴 3–5 刻度、无横向滚动",
       3 <= len(s5b["xl"]) <= 5 and s5b["scrollOX"] == "hidden" and s5b["scrollSW"] <= s5b["scrollCW"] + 1,
       json.dumps({"xl": len(s5b["xl"]), "ox": s5b["scrollOX"], "sw": s5b["scrollSW"], "cw": s5b["scrollCW"]}, ensure_ascii=False))
-    T("S5.7 切 30 天：命中缓存不重复请求（pull 已拉 30d）", hist_for(cdp, "1-16---306") == 3,
+    T("S5.7 切 30 天：30d 命中缓存，仅补拉 70d 比较窗口（共 4 窗口）", hist_for(cdp, "1-16---306") == 4,
       "%s (all=%s)" % (hist_for(cdp, "1-16---306"), state(cdp)["hist"]))
     T("S5.8 截图 S5 30 天 390 宽", shot(cdp, "cadence_s5_30d_390.png"), "")
 
@@ -472,6 +478,8 @@ def run_phase_b(cdp):
     time.sleep(0.4)
     ok = pick(cdp, "1-13---324")
     time.sleep(0.9)
+    set_range(cdp, "24h", "24h")
+    time.sleep(0.4)
     fl = state(cdp)
     T("F1.0 恒定 30 天房：加载 100、日更 chip", ok and fl["num"] == "100" and (not fl["chipHidden"]) and fl["chipText"] == "日更",
       json.dumps({"num": fl["num"], "chip": fl["chipText"]}, ensure_ascii=False))
@@ -493,7 +501,7 @@ def run_phase_b(cdp):
     T("F1.6 切 30 天：提示「近 30 天无更新」、x 轴 3–5 刻度",
       (not f30["noteHidden"]) and f30["noteText"] == "近 30 天无更新" and 3 <= len(f30["xl"]) <= 5,
       json.dumps({"note": f30["noteText"], "xl": len(f30["xl"])}, ensure_ascii=False))
-    T("F1.7 切档不重复请求（慢频 30d 已随 pull 缓存）", hist_for(cdp, "1-13---324") == 3,
+    T("F1.7 切档：30d 已随 pull 缓存，仅 30 天档补拉 70d 比较窗口（共 4）", hist_for(cdp, "1-13---324") == 4,
       "%s (all=%s)" % (hist_for(cdp, "1-13---324"), state(cdp)["hist"]))
     T("F1.8 截图平线无更新 30 天 390 宽", shot(cdp, "cadence_flat_30d_390.png"), "")
     # 趋势区横滑不切工具（片段事件）

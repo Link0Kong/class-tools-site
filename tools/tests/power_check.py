@@ -342,7 +342,7 @@ async function run(){
     if(pr.length){
       T("power 请求带 Bearer + X-Device-Id", String(pr[0].headers["authorization"]||"").indexOf("Bearer ")==0&&!!pr[0].headers["x-device-id"], "");
     }
-    T("选择后 power_history 请求 2 次（24h + 7d 估算窗口）", hr.length===2, hr.length);
+    T("选择后 power_history 请求 2 次（24h + 7d 估算窗口）", hr.length===2, hr.length+" | "+hr.map(function(r){return r.url.slice(-46);}).join(" ; "));
     if(hr.length===2){
       var okAll=hr.every(function(r){return /power_history\?select=ts,quantity/.test(r.url)&&/roomverify=eq\.4-23A---321/.test(r.url)&&/order=ts\.asc/.test(r.url)&&/ts=gte\./.test(r.url)&&/limit=2000/.test(r.url);});
       var g2=hr.map(function(r){var m=r.url.match(/ts=gte\.([^&]+)/);return m?Date.parse(decodeURIComponent(m[1])):0;}).sort(function(a,b){return a-b;});
@@ -415,7 +415,7 @@ async function run(){
     if(rf2)rf2.click();
     await sleep(900);
     T("点刷新力拉 power（+1）", powerReqs(f).length===b1+1, b1+"->"+powerReqs(f).length);
-    T("点刷新力拉 power_history（24h + 7d，共 +2）", histReqs(f).length===b2+2, b2+"->"+histReqs(f).length);
+    T("点刷新力拉 power_history（24h + 7d，共 +2）", histReqs(f).length===b2+2, b2+"->"+histReqs(f).length+" | "+histReqs(f).slice(b2).map(function(r){return r.url.slice(-46);}).join(" ; "));
 
     /* ================= F. 期间有充值：chip + 不计负用电 ================= */
     setSel(f,"1-13---308");
@@ -557,7 +557,13 @@ async function run(){
     click(fr,'#pwRanges [data-range="7d"]');
     await waitFor(function(){return txt(fr,"#pwTrendTitle").indexOf("7 天")>=0;},9000);
     await sleep(700);
-    T("切 7 天：命中已缓存窗口（不重复请求）", histReqs(fr).length===h0, h0+"->"+histReqs(fr).length);
+    T("切 7 天：7d 命中缓存，仅补拉 14 天比较窗口（+1）", (function(){
+      var hs=histReqs(fr),nw=hs.slice(h0);
+      if(nw.length!==1)return false;
+      var m=nw[0].url.match(/ts=gte\.([^&]+)/);
+      var back=Date.now()-(m?Date.parse(decodeURIComponent(m[1])):0);
+      return back>13.4*24*3600e3&&back<14.6*24*3600e3;
+    })(), h0+"->"+histReqs(fr).length);
     T("7 天：标题/图例/区间用电 tile 随档位",
       txt(fr,"#pwTrendTitle").indexOf("近 7 天趋势")>=0&&txt(fr,"#pwLegend").indexOf("区间下降")>=0&&txt(fr,"#pwTiles").indexOf("近 7 天用电")>=0,
       txt(fr,"#pwTrendTitle")+" | "+txt(fr,"#pwTiles").replace(/\s+/g," ").slice(0,90));
@@ -589,8 +595,8 @@ async function run(){
     T("趋势图横滑不触发站点切工具（CURTAB 不变）", act0==="s-power"&&act1==="s-power", act0+"->"+act1);
     var hp0=powerReqs(fr).length,hh0=histReqs(fr).length;
     click(fr,"#pwRefresh");await sleep(1600);
-    T("30 天档刷新：力拉 power（≥+1）与 24h/7d/30d 三个窗口（+3）",
-      powerReqs(fr).length>=hp0+1&&histReqs(fr).length===hh0+3, (powerReqs(fr).length-hp0)+"/"+(histReqs(fr).length-hh0));
+    T("30 天档刷新：力拉 power（≥+1）与 24h/7d/30d + 70d 比较窗口（+4）",
+      powerReqs(fr).length>=hp0+1&&histReqs(fr).length===hh0+4, (powerReqs(fr).length-hp0)+"/"+(histReqs(fr).length-hh0));
     var h24=histReqs(fr).length;
     click(fr,'#pwRanges [data-range="24h"]');
     await waitFor(function(){return txt(fr,"#pwTrendTitle").indexOf("24h")>=0;},8000);

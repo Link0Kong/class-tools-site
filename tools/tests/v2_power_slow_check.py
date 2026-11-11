@@ -152,6 +152,11 @@ def wait_num(cdp, txt):
     return wait_until(cdp, "(function(){var e=document.getElementById('pwNum');return !!(e&&e.textContent.trim()==='%s');})()" % txt, 15)
 
 
+def set_range(cdp, rng, label):
+    cdp.eval("(function(){var b=document.querySelector('#pwRanges [data-range=\"%s\"]');if(b)b.click();return !!b;})()" % rng)
+    return wait_until(cdp, "(function(){var t=document.getElementById('pwTrendTitle');return !!t&&t.textContent.indexOf('%s')>=0;})()" % label, 12)
+
+
 def hist_count(cdp):
     return cdp.eval("(window.__reqs||[]).filter(function(r){return r.url.indexOf('/power_history?')>=0;}).length") or 0
 
@@ -231,6 +236,8 @@ def run(cdp):
     pick(cdp, "1-13---324")
     okA = wait_num(cdp, "88.8")
     time.sleep(0.9)
+    set_range(cdp, "24h", "24h")   # 13/16 用户界面已隐藏 24h；测试显式切 24h 验证内部口径
+    time.sleep(0.4)
     a = state(cdp)
     T("A1 S1 慢频房显示「日更」徽标", okA and (not a["chipHidden"]) and a["chipText"] == "日更", json.dumps(a["chipText"], ensure_ascii=False))
     T("A2 日更徽标 title 说明按真实更新点统计", a["chipTitle"] == "13/16 号楼网关日更，按真实更新点统计", a["chipTitle"])
@@ -254,6 +261,8 @@ def run(cdp):
     pick(cdp, "1-16---305")
     okB = wait_num(cdp, "38.0")
     time.sleep(0.9)
+    set_range(cdp, "24h", "24h")
+    time.sleep(0.4)
     b = state(cdp)
     T("B1 S2 显示「日更」徽标", okB and (not b["chipHidden"]) and b["chipText"] == "日更", b["chipText"])
     T("B2 S2 估算 3.2 天 + 参考（12.0 度/天）", ("3.2" in b["tile1"]) and ("12.0" in b["tile1"]) and b["refText"] == "参考", b["tile1"])
@@ -305,7 +314,8 @@ def run(cdp):
         e = state(cdp)
         T("E2 切 %s：日更徽标仍显示" % label, (not e["chipHidden"]) and e["chipText"] == "日更", e["chipText"])
         T("E3 切 %s：估算参考仍为 3.2 天/参考" % label, "3.2" in e["tile1"] and e["refText"] == "参考", e["tile1"])
-        T("E4 切 %s：命中缓存不重复请求 history" % label, hist_for(cdp, "1-16---305") == base_hist,
+        T("E4 切 %s：7d/30d 命中缓存%s" % (label, "，仅补拉 70 天比较窗口" if rng == "30d" else ""),
+          hist_for(cdp, "1-16---305") == base_hist + (1 if rng == "30d" else 0),
           "%s->%s" % (base_hist, hist_for(cdp, "1-16---305")))
     cdp.eval("(function(){var b=document.querySelector('#pwRanges [data-range=\"24h\"]');if(b)b.click();return !!b;})()")
     time.sleep(0.5)

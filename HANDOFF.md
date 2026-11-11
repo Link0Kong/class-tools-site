@@ -2933,3 +2933,34 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - **安卓**：`3.6.0 / vc12`，`PptMediaFile` 解析 + `PptMediaDownloadLogic` 行模型 + 详情分组（DownloadManager→ACTION_VIEW/分享）；`testDebugUnitTest 994/0`（+12，无回退）、`assembleRelease` 成功；APK **2,757,826B / sha256 `514527F0…`**（已交付桌面 `班级工具站_3.6.0.apk`）。
 - **回滚**：网页重传 `tools/_backup/index_online_20261111-1940_preMediaDl.html`（975,287B/`56667b04…`，注意含并行大屏/电费改动）；manifest 去掉 media_files 即客户端隐藏分组；转换机无独立开关（随 compat 流程）；小程序/安卓回退上一版。
 - **已知**：同媒体多页只抽一个文件（slides 列全）；纯外链/超限仅 warning；旧 build media/ 残留不清理（manifest 不引用）；小程序需域名+发布；安卓下载落应用外部下载目录。
+
+## 2026-11-11 20:0x–20:2x · 增量 42：电费 13/16 号楼隐藏 24h 趋势 + 电费比较改「自然周期同期」（网页已上线 OSS+ECS）
+
+> 用户需求（2026-11-11 19:48）：「对 13 号楼，16 号楼隐藏 24 小时趋势图；对于电费比较，24h 改为与前一天比较，七天改为与上一周比较，以此类推」。
+> 用户已确认：比较口径=**自然周期同期**（今天 0 点–现在 vs 昨天同一时段；本周一–现在 vs 上周同一时段；本月 1 日–现在 vs 上月同期）；13/16 **隐藏 24h 档位并默认 7 天**。
+> 范围：仅网页端 `tools/index.html` 电费页（区间档位 + 电费比较徽标 + 取数）；未改 UD v6 契约/云端表/小程序/安卓；APP_VER 仍 2.0.0、单文件零依赖、无新增外部来源。
+
+### 42.1 13/16 号楼隐藏 24h 趋势
+- 判定用**楼栋级** `PW_SLOW_BLD`（13/16 号楼主楼，`slowBldOf`），不依赖当前网关是否提速（与 `isSlowRoom` 数据驱动口径分开）。
+- `renderChips`：这两个楼栋时 24h 按钮 `hidden` + `display:none`；选中宿舍时 `normRangeForSel` 若当前是 24h → 自动落 7 天（只在切换宿舍/enter 时归位，不覆盖用户/测试的显式档位）；切回实时房时恢复进入慢楼栋前档位（用户手选过 7d/30d 则保留）。
+- 24h 数据仍按原契约拉取（慢频房 3 窗口），只用于「日更」判定/估算/无更新提示；趋势图不再展示 24h 档。
+- `setRange` 仍允许程序化切 24h（测试/深链），鼠标无入口（按钮隐藏）。
+
+### 42.2 电费比较 → 自然周期同期
+- 替换电费页 tile 徽标（原「较上窗口 Δ%」，OPT2 包装器 `opt2PowerDelta`）：
+  - 24h：今日 00:00–现在 vs 昨日 00:00–昨日同一时刻 → 「较昨日同期」
+  - 7d：本周一 00:00–现在 vs 上周一–上周同一时刻 → 「较上周同期」
+  - 30d：本月 1 日 00:00–现在 vs 上月 1 日–上月同一日同时刻 → 「较上月同期」
+- 当前/上一周期各自取窗口内真实采样点，按 `deriveRange` 累计下降（不插值、扣减规则沿用）；**覆盖率 <35% 窗口的周期不显示百分比**（防历史只有 6 天时拿残缺周期得出误导结论）。
+- 徽标 `title` 写明具体统计时段；颜色沿用原有 `opt-down/opt-up`。
+- 取数：为比较补拉更长窗口（7d→14d、30d→70d，`PW_RANGE_MAP` 隐藏键，不进按钮）；`ensureCompare` 按需异步补拉后刷新 tile；`fetchHist` 新增 in-flight 去重（force 也复用正在进行的同窗口请求），切档/刷新不会重复打同一窗口。
+
+### 42.3 测试（本机实跑）
+- 新增 `tools/tests/v2_power_trend_compare_check.py` **26/26**：静态 8 + 13/16 隐藏/默认/恢复 12 + 自然周期百分比逐档核对（mock 70 天历史按日期构造不同速率）+ 历史不足降级 + 并发去重 + 360/430/1280 无溢出；截图 `_shots_power_trend/{1280_24h,1280_7d,1280_slow_7d,360_30d,390_short_7d}.png`。
+- 回归：`power_check` **155/155**（请求契约：切 7 天仅补 14d、30 天刷新补 70d；原「较上窗口」断言未涉及徽标）、`v2_power_cadence_check` **84/84**、`v2_power_slow_check` **45/45**（测试显式切 24h 验证内部慢频口径，新增 `set_range` 辅助）、`v2_power_detail_check` 30、`v2_power_tip_fixed_check` 21、`v2_orient_power_check` 33、`v2_pos_restore_check` 12、`v2_ui_check` 27、`sync_check` 144、`v2_drag_check` 69、`water_check` **169/169**（E18 显式切 24h）、`v2_water_sync_check` 116、`v2_water_layout_check` 29、`v2_water_month_check` 41、`overflow_check` 430=0；0 JS 报错。
+- 测试适配：cadence/slow/water 的慢频 24h 用例显式 `set_range("24h")`（用户界面已无此档）；慢频比较窗口导致请求数 +1 的断言一并更新。
+
+### 42.4 上线 / 回滚 / 取舍
+- 备份线上 `tools/_backup/index_online_20261111-2020_prePowerTrendCmp.html`（1,048,404B/`c6034271…`，即 stage V4+PPT v2.3 版）→ OSS+ECS **1,054,704 B / sha256 `834d39cc…`**；`oss_object.py check` MATCH、`ecs_site.py verify` MATCH。
+- 回滚：重传上述备份（会连同本轮电费改动一起回退）。
+- 取舍（如实）：① tile 主数值仍是「近 N 天窗口用电」，比较徽标百分比按自然周期同期计算（两者口径不同，UI 上以「较昨日/上周/上月同期」区分）；② 现网 `power_history` 仅约 6 天 → 7d/30d 的上周/上月同期比较暂不显示，数据积累到 14/70 天后自动出现；③ 仅网页端改动，小程序端未改（如需同口径需另改并随用户上传发布）；④ 13/16 隐藏 24h 是楼栋级固定策略，网关提速（isSlowRoom 降级实时口径）不重新显示 24h。
