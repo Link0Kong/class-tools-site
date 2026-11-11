@@ -2,6 +2,26 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-11 20:0x · 大屏 V4：模块聚焦/灵动岛/布局易用化 + 投票完整发起 + 抽签名单 + 名单工具 + PPT「打开」联动 + 跨端互联通道（网页+ECS 服务已上线）
+
+> 用户需求（2026-11-11 19:3x）原话 8 项：「把各个模块都做成点击可放大的模式，其他如果有正在进行的模块则以灵动岛的思路展示；PPT模块应设计成下载后按钮变为打开并在点击后自动调用本地PPT软件全屏放映，同时保证PPT退出或临时切出后还在大屏模式；当前各个模块的自定义化还是非常难操作；投票模块应保持可上传图片等功能；增强与其他模块的交互，在当前用户的电脑正处于大屏放映模式时，添加临时的文件传输通道，同时也可在其他端进行一些大屏上的操作；优化抽签可便捷修改或使用名单；班委名单工具修改为名单工具，内含班委名单，团员名单和全班名单」。用户确认口径：PPT 采用「调起本机 PowerPoint（Office URI）+ 提示按 F5，大屏保持/一键回全屏」（浏览器无法强制 PowerPoint 全屏）；跨端 = **同一账号在所有登录端**互传文件（分片直传 ECS，实测 6MB/s 级）+ 纯文字，并遥控大屏；投票大屏发起保留「除指定截止日期、选项说明外」的全部表单（含选项配图）。
+> 范围：`tools/index.html`（大屏块 V4 重写 + 名单工具 + PPT 联动 + 互联双端 UI）、`drop/`（契约+服务+测试）、`deploy/drop_app.py`、`deploy/ecs_drop.py`、`deploy/ecs_site.py`（Caddy /drop 三处）、`deploy/cloudbase/2026-11-11_stage_rpc.sql`（class_whoami/class_league）、`tools/tests/stage_rpc_check.py`、`tools/tests/optim_v2_check.py`、`CLOUDBASE.md`、`deploy/ECS_DEPLOY.md`；APP_VER 仍 2.0.0、单文件零依赖、网页无新增外部来源（互联走同源/ECS 直连）。
+
+- **模块点击可放大**：点面板表头或右上 ⤢ → 该面板聚焦铺满 12 列（其余隐藏），顶栏 ⤡ / 灵动岛「退出聚焦」还原；聚焦态 Esc 逐层退出。
+- **灵动岛**：顶栏下方 pill 汇总「计时运行 / 投票进行中 / 互联已开启 / 切出后恢复全屏」，点击展开下拉可切聚焦任意面板/退出聚焦；手机端为流式 pill + 底部弹出。
+- **布局自定义易用化**：编辑模式新增 12 列网格参考线；**整条面板表头可直接拖拽换位**（`data-dragpanel`）；点面板选中后出现底部**大按钮条**（前移/后移/宽窄切换/隐藏/完成，触摸 ≥40px）；右下角拖拽改宽；预设（主持台/双栏/聚焦）/恢复默认保留；`zq_stage_layout_v1` 本机持久化；窄屏单列堆叠、无横向溢出。
+- **PPT「下载→打开」联动**：下载详情点击下载后记录 `zq_stage_ppt_dl_v1`，大屏主按钮自动变「▶ 打开放映」→ 通过 `ms-powerpoint:ofv|u|<ECS /pptfiles 绝对 URL>` 调起本机 PowerPoint，并提示「按 F5 全屏放映」；`window.PPT.hrefOf(id,kind)` 新导出（ECS 加速链）；切出 PPT/窗口失焦回来大屏仍在，灵动岛提示「点击恢复全屏」；WPS 无远程打开协议 → 下载后打开（界面有说明）。
+- **投票大屏完整发起**：标题、2–20 选项、**每选项配图上传（canvas 压缩长边 640/≤150KB，单投票 ≤1.6MB）**、单选/多选+最多可选、匿名/实名、允许改票、结果可见性（始终/投后/截止后）、可见范围（全班/班委/团员/指定成员）、限时 5/10/30/60/120 分钟或不限时；切换规则/范围/限时不丢输入；创建后自动切到新投票投屏。
+- **抽签便捷名单**：抽签面板「名单」→ 弹层含 全班/班委/团员/清空 快捷 + 成员勾选网格 + 已选计数，应用后与抽签页共享 `D.d.rosterSel`；面板显示「抽签池 N 人」。
+- **「班委名单」→「名单」工具**：班委 / 团员 / 全班 三 tab（计数徽标）；班委来自 `class_members.role/badge`（管理仍仅班委 tab 可设职务）、团员来自新 RPC `class_league`（50 人、只返回座号+姓名、无 sid）、全班 70 人；空态/错误态兜底。
+- **跨端互联（服务端）**：`drop/CONTRACT.md` v1 + ECS `class-tools-drop.service`（127.0.0.1:8093，Python 标准库，Caddy `/drop/*`）：`class_whoami` 鉴权（120s 缓存、fail closed 503）、**同账号（同 sid）自动同房**、`/open` 房间码、`/state` 增量事件、8MiB 分片上传、HMAC 签名下载 30 分钟（Range/HEAD/inline）、`/text`、`/cmd` 9 类白名单、单文件 2GiB/会话 8GiB/300 文件/TTL 2h/60s 清理；单实例锁、文件名 sanitize、CORS 全配。
+- **跨端互联（前端）**：大屏打开即自动开通道，顶栏 🛰（绿点）打开面板显示房间码/链接（复制）、收到的文件（下载/图片预览）与文字（复制）；同账号其他设备从「全部页 → 大屏互联」或链接 `#drop` 打开控制器：选择文件多选（分片进度）、发文字到大屏、遥控（聚焦 4 面板/退出聚焦/计时开始暂停重置/抽签 1 人/打开当前 PPT/恢复全屏/发提示/关闭大屏），2s 轮询。
+- **测试**：`optim_v2_check.py` admin 大屏断言扩到 **52 项**（聚焦/灵动岛/大按钮条/整表头拖拽/PPT 打开/投票完整表单/抽签名单/互联面板+控制器/名单三 tab 等），全套 main 16 + admin 52 + hash 3 = **GREEN 0 fails**；drop 单测 **68/68**、`ecs_drop.py selftest` **23/23**（20MiB 3 片 6.37MB/s 上传、5.49MB/s 下载、sha 一致、双 token 同 sid 互见、close 后 404）；我独立真实 ECS 黑盒（test identity：open/text/9MB 分片/下载 sha 一致 6.0MB/s/cmd/close）通过；回归 overflow 430=0、v2_ui 27/27、v2_ppt 92/92、v2_ppt_download 65/65；手机 430 单列堆叠/0 横向溢出；合成 PointerEvent 表头拖拽与拖宽通过。
+- **独立验收**：`验收报告/大屏V4_独立验收_20261111.md`（fresh-context 队友，独立脚本+真实 ECS 黑盒；含两处 P1 修复复验）。
+- **上线**：网页 **1,048,404 B / sha256 `c6034271…`**（OSS `check` MATCH；ECS `/` MATCH，gzip 328KB；`/drop/__health`、`/pptfiles/__health` 200）；ECS 互联服务 active/enabled，真实 selftest 23/23；备份 `tools/_backup/index_online_20261111-2002_preStageV4.html`（975,287B/`56667b04…`）。
+- **回滚**：网页重传备份；`systemctl disable --now class-tools-drop` + 撤销 ecs_site.py 的 `/drop/*` 三处后 `apply`（旧 Caddyfile 备份 `/var/www/tool_backup/20261111-195725/`），数据 `rm -rf /opt/class-tools/drop/{sessions,files,uploads}`；RPC `drop function public.class_whoami(); drop function public.class_league();`。
+- **已知限制（如实）**：浏览器不能强制 PowerPoint 全屏（需 F5；WPS 走下载）；布局/「已下载」标记为本机偏好（不跨设备）；互联需同账号且会话关闭/2h 过期即删文件，签名下载 URL 30 分钟过期；ECS 单实例、单文件 2GiB/会话 8GiB；大屏仍仅管理员可见；本文件同时含并行会话 PPT v2.3 网页增量（已随本次统一部署上线）。
+
 ## 2026-11-11 19:4x · PPT v2.3（网页端）：下载详情新增「视频单独下载」分组（**本地完成，待 Lead 统一部署；真实 deck media_files 待转换机重转**）
 
 > 契约：`web/ppt/CONTRACT.md` **§12.8**（转换机从最终 compat 包抽取音视频 → `manifest.media_files`；客户端下载详情新增分组）。本条只记**网页端**（`tools/index.html` + 专项测试）；转换机 media_files 由后端实现（`PptConvertAgent` 当前暂停，等其完成）。`APP_VER` 仍 `2.0.0`、单文件零依赖、无新增外部请求。

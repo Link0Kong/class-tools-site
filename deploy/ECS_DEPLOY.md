@@ -174,3 +174,64 @@ rm -rf /opt/class-tools/pptfiles /etc/systemd/system/class-tools-pptfiles.servic
 - `ecs_site.py` 不含任何密钥；远端命令只做文件下载/替换/Caddy reload，不含凭据；云助手执行记录留在阿里云账号内。
 - 不要在前端/仓库中出现 OSS 写凭据；ECS 只读 OSS 公开对象。
 - 备案期 `tool.furina.fun` 仍不可解析；ECS 的 IP 入口仅用于本机验证，不对外宣传。
+
+## 9. 大屏临时互联通道（drop 服务，2026-11-11）
+
+> 用途：团日活动大屏 ↔ 手机/其它设备**同账号（同 sid）临时互联**——跨端传文件、发文字、遥控指令中转。
+> 会话 2h 自动销毁、文件随关闭即删。**服务契约唯一来源：`drop/CONTRACT.md`**（接口/字段/限制/签名规则）。
+
+### 9.1 组件
+
+| 项 | 值 |
+|---|---|
+| 服务代码 | `deploy/drop_app.py` → `/opt/class-tools/drop/app.py`（51812 B，Python 标准库） |
+| 数据根 | `/opt/class-tools/drop/`：`sessions/`（会话 JSON）、`files/`（文件实体）、`uploads/`（分片暂存）、`.secret`（HMAC secret，0600，服务自建） |
+| 鉴权密钥 | `/opt/class-tools/drop/publish_key`（root:www-data 0640，来自 `deploy/cloudbase/publish_key.txt`，只在服务端用于 `Authorization: Bearer`，不打印） |
+| systemd | `class-tools-drop.service`（User=www-data、`ProtectSystem=strict`、`ReadWritePaths=/opt/class-tools/drop`、Restart=always） |
+| 监听 | `127.0.0.1:8093`（公网只能经 Caddy `/drop/*`） |
+| Caddy | `handle /drop/* { uri strip_prefix /drop; reverse_proxy 127.0.0.1:8093 }`（HTTP 与 HTTPS-ready 三处，见 `deploy/ecs_site.py`） |
+| 鉴权 RPC | `POST https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/rpc/class_whoami`（X-Device-Id → sid/seat/name；120s 缓存；网关不可用 503 fail closed）。迁移 `deploy/cloudbase/2026-11-11_stage_rpc.sql` |
+
+### 9.2 部署与验证（web 目录，系统 python）
+
+```powershell
+python deploy\ecs_drop.py probe      # 只读：systemd / 健康 / 数据目录 / Caddy 路由 / journal
+python deploy\ecs_drop.py deploy     # 分片上传 app.py + publish_key → 装 unit → 重启 → 本机健康检查
+python deploy\ecs_site.py apply      # 重写 Caddy 加 /drop/*（自动备份旧 Caddyfile；caddy validate 通过才 reload）
+python deploy\ecs_drop.py verify     # 公网：/drop/__health + CORS 预检 + 无 token 401
+python deploy\ecs_drop.py selftest   # 测试身份真实 E2E（token 不打印/不落盘）
+```
+
+- 公网基址：`http://121.196.47.2/drop`（备案 + DNS 恢复后同源 `https://tool.furina.fun/drop`；
+  下载 URL 由服务端按 `X-Forwarded-Proto/Host` 自动生成，无需改代码）。
+- 回滚：`systemctl disable --now class-tools-drop` → 去掉 `ecs_site.py` 里的 drop handle 后 `apply`；
+  旧 Caddyfile 备份在 `/var/www/tool_backup/<时间戳>/Caddyfile.old`；
+  数据清理 `rm -rf /opt/class-tools/drop/{sessions,files,uploads}`（不影响站点/att/pptfiles）。
+
+### 9.3 实测（2026-11-11 19:56–20:0x）
+
+- 部署：`app.py` 51812 B、`publish_key` 1150 B（0640）；`class-tools-drop.service` **active/enabled**（含 `.instance` 文件锁 + 端口绑定双保险，单实例）；
+  本机 `/__health` = `{"ok":true,"version":"1.0","sessions":0,"files":0,"bytes":0}`。
+- Caddy：`apply` 后 `caddy validate` 通过（HTTP + HTTPS-ready 两份配置），reload active；
+  **站点 `index.html` 字节不变**：975,287 B / sha256 `56667b04…`（apply 前后一致，= 当前 OSS 最新）；
+  `/drop/__health` 公网 **200**（0.08s）；OPTIONS 预检 **204**（ACAO 回显、Allow-Headers 含 `X-Device-Id,X-Upload-Id`）；
+  无 token `/open` → **401**（fail closed）；无效 token → **401 未登录**（真实 `class_whoami` 生效）。
+- 真实公网 E2E（测试身份，`selftest` **23/23 PASS**）：
+  - 两次登录拿**不同 token、同 sid**；token2 `/open` 复用 token1 的会话（双端互见）；`/mine` 同会话；
+  - 小文件分片上传→finish→事件→下载 sha256 一致，`Content-Disposition: attachment; filename*=UTF-8''…`；
+  - **20MiB 文件 3 片（8MiB/chunk）**：上传 3.13s（**6.39MB/s**），下载 2.58s（**7.75MB/s**）且 sha256 一致；
+    `Range: bytes=100-1123` → **206** `Content-Range: bytes 100-1123/20971520`；HEAD 200 + 正确 Content-Length；
+  - token2 `/state` 可见 file×2 事件；token2 发文字 → token1 `/state` 收到（from=测试账号）；`/cmd toast` 200、未知 op 400 中文 reason；
+  - `/close` → `/mine` 为空、旧下载链接 **404**（文件已删）、健康统计回到基线（sessions/files=0/0，无残留）。
+- 磁盘：ECS `/` 40G，已用 7.3G，**可用 30G**（drop 默认单文件 ≤2GiB、单会话 ≤8GiB、磁盘保留 ≥1GiB）。
+
+### 9.4 已知限制（如实）
+
+- 单实例（端口绑定 + 数据根 `.instance` 进程锁）、无持久化：会话 TTL 2h；关闭/过期即删文件；服务重启不丢会话/事件（磁盘），只丢鉴权缓存。
+- 单文件默认 2GiB / 单会话 8GiB / 300 文件 / 文字 1 万字 / 每会话事件 500 条（超出丢最旧）；env 可调。
+- 下载签名 URL 30 分钟有效，过期需重新上传/刷新事件（不提供手动续签接口）。
+- 鉴权依赖 CloudBase 网关 + `class_whoami`：不可用时**全部 API 503**（fail closed），不影响站点其它功能。
+- 2C2G 单机共享 CPU/带宽：大文件并发会与 `/pptfiles` 下载、站点访问争带宽；适合班级内临时使用。
+- 分片断点续传不跨会话/不跨服务重启（刷新后需重传）；`finish` 前中断由 60s 清理线程按 TTL 回收。
+- 房间码 `code` 只用于人工配对展示，**不是**鉴权凭据；权限完全等于班级 token（同 sid 即同权限）。
+

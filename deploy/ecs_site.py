@@ -123,6 +123,11 @@ def _caddy_http():
 		uri strip_prefix /pptfiles
 		reverse_proxy 127.0.0.1:8092
 	}
+	# 大屏临时互联通道（同账号跨端传文件/文字/遥控；见 drop/CONTRACT.md）
+	handle /drop/* {
+		uri strip_prefix /drop
+		reverse_proxy 127.0.0.1:8093
+	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	handle /v1/rdb/rest/* {
 		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
@@ -167,6 +172,11 @@ tool.furina.fun {
 		uri strip_prefix /pptfiles
 		reverse_proxy 127.0.0.1:8092
 	}
+	# 大屏临时互联通道（同账号跨端传文件/文字/遥控；见 drop/CONTRACT.md）
+	handle /drop/* {
+		uri strip_prefix /drop
+		reverse_proxy 127.0.0.1:8093
+	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	handle /v1/rdb/rest/* {
 		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
@@ -203,6 +213,11 @@ tool.furina.fun {
 	handle /pptfiles/* {
 		uri strip_prefix /pptfiles
 		reverse_proxy 127.0.0.1:8092
+	}
+	# 大屏临时互联通道（同账号跨端传文件/文字/遥控；见 drop/CONTRACT.md）
+	handle /drop/* {
+		uri strip_prefix /drop
+		reverse_proxy 127.0.0.1:8093
 	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	handle /v1/rdb/rest/* {

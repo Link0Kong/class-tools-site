@@ -2840,7 +2840,7 @@ body.ppt-dl-lock{overflow:hidden!important}
         <li>点「关注宿舍」按楼栋选房间；选择随账号同步，换设备自动恢复。</li>
         <li>选「关注宿舍」后显示剩余电量、估算可用天数与近 24h / 7天 / 30天趋势。</li>
         <li>点或按住趋势曲线可查看该点「时间 · 电量」，气泡固定显示在趋势图右上角（不遮挡曲线），松手保留；点空白取消。</li>
-        <li>趋势不横滑，全部采样压缩显示；13/16 号楼网关日更，按真实更新点统计（趋势标「日更」），估算可能标「参考」，无更新会提示。</li>
+        <li>趋势不横滑，全部采样压缩显示；13/16 号楼网关日更，按真实更新点统计（趋势标「日更」，仅提供 7 天/30 天，不提供 24h 趋势），估算可能标「参考」，无更新会提示。</li>
         <li>低电阈值可调，可用天数不足会提示充值。</li>
       </ul></section>
       <section class="ugsec"><h4>点名</h4><ul>
@@ -5655,6 +5655,11 @@ var PW_RANGES=[
   {k:"30d",label:"30天",ms:30*24*3600e3,title:"近 30 天趋势",tile:"近 30 天用电",dropLabel:"区间下降",gap:9,xN:5}
 ];
 var PW_RANGE_MAP={};PW_RANGES.forEach(function(r){PW_RANGE_MAP[r.k]=r;});
+/* __POWER_TREND_CMP_V1__ 仅用于「电费比较」取数的隐藏窗口（不出现在区间按钮里） */
+PW_RANGE_MAP["14d"]={k:"14d",hidden:true,ms:14*24*3600e3};
+PW_RANGE_MAP["70d"]={k:"70d",hidden:true,ms:70*24*3600e3};
+var PW_CMP_LABEL={"24h":"较昨日同期","7d":"较上周同期","30d":"较上月同期"};
+var PW_CMP_TITLE={"24h":"今日 00:00 至现在 对比 昨日同一时段","7d":"本周一至现在 对比 上周同一时段","30d":"本月 1 日至现在 对比 上月同期"};
 var PW_RANGE_KEY="zq_power_range_v1", PW_HCACHE_TTL=5*60*1000;
 /* 计费规则（福建中医药大学学生公寓，见 web/_water_rules/research.md）：
    电 0.58 元/度、水 3.03 元/吨；免费定额 2 吨水 + 5 度电/人/月（当年有效、每学年 10 个月）；
@@ -5737,7 +5742,7 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
   },
   stateText:function(st){return st==="low"?"低电":st==="warn"?"偏低":st==="ok"?"充足":"未选择";},
   rangeMeta:function(k){return PW_RANGE_MAP[k]||PW_RANGE_MAP["24h"];},
-  rangeRead:function(){try{var v=localStorage.getItem(PW_RANGE_KEY);return PW_RANGE_MAP[v]?v:"24h";}catch(e){return "24h";}},
+  rangeRead:function(){try{var v=localStorage.getItem(PW_RANGE_KEY);return (PW_RANGE_MAP[v]&&!PW_RANGE_MAP[v].hidden)?v:"24h";}catch(e){return "24h";}},
   rangeWrite:function(){try{localStorage.setItem(PW_RANGE_KEY,POWER.range);}catch(e){}},
   ptsFor:function(range){
     var rv=POWER.sel;if(!rv)return null;
@@ -5753,8 +5758,11 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     rv=rv||POWER.sel;if(!rv)return Promise.resolve(null);
     var c=POWER.hcache[rv]&&POWER.hcache[rv][range];
     if(!force&&c&&Date.now()-c.at<PW_HCACHE_TTL)return Promise.resolve(c.pts);
+    POWER._hf=POWER._hf||{};
+    var hk=rv+"|"+range;
+    if(POWER._hf[hk])return POWER._hf[hk];   /* 强制刷新时也复用正在进行的同一窗口请求，避免并发重复 */
     var cut=new Date(Date.now()-POWER.rangeMeta(range).ms).toISOString();
-    return fetch(CB+"power_history?select=ts,quantity&roomverify=eq."+encodeURIComponent(rv)+
+    var p=fetch(CB+"power_history?select=ts,quantity&roomverify=eq."+encodeURIComponent(rv)+
         "&ts=gte."+encodeURIComponent(cut)+"&order=ts.asc&limit=2000",{headers:cbH(false),cache:"no-store"})
       .then(function(r){if(!r.ok)throw new Error("hist"+r.status);return r.json();})
       .then(function(list){
@@ -5763,6 +5771,9 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
         POWER.hcache[rv][range]={pts:pts,at:Date.now()};
         return pts;
       });
+    POWER._hf[hk]=p;
+    p.then(function(){delete POWER._hf[hk];},function(){delete POWER._hf[hk];});
+    return p;
   },
   /* 由所选区间采样估算：起点/当前/累计下降（忽略充值上升与异常扣减）、窗口小时、充值事件与最后一次重置度数。
      异常扣减 = 短时间跌幅远超日常用电（疑似水费从电费账户扣除），不计入区间用电/电费，见 PW_DEDUCT。 */
@@ -5899,12 +5910,127 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     if(h&&h.pts&&POWER.changesIn(h.pts)>=6)return false;
     return true;
   },
+  /* 慢楼栋（13/16 号楼主楼）：用户要求不提供 24h 趋势（仍拉 24h 数据用于「日更」检测） */
+  slowBldOf:function(rv){
+    var c=rv?POWER.catOf(rv):null;
+    return !!(c&&PW_SLOW_BLD.indexOf(c.building)>=0);
+  },
+  normRangeForSel:function(force){
+    var sel=POWER.sel||"";
+    var slow=!!(sel&&POWER.slowBldOf(sel));
+    /* 仅在「切换到该宿舍」时自动归位（enter 强制）；render 重复调用不覆盖用户/测试的显式档位 */
+    if(!force&&POWER._lastNormSel===sel)return false;
+    POWER._lastNormSel=sel;
+    if(slow){
+      if(POWER.range==="24h"){
+        if(!POWER._autoRange){POWER._rangeBeforeSlow="24h";POWER._autoRange=true;}
+        POWER.range="7d";POWER._lastChart="";
+        return true;
+      }
+      return false;
+    }
+    /* 从 13/16 号楼的「自动 7 天」切回实时房时，恢复进入慢楼栋前的档位（用户手选过则保留手选） */
+    if(POWER._autoRange){
+      var bk=POWER._rangeBeforeSlow;
+      POWER._autoRange=false;POWER._rangeBeforeSlow=null;
+      if(bk&&PW_RANGE_MAP[bk]&&!PW_RANGE_MAP[bk].hidden&&bk!==POWER.range){
+        POWER.range=bk;POWER._lastChart="";
+        return true;
+      }
+    }
+    return false;
+  },
   /* 慢频房估算（30d 缓存未加载完 → valid=false，展示「数据积累中」） */
   slowEst:function(){
     var rv=POWER.sel;
     if(!rv||!POWER.isSlowRoom(rv))return null;
     var q=(POWER.row&&POWER.row.q!=null)?POWER.row.q:null;
     return POWER.slowStats(POWER.ptsFor("30d"),q);
+  },
+  /* ---- 电费比较（2026-11-11 增量 40）：自然周期同期 ----
+     24h = 今日 00:00–现在 vs 昨日 00:00–昨日同一时刻；
+     7d  = 本周一 00:00–现在 vs 上周一 00:00–上周同一时刻；
+     30d = 本月 1 日 00:00–现在 vs 上月 1 日–上月同一日同时刻。
+     当前/上一周期各自用窗口内真实采样点（不插值）计算下降量；数据不足（如历史仅 6 天时比较上周/上月）
+     时不显示百分比，避免拿残缺周期得出误导结论。 */
+  cmpSource:function(range){
+    if(range==="24h")return "7d";
+    if(range==="7d")return POWER.isSlowRoom(POWER.sel)?"30d":"14d";
+    if(range==="30d")return "70d";
+    return null;
+  },
+  cmpWindowPts:function(pts,start,end){
+    var out=[];
+    if(!pts)return out;
+    for(var i=0;i<pts.length;i++){var t=pts[i].t;if(t>=start&&t<=end)out.push(pts[i]);}
+    return out;
+  },
+  cmpCoverage:function(sub,start,end){
+    if(!sub||sub.length<2)return false;
+    var dur=Math.max(1,end-start),span=sub[sub.length-1].t-sub[0].t;
+    return span>=dur*0.35;   /* 历史数据残缺（例如只从 6 天前开始）时不硬凑上一周期 */
+  },
+  naturalWindows:function(range,now){
+    now=now||Date.now();
+    function dayStart(ts){var d=new Date(ts);return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();}
+    function weekStart(ts){
+      var d=new Date(dayStart(ts)),wd=(d.getDay()+6)%7; /* 周一为一周起点 */
+      return d.getTime()-wd*86400000;
+    }
+    function monthStart(ts){var d=new Date(ts);return new Date(d.getFullYear(),d.getMonth(),1).getTime();}
+    function shiftMonth(ts,delta){
+      var d=new Date(ts),day=d.getDate();
+      d.setDate(1);d.setMonth(d.getMonth()+delta);
+      var dim=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+      d.setDate(Math.min(day,dim));
+      return d.getTime();
+    }
+    if(range==="24h"){
+      var cs=dayStart(now),ps=dayStart(now-86400000),pe=now-86400000;
+      return {cur:[cs,now],prev:[ps,pe]};
+    }
+    if(range==="7d"){
+      var ws=weekStart(now),pws=weekStart(now-7*86400000),pe7=now-7*86400000;
+      return {cur:[ws,now],prev:[pws,pe7]};
+    }
+    var ms=monthStart(now);
+    return {cur:[ms,now],prev:[shiftMonth(ms,-1),shiftMonth(now,-1)]};
+  },
+  naturalCompare:function(range){
+    try{
+      var rv=POWER.sel;if(!rv)return null;
+      range=range||POWER.range;
+      var src=POWER.cmpSource(range);if(!src)return null;
+      var c=POWER.hcache[rv]&&POWER.hcache[rv][src];
+      if(!c||!c.pts||c.pts.length<2)return null;
+      var w=POWER.naturalWindows(range,Date.now());
+      var curPts=POWER.cmpWindowPts(c.pts,w.cur[0],w.cur[1]);
+      var prevPts=POWER.cmpWindowPts(c.pts,w.prev[0],w.prev[1]);
+      if(!POWER.cmpCoverage(curPts,w.cur[0],w.cur[1]))return null;
+      if(!POWER.cmpCoverage(prevPts,w.prev[0],w.prev[1]))return null;
+      var cur=POWER.deriveRange(curPts),prev=POWER.deriveRange(prevPts);
+      if(!(cur.drop>0.01)||!(prev.drop>0.01))return null;
+      var pct=(cur.drop-prev.drop)/prev.drop*100;
+      if(!isFinite(pct))return null;
+      return {pct:pct,cur:cur.drop,prev:prev.drop,
+        label:PW_CMP_LABEL[range]||"较同期",title:PW_CMP_TITLE[range]||""};
+    }catch(e){return null;}
+  },
+  /* 比较所需更长窗口若未缓存：按需补拉一次，完成后刷新 tile（不阻塞当前渲染） */
+  ensureCompare:function(range){
+    try{
+      var rv=POWER.sel;if(!rv)return;
+      range=range||POWER.range;
+      var ck=POWER.cmpSource(range);if(!ck)return;
+      if(POWER.hcacheFresh(ck))return;
+      POWER._cmpFetching=POWER._cmpFetching||{};
+      if(POWER._cmpFetching[ck])return;
+      POWER._cmpFetching[ck]=1;
+      POWER.fetchHist(rv,ck,false).catch(function(){return null;}).then(function(){
+        delete POWER._cmpFetching[ck];
+        if(POWER.sel===rv&&POWER.range===range)POWER.renderTiles();
+      });
+    }catch(e){}
   },
   /* ---- 估算可用天数：24h/7d 分段统计（跳过充值跳变段与异常扣减段，0.65/0.35 混合，rate 下限 0.05） ---- */
   rateFrom:function(pts){
@@ -5966,11 +6092,16 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     var rv=POWER.sel;if(!rv)return Promise.resolve(false);
     POWER.histLoading=true;POWER.render();
     var jobs=[POWER.fetchHist(rv,range,false).catch(function(){return null;})];
+    var fetched=[range];
     if(POWER.isSlowRoom(rv)){
       /* 慢频房（13/16 日更）：估算/更新时间/上次充值都按 30d 真实更新点；切档补 30d（已缓存不重复请求） */
-      if(range!=="30d")jobs.push(POWER.fetchHist(rv,"30d",false).catch(function(){return null;}));
-    }else if(range!=="24h"){
-      jobs.push(POWER.fetchHist(rv,"24h",false).catch(function(){return null;}));
+      if(range!=="30d"&&fetched.indexOf("30d")<0){jobs.push(POWER.fetchHist(rv,"30d",false).catch(function(){return null;}));fetched.push("30d");}
+    }else if(range!=="24h"&&fetched.indexOf("24h")<0){
+      jobs.push(POWER.fetchHist(rv,"24h",false).catch(function(){return null;}));fetched.push("24h");
+    }
+    var cmpKey=POWER.cmpSource(range);
+    if(cmpKey&&fetched.indexOf(cmpKey)<0&&!POWER.hcacheFresh(cmpKey)){
+      jobs.push(POWER.fetchHist(rv,cmpKey,false).catch(function(){return null;}));fetched.push(cmpKey);
     }
     return Promise.all(jobs).then(function(){
       if(POWER.sel!==rv)return false;
@@ -5978,7 +6109,8 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     });
   },
   setRange:function(k){
-    if(!PW_RANGE_MAP[k]||POWER.range===k)return;
+    if(!PW_RANGE_MAP[k]||PW_RANGE_MAP[k].hidden||POWER.range===k)return;
+    POWER._autoRange=false;POWER._rangeBeforeSlow=null; /* 用户手选档位 → 不再自动恢复 */
     POWER.range=k;POWER.rangeWrite();
     POWER._lastChart="";POWER.detailClear();
     POWER.render();
@@ -6049,6 +6181,8 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     var need=["24h","7d"];
     if(POWER.isSlowRoom(rv))need.push("30d");   /* 慢频房：选择即拉 24h+7d+30d（估算/日更/无更新提示） */
     if(need.indexOf(rng)<0)need.push(rng);
+    var cmpPull=POWER.cmpSource(rng);
+    if(cmpPull&&need.indexOf(cmpPull)<0)need.push(cmpPull); /* 自然周期比较所需更长窗口（7d→14d、30d→70d） */
     var jobs=[pRow];
     need.forEach(function(rg){jobs.push(POWER.fetchHist(rv,rg,force).catch(function(){return null;}));});
     return Promise.all(jobs).then(function(res){
@@ -6135,8 +6269,13 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     }
   },
   renderChips:function(){
+    var slowBld=!!(POWER.sel&&POWER.slowBldOf(POWER.sel));
     $$("#pwRanges .pw-range").forEach(function(b){
-      var on=b.getAttribute("data-range")===POWER.range;
+      var k=b.getAttribute("data-range");
+      var hide=(k==="24h"&&slowBld);
+      if(b.hidden!==hide)b.hidden=hide;
+      b.style.display=hide?"none":"";
+      var on=!hide&&k===POWER.range;
       if(b.classList.contains("on")!==on)b.classList.toggle("on",on);
       b.setAttribute("aria-selected",on?"true":"false");
     });
@@ -6293,6 +6432,7 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
   },
   renderTiles:function(){
     var box=$("#pwTiles");if(!box)return;
+    POWER.ensureCompare();
     var sel=POWER.sel,meta=POWER.rangeMeta(POWER.range);
     var slow=sel?POWER.slowInfo(sel):null; /* 实时房保留数据驱动慢更新提示（仍按原规则标「参考」） */
     var est=POWER.estimate();
@@ -6353,6 +6493,7 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
   lowKey:function(){return "zq_power_low_"+cacheSid();},
   render:function(){
     POWER.syncSelDom();
+    POWER.normRangeForSel();
     var sel=POWER.sel,cat=POWER.catOf(sel),row=POWER.row;
     var st=POWER.stateOf(row);
     var est=POWER.estimate();
@@ -6458,6 +6599,7 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
   enter:function(){
     POWER.bootRestore();POWER.init();POWER.bind();POWER.renderOptions();
     POWER.range=POWER.rangeRead();
+    POWER.normRangeForSel(true);
     var base=null;try{base=UD.cacheRead();}catch(e){}
     var baseSel=(base&&base.power)?String(base.power.sel||""):"";
     if(baseSel&&POWER.catOf(baseSel)){
@@ -14357,7 +14499,7 @@ try{window.VOTE=VOTE;}catch(e){}
    2) 抽签/分组随机源：crypto.getRandomValues + 拒绝采样（公平性）
    3) toast：ARIA live + 错误样式/时长
    4) 点名 / 水量 汇总导出图（不含姓名/学号/房间号）
-   5) 电费 tile：较上一窗口 Δ%
+   5) 电费 tile：自然周期同期 Δ%（较昨日/上周/上月同期）
    6) URL #tab= 直达（刷新/分享恢复）
    7) 数据备份弹层显示本机存储用量
    8) 打印 / 存 PDF（仅桌面浏览器）
@@ -14502,7 +14644,7 @@ function optSaveCanvas(c,o){
     }catch(e){}
   }
 
-  /* ---------- 5. 电费 tile：较上一窗口 Δ% ---------- */
+  /* ---------- 5. 电费 tile：自然周期同期 Δ%（较昨日/上周/上月同期） ---------- */
   function opt2PowerDelta(){
     try{
       if(typeof POWER==="undefined"||!POWER||!POWER.sel)return;
@@ -14510,33 +14652,12 @@ function optSaveCanvas(c,o){
       var ts=tile.querySelector(".pw-ts"); if(!ts)return;
       var old=ts.querySelector(".opt-pw-delta"); if(old&&old.parentNode)old.parentNode.removeChild(old);
       var range=POWER.range||"24h";
-      var cache=(POWER.hcache&&POWER.hcache[POWER.sel])||{};
-      var curPts=cache[range]&&cache[range].pts;
-      if(!curPts||curPts.length<2)return;
-      var cur=POWER.deriveRange(curPts);
-      if(!cur||cur.drop==null||cur.drop<=0.005)return;
-      var prev=null;
-      if(range==="24h"){
-        var w=cache["7d"]&&cache["7d"].pts;
-        if(w&&w.length>2){
-          var end=w[w.length-1].t, cut=end-24*3600000;
-          var pp=w.filter(function(p){return p.t>=cut-24*3600000&&p.t<cut;});
-          if(pp.length>1)prev=POWER.deriveRange(pp);
-        }
-      }else if(range==="7d"){
-        var m=cache["30d"]&&cache["30d"].pts;
-        if(m&&m.length>2){
-          var end2=m[m.length-1].t, cut2=end2-7*86400000;
-          var pp2=m.filter(function(p){return p.t>=cut2-7*86400000&&p.t<cut2;});
-          if(pp2.length>1)prev=POWER.deriveRange(pp2);
-        }
-      }
-      if(!prev||prev.drop==null||prev.drop<=0.01)return;
-      var pct=(cur.drop-prev.drop)/prev.drop*100;
-      if(!isFinite(pct))return;
+      var cmp=(POWER.naturalCompare&&POWER.naturalCompare(range))||null;
+      if(!cmp||!isFinite(cmp.pct))return;
       var span=document.createElement("span");
-      span.className="opt-pw-delta "+(pct<=0?"opt-down":"opt-up");
-      span.textContent=(ts.textContent?" · ":"")+"较上窗口 "+(pct>=0?"+":"")+pct.toFixed(0)+"%";
+      span.className="opt-pw-delta "+(cmp.pct<=0?"opt-down":"opt-up");
+      span.textContent=(ts.textContent?" · ":"")+cmp.label+" "+(cmp.pct>=0?"+":"")+cmp.pct.toFixed(0)+"%";
+      if(cmp.title)span.setAttribute("title",cmp.title);
       ts.appendChild(span);
     }catch(e){}
   }

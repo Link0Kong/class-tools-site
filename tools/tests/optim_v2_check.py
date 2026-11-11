@@ -34,7 +34,8 @@ WX_UA = ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605
 
 DATA = {
     "members": [{"seat": i, "sid": "9000%06d" % i, "name": "同学%02d" % i,
-                 "role": "", "badge": "", "is_admin": False} for i in range(1, 71)],
+                 "role": ("班长" if i == 1 else ""), "badge": ("班委" if i <= 3 else ""), "is_admin": False}
+                for i in range(1, 71)],
     "homework": [], "marks": [], "fitrecs": [], "notices": [],
     "tt": {"c": [], "t": "2026-08-31"},
 }
@@ -92,12 +93,29 @@ window.fetch=function(u,o){
     }
     if(s.indexOf("rpc/poll_list")>=0)return ok({ok:true,now:Date.now(),polls:[POLL]});
     if(s.indexOf("rpc/poll_detail")>=0)return ok(PDETAIL);
+    if(s.indexOf("rpc/class_league")>=0)return ok({ok:true,count:50,seats:[{seat:1,name:"同学甲"},{seat:2,name:"同学乙"},{seat:3,name:"同学丙"}]});
     if(s.indexOf("rpc/poll_create")>=0)return ok({ok:true,now:Date.now(),
       poll:{id:"pnew",title:"团日现场快投",description:"",mode:"quick",owner_name:"测试同学",settings:POLLSET,
         options:[{id:"o1x",text:"方案A"},{id:"o2x",text:"方案B"}],deadline:Date.now()+1800000,status:"open",closed_at:0,created_at:Date.now(),updated_at:Date.now()},
       closed:false,total:0,counts:{},has_voted:false,my_choices:[],results_hidden:false,mine:true,can_manage:true,voters:[]});
     if(s.indexOf("/site_assets")>=0)return ok([{body:{seen_at:Date.now()},updated_at:Date.now()}]);
     return ok([]);
+  }
+  if(s.indexOf("/drop/")>=0){
+    var ds=null;try{ds=JSON.parse(localStorage.getItem("__mock_drop")||"null");}catch(e){}
+    if(s.indexOf("/open")>=0){
+      ds={id:"sess-opt",code:"2468",expiresAt:Date.now()+3600000,createdAt:Date.now()};
+      try{localStorage.setItem("__mock_drop",JSON.stringify(ds));}catch(e){}
+      return ok({ok:true,session:ds});
+    }
+    if(s.indexOf("/close")>=0){try{localStorage.removeItem("__mock_drop");}catch(e){}return ok({ok:true});}
+    if(s.indexOf("/mine")>=0)return ok({ok:true,session:ds});
+    if(s.indexOf("/state")>=0){
+      if(!ds)return ok({ok:false,reason:"no session"});
+      return ok({ok:true,session:ds,events:[{seq:1,kind:"file",at:Date.now(),from:{name:"测试同学"},
+        payload:{fileId:"f1",name:"现场照片.jpg",size:2048,mime:"image/jpeg",downloadUrl:"#dl"}}],cursor:1});
+    }
+    return ok({ok:true});
   }
   if(s.indexOf("tt.json")>=0)return ok(DATA.tt);
   return ok([]);
@@ -179,23 +197,68 @@ RUNNER = r"""
           var dlx=q('#pptDl [data-dlact="close"]'); if(dlx)dlx.click();
           await sleep(250);
           T("PPT 详情可关闭", !q("#pptDl") || q("#pptDl").hidden, "");
+          /* PPT：下载后按钮变「打开」（Office URI 由 hrefOf 提供） */
+          try{localStorage.setItem("zq_stage_ppt_dl_v1",JSON.stringify({d2:{at:Date.now(),kind:"compat"}}));}catch(e){}
+          var d1row=q('#opt2Stage [data-panel="ppt"] [data-pptsel="d1"]'); if(d1row)d1row.click(); await sleep(200);
+          var d2row=q('#opt2Stage [data-panel="ppt"] [data-pptsel="d2"]'); if(d2row)d2row.click(); await sleep(250);
+          var heroOpen=q('#opt2Stage [data-panel="ppt"] [data-pptact="open"]');
+          var hrefOk="";try{hrefOk=String(window.PPT&&window.PPT.hrefOf?window.PPT.hrefOf("d2","compat"):"");}catch(e){}
+          T("PPT：已下载 → 主按钮变「打开」", !!heroOpen && txt('#opt2Stage [data-panel="ppt"]').indexOf("已下载")>=0, "");
+          T("PPT：Office 打开链接（ECS 加速）可用", hrefOk.indexOf("/pptfiles/ppt/")>=0, hrefOk.slice(0,60));
+          /* 模块点击放大 + 灵动岛 */
+          T("灵动岛：进行中模块汇总", !!q("#o2sIsland") && !q("#o2sIsland").hidden && txt("#o2sIsland").indexOf("进行中")>=0, txt("#o2sIsland"));
+          var hd=q('#opt2Stage [data-panel="ppt"] [data-panelhd]'); if(hd)hd.click(); await sleep(300);
+          T("模块点击放大：单面板聚焦", !!q('#opt2Stage [data-panel="ppt"].opt2-focused') &&
+            q('#opt2Stage [data-panel="vote"]').hidden===true, "");
+          T("聚焦时灵动岛可退出", txt("#o2sIsland").indexOf("退出聚焦")>=0, "");
+          click('[data-stg="focusclear"]'); await sleep(250);
+          T("退出聚焦恢复多面板", !!q('#opt2Stage [data-panel="vote"]') && q('#opt2Stage [data-panel="vote"]').hidden===false, "");
           /* 投票面板：实时投屏 */
           await waitFor(function(){return txt('#opt2Stage [data-panel="vote"]').indexOf("团日活动形式投票")>=0;},6000);
           var vt=txt('#opt2Stage [data-panel="vote"]');
           T("投票面板：实时投屏（标题/人数/票数条）", vt.indexOf("团日活动形式投票")>=0 && vt.indexOf("12")>=0 && !!q('#opt2Stage [data-panel="vote"] .opt2-vbar'), "");
           T("投票面板：不显示投票人姓名", vt.indexOf("测试同学")<0, "");
           click('#opt2Stage [data-panel="vote"] [data-stg="votecreate"]'); await sleep(250);
-          T("大屏快速发起：弹层打开", !!q("#o2sModal") && !q("#o2sModal").hidden && !!q("#o2sCrtTitle"), "");
+          T("投票完整发起：弹层打开", !!q("#o2sModal") && !q("#o2sModal").hidden && !!q("#o2sCrtTitle"), "");
+          T("投票完整发起：规则/可见范围/结果/限时齐全", !!q('#o2sModal [data-crtmode]') && !!q('#o2sModal [data-crtaud="custom"]') &&
+            !!q('#o2sModal [data-crtvis="afterClose"]') && !!q('#o2sModal [data-crtmins="120"]') &&
+            document.querySelectorAll("#o2sCrtOpts [data-crtopt]").length===2, "");
           q("#o2sCrtTitle").value="团日现场快投";
           var oi=document.querySelectorAll("#o2sCrtOpts [data-crtopt]");
           if(oi[0])oi[0].value="方案A"; if(oi[1])oi[1].value="方案B";
-          click('#opt2Stage [data-crtmins="30"]'); await sleep(100);
+          click('#o2sModal [data-crtmode="multi"]'); await sleep(90);
+          T("投票完整发起：多选出现最多可选", !!q('#o2sModal [data-crtmax="2"]'), "");
+          click('#o2sModal [data-crtmax="2"]'); await sleep(60);
+          click('#o2sModal [data-crtaud="league"]'); await sleep(80);
+          click('#o2sModal [data-crtvis="afterVote"]'); await sleep(80);
+          click('#o2sModal [data-crtmins="30"]'); await sleep(120);
+          T("投票完整发起：切规则/范围/限时不丢输入", q("#o2sCrtTitle") && q("#o2sCrtTitle").value==="团日现场快投" &&
+            document.querySelectorAll("#o2sCrtOpts [data-crtopt]")[0].value==="方案A", "");
           click("#o2sCrtGo");
           await waitFor(function(){return q("#o2sModal") && q("#o2sModal").hidden;},5000);
-          T("大屏快速发起：创建成功", q("#o2sModal") && q("#o2sModal").hidden && txt("#toast").indexOf("已发起")>=0, txt("#toast").slice(0,30));
+          T("投票完整发起：创建成功", q("#o2sModal") && q("#o2sModal").hidden && txt("#toast").indexOf("已发起")>=0, txt("#toast").slice(0,30));
           /* 布局自定义 */
           click('[data-stg="laytoggle"]'); await sleep(200);
           T("布局编辑：编辑态与预设条", q("#opt2Stage").classList.contains("opt2-editing") && !!q("#o2sLbar") && !q("#o2sLbar").hidden, "");
+          /* 选中面板 → 底部大按钮条动作生效 */
+          q('#opt2Stage [data-panel="vote"]').click(); await sleep(250);
+          T("布局编辑：点击面板出现大按钮条", !!q("#o2sSelbar") && !q("#o2sSelbar").hidden && txt("#o2sSelLab").indexOf("投票")>=0, txt("#o2sSelLab"));
+          var svBefore=q('#opt2Stage [data-panel="vote"]').style.gridColumn;
+          click('#o2sSelbar [data-stg="laysize"]'); await sleep(250);
+          var svAfter=q('#opt2Stage [data-panel="vote"]').style.gridColumn;
+          T("布局编辑：大按钮条动作生效", !!svBefore && !!svAfter && svAfter!==svBefore, svBefore+"->"+svAfter);
+          /* 整条表头拖拽换位 */
+          (function(){
+            var root=q("#opt2Stage");
+            function pe(el,type,x,y){var e=new PointerEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,pointerId:1,button:0});el.dispatchEvent(e);}
+            var h=root.querySelector('[data-panel="ppt"] [data-panelhd]');var r=h.getBoundingClientRect();
+            pe(h,"pointerdown",r.left+8,r.top+8);
+            var t2=root.querySelector('[data-panel="vote"]');var tr=t2.getBoundingClientRect();
+            document.dispatchEvent(new PointerEvent("pointermove",{bubbles:true,cancelable:true,clientX:tr.left+Math.max(20,tr.width*0.4),clientY:tr.top+Math.max(20,tr.height*0.4),pointerId:1,button:0}));
+            document.dispatchEvent(new PointerEvent("pointerup",{bubbles:true,cancelable:true,clientX:tr.left+40,clientY:tr.top+40,pointerId:1,button:0}));
+          })(); await sleep(300);
+          var hdOrder="";try{hdOrder=JSON.parse(localStorage.getItem("zq_stage_layout_v1")).order.join(",");}catch(e){}
+          T("布局编辑：整条表头可拖拽换位", hdOrder.indexOf("vote,ppt")===0, hdOrder);
           click('#o2sLbar [data-preset="dual"]'); await sleep(200);
           var pptPanel=q('#opt2Stage [data-panel="ppt"]');
           T("布局编辑：预设「双栏」生效", pptPanel && pptPanel.style.gridColumn==="span 6", pptPanel?pptPanel.style.gridColumn:"none");
@@ -209,6 +272,29 @@ RUNNER = r"""
           T("布局保存到本机", !!localStorage.getItem("zq_stage_layout_v1"), "");
           click('[data-stg="laydone"]'); await sleep(150);
           T("布局编辑：可退出", !q("#opt2Stage").classList.contains("opt2-editing"), "");
+          /* 抽签名单：快捷选择团员并应用 */
+          click('#opt2Stage [data-panel="draw"] [data-stg="drawroster"]'); await sleep(300);
+          T("抽签名单：弹层打开", !!q("#o2sRoster") && !q("#o2sRoster").hidden, "");
+          click('#o2sRoster [data-rstquick="league"]'); await sleep(500);
+          T("抽签名单：团员快捷选择", q("#o2sRstSum") && txt("#o2sRstSum").indexOf("已选 3")>=0, txt("#o2sRstSum"));
+          click("#o2sRstOk"); await sleep(250);
+          T("抽签名单：应用并关闭", (!q("#o2sRoster") || q("#o2sRoster").hidden) && txt("#toast").indexOf("名单已更新")>=0, "");
+          /* 恢复全班名单，避免后续抽签池只剩团员 */
+          click('#opt2Stage [data-panel="draw"] [data-stg="drawroster"]'); await sleep(250);
+          click('#o2sRoster [data-rstquick="all"]'); await sleep(150);
+          click("#o2sRstOk"); await sleep(250);
+          /* 互联：手机控制器（同账号自动发现会话） */
+          var db2=q("#opt2DropBtn"); if(db2)db2.click(); await sleep(500);
+          T("大屏互联：控制器打开并自动连上", !!q("#dropCtl") && q("#dropCtl").classList.contains("on") && txt("#dropCtl").indexOf("已连接大屏")>=0, txt("#dropCtl").slice(0,40));
+          T("大屏互联：控制器含遥控/传文件/发文字", txt("#dropCtl").indexOf("遥控大屏")>=0 && txt("#dropCtl").indexOf("选择文件")>=0 && txt("#dropCtl").indexOf("发文字")>=0, "");
+          click("#dropCtlClose"); await sleep(200);
+          T("大屏互联：控制器可关闭", !q("#dropCtl").classList.contains("on"), "");
+          /* 互联：大屏面板 */
+          click("#o2sDropBtn"); await sleep(500);
+          T("大屏互联：面板显示通道/房间码/链接", !!q("#o2sDropModal") && !q("#o2sDropModal").hidden &&
+            txt("#o2sDropModal").indexOf("通道已开启")>=0 && txt("#o2sDropModal").indexOf("2468")>=0, "");
+          T("大屏互联：收到文件/文字列表", txt("#o2sDropModal").indexOf("收到的文件")>=0 && txt("#o2sDropModal").indexOf("现场照片.jpg")>=0, "");
+          try{q("#o2sDropModal").hidden=true;}catch(e){}
           click("#o2sClose"); await sleep(150);
           T("大屏可关闭", q("#opt2Stage").style.display==="none", q("#opt2Stage").style.display);
           T("关闭后恢复页面滚动", document.body.classList.contains("opt2-lock")===false, "opt2-lock="+document.body.classList.contains("opt2-lock"));
@@ -229,6 +315,18 @@ RUNNER = r"""
           click("#opt2ExpClose");
           await waitFor(function(){var o=q("#opt2ExpOv");return !o||o.style.display==="none";},3000);
           T("导出弹层可关闭 + inert 复原", (!q("#opt2ExpOv")||q("#opt2ExpOv").style.display==="none") && (!("inert" in w2) || w2.inert===false), q("#opt2ExpOv")?q("#opt2ExpOv").style.display:"none");
+          /* 名单工具：班委 / 团员 / 全班 */
+          var cmCard=document.querySelector('#allCards [data-open="committee"]'); if(cmCard)cmCard.click();
+          await waitFor(function(){var s=q("#s-committee");return s&&s.classList.contains("on");},5000);
+          T("名单工具：三 tab（班委/团员/全班）", document.querySelectorAll("#cmTabs [data-cmtab]").length===3, "");
+          T("名单工具：班委 tab 计数与列表", txt("#cmCntC")==="3" && document.querySelectorAll("#cmOut .cmrow").length===3, txt("#cmCntC")+"/"+document.querySelectorAll("#cmOut .cmrow").length);
+          click('#cmTabs [data-cmtab="league"]');
+          await waitFor(function(){return txt("#cmCntL")!=="";},6000);
+          await sleep(300);
+          T("名单工具：团员 tab（class_league）", txt("#cmCntL")==="3" && document.querySelectorAll("#cmOut .cmrow").length===3, "cnt="+txt("#cmCntL")+" rows="+document.querySelectorAll("#cmOut .cmrow").length+" txt="+txt("#cmOut").slice(0,40));
+          click('#cmTabs [data-cmtab="all"]'); await sleep(300);
+          T("名单工具：全班 tab 70 人", txt("#cmCntA")==="70" && document.querySelectorAll("#cmOut .cmrow").length===70, txt("#cmCntA")+"/"+document.querySelectorAll("#cmOut .cmrow").length);
+
         }else{
           /* ===== 非管理员、普通 UA ===== */
           T("toast 具备 ARIA live", !!q("#toast") && q("#toast").getAttribute("role")==="status" && q("#toast").getAttribute("aria-live")==="polite", q("#toast")?q("#toast").getAttribute("role"):"none");

@@ -859,3 +859,52 @@ ALTER TABLE public.polls DROP COLUMN IF EXISTS audience_seats;
 ALTER TABLE public.polls DROP COLUMN IF EXISTS audience;
 -- 2) 再按 2026-11-11_polls.sql 头部回滚整个投票功能
 ```
+
+## 大屏互联服务鉴权 / 团员名单 RPC：`class_whoami()` / `class_league()`（2026-11-11，已应用）
+
+> 需求：ECS「大屏临时互联服务」需要在**服务端**用班级 token 鉴权拿到当前用户身份；「名单工具」需要云端团员名单。
+> 迁移：`deploy/cloudbase/2026-11-11_stage_rpc.sql`（**已应用，幂等**：CREATE OR REPLACE FUNCTION，可重复应用）。
+> 两个函数均**只读**、无参数、返回单个 jsonb 对象（不是数组）。
+
+### 函数签名与语义
+
+| 函数 | 签名 | 返回 |
+|---|---|---|
+| `public.class_whoami()` | 无参数；`POST {REST}/rpc/class_whoami`，body `{}` | `{ok:true,sid,seat,name}` 当前 token 自身身份；无 token / token 失效 / 过期 → `{ok:false,reason:"未登录"}`；token 有效但 `private.class_ids` 查不到该 sid → `{ok:false,reason:"身份无效"}` |
+| `public.class_league()` | 无参数；`POST {REST}/rpc/class_league`，body `{}` | `{ok:true,count,seats:[{seat,name}...]}`（`private.class_league` ⨝ `private.class_ids`，**seat 升序**、**排除 is_test**）；未登录 → `{ok:false,reason:"未登录"}` |
+
+- 均 `SECURITY DEFINER` + `set search_path=public,private,pg_temp`，`revoke all ... from public` 后仅 `grant execute ... to anon`；无任何写操作。
+- 鉴权与 `class_members()` 同一套：`auth_hdr()` 同时接受网页/ECS 服务端的 `X-Device-Id` 与小程序 `X-Class-Token`，`auth_hdr()`/`auth_sid()` 校验 `private.class_sessions` + `expires_at`。
+- `class_whoami` **只返回本人**、不返回 token；**必须接受测试身份**（`private.class_ids.is_test=true`，QA/审核用，不按 is_test 过滤）。
+- `class_league` 每项只有 `seat/name` 两个字段，**任何响应都不返回 sid / 学号**；测试身份不出现在名单（与 `class_members()` 口径一致）。
+- 无效/缺失 token 一律 **HTTP 200 + `{ok:false,...}`**（不是 4xx），ECS 侧据此区分「用户身份无效 → 401」与「网关/函数不可用 → 503 fail closed」。
+
+### 调用示例（ECS 服务端）
+
+```http
+POST https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/rpc/class_whoami
+Authorization: Bearer <PUBLISH_KEY>
+X-Device-Id: <班级 token>
+Content-Type: application/json
+
+{}
+```
+
+```json
+{"ok": true, "sid": "…", "seat": 999, "name": "…"}
+```
+
+- 实测：**不带 Origin 也可调用**（服务端 curl 风格）；网关 CORS 预检 `Allow-Headers` 已含 `X-Device-Id`；缺少 `Authorization: Bearer <publish_key>` 时网关直接 401。
+- 同一测试身份多次 `class_verify` 会签发**不同 token、同一 sid**，两个 token 的 `class_whoami` 结果一致（ECS 可据此做会话互见校验）。
+
+### 测试
+
+- `tools/tests/stage_rpc_check.py` **44 项 PASS / 0 FAIL**（真实云端黑盒）：迁移/权限/search_path 前置校验、无 token、错误 token、过期 token、测试身份（含同身份双 token）、普通成员**一次性合成会话**（不使用真实同学 token）、`class_league` 数量/字段/升序/与 DB 逐项一致、无 sid 泄漏（键 + 全部 71 个 sid 值 + 10 位学号数字）、`身份无效`、ECS 无 Origin + `X-Device-Id`、CORS 预检、清理后 token 失效、只读行数不变；finally 删除全部一次性 `class_sessions`。
+- 只读探测（列结构/函数签名/权限）：`cd web/tools && python tests\stage_rpc_check.py --probe`
+
+### 回滚
+
+```sql
+DROP FUNCTION IF EXISTS public.class_whoami();
+DROP FUNCTION IF EXISTS public.class_league();
+```
