@@ -2974,3 +2974,38 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - **与网页差异（如实）**：小程序 7d 比较取数按楼栋选窗口（13/16 用已预取 30d；其他楼栋 14d），网页按 isSlowRoom 数据口径（慢楼栋提速时网页用 14d、小程序仍用 30d）；现网历史约 6 天 → 上周/上月同期暂不显示，数据积累后自动出现。
 - **测试**：`mp-class-tools-tests/v3_power_diag_tests.js` **64/64**（新增 utils 窗口边界/取数/覆盖降级/tile 副标 + page 隐藏/默认/恢复/三档比较/请求窗口）；`node unit.js` **414/0**、`sync_contract_test.js` **33/0**、`staticcheck.py` exit 0、`code_quality_check.js` exit 0；automator `power_natural_cmp_preview.js` **9/9 PASS**（mock 70 天自然周期，截图 `_shots_power_natural_cmp/{01_slow_7d,02_live_24h,03_live_7d,04_live_30d}.png`，0 console error）。
 - **发布状态**：小程序源码不在 web 仓库，需用户在微信开发者工具**上传发布**后生效；VERSION 仍 2.0.0、UD v6 不变、无新增外部请求。回滚=源码回退到上一版并重新上传。
+
+## 2026-11-11 20:2x–20:4x · 增量 44：通知附件「压缩包已下载仍待获取」修复 + 云端确认后清理下载目录原件（数据管线；网页无改动、无需部署）
+
+> 用户反馈：`关于全国大学生创新创业实践联盟学术年会（2026）优秀论文、优秀案例、优秀事迹和优秀项目征集的通知（20261111）.rar` 已下载，但通知卡仍显示「待获取」；并要求「云端成功获取后及时删除本机的文件，避免存储占用」。
+> 用户确认清理范围 **A**：只删「下载目录里的原件」（Downloads / QQ NT / 微信 msg/file 里的重复原件），**data/qq-files 等管线缓存保留**（通知板每分钟重建、云端附件都靠它，删了会退回「待获取」）；已下载的历史重复件要一次性回填清理。
+
+### 44.1 根因（Lead 定位 + verifier 独立复现）
+- `C:\briefdesk\scripts\qq_file_names.py` 的 `SUPPORTED_EXTS` 只含 Office 类，**不含 `.rar/.7z/.tar/.gz/.tgz`** → `scan_dirs()` 扫不到 Downloads 里的网络通知压缩包 → `fetch_qq_files.import_downloads()` 永远不会导入 → `data/qq-files` 无该文件 → `build_notice_board` 的 archive 分支不触发 → 模板 `itemHTML` 走 `linkrow missing` 分支显示「待获取」。
+- 证据：旧口径 `scan_dirs()` 54 个文件不含目标、`find_external(name)=None`；补 `.rar/.7z` 后 57 个文件并精确命中（score=1.0）。结论：不是「云端没同步」，是**本机导入白名单漏了压缩包**。
+
+### 44.2 改动（7 个本机管线文件；`C:\briefdesk\scripts\`，无 web 仓库业务代码改动）
+1. `qq_file_names.py`：`SUPPORTED_EXTS` 追加 `.rar/.7z/.tar/.gz/.tgz`；`_EXT_RE` 补 tar/tgz/gz（否则 tar/gz 的 `ext_of` 为空，builder archive 分支仍走不到）；注释记录 2026-11-11 用户反馈。
+2. `archive_scan.py`：`CACHE_VER 1→2`（旧缓存无 saved 需重分析）+ 新增 `_persist_inner()`：`_analyze_with_7z` 解压 walk 时把 ≤`MAX_INNER_EMBED`(1.2MB) 的 doc/pdf 落盘 `data/archive-files/<sha8>/`（命名与 zip 分支同口径 `safe_name(rel.replace("/","_"))`，`run()` 的 `saved` 检测对 zip/rar/7z 一致）→ 卡片内小文件可直接下载；>1.2MB 内部文件（本次 3.8MB PDF）仅列清单、不落盘。
+3. `fetch_qq_files.py`：新增 `PENDING=C:\briefdesk\data\qq-imports-pending.json` 与原子写（tmp+`os.replace`）；`import_downloads()` 在「成功 copy」和「target 已存在但外部有同大小原件」两种情况下登记外部原件（`_is_external()` 只认 `qq_file_names.external_dirs()` = Downloads / QQ NT / 微信 msg/file；管线缓存永不登记）。
+4. 新增 `cleanup_qq_downloads.py`（用户 A 方案）：默认处理 pending；护栏缺一不删——src 普通文件/非链接、在 `external_dirs()` 内、不在 `C:\briefdesk` 内、`data/qq-files` target 存在且 norm 一致且同大小、管线缓存（qq-files/wechat-media/archive-files）已有同 norm 副本、board-data 能定位到 file item 的 gid；云端只读 GET `notices?id=eq.auto_<gid>&archived=eq.false&select=id,body`，解析 `[[CLASS_NOTICE_V1]]+json` 后同 norm_key 的 file item 有 `url` 或 `archive.count>0` 才算「云端成功获取」；查询失败/不确定一律保留（fail-safe），连续失败 3 次本轮停止联网。删除前二次校验；日志 `logs/qq-cleanup.log`，尾行 `qq cleanup: deleted=N kept=M backfilled=K`。支持 `--dry-run` / `--backfill`（历史重复件：board 已 cloud_ok + 管线同 norm 同大小才删）。
+5. `detect_docs.py`：新增 `CLEANUP_QQ_DOWNLOADS` + `run_qq_cleanup()`；`rebuild_board()` 里 `sync_notices_cloud` 成功后调用并记录尾部计数；失败只记日志、不打断重建。**运行中的 watcher 需重启才生效**（旧进程 35336/35368 已由 Lead kill，Briefdesk Watchdog 20:35:02 拉起新 PID 52920）。
+6. `wechat_media.py`：仅注释同步（`SUPPORTED_EXTS` 已扩大，注释不再写「未扩大」）。
+7. 新增 `tests/test_qq_import_cleanup.py`（unittest+tempfile+Patcher，不联网；含真实 7-Zip 集成 skipUnless）。
+
+### 44.3 实测效果（真实数据，watcher 自动）
+- `qq files imported: 2`（目标 rar 3,723,180B + 成绩认定 rar 1,804,210B）→ archive scan（CACHE_VER=2 重分析 3 包）→ board item：`note=压缩包 · 已识别 8 个文件`、`archiveOk=true`、`archive.count=8`、**filesWithUrl=7**（内部 3.8MB PDF 无 url，符合既有 1.5MB 内嵌口径）。
+- 云端 `auto_g_qqfile_24adb7ddbc`：GET 200、bodyLen≈273,481、`archive.status=ok/count=8`、7 个 archiveFiles 带 data URI、archived=false。
+- cleanup（首轮 pending 含历史遗留重复件）：**删除下载原件 25 个 / 约 16.4MiB**（含目标 rar、成绩认定 rar、防艾 zip 与 20 个 pdf/docx/xlsx），`data/qq-files` 的目标 rar **保留 3,723,180B**（管线缓存未删一字节）；pending 仅剩 2 个微信 msg/file 被微信进程占用文件（`PermissionError 13` → keep、下轮重试，fail-safe）。
+- 重启后 hook 真跑：`docs-detect.log` 20:37:24 `qq cleanup done in 0.6s`，`qq-cleanup.log` `deleted=0 kept=2`（幂等）。
+- 前端（headless Edge，冻结 builder demo）：附件行 badge「已识别」、压缩包内容 8 行、**7 个「下载」按钮**、卡片无「待获取」、0 JS 报错；截图 `C:\briefdesk\qa_qq_cleanup_20261111\shots\{before,after}_card.png`。
+
+### 44.4 测试/验收（独立 QA）
+- 管线单测 **26/26**（含真实 7-Zip .7z：小 docx 落盘、1.3MB pdf 不落盘）。
+- 独立 QA `C:\briefdesk\qa_qq_cleanup_20261111\REPORT.md`：**34/34 PASS**（根因复现、import/archive/board/cloud/Downloads 删除+缓存保留/pending/log/无 traceback/通知计数稳定）+ 独立清理安全测试 **28/28**（未确认云端不删/查询失败不删/非 external 不删/briefdesk 内不删/无副本不删/target 缺失或大小不符不删/dry-run 不删不改/幂等/backfill 全护栏）+ 前端 after **13/13**（before 基线 7/7）。回归：board groups=83、fileWithUrl=22 与基线一致、qq-files 52→54（仅 +2 rar，无删除）、wechat-media 3→3、既有 zip/rar archive 记录未丢。
+- 一次性回填：`cleanup_qq_downloads.py --backfill --dry-run` → `scanned=77 boardMatched=0 wouldDelete=0`（历史重复件已被默认 cleanup drain，无额外删除）；真实 `--backfill` 为 no-op。
+
+### 44.5 已知限制 / 回滚
+- 限制（如实）：① >1.5MB 原包不内嵌（既有口径）→ 3.8MB 内部 PDF 仍不能从通知卡下载（包内清单可见，原包在 QQ 群/本机管线缓存）；② 微信占用中的 msg/file 原件删不掉（保持 pending + 重试）；③ 首轮清理会批量删除历史云端已确认的下载重复件（本次 25 个，用户已确认要回填清理）；④ `Briefdesk Watchdog` 双实例问题（两个 `detect_docs.py --watch` 进程，17:46 与重启后均出现）仍在、非本次引入，待后续收口；⑤ 网页/小程序/安卓**无需改动/无需部署**（模板/契约未变，archive 渲染三端早已支持）。
+- 回滚（briefdesk 无版本库）：删除 `cleanup_qq_downloads.py`、撤掉 `detect_docs.rebuild_board()` 的 hook 与常量、去掉 `fetch_qq_files` 的 pending 登记、还原 `qq_file_names.SUPPORTED_EXTS`/`_EXT_RE`、`archive_scan.CACHE_VER` 回 1 并移除 `_persist_inner`；已删除的下载原件不可自动恢复（云端通知 body 与 `data/qq-files` 仍有附件字节，需要时可从管线缓存重新导出）。
+- 网页与云端 schema 无改动；本轮无 web 部署。双远端提交见 `sync-repos.cmd` 输出（文件：`HANDOFF.md`/`CHANGELOG.md`/`AGENTS.md` + 重建后的 `tools/notice-board-live-demo.html`）。
