@@ -2,6 +2,20 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-11 19:0x · v2.0.0 增量 38：电费「关注宿舍」记忆修复 + 选择器优化（网页已上线 OSS+ECS）
+
+> 用户需求（2026-11-11 18:33）：「把网页端的电费宿舍选择框优化一下，然后修复网页端还是无法记住我的宿舍的问题」。
+> 范围：`tools/index.html` 电费页交互/同步兜底 + 专项测试；未改 UD v6 契约 / 云端表 / 小程序 / 安卓；APP_VER 仍 2.0.0、单文件零依赖、无新增外部请求。
+
+- **根因（记不住宿舍）**：`UD.sections().power` 直接读内存 `POWER.sel`，而 `POWER` 只在打开电费页 `enter()` 时才从 UD 缓存恢复。用户打开网页停在别的 tab 时，启动同步读到空 `power.sel`，与缓存里非空选择不同 → 被判为本机改成空 → 把 `power={sel:"",at:now}` 推回云端覆盖真实选择；每次打开循环清空。用真实页面代码 + 合成 userdata 复现到空值 POST。
+- **修复**：① 新增 `POWER.bootRestore()`：启动即从 UD 缓存 / 本机兜底恢复选择（`UD.sections()` 读 power 前兜底、幂等；`POWER.enter` / `WATER.restoreSel` 复用）；② `UD.localView` power 防丢：隐式空（未初始化/非法旧值/无基线）不得覆盖非空基线/云端，只有 `POWER._clearedAt`（用户显式清空）允许推空；③ `UD.pull` 自愈：云端为空、本机非空且非显式清空 → 保留本机选择并补推一次；④ 显式清空标记贯通网页与水量页。
+- **选择器优化**：原生 `<select>`（17 项长列表）→ 自定义选择器：触发按钮 + 浮层面板（楼栋分段 13/16/23A/23B + 房间网格：23B 4 列 / 13、16 2 列 / 23A 3 列；选中 ✓）；点击开合、Esc/点面板外关闭、打开后焦点落选中房间、空间不足自动向上翻转、aria-expanded/aria-label、点按 ≥40px；`.pw-pickwrap` 加入两处滑动手势豁免。隐藏原生 `#pwSelect`（1px/opacity 0）保留为值源与自动化兼容；水量页 `#wtSel` 不变。使用说明补「点『关注宿舍』按楼栋选房间；选择随账号同步，换设备自动恢复。」
+- **测试（本机实跑）**：新增 `tools/tests/v2_power_pick_mem_check.py` **47/47 PASS**（静态 12 + 选择器交互 23 + 记忆链路 8 + 多宽度 4；mock fetch 无真实云端写；截图 `_shots_power_pick/`；对修复前冻结副本实跑 FAIL，证明能抓回归）。回归：`power_check` **155/155**、`sync_check` **144/144**、`v2_power_detail_check` 30、`v2_power_tip_fixed_check` 21、`v2_power_cadence_check` 84、`v2_power_slow_check` 45、`v2_orient_power_check` 33、`v2_power_sync_hardening_check` 29、`water_check` 169、`v2_water_sync_check` 116、`v2_water_layout_check` 29、`v2_water_month_check`、`v2_pos_restore_check` 12、`v2_ui_check` 27、`v2_drag_check` 69、overflow 430 = 0；0 JS 报错 / 无外部请求。测试适配：`power_check` 下拉框高度改为「自定义触发器 ≥40px + 原生 select opacity 0」；`sync_check` static 改为 sections power IIFE/`bootRestore`；`v2_water_sync_check` G09/G16 改为显式强拉一次再断言 sid 过滤（原断言依赖旧 bug 产生的 GET）。
+- **上线（OSS+ECS，DNS 暂停期以对象字节为准）**：备份线上 `tools/_backup/index_online_20261111-1915_prePowerPick.html`（963,583 B / `c2f8ce71…`）→ `python deploy/sync_tools.py index.html` + `python deploy/ecs_site.py apply`；线上 **974,922 B / sha256 `e352ff18…`**，OSS `check` = MATCH、ECS `verify` = MATCH。部署后 ECS 真实环境冒烟（真实身份 + CDP 拦截全部云端写，blocked=2，未污染云端）：电费页恢复云端 `4-23B---423`、面板 4 楼栋/4 房间/1 选中、390 无溢出、0 JS 报错（截图 `_shots_power_pick/live_ecs_390.png`）。回滚 = 重传备份（会连同同批大屏/投票等一起回退到 963,583 版本）。
+- **副作用/已知取舍（如实）**：① 未改电费数据/统计口径；② 非空优先：一端显式取消关注后，其他仍持有非空选择的端可能把它补推恢复（首要保证永不丢失；严格联动取消需新增显式标记字段并改 UD 契约）；③ 17 间静态目录不变（增删宿舍仍要 `PW_ROOMS` 与同步脚本两处同改）；④ 隐藏原生 select 仅供值源/自动化，键盘与读屏走自定义按钮（aria 标注）。
+- **文档**：`HANDOFF.md §38`、`web/AGENTS.md §4b-30`、本文件、验收报告 `验收报告/v2.0.0_增量38_电费宿舍记忆修复与选择器优化_网页.md`。
+
+
 ## 2026-11-11 18:1x–18:4x · 大屏 V3：面板化 + 高度自定义布局 + 投票投屏/快速发起 + PPT 播放/下载联动（网页已随合并部署上线）
 
 > 用户需求（2026-11-11 18:10）：「添加投票功能至大屏，同时对于目前重新改动的ppt功能重新设计大屏ppt板块，优化大屏功能和布局高度自定义」。用户拍板：大屏投票＝**投屏 + 大屏快速发起**；布局自定义＝**按钮式 + 拖拽排序/拖拽改宽**；PPT 板块＝**做下载按钮 + 本机 Office 联动**。

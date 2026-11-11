@@ -267,6 +267,13 @@ def ensure_base(cdp, sid):
     return W.wait_ud_baseline(cdp, sid)
 
 
+def force_ud_pull(cdp):
+    """主动触发一次 userdata GET（2026-11-11 起 power 恢复后启动不再产生「空值脏推送」，
+    两账号隔离用例需要显式强拉一次才能观察到「只按当前 sid 拉取」）。"""
+    state_js(cdp, "return (function(){try{UD.pull(true);return true;}catch(e){return false;}})();")
+    time.sleep(1.0)
+
+
 def hard_clear(cdp):
     """清空本 origin 全部 localStorage（等价换新设备），不依赖 INJECT reset（便于先写延迟标记）。"""
     try:
@@ -580,6 +587,9 @@ def sc_g_isolation(cdp):
     T("G08 B 看不到 A 的记录（2025-01/2025-02）",
       "2025-01" not in W.norm(txtB) and "2025-02" not in W.norm(txtB))
     gets = W.urls_matching(cdp, "/userdata", "GET")
+    if not gets:
+        force_ud_pull(cdp)
+        gets = W.urls_matching(cdp, "/userdata", "GET")
     T("G09 B 的 userdata GET 只按 sid B 过滤", len(gets) >= 1 and all(SID_B in str(r.get("url")) for r in gets),
       "gets=%d" % len(gets))
     bucketA = W.bucket_read(cdp, SID_A) or {}
@@ -597,6 +607,7 @@ def sc_g_isolation(cdp):
     txtA = W.jtext(cdp, "#s-water")
     T("G15 A 看不到 B 的记录（2025-03/2025-04）",
       "2025-03" not in W.norm(txtA) and "2025-04" not in W.norm(txtA))
+    force_ud_pull(cdp)
     getsA = W.urls_matching(cdp, "/userdata", "GET")
     T("G16 A 的 userdata GET 只按 sid A 过滤", len(getsA) >= 1 and all(SID_A in str(r.get("url")) for r in getsA),
       "gets=%d" % len(getsA))

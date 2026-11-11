@@ -1282,9 +1282,10 @@ def static_checks(html):
     STATIC_CHECKS.append(("合并结果含 11 section + homeToolsAt 顶层镜像",
                           all(('"%s"' % k) in main for k in ("homeTools", "fit", "draw", "group", "roster", "hide", "tt", "prefs", "nick", "power", "water"))
                           and "out.homeToolsAt=out.at.homeTools" in main, ""))
-    STATIC_CHECKS.append(("power section 进 v6（UD_KEYS/UD_DEF/sections/apply 均接入）",
+    STATIC_CHECKS.append(("power section 进 v6（UD_KEYS/UD_DEF/sections/apply 均接入；sections 前 bootRestore 兜底）",
                           ('"power","water"]' in main) and ('power:{sel:"",at:0,low:30}' in main)
-                          and ('out.power={sel:' in main) and ('POWER.applyRemote' in main), ""))
+                          and ('out.power=(function()' in main) and ('P&&P.bootRestore' in main)
+                          and ('POWER.applyRemote' in main), ""))
     STATIC_CHECKS.append(("water section 进 v6（UD_KEYS/UD_DEF/sections 归一/apply 接入、值内不镜像 at）",
                           ('"power","water"]' in main) and ('water:{rooms:{}}' in main)
                           and ('WATER.normWater(d.water)' in main) and ('WATER.applyRemote' in main)

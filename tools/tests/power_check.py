@@ -6,7 +6,8 @@ r"""自检：宿舍电费 v3「数据仪表盘」（电量环 + 近 24h 趋势 +
 
 覆盖（task-8）：
 1) 「全部」页卡片存在；点开 #s-power；**无「全部宿舍」列表 / 楼栋 chips / 房间 chips**；
-2) 关注宿舍下拉框：占位 + 4 个 optgroup（13号楼/16号楼/23号楼A座/23号楼B座）+ 17 个规范选项，高 ≥40px；
+2) 关注宿舍选择器（2026-11-11 起为自定义楼栋+房间选择器，隐藏原生 select 作值源）：占位 + 4 个\
+optgroup（13号楼/16号楼/23号楼A座/23号楼B座）+ 17 个规范选项，触发器高 ≥40px；
 3) 未选择：引导「选择你要关注的宿舍」、刷新禁用、**0 个 power / power_history 请求**、右侧仪表区隐藏；
 4) 选择后：电量环（SVG stroke-dasharray 比例）、大字剩余电量、状态 pill、
    近 24h 趋势折线（内联 SVG path + 起点/当前/下降量）、4 个指标 tile、低电提示条（仅低电）；
@@ -310,8 +311,10 @@ async function run(){
     T("「全部 → 宿舍电费」可打开", !!q(f,"#s-power")&&q(f,"#s-power").classList.contains("on"),
       q(f,"section.on")?q(f,"section.on").id:"none");
     var sel=q(f,"#pwSelect");
-    T("关注宿舍下拉框存在（原生 select）", !!sel&&sel.tagName==="SELECT", sel?sel.tagName:"");
-    T("下拉框可点高度 ≥40px", !!sel&&sel.getBoundingClientRect().height>=40, sel?Math.round(sel.getBoundingClientRect().height):0);
+    T("关注宿舍下拉框存在（原生 select，兼容值源）", !!sel&&sel.tagName==="SELECT", sel?sel.tagName:"");
+    T("下拉框可点高度 ≥40px（自定义触发器；原生 select 视觉隐藏）",
+      !!q(f,"#pwPickBtn")&&q(f,"#pwPickBtn").getBoundingClientRect().height>=40&&getComputedStyle(sel).opacity==="0",
+      q(f,"#pwPickBtn")?Math.round(q(f,"#pwPickBtn").getBoundingClientRect().height):0);
     var gps=qa(f,"#pwSelect optgroup").map(function(g){return g.getAttribute("label");});
     T("optgroup 按规范楼栋分组 = 4 个", gps.join(",")==="13号楼,16号楼,23号楼A座,23号楼B座", gps.join(","));
     var opts=qa(f,"#pwSelect option").filter(function(o){return o.value;});

@@ -842,6 +842,37 @@ body.rst-lock{overflow:hidden}
 .pw-select:hover{background:#F7F9F8}
 .pw-select:focus-visible{outline:2px solid var(--cy);outline-offset:2px}
 .pw-select:disabled{opacity:.6;cursor:default}
+/* __POWER_DORM_PATCH_V1__ 电费「关注宿舍」自定义选择器（保留隐藏原生 select 作值源/自动化兼容） */
+.pw-pickwrap{position:relative;z-index:24}
+.pw-select-native{position:absolute!important;left:8px;top:8px;width:1px!important;height:1px!important;min-height:0!important;padding:0!important;margin:0!important;opacity:0!important;pointer-events:none!important;border:0!important;overflow:hidden!important}
+.pw-pickbtn{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:10px 12px;
+  border:1px solid var(--line);border-radius:12px;background:#FFFCF6;color:var(--ink);font-family:inherit;font-size:15px;
+  font-weight:600;line-height:1.3;text-align:left;cursor:pointer;transition:background-color .15s ease,border-color .15s ease}
+.pw-pickbtn:hover{background:#F7F9F8}
+.pw-pickbtn:focus-visible{outline:2px solid var(--cy);outline-offset:2px}
+.pw-pickbtn[aria-expanded="true"]{border-color:var(--cy)}
+.pw-picktxt{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pw-picktxt.placeholder{color:var(--ink3);font-weight:500}
+.pw-pickcaret{flex:none;color:var(--ink2);font-size:12px;transition:transform .16s ease}
+.pw-pickbtn[aria-expanded="true"] .pw-pickcaret{transform:rotate(180deg)}
+.pw-pickpanel{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;padding:10px;border-radius:14px;
+  background:#fff;border:1px solid var(--line);box-shadow:0 16px 38px rgba(35,48,46,.18)}
+.pw-pickpanel.up{top:auto;bottom:calc(100% + 6px)}
+.pw-pickpanel[hidden]{display:none}
+.pw-pickblds{display:flex;gap:6px;padding:2px;border-radius:10px;background:#F1F4F2;margin-bottom:8px}
+.pw-pickbld{flex:1 1 0;min-width:0;min-height:40px;padding:0 6px;border:0;border-radius:8px;background:transparent;color:var(--ink2);
+  font-family:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;cursor:pointer}
+.pw-pickbld:hover{background:rgba(255,255,255,.7)}
+.pw-pickbld.on{background:#fff;color:var(--cy);box-shadow:0 1px 3px rgba(35,48,46,.10)}
+.pw-pickbld:focus-visible{outline:2px solid var(--cy);outline-offset:1px}
+.pw-pickrooms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-height:min(240px,44vh);overflow:auto;padding:1px}
+.pw-pickroom{display:flex;align-items:center;justify-content:center;gap:4px;min-height:42px;border:1px solid var(--line);
+  border-radius:10px;background:#FFFCF6;color:var(--ink);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;
+  font-variant-numeric:tabular-nums}
+.pw-pickroom:hover{background:#F2F7F5;border-color:#CFE0D9}
+.pw-pickroom.on{background:#EAF2EC;border-color:var(--cy);color:#2F6555}
+.pw-pickroom:focus-visible{outline:2px solid var(--cy);outline-offset:1px}
+.pw-pickroom .pw-pickck{font-size:12px;color:var(--cy)}
 .pw-gauge{position:relative;width:160px;aspect-ratio:1/1;margin:14px auto 2px;z-index:1}
 .pw-ring{display:block;width:100%;height:100%;transform:rotate(-90deg)}
 .pw-ring-bg{fill:none;stroke:#EFE9DC;stroke-width:12}
@@ -2353,8 +2384,18 @@ body.ppt-dl-lock{overflow:hidden!important}
     <div class="pw-dash pw-empty" id="pwDash">
       <div class="pw-hero-card" id="pwHeroCard">
         <div class="pw-pick">
-          <label class="f" for="pwSelect" style="margin-top:0">关注宿舍</label>
-          <div class="pw-selwrap"><select class="pw-select" id="pwSelect"><option value="">选择你要关注的宿舍…</option></select></div>
+          <label class="f" id="pwPickLabel" style="margin-top:0">关注宿舍</label>
+          <div class="pw-pickwrap">
+            <select class="pw-select pw-select-native" id="pwSelect" tabindex="-1" aria-hidden="true"><option value="">选择你要关注的宿舍…</option></select>
+            <button type="button" class="pw-pickbtn" id="pwPickBtn" aria-haspopup="dialog" aria-expanded="false" aria-labelledby="pwPickLabel">
+              <span class="pw-picktxt placeholder" id="pwPickTxt">选择你要关注的宿舍…</span>
+              <span class="pw-pickcaret" aria-hidden="true">▾</span>
+            </button>
+            <div class="pw-pickpanel" id="pwPickPanel" role="dialog" aria-label="选择关注宿舍" hidden>
+              <div class="pw-pickblds" id="pwPickBlds" role="tablist" aria-label="楼栋"></div>
+              <div class="pw-pickrooms" id="pwPickRooms" aria-label="房间"></div>
+            </div>
+          </div>
         </div>
         <div class="pw-gauge" id="pwGauge" data-state="idle" role="img" aria-label="尚未选择宿舍">
           <svg class="pw-ring" viewBox="0 0 200 200" aria-hidden="true">
@@ -2599,6 +2640,7 @@ body.ppt-dl-lock{overflow:hidden!important}
         <li>关注宿舍、宿舍人数与抄表记录随账号同步，换设备自动恢复；右上「已同步」可点重试。</li>
       </ul></section>
       <section class="ugsec"><h4>电费</h4><ul>
+        <li>点「关注宿舍」按楼栋选房间；选择随账号同步，换设备自动恢复。</li>
         <li>选「关注宿舍」后显示剩余电量、估算可用天数与近 24h / 7天 / 30天趋势。</li>
         <li>点或按住趋势曲线可查看该点「时间 · 电量」，气泡固定显示在趋势图右上角（不遮挡曲线），松手保留；点空白取消。</li>
         <li>趋势不横滑，全部采样压缩显示；13/16 号楼网关日更，按真实更新点统计（趋势标「日更」），估算可能标「参考」，无更新会提示。</li>
@@ -3184,7 +3226,7 @@ function noticeTouchAdapter(doc){
   }
   doc.addEventListener("touchstart",function(ev){
     if(!ev.touches||ev.touches.length!==1){live=false;return;}
-    if(closest(ev.target,"input,textarea,select,[contenteditable],.modal")){live=false;return;}
+    if(closest(ev.target,"input,textarea,select,[contenteditable],.modal,.pw-pickwrap")){live=false;return;}
     var t=ev.touches[0];
     sx=lx=t.clientX;sy=ly=t.clientY;live=true;mode="";
     startScrollY=Number(W.scrollY||W.pageYOffset||0)||0;
@@ -3848,9 +3890,11 @@ var UD={
     out.hide={hwHide:UD.clone(d.hwHide||{}),ntHide:UD.clone(d.ntHide||{})};
     out.tt={ttView:String(d.ttView||""),ttUseMine:!!d.ttUseMine,ttLocal:d.ttLocal?UD.clone(d.ttLocal):null,termStart:String(d.termStart||"")};
     out.nick=String(d.nick==null?"":d.nick);
-    out.power={sel:(typeof POWER!=="undefined"&&POWER)?String(POWER.sel||""):"",
-      at:(typeof POWER!=="undefined"&&POWER)?(Number(POWER.selAt)||0):0,
-      low:(typeof POWER!=="undefined"&&POWER)?(Number(POWER.low)||30):30};
+    out.power=(function(){
+      var P=(typeof POWER!=="undefined")?POWER:null;
+      try{if(P&&P.bootRestore)P.bootRestore();}catch(e){}
+      return {sel:P?String(P.sel||""):"",at:P?(Number(P.selAt)||0):0,low:P?(Number(P.low)||30):30};
+    })();
     out.water=(typeof WATER!=="undefined"&&WATER&&WATER.normWater)?WATER.normWater(d.water):{rooms:UD.clone((d.water&&d.water.rooms)||{})};
     return out;
   },
@@ -3864,6 +3908,17 @@ var UD={
       out[k]=val;
       var ba=(base&&base.at)?UD.num(base.at[k]):0;
       var dirty=base?!(base[k]!==undefined&&UD.eq(base[k],val)):false;
+      /* power 防丢保护（2026-11-11）：本机「未初始化/隐式空」不得把已保存的宿舍清掉。
+         仅当用户在本端显式选择空值（POWER._clearedAt）时才允许推送空；否则沿用基线非空值并强制补推。 */
+      if(k==="power"){
+        var pLsel=String((val&&val.sel)||"");
+        var pBsel=String((base&&base.power&&base.power.sel)||"");
+        var pExplicit=!!(typeof POWER!=="undefined"&&POWER&&POWER._clearedAt);
+        var pValid=function(x){try{return !!(x&&POWER&&POWER.catOf(x));}catch(e){return false;}};
+        if(pBsel&&!pValid(pBsel))pBsel="";                 /* 非法基线（旧版本脏数据）不参与比较 */
+        if(!pLsel&&pBsel&&!pExplicit){val=UD.clone(base.power);out[k]=val;dirty=true;} /* 隐式空沿用基线并强推恢复 */
+        else if(!pLsel&&!pBsel&&!pExplicit){val={sel:"",at:0,low:(base&&base.power&&base.power.low)||30};out[k]=val;dirty=false;} /* 没选过 ≠ 本机改成空 */
+      }
       if(force.indexOf(k)>=0)dirty=true; /* 显式强制：无基线/兜底恢复后确保本地值赢 */
       var la=ba;
       if(dirty){var ra=(remote&&remote.at)?UD.num(remote.at[k]):0;la=Math.max(now,ba+1,ra+1);}
@@ -4102,15 +4157,32 @@ var UD={
       }
       var local=UD.localView(remote,forceKeys);
       var merged=UD.merge(remote,local);
+      /* 关注宿舍自愈（2026-11-11）：云端已被清空为空、本机仍有非空选择且不是本机显式清空 → 保留本机选择并补推，
+         防止历史冒烟/旧版本把 power.sel 清空后云端永久为空（用户重开永远要重选）。 */
+      var pRemote="",pMerged="",pRecover=false;
+      try{
+        pRemote=String(remote&&remote.power&&remote.power.sel||"");
+        pMerged=String(merged&&merged.power&&merged.power.sel||"");
+        var pLocal=String(local&&local.power&&local.power.sel||"");
+        var pExplicit=!!(typeof POWER!=="undefined"&&POWER&&POWER._clearedAt);
+        if(!pRemote&&!pMerged&&pLocal&&!pExplicit){
+          var _now=Date.now(),_ra=UD.num(remote&&remote.at&&remote.at.power),_ba=UD.num(base&&base.at&&base.at.power);
+          merged.power={sel:pLocal,at:Math.max(_now,_ra+1,_ba+1),low:(local.power&&local.power.low)||30};
+          if(merged.at)merged.at.power=merged.power.at;
+          pRecover=true;
+        }
+      }catch(e){}
       UD._applying=true;
       try{UD.apply(merged,wasV5?["homeTools","fit"]:null);}catch(e){}
       UD._applying=false;
       UD.cacheWrite(merged);
       UD.lastPullWrite(Date.now());
       try{D.save();}catch(e){}
-      /* 本机有未推送改动，或云端是 v5（需写回 v6）→ 立刻补一次 push（幂等，写回后不会重复） */
-      if(wasV5||wasDirty.length||UD.dirtySections().length||UD.pendRead()){
-        UD.push(true,(forceKeys&&forceKeys.length)?forceKeys:null);
+      /* 本机有未推送改动，或云端是 v5（需写回 v6），或云端关注宿舍被清空需自愈 → 立刻补一次 push（幂等，写回后不会重复） */
+      if(wasV5||pRecover||wasDirty.length||UD.dirtySections().length||UD.pendRead()){
+        var _fk=(forceKeys&&forceKeys.length)?forceKeys.slice():[];
+        if(pRecover&&_fk.indexOf("power")<0)_fk.push("power");
+        UD.push(true,_fk.length?_fk:null);
       }
       try{udSyncUi();}catch(e){}
       return true;
@@ -5348,7 +5420,27 @@ var PW_SLOW_BLD=["13号楼","16号楼"];
 
 var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,histLoading:false,
   on:false,err:false,_seq:0,_bound:false,_flipTimer:0,_lastChart:"",_lowOpen:false,_lowBound:false,cat:null,
+  _bootRestored:false,_clearedAt:0,_pickOpen:false,_pickBld:"",
   init:function(){POWER.cat={};PW_ROOMS.forEach(function(r){POWER.cat[r.rv]=r;});},
+  /* 启动即恢复关注宿舍（不等用户打开电费页）：否则 UD.sections().power 读到的 POWER.sel 还是空，
+     会被当成「本机改了 power」而把空选择推回云端，覆盖已保存的宿舍（2026-11-11 用户反馈根因）。
+     来源：UD 缓存 power.sel → 本机兜底 zq_power_sel_<sid>；幂等，任何 UD 读写前都会兜底调用。 */
+  bootRestore:function(){
+    if(POWER._bootRestored)return POWER;
+    POWER._bootRestored=true;
+    try{POWER.init();}catch(e){}
+    var base=null;try{base=UD.cacheRead();}catch(e){}
+    var b=null;try{b=base&&base.power&&typeof base.power==="object"?base.power:null;}catch(e){}
+    var sel=b?String(b.sel||""):"",at=b?(Number(b.at)||0):0,low=b?POWER.normLow(b.low):30;
+    if(sel&&!POWER.catOf(sel))sel="";
+    if(!sel){
+      var ls="";try{ls=localStorage.getItem(POWER.selKey())||"";}catch(e){}
+      if(ls&&POWER.catOf(ls)){sel=ls;at=Date.now();}
+    }
+    if(sel){POWER.sel=sel;POWER.selAt=at||Date.now();POWER.low=low;try{POWER.setLocal(sel);}catch(e){}}
+    else{POWER.sel="";POWER.selAt=0;POWER.low=low;}
+    return POWER;
+  },
   key:function(){return "zq_power_cache_"+cacheSid();},
   selKey:function(){return "zq_power_sel_"+cacheSid();},
   catOf:function(rv){return (POWER.cat&&POWER.cat[rv])||null;},
@@ -5683,7 +5775,7 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     for(i=0;i<ch.coords.length;i++){dd=Math.abs(ch.coords[i][0]-x);if(dd<bd){bd=dd;best=i;}}
     POWER.detailSelect(best);
   },
-    syncSelDom:function(){var s=$("#pwSelect");if(s&&s.value!==(POWER.sel||""))s.value=POWER.sel||"";},
+    syncSelDom:function(){var s=$("#pwSelect");if(s&&s.value!==(POWER.sel||""))s.value=POWER.sel||"";POWER.syncPickUi();},
   setLocal:function(rv){try{if(rv)localStorage.setItem(POWER.selKey(),rv);else localStorage.removeItem(POWER.selKey());}catch(e){}},
   flipNum:function(){
     var n=$("#pwNum");if(!n)return;
@@ -5737,6 +5829,58 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     });
     s.innerHTML=html;
     s.value=POWER.sel||"";
+    POWER.renderPick();
+  },
+  /* 自定义宿舍选择器：按楼栋分段 + 房间网格（替代原生 select 的 17 项长列表；隐藏 select 仍是值源） */
+  renderPick:function(){
+    var blds=$("#pwPickBlds"),rooms=$("#pwPickRooms");
+    if(!blds||!rooms)return;
+    var cur=POWER.sel?POWER.catOf(POWER.sel):null;
+    if(!POWER._pickBld||PW_BLDS.indexOf(POWER._pickBld)<0){
+      POWER._pickBld=cur?cur.building:PW_BLDS[0];
+    }
+    var BLD_SHORT={"13号楼":"13","16号楼":"16","23号楼A座":"23A","23号楼B座":"23B"};
+    blds.innerHTML=PW_BLDS.map(function(b){
+      var on=b===POWER._pickBld;
+      return '<button type="button" class="pw-pickbld'+(on?" on":"")+'" role="tab" aria-selected="'+(on?"true":"false")+
+        '" data-bld="'+esc(b)+'" aria-label="'+esc(b)+'" title="'+esc(b)+'">'+esc(BLD_SHORT[b]||b.replace("号楼",""))+'</button>';
+    }).join("");
+    var items=PW_ROOMS.filter(function(r){return r.building===POWER._pickBld;});
+    rooms.style.gridTemplateColumns="repeat("+(items.length===4?4:(items.length<=2?items.length:3))+",minmax(0,1fr))";
+    rooms.innerHTML=items.map(function(r){
+      var on=r.rv===POWER.sel;
+      return '<button type="button" class="pw-pickroom'+(on?" on":"")+'" role="option" aria-selected="'+(on?"true":"false")+
+        '" data-rv="'+esc(r.rv)+'"><span>'+esc(r.room)+'</span>'+(on?'<span class="pw-pickck" aria-hidden="true">✓</span>':'')+'</button>';
+    }).join("")||'<div class="empty">暂无可选房间</div>';
+    POWER.syncPickUi();
+  },
+  syncPickUi:function(){
+    var btn=$("#pwPickBtn"),txt=$("#pwPickTxt"),panel=$("#pwPickPanel");
+    if(txt){
+      var cur=POWER.sel?POWER.catOf(POWER.sel):null;
+      txt.textContent=cur?cur.label:"选择你要关注的宿舍…";
+      if(cur)txt.classList.remove("placeholder");else txt.classList.add("placeholder");
+    }
+    if(btn)btn.setAttribute("aria-expanded",POWER._pickOpen?"true":"false");
+    if(panel)panel.hidden=!POWER._pickOpen;
+    var s=$("#pwSelect");if(s&&s.value!==(POWER.sel||""))s.value=POWER.sel||"";
+  },
+  openPick:function(open){
+    POWER._pickOpen=!!open;
+    if(POWER._pickOpen){
+      POWER.renderPick();
+      var panel=$("#pwPickPanel"),wrap=$(".pw-pickwrap");
+      try{
+        var r=wrap.getBoundingClientRect(),h=panel.offsetHeight||220;
+        panel.classList.toggle("up",(window.innerHeight-r.bottom)<(h+12)&&r.top>h+12);
+      }catch(e){}
+      setTimeout(function(){
+        var on=$("#pwPickRooms .pw-pickroom.on")||$("#pwPickRooms .pw-pickroom");
+        if(on){try{on.focus({preventScroll:true});}catch(e){try{on.focus();}catch(e2){}}}
+      },0);
+    }else{
+      POWER.syncPickUi();
+    }
   },
   renderChips:function(){
     $$("#pwRanges .pw-range").forEach(function(b){
@@ -6034,6 +6178,8 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     rv=String(rv||"");
     if(rv&&!POWER.catOf(rv))rv="";
     POWER.sel=rv;POWER.selAt=Date.now();
+    POWER._clearedAt=rv?0:Date.now();   /* 显式清空才允许空值覆盖云端 */
+    POWER._pickOpen=false;
     POWER.row=null;POWER.on=false;POWER.err=false;POWER.histLoading=false;
     POWER._lastChart="";
     POWER.setLocal(rv);
@@ -6046,6 +6192,7 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
   },
   applyRemote:function(sel,at,low){
     var prev=POWER.sel;
+    POWER._clearedAt=0;
     POWER.sel=String(sel||"");
     if(POWER.sel&&!POWER.catOf(POWER.sel))POWER.sel="";
     POWER.selAt=Number(at)||0;
@@ -6057,7 +6204,7 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     if(typeof CURTAB!=="undefined"&&CURTAB==="power"&&POWER.sel)POWER.pull(true);
   },
   enter:function(){
-    POWER.init();POWER.bind();POWER.renderOptions();
+    POWER.bootRestore();POWER.init();POWER.bind();POWER.renderOptions();
     POWER.range=POWER.rangeRead();
     var base=null;try{base=UD.cacheRead();}catch(e){}
     var baseSel=(base&&base.power)?String(base.power.sel||""):"";
@@ -6110,6 +6257,42 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     if(POWER._bound)return;POWER._bound=true;
     var s=$("#pwSelect");
     if(s)s.addEventListener("change",function(){POWER.pick(s.value);});
+    /* 自定义选择器事件（按钮/楼栋分段/房间网格/外部点击/Esc） */
+    var pbtn=$("#pwPickBtn");
+    if(pbtn)pbtn.addEventListener("click",function(e){
+      if(e&&e.stopPropagation)e.stopPropagation();
+      POWER.openPick(!POWER._pickOpen);
+    });
+    var pblds=$("#pwPickBlds");
+    if(pblds)pblds.addEventListener("click",function(e){
+      var t=e.target&&e.target.closest?e.target.closest(".pw-pickbld"):null;
+      if(!t)return;
+      var b=String(t.getAttribute("data-bld")||"");
+      if(PW_BLDS.indexOf(b)<0)return;
+      POWER._pickBld=b;POWER.renderPick();
+    });
+    var prooms=$("#pwPickRooms");
+    if(prooms)prooms.addEventListener("click",function(e){
+      var t=e.target&&e.target.closest?e.target.closest(".pw-pickroom"):null;
+      if(!t)return;
+      var rv=String(t.getAttribute("data-rv")||"");
+      if(!POWER.catOf(rv))return;
+      POWER._pickOpen=false;POWER.pick(rv);
+      if(pbtn){try{pbtn.focus({preventScroll:true});}catch(err){try{pbtn.focus();}catch(e2){}}}
+    });
+    document.addEventListener("pointerdown",function(e){
+      if(!POWER._pickOpen)return;
+      var t=e.target;
+      if(t&&t.closest&&t.closest(".pw-pickwrap"))return;
+      POWER.openPick(false);
+    },{capture:true,passive:true});
+    document.addEventListener("keydown",function(e){
+      if(!POWER._pickOpen)return;
+      if(e.key==="Escape"||e.key==="Esc"){
+        POWER.openPick(false);
+        if(pbtn){try{pbtn.focus();}catch(err){}}
+      }
+    });
     var rf=$("#pwRefresh");if(rf)rf.addEventListener("click",function(){POWER.pull(true);});
     var sy=$("#pwSync");
     if(sy)sy.addEventListener("click",function(){
@@ -6407,7 +6590,7 @@ var WATER={
     if(rv&&!(typeof POWER!=="undefined"&&POWER&&POWER.catOf&&POWER.catOf(rv)))rv="";
     try{
       if(typeof POWER!=="undefined"&&POWER){
-        POWER.sel=rv;POWER.selAt=Date.now();POWER.row=null;POWER.on=false;POWER.err=false;
+        POWER.sel=rv;POWER.selAt=Date.now();POWER._clearedAt=rv?0:Date.now();POWER.row=null;POWER.on=false;POWER.err=false;
         try{POWER.setLocal(rv);}catch(e){}
       }
     }catch(e){}
@@ -6419,13 +6602,7 @@ var WATER={
   restoreSel:function(){
     try{
       if(typeof POWER==="undefined"||!POWER)return;
-      try{POWER.init();}catch(e){}
-      if(POWER.sel)return;
-      var s="",base=null;
-      try{base=UD.cacheRead();}catch(e){}
-      s=String((base&&base.power&&base.power.sel)||"");
-      if(!s){try{s=localStorage.getItem(POWER.selKey())||"";}catch(e){}}
-      if(s&&POWER.catOf(s)){POWER.sel=s;POWER.selAt=Date.now();}
+      if(POWER.bootRestore)POWER.bootRestore();
     }catch(e){}
   },
   renderOptions:function(){
@@ -10190,6 +10367,7 @@ var DIAG=(function(){
   }
   document.addEventListener("touchstart",function(e){
     if(e.touches.length!==1){resetTouch();return;}
+    if(closest(e.target,".pw-pickwrap")){live=false;return;}
     var t=e.target, start=resolveStart(t);
     if(!start){live=false;return;}
     wasField=!!closest(t,"input,textarea");
