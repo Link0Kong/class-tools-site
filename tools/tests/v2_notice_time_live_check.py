@@ -4,7 +4,7 @@
 只读，不部署、不改产品。做三件事：
   1) 下载 https://tool.furina.fun/ 的 index.html → 解码 NOTICE_TPL_B64 → 确认新模板 JS（fmtWhen/absRelDates/
      signup 报名优先/无「今天 HH:MM」硬编码/无旧文案）在场；与本地 index.html 的嵌入模板哈希对照；
-  2) 只读云端 public.notices（token 从 C:\\briefdesk\\secrets\\class-token.json 读，**绝不打印/落盘**）：
+  2) 只读云端 public.notices（**仅测试身份 token**，绝不打印/落盘；2026-11-11 用户红线后不再读取真实管理员 token）：
      申报材料合并为 1 行 + items≥3 + deadline 11-06 12:00 + deadlineAction + 新字段；
      献血通知行存在；花名册 senderRole=学习委员；药膳/手抄报 signup 字段；
   3) 输出 PASS/FAIL 清单与证据（默认 C:\\briefdesk\\data\\_qa_nottime\\phase3\\，env NTP_LIVE_OUT 可覆盖）。
@@ -37,7 +37,28 @@ ROOT = os.path.dirname(HERE)
 LIVE_URL = os.environ.get("NTP_LIVE_URL") or "https://tool.furina.fun/"
 OUT = os.environ.get("NTP_LIVE_OUT") or r"C:\briefdesk\data\_qa_nottime\phase3"
 LOCAL_INDEX = os.path.join(ROOT, "index.html")
-TOKEN_FILE = r"C:\briefdesk\secrets\class-token.json"
+TOKEN_FILE = None   # 政策：不再读取真实管理员 token；改用下方测试身份 token
+
+# 政策（2026-11-11 用户红线）：测试只用测试账号，不再读取真实管理员 token（class-token.json）。
+TEST_SID, TEST_NAME = "3260799999", "测试账号"
+REST_BASE = "https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/"
+
+
+def test_identity_token():
+    """读取公开 publishable key 后仅用测试身份换取 class token（不打印/不落盘）。"""
+    key_path = os.path.join(ROOT, "deploy", "cloudbase", "publish_key.txt")
+    key = open(key_path, encoding="utf-8").read().strip()
+    body = json.dumps({"p_sid": TEST_SID, "p_name": TEST_NAME}).encode("utf-8")
+    req = urllib.request.Request(
+        REST_BASE + "rpc/class_verify", data=body, method="POST",
+        headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        obj = json.loads(r.read().decode("utf-8"))
+    tok = str((obj or {}).get("token") or "")
+    if not tok:
+        raise SystemExit("测试身份 class_verify 失败（未返回 token）")
+    return tok
+
 NOTICE_PREFIX = "[[CLASS_NOTICE_V1]]"
 CN = timezone(timedelta(hours=8))
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
@@ -103,9 +124,9 @@ def cloud_rows(index_html):
     except Exception as e:  # noqa: BLE001
         return None, "线上 index.html 缺 CB/CBK 配置（%s）" % type(e).__name__
     try:
-        token = json.loads(open(TOKEN_FILE, encoding="utf-8").read())["token"]
+        token = test_identity_token()   # 政策：仅测试账号
     except Exception as e:  # noqa: BLE001
-        return None, "读取 class-token.json 失败（%s）" % type(e).__name__
+        return None, "测试身份 token 获取失败（%s）" % type(e).__name__
     path = ("notices?select=id,title,body,ts,hidden,edited_at,override_json,audience"
             "&archived=eq.false&order=ts.desc&limit=300")
     req = urllib.request.Request(base + path, headers={

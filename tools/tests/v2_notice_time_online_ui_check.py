@@ -4,7 +4,7 @@
 做法（只读，不部署、不改产品）：
   1) urllib 下载线上 index.html，核对 sha256=Lead 部署报告值，并存档；
   2) 启动 headless Edge（--remote-debugging-port=0），用 CDP(websocket-client) 打开 https://tool.furina.fun/；
-  3) 首次加载后向 localStorage 注入测试身份（token 来自 C:\\briefdesk\\secrets\\class-token.json，**不打印/不落盘**），
+  3) 首次加载后向 localStorage 注入测试身份（**仅测试身份 token**，不打印/不落盘；2026-11-11 用户红线后不再读取真实管理员 token），
      reload → 真实云端拉取 notices → 切到通知 tab（gotoTab('nt')）→ 读取 iframe 内 GROUPS/DOM；
   4) 断言：申报材料合并卡/药膳报名优先/花名册 兰佳杰/献血合并卡/无旧文案与今天混排/0 JS 报错；
      并截图（首屏、申报卡、献血卡）存 C:\\briefdesk\\data\\_qa_nottime\\phase3\\online_ui\\。
@@ -33,7 +33,28 @@ except Exception:
 EDGE = os.environ.get("NTP_EDGE") or r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 URL = os.environ.get("NTP_UI_URL") or "https://tool.furina.fun/"
 OUT = os.environ.get("NTP_UI_OUT") or r"C:\briefdesk\data\_qa_nottime\phase3\online_ui"
-TOKEN_FILE = r"C:\briefdesk\secrets\class-token.json"
+TOKEN_FILE = None   # 政策：不再读取真实管理员 token；改用下方测试身份 token
+
+# 政策（2026-11-11 用户红线）：测试只用测试账号，不再读取真实管理员 token（class-token.json）。
+TEST_SID, TEST_NAME = "3260799999", "测试账号"
+REST_BASE = "https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/"
+
+
+def test_identity_token():
+    """读取公开 publishable key 后仅用测试身份换取 class token（不打印/不落盘）。"""
+    key_path = os.path.join(ROOT, "deploy", "cloudbase", "publish_key.txt")
+    key = open(key_path, encoding="utf-8").read().strip()
+    body = json.dumps({"p_sid": TEST_SID, "p_name": TEST_NAME}).encode("utf-8")
+    req = urllib.request.Request(
+        REST_BASE + "rpc/class_verify", data=body, method="POST",
+        headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        obj = json.loads(r.read().decode("utf-8"))
+    tok = str((obj or {}).get("token") or "")
+    if not tok:
+        raise SystemExit("测试身份 class_verify 失败（未返回 token）")
+    return tok
+
 EXPECT_SHA = "b7819e39bc148b7654239bb83ec32d6b067c1e20445169ce4d3d40337359b47f"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
 
@@ -240,7 +261,7 @@ def main():
 
     # ---- 2. 读测试身份 token（不打印） ----
     try:
-        token = json.loads(open(TOKEN_FILE, encoding="utf-8").read())["token"]
+        token = test_identity_token()   # 政策：仅测试账号
         S("U1.1 测试身份 token 可读（不打印）", bool(token) and len(token) > 20, "len=%d" % len(token))
     except Exception as e:  # noqa: BLE001
         S("U1.1 测试身份 token 可读（不打印）", False, type(e).__name__)

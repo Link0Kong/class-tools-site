@@ -73,7 +73,7 @@ HTTP_PORT = int(os.environ.get("TTF_HTTP_PORT") or 8937)
 CDP_PORT = int(os.environ.get("TTF_CDP_PORT") or 9537)
 PREVIEW = "preview.html"
 
-SID = "3260709999"
+SID = "9999000005"
 NAME = "测试同学"
 TOKEN = "test-token-ttframe"
 

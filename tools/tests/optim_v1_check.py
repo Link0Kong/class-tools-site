@@ -36,7 +36,7 @@ os.makedirs(REPORT_DIR, exist_ok=True)
 REPORT = os.path.join(REPORT_DIR, "optim_report.json")
 PREVIEW = os.path.join(REPORT_DIR, "optim_preview.html")
 
-SID = "3260709999"
+SID = "9999000005"
 NAME = "测试同学"
 
 DATA = {

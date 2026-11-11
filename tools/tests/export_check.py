@@ -17,7 +17,7 @@ html = open(SRC, encoding="utf-8").read()
 html = html.replace("<head>",
     '<head><script>window.__err="";window.addEventListener("error",function(e){window.__err+="["+e.message+"]";});'
     'var _f=window.fetch;window.fetch=function(u,o){if(String(u).indexOf("tcloudbasegateway")>=0||String(u).indexOf("tt.json")>=0)return Promise.reject(new Error("test-block"));return _f.apply(this,arguments);};'
-    'try{localStorage.setItem("zq_class_identity",JSON.stringify({token:"test-export",sid:"3260709999",name:"测试同学",role:"",badge:"",is_admin:false,ts:Date.now()}));}catch(e){}'
+    'try{localStorage.setItem("zq_class_identity",JSON.stringify({token:"test-export",sid:"9999000005",name:"测试同学",role:"",badge:"",is_admin:false,ts:Date.now()}));}catch(e){}'
     'window.__blobs=[];var _c=URL.createObjectURL;URL.createObjectURL=function(b){window.__blobs.push(b);return _c.call(URL,b);};'
     'HTMLCanvasElement.prototype.toBlob=function(cb,t){var d=this.toDataURL(t||"image/png");var s=atob(d.split(",")[1]);var a=new Uint8Array(s.length);for(var i=0;i<s.length;i++)a[i]=s.charCodeAt(i);cb(new Blob([a],{type:t||"image/png"}));};'
     'window.__name="";var _a=HTMLAnchorElement.prototype.click;'

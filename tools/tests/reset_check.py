@@ -34,7 +34,7 @@ EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 PORT = 8927
 BASE = "http://127.0.0.1:%d/" % PORT
 
-SID = "3260709999"
+SID = "9999000005"
 NAME = "测试同学"
 MEMBERS = [{"seat": i, "sid": "9000%06d" % i, "name": "同学%02d" % i,
             "role": "", "badge": "", "is_admin": False} for i in range(1, 71)]

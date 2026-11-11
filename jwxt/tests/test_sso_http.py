@@ -151,7 +151,7 @@ def test_sso_login_http_happy_path():
                 "?service=http%3A%2F%2F210.34.74.77%2Fsso.jsp")
 
     def fake_auth_login(account, password, *, timeout=20, session=None):
-        assert account == "3260707024" and password == "pwd-x"
+        assert account == "1234567890" and password == "pwd-x"
         return portal
 
     def fake_request(session, method, url, *, timeout=None, retries=1, **kwargs):
@@ -174,7 +174,7 @@ def test_sso_login_http_happy_path():
     with Patcher(authserver_login=fake_auth_login, _request=fake_request,
                  check_logged_in=_logged_in_with("SERVERID_jsxsd"),
                  save_jwxsd_cookies=fake_save):
-        sess = jwxt.sso_login_http("3260707024", "pwd-x", timeout=20)
+        sess = jwxt.sso_login_http("1234567890", "pwd-x", timeout=20)
 
     assert sess is portal
     assert session_has(portal, "SERVERID_jsxsd")
@@ -202,7 +202,7 @@ def test_sso_login_http_wrong_password_raises_login_error():
 
     with Patcher(authserver_login=fake_auth_login, _request=no_request):
         try:
-            jwxt.sso_login_http("3260707024", "bad")
+            jwxt.sso_login_http("1234567890", "bad")
         except jwxt.LoginError as exc:
             assert "密码错误" in str(exc)
         else:
@@ -224,7 +224,7 @@ def test_sso_login_http_no_cookie_raises_fetch_error():
                  check_logged_in=lambda *a, **k: False,
                  save_jwxsd_cookies=lambda c: saved.append(c)):
         try:
-            jwxt.sso_login_http("3260707024", "pwd-x")
+            jwxt.sso_login_http("1234567890", "pwd-x")
         except jwxt.FetchError:
             pass
         else:
@@ -241,7 +241,7 @@ def test_sso_login_prefers_http():
                  sso_login_http=lambda *a, **k: SENTINEL,
                  portal_to_jwxt_cookies=lambda *a, **k: (_ for _ in ()).throw(
                      AssertionError("不应回退到 Edge"))) as _p:
-        assert jwxt.sso_login("3260707024", "pwd-x") is SENTINEL
+        assert jwxt.sso_login("1234567890", "pwd-x") is SENTINEL
 
 
 def test_sso_login_falls_back_to_edge_on_transport_error():
@@ -269,7 +269,7 @@ def test_sso_login_falls_back_to_edge_on_transport_error():
                  save_jwxsd_cookies=lambda c: saved.append(c),
                  session_from_cookies=fake_session_from_cookies,
                  check_logged_in=lambda *a, **k: True):
-        sess = jwxt.sso_login("3260707024", "pwd-x")
+        sess = jwxt.sso_login("1234567890", "pwd-x")
 
     assert sess is sessions[0]
     assert saved == [edge_cookies], saved
@@ -287,7 +287,7 @@ def test_sso_login_does_not_fall_back_on_login_error():
                  authserver_login=no_edge,
                  portal_to_jwxt_cookies=no_edge):
         try:
-            jwxt.sso_login("3260707024", "pwd-x")
+            jwxt.sso_login("1234567890", "pwd-x")
         except jwxt.LoginError as exc:
             assert "验证码" in str(exc)
         else:

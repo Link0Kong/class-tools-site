@@ -44,7 +44,7 @@ QA = os.path.join(HERE, "_qa_v2")
 sys.path.insert(0, QA)
 import _cdp  # noqa: E402
 
-SID = "3260707001"
+SID = "9999000001"
 NAME = "测试同学"
 SHOTS = os.path.join(HERE, "_shots_web_batch2")
 SRC_TEXT = open(SRC, encoding="utf-8").read()

@@ -44,7 +44,7 @@ EDGE = pc.EDGE
 HTTP_PORT = 8967
 CDP_PORT = 9467
 BASE = "http://127.0.0.1:%d/" % HTTP_PORT
-SID = "3260707026"  # 用户反馈中 power 为 NULL 的账号之一
+SID = "9999000004"  # 用户反馈中 power 为 NULL 的账号之一
 PV = "_psync_preview.html"
 RESULTS = []
 

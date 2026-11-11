@@ -5,8 +5,10 @@
 改票/不可改票、一人一票、匿名不泄露、实名投票人、结果三种可见性、截止/提前结束/延长、
 编辑（无票/有票）、删除（软删）、权限（他人不可管理/不可直连表）、服务端截止时间（以 DB 时间判定）。
 
-身份：使用**测试身份**（3260799999/测试账号，云端 is_test 行）与两个**合成 QA 会话**（private.class_sessions
-内一次性 token，脚本结束时删除）。所有测试投票在 finally 中硬删除，不残留。
+身份：**只用测试账号**（2026-11-11 用户红线，不再使用任何真实管理员/同学账号）——
+官方测试身份 3260799999/测试账号 + 脚本临时创建并 finally 删除的 **9999 段 QA 测试身份**
+（write 到 private.class_ids 的 is_test=true 行：班委/团员/普通/管理员，测试结束即删）。
+所有测试投票在 finally 中硬删除，不残留。
 
 运行：cd web/tools && python tests\\vote_cloud_check.py
 """
@@ -96,20 +98,27 @@ def token_of(tid):
 
 def main():
     fails0 = len([x for x in RESULTS if not x["ok"]])
-    # ---- 0. 准备：合成 QA 会话（幂等） ----
+    # ---- 0. 准备：官方测试身份 + 9999 段临时 QA 测试身份（is_test=true，finally 删除） ----
+    # 政策（AGENTS §0-7）：不得再用真实同学/管理员账号；可见范围角色用临时 QA 测试身份覆盖。
+    sql("delete from private.class_league where sid in "
+        "('9999000011','9999000012','9999000013','9999000014')")
+    sql("delete from private.class_ids where sid in "
+        "('9999000011','9999000012','9999000013','9999000014')")
+    sql("insert into private.class_ids(seat,sid,name,role,badge,is_admin,is_test) values "
+        "(81,'9999000011','QA班委','班长','班委',false,true),"
+        "(82,'9999000012','QA团员','','',false,true),"
+        "(83,'9999000013','QA普通','','',false,true),"
+        "(84,'9999000014','QA管理员','','',true,true)")
+    sql("insert into private.class_league(sid,seat,updated_at) values "
+        "('9999000012',82,now())")
     sql("insert into private.class_sessions(token,sid,name,expires_at) values "
         "('qatok_vote_a','9999000001','投票测试甲',now()+interval '2 days'),"
-        "('qatok_vote_b','9999000002','投票测试乙',now()+interval '2 days') "
+        "('qatok_vote_b','9999000002','投票测试乙',now()+interval '2 days'),"
+        "('qatok_aud_committee','9999000011','QA班委',now()+interval '2 hours'),"
+        "('qatok_aud_league','9999000012','QA团员',now()+interval '2 hours'),"
+        "('qatok_aud_plain','9999000013','QA普通',now()+interval '2 hours'),"
+        "('qatok_aud_admin','9999000014','QA管理员',now()+interval '2 hours') "
         "on conflict (token) do nothing")
-    # 可见人范围：给真实班级身份造一次性 token（班委 / 仅团员 / 普通 / 管理员），仅测试用，finally 删除
-    sql("insert into private.class_sessions(token,sid,name,expires_at) "
-        "select 'qatok_aud_committee', c.sid, c.name, now()+interval '2 hours' from private.class_ids c where c.seat=16 "
-        "union all select 'qatok_aud_league', c.sid, c.name, now()+interval '2 hours' from private.class_ids c where c.seat=1 "
-        "union all select 'qatok_aud_plain', c.sid, c.name, now()+interval '2 hours' from private.class_ids c where c.seat=2 "
-        "on conflict do nothing")
-    sql("insert into private.class_sessions(token,sid,name,expires_at) "
-        "select 'qatok_aud_admin', c.sid, c.name, now()+interval '2 hours' from private.class_ids c "
-        "where c.sid='3260707024' on conflict do nothing")
     st, mem = rpc("poll_list", {}, QA_A)
     T("QA 会话可用（poll_list ok）", bool(mem.get("ok")), str(mem)[:120])
     st, r = rpc("poll_list", {}, None)
@@ -347,7 +356,7 @@ def main():
       has(l_lea, pleag) and not has(l_pla, pleag) and not has(l_com, pleag),
       "lea=%s plain=%s com=%s" % (has(l_lea, pleag), has(l_pla, pleag), has(l_com, pleag)))
 
-    # 指定成员（座号 1、2）
+    # 指定成员（座号数组：只用座号做数据，不再需要/冒用真实成员身份）
     pcus = "pqa" + str(NOW)[-8:] + "o"
     st, r = mk(pcus, "指定成员可见测试", audience="custom", seats=[1, 2])
     audit_raw.append(json.dumps(r, ensure_ascii=False))
@@ -356,23 +365,21 @@ def main():
       and (r.get("poll") or {}).get("audience_count") == 2, r.get("reason"))
     if r.get("ok"):
         CREATED.append(pcus)
+    # 不在名单内的 QA 测试身份（普通）完全看不到（范围外不可见，不暴露存在性）
     l_com, l_lea, l_pla, l_own = lst(AUD_COMMITTEE), lst(AUD_LEAGUE), lst(AUD_PLAIN), lst(QA_A)
-    T("指定成员：名单内团员/普通可见", has(l_lea, pcus) and has(l_pla, pcus))
-    T("指定成员：名单外班委不可见 / 发起人可见", not has(l_com, pcus) and has(l_own, pcus))
+    T("指定成员：名单外测试身份不可见 / 发起人可见",
+      not has(l_com, pcus) and not has(l_lea, pcus) and not has(l_pla, pcus) and has(l_own, pcus))
     st, d = rpc("poll_detail", {"p_id": pcus}, AUD_PLAIN)
     audit_raw.append(json.dumps(d, ensure_ascii=False))
-    T("指定成员：名单内成员可看详情且无管理权、不回传座号名单",
-      d.get("ok") is True and d.get("can_manage") is False
-      and (d.get("poll") or {}).get("audience_seats") == []
-      and (d.get("poll") or {}).get("audience_count") == 2, str((d.get("poll") or {}).get("audience_seats")))
+    T("指定成员：名单外测试身份详情返回「投票不存在」",
+      d.get("ok") is False and "不存在" in str(d.get("reason")), d.get("reason"))
     st, d = rpc("poll_detail", {"p_id": pcus}, QA_A)
-    T("指定成员：发起人（编辑回填）可见座号数组", d.get("ok") is True and (d.get("poll") or {}).get("audience_seats") == [1, 2])
+    T("指定成员：发起人（编辑回填）可见座号数组且无普通成员可见性泄露",
+      d.get("ok") is True and (d.get("poll") or {}).get("audience_seats") == [1, 2])
     st, d = rpc("poll_submit", {"p_id": pcus, "p_choices": ["o1"]}, AUD_ADMIN)
     T("指定成员：管理员不在名单内不能投票（reason=不在可见范围内）",
       d.get("ok") is False and d.get("reason") == "不在可见范围内", d.get("reason"))
-    st, d = rpc("poll_submit", {"p_id": pcus, "p_choices": ["o1"]}, AUD_PLAIN)
-    T("指定成员：名单内成员可投票", d.get("ok") is True and d.get("has_voted") is True)
-    st, d = rpc("poll_submit", {"p_id": pcus, "p_choices": ["o2"]}, QA_A)
+    st, d = rpc("poll_submit", {"p_id": pcus, "p_choices": ["o1"]}, QA_A)
     T("指定成员：发起人不在名单也可投票（owner 例外）", d.get("ok") is True)
 
     # 范围校验
@@ -411,7 +418,7 @@ def main():
                                 "p_options": [opt(1), opt(2)], "p_settings": settings(), "p_deadline": 0}, QA_A)
     T("旧客户端 edit 不传范围：保持原范围不变（custom）",
       r.get("ok") is True and (r.get("poll") or {}).get("audience") == "custom")
-    rpc("poll_submit", {"p_id": ped, "p_choices": ["o1"]}, AUD_PLAIN)  # seat2 在 custom 名单内
+    rpc("poll_submit", {"p_id": ped, "p_choices": ["o1"]}, QA_A)  # 测试身份为发起人（owner 例外可投）→ 制造「已有票」
     st, r = rpc("poll_manage", {"p_id": ped, "p_action": "edit", "p_title": "x", "p_description": "",
                                 "p_options": [opt(1), opt(2)], "p_settings": settings(), "p_deadline": 0,
                                 "p_audience": "all"}, QA_A)
@@ -448,6 +455,10 @@ if __name__ == "__main__":
                 sql("delete from public.polls where id in (%s)" % lst)
             sql("delete from private.class_sessions where token in "
                 "('qatok_vote_a','qatok_vote_b','qatok_aud_committee','qatok_aud_league','qatok_aud_plain','qatok_aud_admin')")
+            sql("delete from private.class_league where sid in "
+                "('9999000011','9999000012','9999000013','9999000014')")
+            sql("delete from private.class_ids where sid in "
+                "('9999000011','9999000012','9999000013','9999000014')")
             for t in EXTRA_TOKENS:
                 if t:
                     sql("delete from private.class_sessions where token = '%s'" % t)

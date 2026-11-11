@@ -34,7 +34,7 @@ html = html.replace("<head>",
     'window.confirm=function(){return true;};</script>')
 html = html.replace('<div id="toast"></div>',
     '<div id="toast"></div>\n<script>try{localStorage.removeItem("zq_tools_v2");localStorage.removeItem("zq_tools_v2_t7");localStorage.setItem("ziqi.tools.v1",JSON.stringify(%s));'
-    'localStorage.setItem("zq_class_identity",JSON.stringify({token:"test-token",sid:"3260707024",name:"测试",role:"",badge:"",is_admin:false,ts:Date.now()}));}catch(e){}</script>'
+    'localStorage.setItem("zq_class_identity",JSON.stringify({token:"test-token",sid:"3260799999",name:"测试账号",role:"",badge:"",is_admin:false,ts:Date.now()}));}catch(e){}</script>'
     % json.dumps(OLD_SEED, ensure_ascii=False))
 html = html.replace("</body>", """<script>window.addEventListener("load",function(){setTimeout(function(){
   var log=[];

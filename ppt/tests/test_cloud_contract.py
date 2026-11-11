@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """test_cloud_contract.py — CloudBase / OSS 契约冒烟 + 真实链路 E2E
 
-契约：``web/ppt/CONTRACT.md`` §3/§4/§6。测试身份：学号 3260799999 / 姓名 测试账号
-（``rpc/class_verify`` 换取 token，token 绝不打印）。
+契约：``web/ppt/CONTRACT.md`` §3/§4/§6。**测试账号唯一化（2026-11-11 用户红线）**：
+本文件只使用测试身份 学号 3260799999 / 姓名 测试账号（``rpc/class_verify`` 换取 token，token 绝不打印）；
+**不得使用真实管理员/同学账号**——管理员专属操作（心跳写 site_assets / 管理员 token 刷新）属于生产运维，
+不在本测试内验证（心跳改为纯 mock 单测，token 刷新改为测试身份的临时 token 文件刷新）。
 
 覆盖（Lead 要求）：
 
@@ -123,8 +125,11 @@ class TestBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         ensure_fixtures()
-        cls.admin = agent.Cloud(log=log)
+        # 政策：测试只用测试账号。cls.admin 现在是**测试身份**客户端（变量名保留以减少改动）；
+        # cls.anon 仅作为无 token 的 HTTP transport（raw 不发 token、不触发 ensure_token/管理员登录）。
+        cls.admin = TestAccountCloud()
         cls.member = TestAccountCloud()
+        cls.anon = agent.Cloud(log=log)
         cls.host = "test-host"
         cls.created_decks = []
 
@@ -201,14 +206,14 @@ class TestRlsAndChunks(TestBase):
         self.assertEqual(status, 200)
         self.assertEqual([r["idx"] for r in rows], [0, 1])
 
-        # 管理员（转换机）读分片
+        # 班级成员（测试身份）读分片（RLS auth_ok）
         status, rows = self.admin.get(
             "ppt_upload_chunks?deck_id=eq.%s&select=idx&order=idx.asc" % deck_id)
         self.assertEqual(status, 200)
         self.assertEqual(len(rows), 2)
 
         # 匿名读 deck 列表 → 200 + 空数组（RLS 生效）
-        status, rows = self.admin.raw(
+        status, rows = self.anon.raw(
             "ppt_decks?select=id&deleted=eq.false&id=eq.%s" % deck_id)
         self.assertEqual(status, 200)
         self.assertEqual(rows, [])
@@ -218,7 +223,7 @@ class TestRlsAndChunks(TestBase):
         self.assertEqual(status, 200)
         self.assertEqual(rows[0]["id"], deck_id)
 
-        # 提交转换 → 管理员在 queued 队列能看到
+        # 提交转换 → 班级成员（测试身份）在 queued 队列能看到
         self._submit(self.member, deck_id, count, len(data))
         status, rows = self.admin.get(
             "ppt_decks?select=id&status=eq.queued&deleted=eq.false&limit=100")
@@ -255,7 +260,7 @@ class TestFailurePath(TestBase):
 
         uploader = oss_upload.OssUploader(log=log)
         summary = agent.run_once(self.admin, uploader, log, self.host,
-                                 deck_id=deck_id, dry_run=False)
+                                 deck_id=deck_id, dry_run=False, heartbeat=False)
         self.assertEqual(summary["action"], "failed", summary)
         status, rows = self.admin.get(
             "ppt_decks?select=status,error,progress&id=eq.%s" % deck_id)
@@ -272,7 +277,7 @@ class TestFailurePath(TestBase):
         log("失败路径 OK：status=failed error=%r" % row["error"])
 
         # 下一轮不会重复认领（failed 不在 queued 队列；且无 deck 参数时不应改回 processing）
-        summary2 = agent.run_once(self.admin, uploader, log, self.host, dry_run=False)
+        summary2 = agent.run_once(self.admin, uploader, log, self.host, dry_run=False, heartbeat=False)
         self.assertEqual(summary2["action"], "none",
                          "队列为空时下一轮应是 none，而不是重新认领 failed deck：%s" % summary2)
         status, rows = self.admin.get("ppt_decks?select=status,progress&id=eq.%s" % deck_id)
@@ -295,7 +300,7 @@ class TestDeletedDeckNotClaimed(TestBase):
                                      prefer="return=minimal")
         self.assertIn(status, (200, 204))
         summary = agent.run_once(self.admin, oss_upload.OssUploader(log=log), log,
-                                 self.host, dry_run=True)
+                                 self.host, dry_run=True, heartbeat=False)
         self.assertNotEqual(summary.get("deck"), deck_id,
                             "deleted deck 不应被认领")
         status, rows = self.admin.get("ppt_decks?select=status,deleted&id=eq.%s" % deck_id)
@@ -307,6 +312,8 @@ class TestDeletedDeckNotClaimed(TestBase):
 # 4. token 过期刷新（mock 过期 exp）
 # ---------------------------------------------------------------------------
 class TestTokenRefreshReal(unittest.TestCase):
+    """测试身份 token 过期刷新（临时 TOKEN_FILE；**绝不使用真实管理员账号**）。"""
+
     def test_01_expired_token_refreshes(self):
         import tempfile
 
@@ -317,6 +324,8 @@ class TestTokenRefreshReal(unittest.TestCase):
             with open(agent.TOKEN_FILE, "w", encoding="utf-8") as fh:
                 json.dump({"token": "x" * 64, "exp": time.time() - 10}, fh)
             cloud = agent.Cloud(log=log)
+            # 关键：把刷新身份指定为测试账号（覆盖 _read_admin_identity 的运维管理员身份）
+            cloud.admin_sid, cloud.admin_name = TEST_SID, TEST_NAME
             token = cloud.ensure_token()
             self.assertTrue(token and len(token) > 20)
             self.assertNotEqual(token, "x" * 64)
@@ -327,7 +336,7 @@ class TestTokenRefreshReal(unittest.TestCase):
             # 用刷新后的 token 真的能读（RLS auth_ok）
             status, rows = cloud.raw("ppt_decks?select=id&limit=1", None, "GET", token)
             self.assertEqual(status, 200)
-            log("token 过期刷新 OK（新 token 长度 %d，未打印内容）" % len(token))
+            log("测试身份 token 过期刷新 OK（新 token 长度 %d，未打印内容）" % len(token))
         finally:
             agent.TOKEN_FILE = old_file
             import shutil
@@ -337,21 +346,30 @@ class TestTokenRefreshReal(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # 5. 心跳行
 # ---------------------------------------------------------------------------
-class TestHeartbeat(TestBase):
-    def test_01_heartbeat_row(self):
-        ok = agent.send_heartbeat(self.admin, log, self.host, queued=2)
+class TestHeartbeat(unittest.TestCase):
+    """心跳行 payload 纯 mock 单测（site_assets 写权限仅管理员；政策禁止测试使用真实管理员账号）。"""
+
+    def test_01_heartbeat_payload(self):
+        calls = []
+
+        class FakeCloud(object):
+            def upsert(self, table, body):
+                calls.append((table, body))
+                return 201, None
+
+        ok = agent.send_heartbeat(FakeCloud(), log, "test-host", queued=2)
         self.assertTrue(ok)
-        status, rows = self.admin.get(
-            "site_assets?select=id,body&id=eq.%s" % agent.AGENT_ID)
-        self.assertEqual(status, 200)
-        self.assertEqual(len(rows), 1)
-        body = rows[0]["body"]
-        self.assertEqual(body["online"], True)
-        self.assertIsInstance(body["queued"], int)
-        self.assertIsInstance(body["seen_at"], int)
-        self.assertEqual(body["version"], agent.AGENT_VERSION)
-        self.assertIsInstance(body["host"], str)
-        self.assertGreater(body["seen_at"], time.time() * 1000 - 600000)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][0], "site_assets")
+        body = calls[0][1]
+        self.assertEqual(body["id"], agent.AGENT_ID)
+        inner = body["body"]
+        self.assertEqual(inner["online"], True)
+        self.assertIsInstance(inner["queued"], int)
+        self.assertIsInstance(inner["seen_at"], int)
+        self.assertEqual(inner["version"], agent.AGENT_VERSION)
+        self.assertIsInstance(inner["host"], str)
+        self.assertGreater(inner["seen_at"], time.time() * 1000 - 600000)
 
 
 # ---------------------------------------------------------------------------
@@ -372,7 +390,7 @@ class TestE2EFixtures(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         ensure_fixtures()
-        cls.admin = agent.Cloud(log=log)
+        cls.admin = TestAccountCloud()   # 政策：测试只用测试账号（owner 权限即可读/软删自己的 fixture）
         cls.member = TestAccountCloud()
         cls.host = "test-host"
         cls.uploader = oss_upload.OssUploader(log=log)
@@ -450,7 +468,7 @@ class TestE2EFixtures(unittest.TestCase):
         self.assertIn(status, (200, 201), "提交转换失败：%s %s" % (status, out))
 
         summary = agent.run_once(self.admin, self.uploader, log, self.host,
-                                 deck_id=deck_id, dry_run=False, legacy=True)
+                                 deck_id=deck_id, dry_run=False, legacy=True, heartbeat=False)
         self.assertEqual(summary["action"], "converted", "E2E 转换失败：%s" % summary)
         status, rows = self.admin.get(
             "ppt_decks?select=id,title,status,progress,error,slide_count,step_count,"

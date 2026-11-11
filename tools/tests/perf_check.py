@@ -64,9 +64,9 @@ BASE = "http://127.0.0.1:%d/" % PORT
 REPORT_DIR = os.path.join(HERE, "_perf_reports")
 SHOTS = os.path.join(HERE, "_perf_shots")
 
-SID_A = "3260709999"
+SID_A = "9999000005"
 NAME_A = "测试同学"
-SID_B = "3260708888"
+SID_B = "9999000006"
 NAME_B = "另一同学"
 MEMBERS = [{"seat": i, "sid": "9000%06d" % i, "name": "同学%02d" % i,
             "role": ("班长" if i == 1 else ""), "badge": ("班委" if i == 1 else ""),

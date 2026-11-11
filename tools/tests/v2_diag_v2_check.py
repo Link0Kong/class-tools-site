@@ -44,7 +44,7 @@ EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 PORT = int(os.environ.get("DIAGV2_PORT") or 8941)
 BASE = "http://127.0.0.1:%d/" % PORT
 
-SID = "3260709999"
+SID = "9999000005"
 NAME = "测试同学"
 TOKEN = "test-token-diagv21"
 NOW = int(time.time() * 1000)

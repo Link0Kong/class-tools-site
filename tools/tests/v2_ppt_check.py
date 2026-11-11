@@ -58,7 +58,7 @@ import _cdp  # noqa: E402
 SID = "3260799999"        # 测试身份学号（class_ids 里的 is_test 身份；非真实用户）
 NAME = "测试同学"
 OTHER_SID = "3260799998"
-OTHER_NAME = "陈子麒"
+OTHER_NAME = "测试同学"
 TOKEN = "fake-token-ppt-check"   # 假 token：不写云端、不可用于任何真实接口
 
 NOW = int(time.time() * 1000)

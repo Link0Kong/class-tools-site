@@ -50,7 +50,7 @@ EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 HTTP_PORT = 8998
 CDP_PORT = 9498
 W, H = 390, 844
-SID = "3260709999"
+SID = "9999000005"
 NAME = "测试同学"
 AN_PREFIX = "[[CLASS_NOTICE_V1]]"
 

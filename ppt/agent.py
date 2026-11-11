@@ -1031,7 +1031,7 @@ def force_status_processing(cloud, deck_id, host, log):
     return True
 
 
-def run_once(cloud, uploader, log, host, deck_id=None, dry_run=False, legacy=False):
+def run_once(cloud, uploader, log, host, deck_id=None, dry_run=False, legacy=False, heartbeat=True):
     """跑一轮；返回 summary dict。
 
     v2.0：默认走 **compat 兼容性处理**（不降质 + 多端下载）；``legacy=True`` 仅运维调试，
@@ -1042,7 +1042,7 @@ def run_once(cloud, uploader, log, host, deck_id=None, dry_run=False, legacy=Fal
                "elapsed_s": 0.0, "dry_run": bool(dry_run)}
     queued = get_queued_count(cloud, log) if not dry_run else 0
     summary["queued"] = queued
-    if not dry_run:
+    if not dry_run and heartbeat:
         try:
             send_heartbeat(cloud, log, host, queued)
         except Exception as exc:  # noqa: BLE001
@@ -1108,7 +1108,7 @@ def run_once(cloud, uploader, log, host, deck_id=None, dry_run=False, legacy=Fal
     result = job.run(deck)
     summary.update(result)
     summary["elapsed_s"] = round(time.monotonic() - t0, 2)
-    if not dry_run:
+    if not dry_run and heartbeat:
         try:
             send_heartbeat(cloud, log, host, get_queued_count(cloud, log))
         except Exception as exc:  # noqa: BLE001

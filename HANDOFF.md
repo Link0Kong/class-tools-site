@@ -3085,3 +3085,30 @@ sync-repos.cmd "feat: 说明本次改了什么"
 ### 45.12 文档 / 提交
 - 新增/更新：本文件 §45、`CHANGELOG.md` 增量 45、`web/AGENTS.md §4b-37`、`_audit/cloudbase_data_audit_20261111.md`、`drop/CONTRACT.md` v2.1、`deploy/ECS_DEPLOY.md §9`、`ppt/README.md`、`mp-class-tools/README.md §九·补`、`mp-class-tools/CHANGELOG.md`、`android-class-tools-notify/docs/REMINDER_BACKGROUND_20261111.md`、`验收报告/2026-11-11_反馈13项_独立验收.md`。
 - 双远端提交见 `sync-repos.cmd` 输出（GitHub origin + Gitee gitee，SHA 一致）。
+
+## 2026-11-11 23:0x–23:5x · 增量 46：测试账号唯一化红线（用户要求「以后测试统一用测试账号，不要再用任何真实账号了」）
+
+> 范围：测试/验收/自动化脚本与 mock 夹具；**无网页/云端功能改动、无需重新部署**。用户红线已写入 `AGENTS.md §0-7`。
+
+### 46.1 政策
+- 只允许：官方测试身份 `3260799999 / 测试账号`；或脚本临时创建、finally 删除的 `is_test=true` **9999 段临时 QA 测试身份**。
+- 严禁：登录真实同学/管理员账号（含 `3260707024`）、读取/注入真实账号 token、用真实身份冒名构造 `private.class_sessions`、在测试里真实写业务数据；mock 夹具学号也不再用真实学号。
+- 生产运维（部署 / PPT 转换机 / 课表同步）不属于测试，服务凭据按 AGENTS §0-1 管理，但不得注入测试/自动化。
+- 守卫工具 `tools/tests/_test_account.py`（`assert_test_identity / test_identity_snapshot / test_identity_token`）。
+
+### 46.2 整改（审计明细 `_audit/real_account_test_audit_20261111.md`）
+- `ppt/tests/test_cloud_contract.py`：管理员客户端 → 测试身份客户端（owner 权限即可）；心跳改纯 mock 单测；token 刷新改用测试身份临时 token 文件；`agent.run_once(..., heartbeat=False)` 支持测试身份（新增参数，生产默认不变）；匿名读用无 token transport。
+- `ppt/tests/cleanup_test_decks.py`：管理员 token → 测试身份 token（fixture 属测试身份，owner 可软删）。
+- `deploy/cloudbase/verify_2026_11_11_shared_tables.py`：删除「真实班级成员 QA 会话」；改为测试身份第二会话 + 非本人 sid 负向 RLS 断言。
+- `tools/tests/dns_pause_web_check.py`：不再读取/注入真实管理员 token；改为测试身份快照（脚本内云端请求全 mock）。
+- `tools/tests/vote_cloud_check.py`：真实班委/团员/普通/管理员身份会话 → `is_test=true` 9999 段临时 QA 测试身份（seat 81–84 + class_league 行，finally 删除）；指定成员可见性保留 owner/负向断言（需要非 is_test 身份才能观测的正向成员场景已如实剔除）。
+- 夹具脱敏：30 个测试文件把真实学号（`3260707001/2/3`、`3260707026`、`3260707024`、`3260709999` 等）替换为官方测试身份或 9999 段；`sync_check/selfcheck/v2_ppt_check` mock 名称同步；`jwxt` SSO 单测示例账号改假号。
+- 历史运维审计脚本 `_audit/tmp_cloud_probe_20261111.py` 加 `OPS_RUN_ADMIN_AUDIT=1` 闸门（非测试）。
+
+### 46.3 验证（真实复跑全绿）
+- 网页：`sync_check 144/144`、`power_check 155/155`、`v2_power_sync_hardening 29/29`、`v2_ui 27/27`、`water_check 171/171`、`v2_water_sync 118/118`、`v2_stage_v5 116/116`、batch2（名单 30/水量 36/文件 37/提醒 37）、`v2_power_pick_mem 48/48`、`dns_pause_web_check 19/19`、`v2_ppt_check 92/92`；0 真实账号参与。
+- PPT：`test_pure_logic 171 OK`、`test_cloud_contract` 测试身份子集 **5/5**（心跳纯 mock、token 刷新用测试身份临时 token）、`cleanup_test_decks --dry-run` exit 0。
+- 云端真实：`verify_2026_11_11_shared_tables` **46/46**（仅测试身份+同身份第二会话，finally 0 残留）、`vote_cloud_check` **80/80**（9999 段临时 QA 身份，finally 清理 sessions/class_ids/class_league/polls）；云端复核 class_ids=71（9999 段 0）、class_league=50（9999 段 0）、QA 会话 0、polls/water/stage_prefs=0。
+- 生产服务 `ppt/agent.py` 的 `heartbeat` 参数默认 True，行为不变；`test_pure_logic 171/171 OK` 证明无回归。
+- 覆盖变化（如实）：管理员专属心跳写/管理员 token 刷新改 mock/运维步骤；可见范围「名单内真实成员可看可投」正向用例（需非 is_test 身份）已移除并在脚本注释说明；其余角色由 9999 段临时 QA 身份覆盖。
+- 回滚：按上述文件逐个还原即可；无 DB/部署回滚。

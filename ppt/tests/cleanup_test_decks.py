@@ -33,7 +33,8 @@
       ``deleted=eq.false&order=created_at.desc&limit=100`` 查询，确认网页列表同样只剩真实 deck。
 
 安全（红线）
-    * 云端读写只经 ``agent.Cloud``（管理员 token 自动读取/刷新，**绝不打印 token/publish key**）；
+    * 云端读写只经**测试身份**（3260799999/测试账号；2026-11-11 用户红线：测试不得使用真实管理员/同学账号；
+  测试 deck 属测试身份，owner 权限即可软删；**绝不打印 token/publish key**）；
     * OSS 只读；凭据由 ``oss_upload.OssUploader`` 内部读取 ``creds.env``，本脚本不打印 AK/SK；
     * 只软删（``deleted=true``）：不 DELETE 行、不删 OSS、不改其他表；
     * 输出中真实同学的学号/姓名一律脱敏；测试身份 id/标题可以显示。
@@ -105,6 +106,27 @@ def mask_name(row):
 
 def is_test_row(row):
     return str(row.get("owner_sid") or "").strip() == TEST_SID
+
+
+class TestIdentityCloud(object):
+    """测试身份 PostgREST 客户端（只登录测试账号；不读取/使用真实管理员 token）。"""
+
+    def __init__(self):
+        self._t = agent.Cloud(log=_silent)
+        status, out = self._t.raw(
+            "rpc/class_verify", {"p_sid": TEST_SID, "p_name": TEST_NAME}, "POST")
+        if status != 200 or not isinstance(out, dict) or not out.get("token"):
+            raise CloudError("测试身份登录失败（class_verify HTTP %s）" % status)
+        self.token = str(out["token"])
+
+    def raw(self, path, body=None, method="GET", prefer=None):
+        return self._t.raw(path, body, method, self.token, prefer)
+
+    def get(self, path):
+        return self.raw(path)
+
+    def patch(self, path, body, prefer="return=minimal"):
+        return self.raw(path, body, "PATCH", prefer)
 
 
 def is_deleted(row):
@@ -412,9 +434,9 @@ def main(argv=None):
     print("模式：%s\n" % mode)
 
     try:
-        cloud = agent.Cloud(log=_silent)
+        cloud = TestIdentityCloud()
     except Exception as exc:  # noqa: BLE001  publish key/配置缺失（消息不含 token）
-        print("[ERROR] 初始化云端客户端失败：%s" % agent.sanitize(str(exc), 200))
+        print("[ERROR] 初始化测试身份客户端失败：%s" % agent.sanitize(str(exc), 200))
         return 1
     try:
         visible = fetch_decks(cloud, visible_only=True)

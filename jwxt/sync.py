@@ -67,7 +67,7 @@ def build_parser() -> argparse.ArgumentParser:
             "注意：密码是**学校统一身份认证密码**（不是旧 jsxsd 直登密码）。\n"
             "密码永远不会写进日志/明文文件；首次使用请先 --save-creds。\n"
             "示例：\n"
-            "  python sync.py --save-creds --account 3260707024\n"
+            "  python sync.py --save-creds --account <学号>\n"
             "  python sync.py --check\n"
             "  python sync.py --out ../tools/tt.json --term 2026-2027-1 --term-start 2026-08-31 --deploy\n"
             "  python sync.py --refresh-sso          # 忽略 cookie 缓存，强制重新走统一认证\n"

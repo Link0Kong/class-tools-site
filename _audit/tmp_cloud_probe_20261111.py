@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
-"""2026-11-11 临时只读探针：CloudBase 数据现状盘点（不打印 token / 学号 / 姓名）。"""
+"""2026-11-11 临时只读探针：CloudBase 数据现状盘点（不打印 token / 学号 / 姓名）。
+
+**历史运维审计脚本，不是测试**：2026-11-11 用户红线后，测试/QA 一律只用测试账号；
+重跑本脚本需要显式设置 OPS_RUN_ADMIN_AUDIT=1（它用管理员 token 做跨表只读盘点）。"""
 import json
 import os
+
+if os.environ.get("OPS_RUN_ADMIN_AUDIT") != "1":
+    raise SystemExit("历史运维审计脚本：测试/QA 请只用测试账号（见 AGENTS.md §0-7）；如确需运维重跑，设置 OPS_RUN_ADMIN_AUDIT=1。")
 import sys
 import urllib.request
 import urllib.error

@@ -55,8 +55,8 @@ PORT = 8941
 BASE = "http://127.0.0.1:%d/" % PORT
 REPORT_DIR = os.path.join(HERE, "_sync_reports")
 
-SID = "3260707024"
-NAME = "陈同学"
+SID = "3260799999"
+NAME = "测试账号"
 TOKEN = "mock-token-" + SID
 AN_PREFIX = "[[CLASS_NOTICE_V1]]"
 BASE_TS = 1762300000000
@@ -196,32 +196,32 @@ V5 = json.loads(r"""{
 }""")
 MARKS = json.loads(r"""[
   {
-    "id": "3260707024|ntdone|auto_g_testA",
-    "seat": "3260707024",
+    "id": "3260799999|ntdone|auto_g_testA",
+    "seat": "3260799999",
     "kind": "ntdone",
     "ref": "auto_g_testA",
     "val": true,
     "ts": 1762300000000
   },
   {
-    "id": "3260707024|ntdone|auto_g_testB",
-    "seat": "3260707024",
+    "id": "3260799999|ntdone|auto_g_testB",
+    "seat": "3260799999",
     "kind": "ntdone",
     "ref": "auto_g_testB",
     "val": false,
     "ts": 1762300001000
   },
   {
-    "id": "3260707024|hw|hw_test1",
-    "seat": "3260707024",
+    "id": "3260799999|hw|hw_test1",
+    "seat": "3260799999",
     "kind": "hw",
     "ref": "hw_test1",
     "val": true,
     "ts": 1762300002000
   },
   {
-    "id": "3260707024|nt|notice_test1",
-    "seat": "3260707024",
+    "id": "3260799999|nt|notice_test1",
+    "seat": "3260799999",
     "kind": "nt",
     "ref": "notice_test1",
     "val": true,

@@ -3,7 +3,7 @@
 
 用法（cwd 任意）：
     python web/tools/tests/dns_pause_web_check.py
-运行：本地静态服务器 + headless Edge（CDP），管理员身份注入（token 只读 secrets，不打印）。
+运行：本地静态服务器 + headless Edge（CDP），**测试身份**注入（不读取真实账号 token；云端请求全 mock）。
 云端请求用 fetch 拦截 mock：service_health 返回 18 行；写请求阻断；tt.json 在回退用例中 404。
 """
 import functools
@@ -21,8 +21,9 @@ QA2 = os.path.join(HERE, "_qa_v2")
 sys.path.insert(0, QA2)
 from _cdp import Browser  # noqa: E402
 
-TOKEN_FILE = r"C:\briefdesk\secrets\class-token.json"
-ADMIN = {"sid": "3260707024", "name": "陈子麒"}
+# 政策（2026-11-11 用户红线）：测试只用测试账号，禁止读取/注入真实管理员 token。
+# 本脚本所有云端请求均为 fetch mock，只需测试身份快照即可进入页面。
+IDENT = {"token": "test-token-dns-pause", "sid": "3260799999", "name": "测试账号"}
 RESULTS = []
 
 
@@ -31,13 +32,9 @@ def T(name, ok, note=""):
     print(("[PASS] " if ok else "[FAIL] ") + name + ((" | " + str(note)[:200]) if note else ""))
 
 
-def token():
-    return json.load(open(TOKEN_FILE, encoding="utf-8"))["token"]
-
-
 def identity():
-    return {"token": token(), "sid": ADMIN["sid"], "name": ADMIN["name"],
-            "role": "", "badge": "", "is_admin": True, "ts": int(time.time() * 1000)}
+    return {"token": IDENT["token"], "sid": IDENT["sid"], "name": IDENT["name"],
+            "role": "", "badge": "", "is_admin": False, "ts": int(time.time() * 1000)}
 
 
 def rows_mock(stale_probe=False, paused=True):

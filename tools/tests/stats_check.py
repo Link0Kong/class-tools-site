@@ -31,7 +31,7 @@ EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 PORT = 8917
 BASE = "http://127.0.0.1:%d/" % PORT
 
-NONADMIN = {"token": "test-token-stats-nonadmin", "sid": "3260709999", "name": "测试同学",
+NONADMIN = {"token": "test-token-stats-nonadmin", "sid": "9999000005", "name": "测试同学",
             "role": "", "badge": "", "is_admin": False, "ts": int(time.time() * 1000)}
 ADMIN = {"token": "test-token-stats-admin", "sid": "3260709998", "name": "测试管理员",
          "role": "团支书", "badge": "班委", "is_admin": True, "ts": int(time.time() * 1000)}

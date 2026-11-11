@@ -4,16 +4,17 @@
 契约：`tools/tests/_water_shared_contract.md`、`tools/tests/_stage_sync_contract.md`
 迁移：`deploy/cloudbase/2026-11-11_water_shared.sql`、`deploy/cloudbase/2026-11-11_stage_prefs.sql`
 
-覆盖（真实 CloudBase PostgreSQL + PostgREST，测试身份 + 一次性 QA 会话）：
+覆盖（真实 CloudBase PostgreSQL + PostgREST，**仅测试身份** + 同身份第二会话；2026-11-11 用户红线：
+测试不得使用任何真实账号）：
 1) schema 与迁移文件一致：列/类型/NOT NULL/默认值、主键（water=(roomverify,month)、
    water_room=roomverify、stage_prefs=sid）、persons CHECK(4,6)、RLS 开启、策略名称/命令/角色、
    stage_prefs.updated_at 触发器、anon 表级授权、auth_ok()/auth_sid() 存在；
 2) 无 token → GET 返回 []、写被拒（401/403），不会产生行；
 3) 有效 token：water upsert 幂等（同 (roomverify,month) 覆盖）、GET/DELETE、water_room upsert、
-   另一账号（同班 QA 会话）能看到/写入同一条宿舍记录（水量为全班共享）；
+   测试身份的第二会话能看到/写入同一条宿舍记录（water 为班级 token 共享，与 session 无关）；
 4) stage_prefs：写入 layout → 读回一致；再次写入 updated_at 递增（LWW 触发器的关键）；
-   另一账号查询/写入他人 sid 被拒/过滤（仅本人行）；删除不存在（契约无 DELETE 策略，用超级用户清理）；
-5) 清理：finally 用 ExecutePGSQL 超级用户删除本次测试行/QA 会话，并复核 0 残留。
+   写入非本人 sid 被 with check 拒绝（仅本人行）；删除不存在（契约无 DELETE 策略，用超级用户清理）；
+5) 清理：finally 用 ExecutePGSQL 超级用户删除本次测试行/第二会话，并复核 0 残留。
 
 安全：token / 学号 / 姓名只存在进程内存，**不打印、不落盘**；测试行写入前带唯一标记，
 finally 硬删除。本脚本不修改任何迁移/业务数据。
@@ -42,7 +43,7 @@ WEB = os.path.dirname(os.path.dirname(HERE))
 REST = "https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/"
 KEY = open(os.path.join(HERE, "publish_key.txt"), encoding="utf-8").read().strip()
 TEST_SID, TEST_NAME = "3260799999", "测试账号"      # 测试身份（is_test=true，公开凭据，不打印）
-QA_TOKEN = "qatok_shared_verify_20261111"
+QA_TOKEN = "qatok_shared_verify_20261111"   # 测试身份的第二会话 token（不是任何真实账号）
 MARK_RV = "4-TEST---999"                           # 测试专用 roomverify（唯一、可识别）
 MARK_MONTH = "2099-12"                             # 测试专用月份（不影响真实数据）
 LAYOUT_A = {"v": 1, "order": ["ppt", "vote", "timer", "draw"],
@@ -173,21 +174,18 @@ def login_test_identity():
 
 
 def create_qa_session():
-    """一次性 QA 会话：绑定一个真实班级成员（普通成员即可），仅用于跨账号隔离测试，finally 删除。"""
-    rows = sql_rows("select c.sid, c.name from private.class_ids c "
-                    "where not coalesce(c.is_test,false) order by c.seat limit 1")
-    if not rows:
-        raise SystemExit("private.class_ids 无可用班级成员，无法创建 QA 会话")
-    sid = str(rows[0]["sid"])
-    name = str(rows[0]["name"] or "")
+    """测试身份的**第二会话**（同 sid、不同 token；仅用于验证「水量共享/会话无关」与 with check 拒绝），
+    2026-11-11 用户红线后不再绑定任何真实班级成员；finally 删除该会话行。"""
+    sid = str(MEM["test_sid"])
+    name = str(TEST_NAME)
     ok = sql_exec(
         "insert into private.class_sessions(token,sid,name,expires_at) values "
         "('%s','%s','%s',now()+interval '2 hours') "
         "on conflict (token) do update set sid=excluded.sid, name=excluded.name, "
         "expires_at=excluded.expires_at"
-        % (_q(QA_TOKEN), _q(sid), _q(name)), label="create one-time QA session")
+        % (_q(QA_TOKEN), _q(sid), _q(name)), label="create second test session")
     if not ok:
-        raise SystemExit("QA 会话创建失败")
+        raise SystemExit("第二测试会话创建失败")
     MEM["qa_token"], MEM["qa_sid"] = QA_TOKEN, sid
     MEM["created"]["qa_session"] = True
     return QA_TOKEN, sid
@@ -437,23 +435,23 @@ def check_water_shared():
       % (len(rows), rows[0].get("reading") if rows else "?",
          rows[0].get("persons") if rows else "?"))
 
-    # 另一账号（同班 QA 会话）可见并可写同一条宿舍记录 → 水量为班级共享
+    # 同一测试身份的第二会话可见并可写同一条宿舍记录 → 水量按班级 token 共享（与 session 无关）
     qa = MEM["qa_token"]
     r = rest("GET", ("water?select=roomverify,month,reading,persons&roomverify=eq.%s"
                      "&month=eq.%s" % (MARK_RV, MARK_MONTH)), token=qa)
     qa_rows = r["json"] if isinstance(r["json"], list) else []
-    T("另一账号（QA 会话）能看到同一条 water 记录（宿舍共享）",
+    T("测试身份第二会话能看到同一条 water 记录（宿舍共享）",
       r["status"] == 200 and len(qa_rows) == 1
       and float(qa_rows[0].get("reading")) == 222.5,
       "HTTP %s rows=%d" % (r["status"], len(qa_rows)))
     r = rest("POST", path, token=qa, body={"roomverify": MARK_RV, "month": MARK_MONTH,
                                            "reading": 333.75, "persons": 4},
              prefer=upsert_headers())
-    T("另一账号可写同一条 water（班级共享语义）", r["status"] in (200, 201, 204),
+    T("测试身份第二会话可写同一条 water（班级共享语义）", r["status"] in (200, 201, 204),
       "HTTP %s" % r["status"])
     r = rest("GET", sel, token=tok)
     rows = r["json"] if isinstance(r["json"], list) else []
-    T("测试身份立即看到另一账号写入（333.75）",
+    T("测试身份主会话立即看到第二会话写入（333.75）",
       len(rows) == 1 and float(rows[0].get("reading")) == 333.75,
       "reading=%s" % (rows[0].get("reading") if rows else "?"))
 
@@ -545,35 +543,22 @@ def check_stage_prefs():
       updated1 > 0 and updated2 > updated1,
       "delta_ms=%d" % (updated2 - updated1))
 
-    # 仅本人：测试身份查 QA 的 sid → []; QA 查测试 sid → []
-    r = rest("GET", "stage_prefs?select=layout,updated_at&sid=eq."
-             + urllib.parse.quote(qa_sid), token=tok)
-    rows = r["json"] if isinstance(r["json"], list) else []
-    T("测试身份查询他人 stage_prefs → []（RLS 仅本人）",
-      (r["status"] == 200 and rows == []) or r["status"] in (401, 403),
-      "HTTP %s rows=%s" % (r["status"], len(rows) if isinstance(rows, list) else "?"))
+    # 仅本人：写入非本人 sid 会被 with check 拒绝（不涉及任何真实账号）
+    other_sid = "9999000000"   # 合成 sid（不属于任何人；仅用于 RLS 负向断言）
+    r = rest("POST", "stage_prefs?on_conflict=sid", token=tok,
+             body={"sid": other_sid, "layout": {"v": 1, "at": 1}}, prefer=upsert_headers())
+    T("写入非本人 sid 的 stage_prefs 被拒（401/403，with check auth_sid()=sid）",
+      r["status"] in (401, 403), "HTTP %s" % r["status"])
+    # 第二会话（同 sid）看到同一行（同账号多设备语义）；非本人行仍不可见
     r = rest("GET", own_get, token=qa)
     rows = r["json"] if isinstance(r["json"], list) else []
-    T("另一账号查询测试身份的 stage_prefs → []（RLS 仅本人）",
+    T("测试身份第二会话看到本账号 stage_prefs（同 sid 多设备）",
+      r["status"] == 200 and len(rows) == 1, "HTTP %s rows=%d" % (r["status"], len(rows)))
+    r = rest("GET", "stage_prefs?select=layout,updated_at&sid=eq." + urllib.parse.quote(other_sid), token=tok)
+    rows = r["json"] if isinstance(r["json"], list) else []
+    T("查询非本人 sid 的 stage_prefs → []（RLS 仅本人）",
       (r["status"] == 200 and rows == []) or r["status"] in (401, 403),
       "HTTP %s rows=%s" % (r["status"], len(rows) if isinstance(rows, list) else "?"))
-
-    # QA 写入测试身份的 sid 应被 with check 拒绝；写自己的 sid 成功
-    r = rest("POST", "stage_prefs?on_conflict=sid", token=qa,
-             body={"sid": sid, "layout": {"v": 1, "at": 1}}, prefer=upsert_headers())
-    T("另一账号不能写他人 stage_prefs（401/403）", r["status"] in (401, 403),
-      "HTTP %s" % r["status"])
-    r = rest("POST", "stage_prefs?on_conflict=sid", token=qa,
-             body={"sid": qa_sid, "layout": {"v": 1, "order": ["ppt"], "at": 2}},
-             prefer=upsert_headers())
-    MEM["created"]["qa_stage"] = r["status"] in (200, 201, 204)
-    r = rest("GET", "stage_prefs?select=layout,updated_at&sid=eq."
-             + urllib.parse.quote(qa_sid), token=qa)
-    rows = r["json"] if isinstance(r["json"], list) else []
-    T("另一账号写/读自己的 stage_prefs 正常",
-      MEM["created"]["qa_stage"] and len(rows) == 1
-      and (rows[0].get("layout") or {}).get("order") == ["ppt"],
-      "HTTP %s rows=%d" % (r["status"], len(rows)))
     # 未授权 DELETE：契约无 DELETE 策略 → 删除应被拒/不生效（数据仍可由超级用户清理）
     r = rest("DELETE", "stage_prefs?sid=eq." + urllib.parse.quote(sid), token=tok)
     r2 = rest("GET", own_get, token=tok)
@@ -585,11 +570,11 @@ def check_stage_prefs():
 
 # ------------------------------------------------------------------ main
 def main():
-    print("=== 0. 准备：测试身份登录 + 一次性 QA 会话 + 预清理 ===")
+    print("=== 0. 准备：测试身份登录 + 第二测试会话 + 预清理 ===")
     login_test_identity()
     T("测试身份 class_verify 登录成功（token 不打印）", bool(MEM["test_token"]))
     create_qa_session()
-    T("一次性 QA 会话创建成功（真实班级成员身份，finally 删除；sid/姓名不打印）",
+    T("测试身份第二会话创建成功（不涉及真实账号；finally 删除该会话行）",
       bool(MEM["qa_token"]))
     preclean()
     T("预清理完成（测试标记行/测试身份 stage_prefs）", True)

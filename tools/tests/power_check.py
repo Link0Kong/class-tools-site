@@ -46,8 +46,8 @@ EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 PORT = 8933
 BASE = "http://127.0.0.1:%d/" % PORT
 
-SID_A = "3260707001"
-SID_B = "3260707002"
+SID_A = "9999000001"
+SID_B = "9999000002"
 NAME = "测试同学"
 
 CATALOG = [

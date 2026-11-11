@@ -40,7 +40,7 @@ EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 PORT = 8921
 BASE = "http://127.0.0.1:%d/" % PORT
 
-SID = "3260710001"          # 合成学号（10 位，不是真实学号）
+SID = "9999000007"          # 合成学号（10 位，不是真实学号）
 NAME = "验收同学"
 PREFIX = "同学"
 MEMBERS = [{"seat": i, "sid": "9100%06d" % i, "name": "%s%02d" % (PREFIX, i),
