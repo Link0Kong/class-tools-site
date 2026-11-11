@@ -79,6 +79,10 @@ NAME = "测试同学"
 RV321 = "4-23A---321"
 RV330 = "4-23A---330"
 RV305 = "1-16---305"
+# 契约变更（2026-11-11，反馈6）：23A/23B 固定 4 人间 → 4↔6 人重算改用 13 号楼房间；
+# 6 人间恢复类场景改用 16 号楼房间（与 23A/23B 无关的旧断言不受影响）
+RV13 = "1-13---324"
+RV16 = "1-16---306"
 
 CATALOG = [
     ("1-13---324", "13号楼324", "13号楼"),
@@ -953,15 +957,34 @@ def sc_c_records(cdp):
     order = [r["m"] for r in rows_of(cdp)]
     T("C18 历史列表按月份倒序", order == [M1, M2, M3, M4], ",".join(order))
 
+    # 契约变更（2026-11-11，反馈6）：23A/23B 固定 4 人、人数选择器禁用。
+    # 先在 23A 房间验证固定 4，再切 13 号楼（1-13---324）用同样读数验证 4↔6 人重算。
+    set_select(cdp, "#wtPersons", "6")
+    sleep(0.3)
+    fixed4_ok = (jval(cdp, "#wtPersons") == "4" and
+                 bool(ev(cdp, "(function(){var e=document.getElementById('wtPersons');return !!e&&!!e.disabled;})()")))
+    T("C18b 23A 房间（4-23A---321）固定 4 人间：选择器禁用、不能改 6", fixed4_ok,
+      "val=%s" % jval(cdp, "#wtPersons"))
+    rv13_ok = select_water_room(cdp, RV13)
+    sleep(0.4)
+    en13 = wait_until(cdp, "(function(){var e=document.getElementById('wtSave');return !!e&&!e.disabled;})()", 10)
+    T("C18c 13 号楼可切换关注宿舍（人数 4/6 可选）",
+      rv13_ok and en13 and not ev(cdp, "(function(){var e=document.getElementById('wtPersons');return !!e&&!!e.disabled;})()"),
+      "sel=%s" % jval(cdp, "#wtSel"))
+    save_record(cdp, M4, "100.00")
+    save_record(cdp, M3, "113.74")
+    save_record(cdp, M1, "130.00")
+    wait_text(cdp, "#wtList", "17.39", 10)
+
     # 人数 4 → 6：历史水费全量重算（M3 13.80→5.45；M1 10.00→0.00）
     set_select(cdp, "#wtPersons", "6")
     sleep(0.4)
     wait_text(cdp, "#wtList", "5.45", 10)
     row3 = row_text(cdp, M3)
     row1 = row_text(cdp, M1)
-    T("C19 人数切 6：M3 水费按 6 人重算 5.45", "5.45" in norm(row3), norm(row3)[:110])
-    T("C20 人数切 6：M1 用量 10.00 < 免 12 吨 → 水费 0.00", "0.00" in norm(row1), norm(row1)[:110])
-    T("C21 人数切 6：规则卡免费额度更新为 12 吨", "12吨" in norm(jtext(cdp, "#wtRuleBody")),
+    T("C19 13 号楼人数切 6：M3 水费按 6 人重算 5.27", "5.27" in norm(row3), norm(row3)[:110])
+    T("C20 13 号楼人数切 6：M1 用量 10.00 < 定额 12 吨 → 水费 0.00", "0.00" in norm(row1), norm(row1)[:110])
+    T("C21 13 号楼人数切 6：规则卡定额更新为 12 吨", "12吨" in norm(jtext(cdp, "#wtRuleBody")),
       norm(jtext(cdp, "#wtRuleBody"))[:100])
 
     # 人数 6 → 4：恢复（M3 17.57）
@@ -969,9 +992,13 @@ def sc_c_records(cdp):
     sleep(0.4)
     wait_text(cdp, "#wtList", "17.57", 10)
     row3 = row_text(cdp, M3)
-    T("C22 人数切回 4：M3 水费恢复 17.57", "17.57" in norm(row3), norm(row3)[:110])
-    T("C23 人数切回 4：规则卡免费额度 8 吨", "8吨" in norm(jtext(cdp, "#wtRuleBody")),
+    T("C22 13 号楼人数切回 4：M3 水费恢复 17.39", "17.39" in norm(row3), norm(row3)[:110])
+    T("C23 13 号楼人数切回 4：规则卡定额 8 吨", "8吨" in norm(jtext(cdp, "#wtRuleBody")),
       norm(jtext(cdp, "#wtRuleBody"))[:100])
+
+    # 切回原 23A 房间（后续 C24+ 断言仍在 321 上）
+    select_water_room(cdp, RV321)
+    sleep(0.4)
 
     # 删除 M3（confirm 确认）→ M2 用量重算为 20.00 / 36.36
     try:
@@ -1209,9 +1236,9 @@ def sc_f_isolation(cdp):
     recsA = (((bucketA.get("water") or {}).get("rooms") or {}).get(RV321) or {}).get("recs") or []
     T("F13 账号A：本机桶写入 water 记录", len(recsA) >= 2, json.dumps(recsA, ensure_ascii=False)[:120])
 
-    # 账号 B（不清本机，验证两账号隔离）
-    seedB = ud_blob(power_sel=RV330, water_rooms={
-        RV330: {"p": 6, "recs": [rec("2025-03", 10.00), rec("2025-04", 30.00)]}})
+    # 账号 B（不清本机，验证两账号隔离）；6 人间用 16 号楼房间（23A/23B 已固定 4 人）
+    seedB = ud_blob(power_sel=RV16, water_rooms={
+        RV16: {"p": 6, "recs": [rec("2025-03", 10.00), rec("2025-04", 30.00)]}})
     nav(cdp, purl(sid=SID_B, ud=seedB))
     wait_ud_baseline(cdp, SID_B)
     open_water_page(cdp)

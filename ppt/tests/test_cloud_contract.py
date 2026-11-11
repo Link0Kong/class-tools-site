@@ -15,13 +15,18 @@
    - 嵌入视频 fixture（16:9，含 m0.mp4）→ 上传分片 → queued → agent 真实转换 →
      PATCH ready → manifest media hotspot 0..1 → OSS HEAD mp4 = 200 + Content-Type video/mp4；
    - 4:3 fixture → 同上 → manifest w/h=1600x1200。
-   这两个 deck 默认**保留**（标题带「测试·」前缀，交付前由 Lead 统一 soft-delete + 清 OSS）。
+   这两个 deck（标题带「测试·」前缀）**测试结束后自动 soft-delete**（2026-11-11 用户反馈
+   “测试ppt还是没有删除”：此前设计为“保留给网页验收”，任何一次测试/验收重跑都会把测试
+   deck 重新留在全班可见列表；现改为 tearDownClass 统一软删 + 清分片，测试跑完列表只剩真实
+   deck。若某次真实验收需要在浏览器里看到 fixture，请在**同一次测试进程**内使用，不要留在云端）。
 
 运行::
 
     python tests/test_cloud_contract.py -v
+    python tests/cleanup_test_decks.py --apply   # 兜底：清历史遗留的可见测试 deck（幂等）
 
-注意：会产生云端临时行（测试统一在 finally 清理），以及两个保留的 ready fixture deck。
+注意：会产生云端临时行（测试统一在 tearDownClass/finally 清理），fixture deck 也会被软删；
+OSS 测试资产不自动删除（只统计）。
 """
 import base64
 import json
@@ -362,7 +367,7 @@ def _head(url):
 
 
 class TestE2EFixtures(unittest.TestCase):
-    """创建并保留 2 个 ready deck（供网页端真实播放器验收）。"""
+    """创建 2 个 ready deck 做真实 OSS 链路 E2E；**结束后自动 soft-delete**（不再留在全班可见列表）。"""
 
     @classmethod
     def setUpClass(cls):
@@ -371,6 +376,37 @@ class TestE2EFixtures(unittest.TestCase):
         cls.member = TestAccountCloud()
         cls.host = "test-host"
         cls.uploader = oss_upload.OssUploader(log=log)
+        cls.fixture_ids = []  # 本轮涉及的 fixture deck（新建或复用的都记下来，结束时统一软删）
+
+    @classmethod
+    def _track(cls, deck_id):
+        if deck_id and deck_id not in cls.fixture_ids:
+            cls.fixture_ids.append(deck_id)
+
+    @classmethod
+    def tearDownClass(cls):
+        """夹具自清理：软删 fixture deck + 删残留分片，保证跑完 deleted=false 只剩真实 deck。"""
+        for deck_id in getattr(cls, "fixture_ids", []):
+            try:
+                cls.admin.delete("ppt_upload_chunks?deck_id=eq.%s" % deck_id)
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                cls.admin.patch("ppt_decks?id=eq.%s" % deck_id,
+                                {"deleted": True, "updated_at": now_ms()},
+                                prefer="return=minimal")
+            except Exception:  # noqa: BLE001
+                pass
+        # 复核：列表里不应再有这两个测试标题的可见 deck（不阻断测试结果，仅日志）
+        try:
+            status, rows = cls.admin.get(
+                "ppt_decks?select=id,title&deleted=eq.false&limit=200")
+            if status == 200 and isinstance(rows, list):
+                left = [r for r in rows if str(r.get("title") or "").startswith("测试·")]
+                log("E2E 夹具清理后可见测试 deck = %d%s"
+                    % (len(left), "" if not left else "（仍有残留，请跑 cleanup_test_decks.py）"))
+        except Exception:  # noqa: BLE001
+            pass
 
     def _find_ready_fixture(self, title):
         status, rows = self.admin.get(
@@ -382,6 +418,7 @@ class TestE2EFixtures(unittest.TestCase):
                     continue
                 manifest = row.get("manifest") or {}
                 if manifest.get("slides"):
+                    self._track(row.get("id"))
                     return row
         return None
 
@@ -396,6 +433,7 @@ class TestE2EFixtures(unittest.TestCase):
             "chunk_count": 0, "created_at": now, "updated_at": now, "deleted": False,
         }], prefer="return=representation")
         self.assertIn(status, (200, 201), "建 deck 失败：%s %s" % (status, out))
+        self._track(deck_id)
         total = (len(data) + CHUNK_RAW - 1) // CHUNK_RAW
         rows = []
         for idx in range(total):

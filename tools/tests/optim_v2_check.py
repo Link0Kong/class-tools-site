@@ -205,73 +205,70 @@ RUNNER = r"""
           var hrefOk="";try{hrefOk=String(window.PPT&&window.PPT.hrefOf?window.PPT.hrefOf("d2","compat"):"");}catch(e){}
           T("PPT：已下载 → 主按钮变「打开」", !!heroOpen && txt('#opt2Stage [data-panel="ppt"]').indexOf("已下载")>=0, "");
           T("PPT：Office 打开链接（ECS 加速）可用", hrefOk.indexOf("/pptfiles/ppt/")>=0, hrefOk.slice(0,60));
-          /* 模块点击放大 + 灵动岛 */
+          /* 模块聚焦 / 灵动岛 / 直拖 / 模块管理（V5） */
           T("灵动岛：进行中模块汇总", !!q("#o2sIsland") && !q("#o2sIsland").hidden && txt("#o2sIsland").indexOf("进行中")>=0, txt("#o2sIsland"));
-          var hd=q('#opt2Stage [data-panel="ppt"] [data-panelhd]'); if(hd)hd.click(); await sleep(300);
-          T("模块点击放大：单面板聚焦", !!q('#opt2Stage [data-panel="ppt"].opt2-focused') &&
-            q('#opt2Stage [data-panel="vote"]').hidden===true, "");
-          T("聚焦时灵动岛可退出", txt("#o2sIsland").indexOf("退出聚焦")>=0, "");
-          click('[data-stg="focusclear"]'); await sleep(250);
-          T("退出聚焦恢复多面板", !!q('#opt2Stage [data-panel="vote"]') && q('#opt2Stage [data-panel="vote"]').hidden===false, "");
-          /* 投票面板：实时投屏 */
-          await waitFor(function(){return txt('#opt2Stage [data-panel="vote"]').indexOf("团日活动形式投票")>=0;},6000);
-          var vt=txt('#opt2Stage [data-panel="vote"]');
-          T("投票面板：实时投屏（标题/人数/票数条）", vt.indexOf("团日活动形式投票")>=0 && vt.indexOf("12")>=0 && !!q('#opt2Stage [data-panel="vote"] .opt2-vbar'), "");
-          T("投票面板：不显示投票人姓名", vt.indexOf("测试同学")<0, "");
-          click('#opt2Stage [data-panel="vote"] [data-stg="votecreate"]'); await sleep(250);
-          T("投票完整发起：弹层打开", !!q("#o2sModal") && !q("#o2sModal").hidden && !!q("#o2sCrtTitle"), "");
-          T("投票完整发起：规则/可见范围/结果/限时齐全", !!q('#o2sModal [data-crtmode]') && !!q('#o2sModal [data-crtaud="custom"]') &&
-            !!q('#o2sModal [data-crtvis="afterClose"]') && !!q('#o2sModal [data-crtmins="120"]') &&
-            document.querySelectorAll("#o2sCrtOpts [data-crtopt]").length===2, "");
-          q("#o2sCrtTitle").value="团日现场快投";
-          var oi=document.querySelectorAll("#o2sCrtOpts [data-crtopt]");
-          if(oi[0])oi[0].value="方案A"; if(oi[1])oi[1].value="方案B";
-          click('#o2sModal [data-crtmode="multi"]'); await sleep(90);
-          T("投票完整发起：多选出现最多可选", !!q('#o2sModal [data-crtmax="2"]'), "");
-          click('#o2sModal [data-crtmax="2"]'); await sleep(60);
-          click('#o2sModal [data-crtaud="league"]'); await sleep(80);
-          click('#o2sModal [data-crtvis="afterVote"]'); await sleep(80);
-          click('#o2sModal [data-crtmins="30"]'); await sleep(120);
-          T("投票完整发起：切规则/范围/限时不丢输入", q("#o2sCrtTitle") && q("#o2sCrtTitle").value==="团日现场快投" &&
-            document.querySelectorAll("#o2sCrtOpts [data-crtopt]")[0].value==="方案A", "");
-          click("#o2sCrtGo");
-          await waitFor(function(){return q("#o2sModal") && q("#o2sModal").hidden;},5000);
-          T("投票完整发起：创建成功", q("#o2sModal") && q("#o2sModal").hidden && txt("#toast").indexOf("已发起")>=0, txt("#toast").slice(0,30));
-          /* 布局自定义 */
-          click('[data-stg="laytoggle"]'); await sleep(200);
-          T("布局编辑：编辑态与预设条", q("#opt2Stage").classList.contains("opt2-editing") && !!q("#o2sLbar") && !q("#o2sLbar").hidden, "");
-          /* 选中面板 → 底部大按钮条动作生效 */
-          q('#opt2Stage [data-panel="vote"]').click(); await sleep(250);
-          T("布局编辑：点击面板出现大按钮条", !!q("#o2sSelbar") && !q("#o2sSelbar").hidden && txt("#o2sSelLab").indexOf("投票")>=0, txt("#o2sSelLab"));
-          var svBefore=q('#opt2Stage [data-panel="vote"]').style.gridColumn;
-          click('#o2sSelbar [data-stg="laysize"]'); await sleep(250);
-          var svAfter=q('#opt2Stage [data-panel="vote"]').style.gridColumn;
-          T("布局编辑：大按钮条动作生效", !!svBefore && !!svAfter && svAfter!==svBefore, svBefore+"->"+svAfter);
-          /* 整条表头拖拽换位 */
+          T("顶部无「退出聚焦」按钮", !q("#o2sFocusExit"), "");
+          var zb=q('#opt2Stage [data-panel="ppt"] .opt2-zbtn'); if(zb)zb.click(); await sleep(350);
+          T("聚焦按钮：单面板聚焦 + 图标变缩小", !!q('#opt2Stage [data-panel="ppt"].opt2-focused') &&
+            q('#opt2Stage [data-panel="vote"]').hidden===true && txt('#opt2Stage [data-panel="ppt"] .opt2-zbtn')==="⤡", txt('#opt2Stage [data-panel="ppt"] .opt2-zbtn'));
+          T("聚焦时灵动岛无「退出聚焦」", txt("#o2sIsland").indexOf("退出聚焦")<0, txt("#o2sIsland"));
+          T("聚焦态：演示专属全屏 UI（大标题/大按钮）", !!q('#opt2Stage [data-fv="ppt"] .opt2-ppt-ttl') && !!q('#opt2Stage [data-fv="ppt"] .opt2-play'), "");
+          click('#opt2Stage [data-panel="ppt"] .opt2-zbtn'); await sleep(300);
+          T("聚焦按钮：再点还原多面板", q('#opt2Stage [data-panel="vote"]').hidden===false, "");
+          /* 顶部无布局按钮；直拖排序（鼠标按住表头）+ 右下拖宽 */
+          T("顶部无布局/编辑模式按钮", !q("#o2sLay") && !q("#o2sLbar"), "");
+          T("模块管理：顶栏「＋ 模块」入口", !!q("#o2sModBtn"), "");
           (function(){
             var root=q("#opt2Stage");
-            function pe(el,type,x,y){var e=new PointerEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,pointerId:1,button:0});el.dispatchEvent(e);}
+            function pe(el,type,x,y){var e=new PointerEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,pointerId:1,button:0,pointerType:"mouse"});el.dispatchEvent(e);}
             var h=root.querySelector('[data-panel="ppt"] [data-panelhd]');var r=h.getBoundingClientRect();
             pe(h,"pointerdown",r.left+8,r.top+8);
             var t2=root.querySelector('[data-panel="vote"]');var tr=t2.getBoundingClientRect();
-            document.dispatchEvent(new PointerEvent("pointermove",{bubbles:true,cancelable:true,clientX:tr.left+Math.max(20,tr.width*0.4),clientY:tr.top+Math.max(20,tr.height*0.4),pointerId:1,button:0}));
-            document.dispatchEvent(new PointerEvent("pointerup",{bubbles:true,cancelable:true,clientX:tr.left+40,clientY:tr.top+40,pointerId:1,button:0}));
-          })(); await sleep(300);
+            document.dispatchEvent(new PointerEvent("pointermove",{bubbles:true,cancelable:true,clientX:tr.left+Math.max(20,tr.width*0.4),clientY:tr.top+Math.max(20,tr.height*0.4),pointerId:1,button:0,pointerType:"mouse"}));
+            document.dispatchEvent(new PointerEvent("pointerup",{bubbles:true,cancelable:true,clientX:tr.left+40,clientY:tr.top+40,pointerId:1,button:0,pointerType:"mouse"}));
+          })(); await sleep(400);
           var hdOrder="";try{hdOrder=JSON.parse(localStorage.getItem("zq_stage_layout_v1")).order.join(",");}catch(e){}
-          T("布局编辑：整条表头可拖拽换位", hdOrder.indexOf("vote,ppt")===0, hdOrder);
-          click('#o2sLbar [data-preset="dual"]'); await sleep(200);
-          var pptPanel=q('#opt2Stage [data-panel="ppt"]');
-          T("布局编辑：预设「双栏」生效", pptPanel && pptPanel.style.gridColumn==="span 6", pptPanel?pptPanel.style.gridColumn:"none");
-          click('#opt2Stage [data-panel="ppt"] [data-stg="laysize"]'); await sleep(200);
-          T("布局编辑：面板大小切换", (function(){try{return JSON.parse(localStorage.getItem("zq_stage_layout_v1")).span.ppt===8;}catch(e){return false;}})(), q('#opt2Stage [data-panel="ppt"]').style.gridColumn);
-          click('#opt2Stage [data-panel="vote"] [data-stg="layhide"]'); await sleep(200);
-          T("布局编辑：隐藏面板", q('#opt2Stage [data-panel="vote"]').hidden===true, "");
-          var showBtn=q('#o2sLhid [data-stg="layshow"]');
-          if(showBtn)showBtn.click(); await sleep(200);
-          T("布局编辑：恢复隐藏面板", q('#opt2Stage [data-panel="vote"]').hidden!==true, "");
-          T("布局保存到本机", !!localStorage.getItem("zq_stage_layout_v1"), "");
-          click('[data-stg="laydone"]'); await sleep(150);
-          T("布局编辑：可退出", !q("#opt2Stage").classList.contains("opt2-editing"), "");
+          T("直拖：鼠标按住卡片表头可换位", hdOrder.indexOf("vote,ppt")===0, hdOrder);
+          T("直拖：落位写入本机离线缓存", !!localStorage.getItem("zq_stage_layout_v1"), "");
+          var rz=q('#opt2Stage [data-panel="vote"] [data-resize]');
+          T("拖宽：右下角手柄存在（V5 不再依赖编辑模式；手机单列隐藏）", !!rz && document.querySelectorAll('#opt2Stage [data-resize]').length===4, "");
+          (function(){
+            var panel=q('#opt2Stage [data-panel="vote"]'),grip=panel.querySelector("[data-resize]");
+            var r=grip.getBoundingClientRect(),colW=document.querySelector("#o2sBody").clientWidth/12;
+            function pe(el,type,x,y){el.dispatchEvent(new PointerEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,pointerId:2,button:0,pointerType:"mouse"}));}
+            pe(grip,"pointerdown",r.left+r.width/2,r.top+r.height/2);
+            document.dispatchEvent(new PointerEvent("pointermove",{bubbles:true,cancelable:true,clientX:r.left+r.width/2+colW*3,clientY:r.top+r.height/2,pointerId:2,button:0,pointerType:"mouse"}));
+            document.dispatchEvent(new PointerEvent("pointerup",{bubbles:true,cancelable:true,clientX:r.left+r.width/2+colW*3,clientY:r.top+r.height/2,pointerId:2,button:0,pointerType:"mouse"}));
+          })(); await sleep(300);
+          var spanNow="";try{spanNow=String(JSON.parse(localStorage.getItem("zq_stage_layout_v1")).span.vote);}catch(e){}
+          T("拖宽：改变宽度并持久化", spanNow!=="4" && spanNow!=="", spanNow);
+          /* 模块管理弹层：移除 / 加回 */
+          click("#o2sModBtn"); await sleep(250);
+          T("模块管理：弹层列出 4 个模块且可增删", !!q("#o2sModModal") && !q("#o2sModModal").hidden && document.querySelectorAll("#o2sModBody .opt2-modrow").length===4, "");
+          click('#o2sModBody [data-stg="modtoggle"][data-k="timer"]'); await sleep(250);
+          T("模块管理：移除模块生效", q('#opt2Stage [data-panel="timer"]').hidden===true, "");
+          click('#o2sModBody [data-stg="modtoggle"][data-k="timer"]'); await sleep(250);
+          T("模块管理：添加回模块", q('#opt2Stage [data-panel="timer"]').hidden===false, "");
+          click('#o2sModModal [data-stg="modclose"]'); await sleep(200);
+          T("模块管理：关闭弹层", q("#o2sModModal").hidden===true, "");
+          T("卡片表头移除按钮存在", !!q('#opt2Stage [data-panel="draw"] [data-stg="modremove"]'), "");
+          /* 聚焦专属全屏 UI：计时 / 抽签 / 投票 */
+          q('#opt2Stage [data-panel="timer"] .opt2-zbtn').click(); await sleep(300);
+          T("聚焦态：计时超大数字 + 大按钮 + 快捷时长", !!q('#opt2Stage [data-fv="timer"]') &&
+            parseFloat(getComputedStyle(q("#o2sTimer")).fontSize)>=80 && !!q('#opt2Stage [data-fv="timer"] .opt2-fv-big') &&
+            document.querySelectorAll('#opt2Stage [data-fv="timer"] .opt2-tchip').length>=5, "");
+          q('#opt2Stage [data-panel="timer"] .opt2-zbtn').click(); await sleep(250);
+          q('#opt2Stage [data-panel="draw"] .opt2-zbtn').click(); await sleep(300);
+          T("聚焦态：抽签超大结果 + 大按钮", !!q('#opt2Stage [data-fv="draw"] .opt2-fv-pick') &&
+            parseFloat(getComputedStyle(q('#opt2Stage [data-fv="draw"] .opt2-fv-pick')).fontSize)>=60 &&
+            !!q('#opt2Stage [data-fv="draw"] .opt2-fv-big'), "");
+          click('#opt2Stage [data-fv="draw"] [data-o2pick="1"]'); await sleep(250);
+          T("聚焦态：抽签结果进「最近」列表", !!q('#opt2Stage [data-fv="draw"] .opt2-fv-recent'), "");
+          q('#opt2Stage [data-panel="draw"] .opt2-zbtn').click(); await sleep(250);
+          q('#opt2Stage [data-panel="vote"] .opt2-zbtn').click(); await sleep(400);
+          T("聚焦态：投票大号结果条 + 倒计时", !!q('#opt2Stage [data-fv="vote"]') && !!q("#o2sVoteCd") &&
+            parseFloat(getComputedStyle(q("#o2sVoteCd")).fontSize)>=18, "");
+          q('#opt2Stage [data-panel="vote"] .opt2-zbtn').click(); await sleep(250);
           /* 抽签名单：快捷选择团员并应用 */
           click('#opt2Stage [data-panel="draw"] [data-stg="drawroster"]'); await sleep(300);
           T("抽签名单：弹层打开", !!q("#o2sRoster") && !q("#o2sRoster").hidden, "");
@@ -295,9 +292,18 @@ RUNNER = r"""
             txt("#o2sDropModal").indexOf("通道已开启")>=0 && txt("#o2sDropModal").indexOf("2468")>=0, "");
           T("大屏互联：收到文件/文字列表", txt("#o2sDropModal").indexOf("收到的文件")>=0 && txt("#o2sDropModal").indexOf("现场照片.jpg")>=0, "");
           try{q("#o2sDropModal").hidden=true;}catch(e){}
-          click("#o2sClose"); await sleep(150);
+          click("#o2sClose"); await sleep(250);
           T("大屏可关闭", q("#opt2Stage").style.display==="none", q("#opt2Stage").style.display);
           T("关闭后恢复页面滚动", document.body.classList.contains("opt2-lock")===false, "opt2-lock="+document.body.classList.contains("opt2-lock"));
+          /* 退出清理（重开后验证）：计时归零 / 抽签结果清空 / 聚焦清空；布局偏好保留 */
+          var orderKeep="";try{orderKeep=JSON.parse(localStorage.getItem("zq_stage_layout_v1")).order.join(",");}catch(e){}
+          click("#opt2StageBtn"); await sleep(500);
+          T("退出后重开：计时归零", txt("#o2sTimer")==="05:00", txt("#o2sTimer"));
+          T("退出后重开：抽签结果清空", txt("#o2sPick")==="?", txt("#o2sPick"));
+          T("退出后重开：聚焦状态清空", !q('#opt2Stage .opt2-focused') && !q('#o2sBody').classList.contains("opt2-focusmode"), "");
+          var orderNow="";try{orderNow=JSON.parse(localStorage.getItem("zq_stage_layout_v1")).order.join(",");}catch(e){}
+          T("退出后重开：布局偏好保留", orderNow===orderKeep && !!orderKeep, orderNow+" vs "+orderKeep);
+          click("#o2sClose"); await sleep(200);
           /* 微信内导出图：显示图 + 长按保存 */
           click('[data-tab="draw"]'); await sleep(200);
           click("#aRun"); await sleep(400);
@@ -320,6 +326,8 @@ RUNNER = r"""
           await waitFor(function(){var s=q("#s-committee");return s&&s.classList.contains("on");},5000);
           T("名单工具：三 tab（班委/团员/全班）", document.querySelectorAll("#cmTabs [data-cmtab]").length===3, "");
           T("名单工具：班委 tab 计数与列表", txt("#cmCntC")==="3" && document.querySelectorAll("#cmOut .cmrow").length===3, txt("#cmCntC")+"/"+document.querySelectorAll("#cmOut .cmrow").length);
+          T("名单工具：行内无重复「班委」badge（保留职务文字）", document.querySelectorAll("#cmOut .cmbadge").length===0 &&
+            document.querySelectorAll("#cmOut .cmrole").length>=1, "cmbadge="+document.querySelectorAll("#cmOut .cmbadge").length+" cmrole="+document.querySelectorAll("#cmOut .cmrole").length);
           click('#cmTabs [data-cmtab="league"]');
           await waitFor(function(){return txt("#cmCntL")!=="";},6000);
           await sleep(300);

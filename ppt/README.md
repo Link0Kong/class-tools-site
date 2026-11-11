@@ -546,6 +546,9 @@ python agent.py --deck dmwalrdlgevz90l --compat-only --dry-run
 - **交付前清理测试 deck**：运行 `python tests\cleanup_test_decks.py --apply` 软删测试 deck（脚本只对
   `owner_sid=3260799999` 且 `deleted=false` 的行 PATCH `deleted=true`，写前复核 owner 并断言全为测试身份，
   真实同学 deck 不参与；幂等，重跑 0 行；不带参数为 dry-run，只列出将被软删的 id/标题/状态/创建时间）；
+  **2026-11-11 起 `tests/test_cloud_contract.py` 的 `TestE2EFixtures` 在 `tearDownClass` 自动软删本轮
+  fixture deck + 清分片**，不再把「测试·…」deck 留在全班可见列表（此前设计为“保留给网页验收”，导致用户
+  每次执行测试/验收后都在演示页看到测试 PPT；用户反馈后改为自清理，上面的 --apply 仅作历史兜底）；
 - 测试 deck 的 OSS 前缀（`ppt/a/<id>/`、`ppt/src/<id>/`）对象数/字节数可用
   `python tests\cleanup_test_decks.py --report-oss` 只读统计（只 `list_objects_v2` 分页统计，**不删除**；
   加 `--all-test` 可统计全部测试身份 deck（含已软删）；是否清理存储由用户决定后另行处理）；

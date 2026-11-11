@@ -3009,3 +3009,79 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 限制（如实）：① >1.5MB 原包不内嵌（既有口径）→ 3.8MB 内部 PDF 仍不能从通知卡下载（包内清单可见，原包在 QQ 群/本机管线缓存）；② 微信占用中的 msg/file 原件删不掉（保持 pending + 重试）；③ 首轮清理会批量删除历史云端已确认的下载重复件（本次 25 个，用户已确认要回填清理）；④ `Briefdesk Watchdog` 双实例问题（两个 `detect_docs.py --watch` 进程，17:46 与重启后均出现）仍在、非本次引入，待后续收口；⑤ 网页/小程序/安卓**无需改动/无需部署**（模板/契约未变，archive 渲染三端早已支持）。
 - 回滚（briefdesk 无版本库）：删除 `cleanup_qq_downloads.py`、撤掉 `detect_docs.rebuild_board()` 的 hook 与常量、去掉 `fetch_qq_files` 的 pending 登记、还原 `qq_file_names.SUPPORTED_EXTS`/`_EXT_RE`、`archive_scan.CACHE_VER` 回 1 并移除 `_persist_inner`；已删除的下载原件不可自动恢复（云端通知 body 与 `data/qq-files` 仍有附件字节，需要时可从管线缓存重新导出）。
 - 网页与云端 schema 无改动；本轮无 web 部署。双远端提交见 `sync-repos.cmd` 输出（文件：`HANDOFF.md`/`CHANGELOG.md`/`AGENTS.md` + 重建后的 `tools/notice-board-live-demo.html`）。
+
+## 2026-11-11 21:45–22:5x · 增量 45：用户 13 项反馈批次（网页已上线 OSS+ECS / 小程序源码待用户上传发布 / 安卓 3.7.0 APK 已交付 / ECS drop v2.1 已上线 / CloudBase 审计与两张新表）
+
+> 用户一次提出 13 条反馈（原文见 CHANGELOG 增量 45 / 验收报告）。本增量覆盖全部 13 条；网页端已部署，小程序仅源码（需用户上传发布并部署 notify 云函数），安卓独立基线 APK（因并行会话占用主仓库，走 worktree 分支交付，patch 可 apply）。
+> 红线遵守：web 单文件零依赖不变（APP_VER 仍 2.0.0）、UD v6 契约不变、无新增外部请求来源、未在对话中输出 token/密钥/学号。
+
+### 45.1 网页（`tools/index.html`，1,144,965B / sha256 `86B9F114…`）
+- **大屏 V5（反馈 3/4/5）**：删除「布局/编辑模式」按钮与工具条；改为按住模块卡片拖动（鼠标表头按住 / 触屏长按 180ms，`STG_DRAG_MOVE=5/STG_LONG_PRESS=180`），跟手幽灵 + WAAPI FLIP 让位（与全部页拖动 v2 同思路），落位写 `localStorage zq_stage_layout_v1` 并 800ms 防抖推云端；右下角拖宽常驻；模块增删改由顶栏「＋ 模块」弹层 + 卡片表头 ×（`STG_PANELS` 4 模块）；聚焦仅卡片右上角按钮（⤢→⤡），顶部/灵动岛均无「退出聚焦」，4 模块聚焦态各自专属 UI；**iOS 灵动岛**（黑色 34px 胶囊 ⇄ 卡片 spring 形变 WAAPI、内容淡入滑动、多活动堆叠、reduced-motion 关闭动画）；退出 `stgCleanupSession()` 清计时/抽签结果/投票详情与发起草稿（DOM+内存双清，含 `stgCreateResetDom`）/聚焦/岛/上传队列，保留布局与文件传输会话。
+- **布局云同步（反馈 3）**：新表 `public.stage_prefs(sid PK, layout jsonb, updated_at)`（仅本人 RLS；BEFORE INSERT/UPDATE 触发器刷 updated_at）；`STAGE` 打开时 GET + LWW（本机 `layout.at` vs 云端 updated_at）、改动 POST `on_conflict=sid` + `Prefer: resolution=merge-duplicates,return=minimal`、404/网络失败静默降级 localStorage、旧三键首次 seed。契约 `tools/tests/_stage_sync_contract.md`；测试 mock + 真实云端 QA 覆盖。
+- **名单（反馈 2/8）**：名单工具行内去掉重复「班委」badge（保留职务文字），全部页描述去「；班级身份气泡」；共享 `#rosterModal`（draw/group/roll）+ 投票「指定成员」+ 大屏发起投票成员区新增「全班/班委/团员」一键预设，预设=对既有成员按钮真实点击套基础集合，之后仍可逐个增删（数据仍 seat 数组 / `p_audience_seats`）。
+- **水量（反馈 6）**：`WATER.cloud` 接 `public.water`/`public.water_room`（GET、POST `on_conflict=roomverify,month` + merge-duplicates、DELETE；云端同月覆盖本地、本地独有补传；保存/删除/改人数先本机后云端，失败 `zq_water_pend_<sid>` 重试；进页先缓存后云合并）；23A/23B 固定 4 人间（选择器 disabled、首次 upsert water_room=4）；去掉「每月免费 8/12 吨水」字样，option 只留「4 人间/6 人间」，「免费额度/定额」措辞改「定额」，3.03/0.58/2 吨·5 度数值不变；UD v6 water 契约不变（仅离线缓存）。契约 `tools/tests/_water_shared_contract.md`。
+- **文件传输独立工具（反馈 1）**：TOOLS 新增 `file`「文件传输」+ `#s-file`（在 `#s-all` 前）+ 全部页卡片可拖入工具栏 + `#drop` hash 改开新页；独立 fetch 客户端对接 drop v2.1（8MiB 分片 `totalChunks=ceil(size/8MiB)`、任意大小、进度/取消、507、下载前重拉 `/state` 取新签名、`payload.expired` 标注「已过期」、发文字、关闭会话；文案「文件自上传起保留 3 天」）；大屏互联面板保留。
+- **网页提醒（反馈 10）**：通知页右下角浮动「提醒」胶囊 + 设置弹层（授权状态/开关/测试提醒/可选提示音）；45s 仅 `cbSig()` 轻量签名轮询，签名变化才 `NT.pull(true)`；`visibilitychange` 隐藏→可见补检；授权且 secure context → 系统 Notification，否则页内 toast + 标题【新通知】闪烁；设置本机 `zq_remind_v1`；零新增外部请求。
+- **测试 PPT（反馈 7）**：见 §45.4；网页无改动。
+
+### 45.2 ECS drop 服务 v2.1（`deploy/drop_app.py` / `drop/CONTRACT.md` / `deploy/ecs_drop.py`）
+- **逐文件 72h TTL**：每个文件自 finish 起 72h 后删除（清理线程删实体+移出会话文件表；过期下载 404「文件已过期」；`/state` 保留 seq、`payload.expired=true` 且无链接，未过期文件每次读取重签 30min URL）。
+- **会话空闲滑动 72h**：open/上传/文字/指令算活动，读取不续期；有未过期文件期间不回收；`expiresAt=max(最后活动+72h, 各未过期文件+72h)`。
+- **不限大小**：`DROP_MAX_FILE_BYTES=0`/`DROP_MAX_SESSION_BYTES=0`（磁盘唯一限制，保留 1GiB，三阶段检查不足 507；分片 24h 回收）。
+- health：`version=2.1`、`ttl=file_ttl=session_idle_ttl=259200`、`max_*_bytes=0`。单测 85/85、ECS `verify` PASS、`selftest` 28/28（20MiB 上传 7.49MB/s、下载 sha 一致、Range/HEAD、/state 重签、close 清理）。`deploy/ecs_site.py` 仅 3 处 Caddy 注释改为「文件传输服务」（随网页部署 apply 生效）。
+
+### 45.3 云端表（`deploy/cloudbase/2026-11-11_water_shared.sql`、`2026-11-11_stage_prefs.sql` 已应用）
+- `public.water(roomverify,month,reading numeric(10,2),persons int check(4,6),updated_at)` PK(roomverify,month) + `public.water_room(roomverify PK,persons,updated_at)`；RLS 开启，select/insert/update/delete 策略均 `auth_ok()`，anon 四权限（对照 power.sql）。
+- `public.stage_prefs(sid PK,layout jsonb,updated_at)`；RLS 仅本人 select/insert/update（无 DELETE）；更新触发器 `stage_prefs_touch_trg`。
+- 应用：water_shared 22 语句 0 失败、stage_prefs apply OK，均幂等复跑 0 错误；真实身份验证 47/47（water 共享读写/upsert 幂等/DELETE；stage_prefs 写读一致、updated_at 递增、跨账号双向隔离；无 token []/401；测试行 0 残留）。验证脚本 `deploy/cloudbase/verify_2026_11_11_shared_tables.py`。
+
+### 45.4 测试 PPT 清理（反馈 7）
+- 根因：`ppt/tests/test_cloud_contract.py::TestE2EFixtures` 每次运行都会创建/复用 2 个 ready fixture deck 并“保留给网页验收”，导致用户每次在演示页看到「测试·…」。
+- 处理：软删当前 2 个可见测试 deck（写前断言 owner_sid=测试身份 3260799999，PATCH HTTP 200；`deleted=false` 只剩真实 deck `dmwalrdlgevz90l`，网页 LIST_SELECT 复核同）；改测试类 `tearDownClass` 自动软删本轮 fixture + 清分片 + 复核（临时脚本真实创建 deck→调用 teardown→验证 deleted=true/chunks=0 后删除验证行）；`ppt/README` §清理说明更新。OSS 测试资产只统计（50 deck / 104 对象 / 9.60MiB）未删除。
+
+### 45.5 小程序（`mp-class-tools` 源码；VERSION 2.0.0 / UD v6 不变；待用户上传发布）
+- **缓存提速（反馈 9）**：有缓存 onShow 同步渲染（去骨架）、`diffPatch` 只 setData 变化字段、`marksFresh` 5s 单飞/去重、TTL 内不重复拉；实测（改造前源码快照 vs 改造后，Node mock 同剧本）首次请求 13→12、二次冷启动请求 2→1/首屏计算 11.4ms→0.3ms、重入 setData 6 次/3111B→5 次/522B；devtools automator 首屏 217–284ms。
+- **提醒修复（反馈 11）**：根因 `kind='nt'` 订阅只由无调用方 `publishNotice` 消费；notify 云函数 timer 用 PostgREST 轮询新通知签名（首跑基线、仅新 id）发送并置 inactive；班级 token 由客户端 bootstrap 上报（云函数 `rpc/class_members` 校验后存 `notify_cfg/__notify_cfg`，30min 节流）；按钮反馈/云端订阅数/再次开启/失败原因区分；第二模板 ID 支持（`SECOND_TEMPLATE_ID` + env `NOTIFY_TMPL2`）；诊断页「提醒通道诊断」（心跳/active/lastScanAt/lastError）；工作台新通知角标。部署步骤 `mp-class-tools/README.md §九·补`。
+- **名单预设（反馈 8）**：`components/roster-picker` + `utils/roster.js` + 投票指定成员加「全班/班委/团员/清空」，之后可逐个增删；团员走 `class_league` + 6h 缓存。
+- **水量共享（反馈 6）**：`utils/cloud.js` water* 5 函数 + `utils/water.js`（云端合并/固定 4/离线 pending）；23A/23B 固定 4；文案去「免费 N 吨水」。
+- **徽章（反馈 2）**：`showBadge` 在职务文字已展示时不重复 badge；班委页/工具描述同步。
+- 测试：`unit.js 437/0`、`sync_contract_test.js 33/0`、`staticcheck.py exit 0`、`code_quality_check.js exit 0`、`task7_unit 23/0`、notify 云函数 35/0 + 18/0、automator `task7_preview 34/0`（9 图）、`cache_speed_bench 3/3`。
+
+### 45.6 安卓 3.7.0 / vc13（反馈 12，独立基线 APK）
+- 根因：`ReminderWorker` 15min 周期不联网、只读进程内 cache（杀进程即空）；`AppContainer.activeSession` 只在 UI 赋值（Worker 冷启动 token=null）；单条提醒只有 WorkManager OneTime（Doze 延迟）；渠道懒创建/重要性不足；开机不重排单条。
+- 修复：WorkManager 周期任务 + `NetworkType.CONNECTED`，后台恢复会话 token → 拉通知签名/整表 → 新通知 HIGH 渠道 + 本地去重（首跑基线）+ deep link；单条提醒 `HybridOneShotScheduler` 优先 `AlarmManager.setExactAndAllowWhileIdle`（Android12+ `canScheduleExactAlarms`，未授权回退 WorkManager）+ BootReceiver/更新重排；启动即建渠道；权限四态引导 + 「后台提醒（诊断）」卡（上次轮询/渠道重要性/电池优化/精确闹钟）+ 省电自启动说明；无新依赖。
+- 交付：worktree `C:\Users\Ko_Li\.openclaw\workspace\android-class-tools-notify` 分支 `feat/background-notify` commit `172831a`（25 files +3130/-77；主仓库因并行会话未合入；patch `artifacts/background-notify.patch`，对主仓库 HEAD `git apply --check` OK）；APK `C:\Users\Ko_Li\Desktop\classtools-3.7.0-release-signed.apk` 2,774,274B / sha256 `FA3DEB4C…7FF353`，apksigner verify PASS；`testDebugUnitTest 1056/0`（基线 994/0，+62）。
+- 限制：无 FCM/厂商推送无法秒达（周期下限约 15min，Doze/厂商限制会延迟）；构建机无 adb 设备未做真机冷启动到达验证。
+
+### 45.7 CloudBase 数据审计（反馈 13，报告 `_audit/cloudbase_data_audit_20261111.md`）
+- 只读盘点 28 张 relation / 42MB；已整改：测试 deck 软删、`private.test_zz/test_zz2` DROP、过期 `login_jobs` 清理、`debug_headers` 收回 anon 执行权、`site_config.web.paused` 与 DNS 暂停对齐（`web_pause.py --on`）；测试 `stage_prefs` QA 行超级用户清理。
+- 主要问题清单：P0 CloudBase 2026-12-10 到期（无备份/迁移演练）；P1 notices 36MB（可见 104 条正文 13.3MB，单条最大 2MB，43 条内嵌 data URI）首次全量拉取慢（建议备案后启用附件外置或限内嵌体积）；P2 `class_sessions` 2091 行无保留策略、`diag_analysis` 旧 new、旧账号 id 行、`visits` 老行、`roster` legacy、部分表 anon 多余 DELETE 授权、`class_verify` 无限流——均如实记录未擅删真实数据。
+- 服务健康：18 行 3 分钟内新写入；dns/site_static/site_tls 因 DNS 暂停 down（暂停开关已对齐）、cloud_xgj_sync warn 为预期空态。
+
+### 45.8 测试汇总（Lead 门禁真实输出）
+- 网页：`overflow 360/390/430=0`；`v2_ui 27/27`；`v2_stage_v5 116/116`；`v2_web_batch2_roster 30/30`；`v2_web_batch2_water_cloud 36/36`；`v2_web_batch2_file 37/37`；`v2_web_reminder 37/37`；`sync 144/144`；`export draw` 落盘；0 JS 报错/0 console.error/0 外部请求。web-b 另跑真实云端 `water_cloud_api 15/15`、`water_live 13/13`（UI→真实 API→恢复→删除，finally 清理）。
+- 独立验收（verifier）：阶段 A 冻结快照自写断言 130/1（唯一 FAIL=投票草稿残留 P1，已修，复验 PASS；作者测试 115/0）；阶段 B 对最终文件复验（报告 `验收报告/2026-11-11_反馈13项_独立验收.md`）。
+- 说明：`v2_notice_data_check` 药膳用例 19/27 为工作区 `tools/notice-board-live-demo.html`（briefdesk 管线每分钟重建）数据环境差异，与本轮 index.html 改动无关（index.html 维度 `v2_notice_live 16/16` 通过；独立验收复核）。
+
+### 45.9 上线 / 回滚
+- 部署前线上备份：`tools/_backup/index_online_20261111-2210_preBatch13.html`（1,054,704B / sha256 `834d39cc…`）。
+- 网页：`python deploy/sync_tools.py` + `python deploy/ecs_site.py apply` → OSS+ECS **1,144,965 B / sha256 `86B9F114…`**；`python deploy/oss_object.py check index.html` MATCH、ECS `verify` MATCH；`/drop/__health` 200（version 2.1）。
+- 回滚：网页重传备份；DB 按两份迁移文件头 DROP；drop 停 unit 或改回旧 env 重新 deploy；小程序回退源码重传；安卓回退 v3.6.0 APK。
+
+### 45.10 用户需执行（不代做）
+1) 微信开发者工具：上传发布小程序 + 上传 `notify` 云函数（含 `scan.js`/`rest-config.js`）+「上传触发器」（每分钟）+ 云开发数据库建 `notify_cfg` 集合（仅云函数可读写；可选第二模板配置）；真机自测订阅提醒/水量共享/23A/23B 固定 4。
+2) 安卓：安装新 APK；若并行会话把主仓库编译修好，可用 patch 合入后统一重编（否则用独立 APK）。
+3) CloudBase：2026-12-10 到期前确认续费 + 做一次数据库备份/迁移预案。
+4) DNS 恢复解析后执行 `python C:\briefdesk\scripts\web_pause.py --off`（当前处于「备案暂停」置位）。
+5) 若希望关闭大屏即释放文件传输会话（当前保留 3 天），可后续提出改回（1 行）。
+
+### 45.11 已知限制（如实）
+- 网页提醒只在页面打开（含后台标签页）时工作；非 HTTPS/不支持 Notification 仅页内提醒；关闭标签页的 Web Push 需要 HTTPS+推送基础设施（DNS 暂停期不可做）。
+- 小程序真实订阅消息、云函数/触发器/集合未部署前仍不送达（诊断页心跳可发现）；一次性订阅每次授权仅一条，两通知间隔 <5min 只推最新；`notify_cfg` 存班级 token 必须保持仅云函数可读写。
+- 安卓真机未验证；无 FCM 无法秒达。
+- 水量权限为班级内共享（任一有效 token 可读写整表，契约如此）；文件 3 天为逐文件 72h；大屏布局按账号同步（仅本人）；测试 PPT 的 OSS 资产未删除。
+- 并行会话在 web 仓库根目录误留 0 字节 `Vote*.kt`（非本项目文件，提交前已清理）；`tools/notice-board-live-demo.html` 由管线重建（提交时含 1 行差异）。
+
+### 45.12 文档 / 提交
+- 新增/更新：本文件 §45、`CHANGELOG.md` 增量 45、`web/AGENTS.md §4b-37`、`_audit/cloudbase_data_audit_20261111.md`、`drop/CONTRACT.md` v2.1、`deploy/ECS_DEPLOY.md §9`、`ppt/README.md`、`mp-class-tools/README.md §九·补`、`mp-class-tools/CHANGELOG.md`、`android-class-tools-notify/docs/REMINDER_BACKGROUND_20261111.md`、`验收报告/2026-11-11_反馈13项_独立验收.md`。
+- 双远端提交见 `sync-repos.cmd` 输出（GitHub origin + Gitee gitee，SHA 一致）。

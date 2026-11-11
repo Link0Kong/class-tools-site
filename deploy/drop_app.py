@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
-"""drop_app.py — ECS「大屏临时互联通道」服务（Python 标准库，127.0.0.1:8093）
+"""drop_app.py — ECS「文件传输」服务 v2.1（Python 标准库，127.0.0.1:8093）
 
-用途（2026-11-11，团日活动大屏跨端互联）：
-    同账号（同 sid）的大屏 / 手机之间临时传文件、发文字、转发遥控指令。
+用途（2026-11-11 v2/v2.1，用户第 1 条：文件传输做成独立工具 / 上传文件三天后删除 /
+不限上传文件大小）：
+    同账号（同 sid）的**任意设备之间**（大屏、手机、电脑）传文件、发文字、
+    转发遥控指令；不再只是大屏专属。
+    **每个文件自上传完成时刻起 72h（3 天）后自动删除**（逐文件独立过期）；
+    会话本身按空闲滑动回收（最后活动后 72h 无活动且无未过期文件才删除）。
     Caddy `handle /drop/*`（strip_prefix /drop）反代本服务：
         /drop/__health、/drop/open、/drop/mine、/drop/state、/drop/close、
         /drop/upload/{init,chunk,finish}、/drop/file/<fileId>?签名、/drop/text、/drop/cmd
@@ -21,10 +25,12 @@
     DROP_PORT             监听端口，默认 8093
     DROP_GATEWAY          CloudBase PostgREST 基址（含 /v1/rdb/rest/）
     DROP_PUBLISH_KEY_FILE publish_key 文件（默认 <ROOT>/publish_key，0640）
-    DROP_TTL_SEC          会话 TTL 秒，默认 7200
-    DROP_MAX_FILE_BYTES   单文件上限，默认 2GiB
-    DROP_MAX_SESSION_BYTES 单会话总量，默认 8GiB
+    DROP_TTL_SEC          文件 TTL / 会话空闲 TTL 秒，默认 259200（72h；文件自上传完成起算，
+                          逐文件过期；会话空闲滑动回收）
+    DROP_MAX_FILE_BYTES   单文件上限字节，默认 0 = 不限（磁盘余量是唯一限制）
+    DROP_MAX_SESSION_BYTES 单会话总量字节，默认 0 = 不限（仅受磁盘限制）
     DROP_MAX_FILES        单会话文件数，默认 300
+    DROP_UPLOAD_TTL_SEC   未完成分片保留秒数，默认 86400（24h 后回收，避免占盘）
     DROP_TEXT_MAX         文字上限，默认 10000 字符
     DROP_MAX_EVENTS       每会话事件上限，默认 500
     DROP_URL_TTL_SEC      下载签名有效期，默认 1800
@@ -53,7 +59,7 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = "1.0"
+VERSION = "2.1"
 ROOT = os.path.abspath(os.environ.get("DROP_ROOT", "/opt/class-tools/drop"))
 PORT = int(os.environ.get("DROP_PORT", "8093"))
 DEFAULT_GATEWAY = ("https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com"
@@ -61,10 +67,11 @@ DEFAULT_GATEWAY = ("https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com"
 GATEWAY = os.environ.get("DROP_GATEWAY") or DEFAULT_GATEWAY
 if not GATEWAY.endswith("/"):
     GATEWAY += "/"
-TTL_SEC = int(os.environ.get("DROP_TTL_SEC", "7200"))
-MAX_FILE_BYTES = int(os.environ.get("DROP_MAX_FILE_BYTES", str(2 * 1024 ** 3)))
-MAX_SESSION_BYTES = int(os.environ.get("DROP_MAX_SESSION_BYTES", str(8 * 1024 ** 3)))
+TTL_SEC = int(os.environ.get("DROP_TTL_SEC", "259200"))            # 72h
+MAX_FILE_BYTES = int(os.environ.get("DROP_MAX_FILE_BYTES", "0"))    # 0 = 不限
+MAX_SESSION_BYTES = int(os.environ.get("DROP_MAX_SESSION_BYTES", "0"))  # 0 = 不限
 MAX_FILES = int(os.environ.get("DROP_MAX_FILES", "300"))
+UPLOAD_TTL_SEC = int(os.environ.get("DROP_UPLOAD_TTL_SEC", "86400"))  # 未完成分片 24h
 TEXT_MAX = int(os.environ.get("DROP_TEXT_MAX", "10000"))
 MAX_EVENTS = int(os.environ.get("DROP_MAX_EVENTS", "500"))
 URL_TTL_SEC = int(os.environ.get("DROP_URL_TTL_SEC", "1800"))
@@ -78,7 +85,7 @@ CHUNK_SIZE = 8388608                     # 契约固定 8MiB（响应 /upload/in
 JSON_BODY_MAX = 1024 * 1024              # JSON 请求体上限 1MiB
 CHUNK_BODY_MAX = CHUNK_SIZE              # 单分片原始字节上限
 ARGS_JSON_MAX = 64 * 1024                # /cmd args 序列化上限
-MAX_TOTAL_CHUNKS = 65536
+MAX_TOTAL_CHUNKS = 65536                 # 8MiB × 65536 = 512GiB 声明上限（磁盘是实际限制）
 AUTH_CACHE_MAX = 5000
 GW_UA = "class-tools-drop/" + VERSION
 
@@ -371,26 +378,82 @@ def _save_session(sess):
     _atomic_write_json(_session_path(sess["id"]), sess)
 
 
+def _session_last_activity(sess):
+    """会话最后活动时间（毫秒）：活动 = open / 上传 init·finish / 文字 / 指令。"""
+    return int(sess.get("lastActivityAt")
+               or sess.get("updatedAt") or sess.get("createdAt") or 0)
+
+
+def _session_files(sess):
+    items = sess.get("files") or []
+    return items if isinstance(items, list) else []
+
+
+def _file_uploaded_at(file_rec):
+    return int(file_rec.get("at") or 0)
+
+
+def _file_expired(file_rec, now=None):
+    """文件是否已过 TTL：**从上传完成时刻（file.at）起算 72h**，逐文件独立过期。"""
+    at = _file_uploaded_at(file_rec)
+    if at <= 0:
+        return True
+    now = _now_ms() if now is None else now
+    return (now - at) > TTL_SEC * 1000
+
+
+def _live_files(sess, now=None):
+    now = _now_ms() if now is None else now
+    return [item for item in _session_files(sess) if not _file_expired(item, now)]
+
+
+def _session_alive(sess, now=None):
+    """会话是否仍有效（v2.1）：
+    - 还有未过期文件 → 有效（文件各自 72h 过期，期间会话保留，便于继续下载）；
+    - 无文件 → 距最后活动 ≤ TTL（会话空闲 72h 滑动回收）。
+    """
+    if not sess or sess.get("closed"):
+        return False
+    now = _now_ms() if now is None else now
+    if _live_files(sess, now):
+        return True
+    return (now - _session_last_activity(sess)) <= TTL_SEC * 1000
+
+
+def _session_expires_at(sess):
+    """对外展示的 expiresAt（毫秒）：= max(最后活动 + TTL, 各文件上传时刻 + TTL)，至少不早于现在。"""
+    now = _now_ms()
+    base = _session_last_activity(sess) + TTL_SEC * 1000
+    for item in _session_files(sess):
+        at = _file_uploaded_at(item)
+        if at > 0:
+            base = max(base, at + TTL_SEC * 1000)
+    return max(base, now)
+
+
 def _public_session(sess):
     return {"id": sess["id"], "code": sess["code"],
             "createdAt": int(sess["createdAt"]),
-            "expiresAt": int(sess["expiresAt"])}
+            "expiresAt": _session_expires_at(sess)}
 
 
 def _append_event_locked(sess, kind, payload, from_name):
     seq = int(sess.get("seq") or 0) + 1
+    now = _now_ms()
     sess["seq"] = seq
     events = sess.setdefault("events", [])
     events.append({
         "seq": seq,
         "kind": kind,
-        "at": _now_ms(),
+        "at": now,
         "from": {"name": str(from_name or "")[:40]},
         "payload": payload,
     })
     if len(events) > MAX_EVENTS:
         del events[:len(events) - MAX_EVENTS]
-    sess["updatedAt"] = _now_ms()
+    # 文字 / 指令 / 上传完成都算会话活动 → 滑动续期空闲计时
+    sess["lastActivityAt"] = now
+    sess["updatedAt"] = now
     return seq
 
 
@@ -458,8 +521,7 @@ def _find_active_session_locked(sid):
         return None
     sess = _load_session(session_id)
     now = _now_ms()
-    if (sess is None or sess.get("closed")
-            or int(sess.get("expiresAt") or 0) <= now):
+    if sess is None or not _session_alive(sess, now):
         _delete_session_locked(session_id)
         return None
     return sess
@@ -469,11 +531,13 @@ def _open_session_locked(auth):
     sid = auth["sid"]
     existing = _find_active_session_locked(sid)
     if existing is not None:
-        # 复用：顺带刷新展示用姓名/座号（同 sid 的多端可能先后登录）
+        # 复用：顺带刷新展示用姓名/座号（同 sid 的多端可能先后登录），并算一次活动
         existing["name"] = auth.get("name") or existing.get("name") or ""
         if auth.get("seat") is not None:
             existing["seat"] = auth.get("seat")
-        existing["updatedAt"] = _now_ms()
+        now = _now_ms()
+        existing["lastActivityAt"] = now
+        existing["updatedAt"] = now
         _save_session(existing)
         return existing
     now = _now_ms()
@@ -488,7 +552,8 @@ def _open_session_locked(auth):
         "seat": auth.get("seat"),
         "name": auth.get("name") or "",
         "createdAt": now,
-        "expiresAt": now + TTL_SEC * 1000,
+        "lastActivityAt": now,
+        "expiresAt": now + TTL_SEC * 1000,     # 兼容字段；对外以 _session_expires_at() 计算为准
         "closed": False,
         "seq": 0,
         "events": [],
@@ -514,15 +579,16 @@ def _sess_owned_locked(auth, session_id):
         raise HttpError(404, "会话不存在或已过期")
     if sess.get("sid") != auth.get("sid"):
         raise HttpError(403, "无权访问该会话")
-    if sess.get("closed") or int(sess.get("expiresAt") or 0) <= _now_ms():
+    if not _session_alive(sess):
         _delete_session_locked(session_id)
         raise HttpError(404, "会话已结束")
     return sess
 
 
 def _session_bytes_locked(sess):
+    """会话内**未过期**文件的总字节数（过期文件在清理前也不再计入上限）。"""
     total = 0
-    for item in sess.get("files") or []:
+    for item in _live_files(sess):
         try:
             total += int(item.get("size") or 0)
         except (TypeError, ValueError):
@@ -605,16 +671,24 @@ def health_stats():
     with _LOCK:
         for session_id in set(_load_index().values()):
             sess = _load_session(session_id)
-            if not sess or sess.get("closed"):
-                continue
-            if int(sess.get("expiresAt") or 0) <= now:
+            if not _session_alive(sess, now):
                 continue
             sessions += 1
-            items = sess.get("files") or []
+            items = _live_files(sess, now)
             files += len(items)
-            total += _session_bytes_locked(sess)
+            total += sum(int(item.get("size") or 0) for item in items)
+    # 公开字段（契约 §1.3）：ttl = **文件 TTL**秒（259200 = 3 天，自上传完成起算）；
+    # session_idle_ttl = **会话空闲** TTL（滑动，最后活动后 72h 无活动且无未过期文件才回收）；
+    # max_file_bytes / max_session_bytes = 0 表示不限（磁盘为唯一限制）。
     return {"ok": True, "version": VERSION, "sessions": sessions,
-            "files": files, "bytes": total}
+            "files": files, "bytes": total,
+            "ttl": TTL_SEC, "ttl_hours": TTL_SEC // 3600,
+            "file_ttl": TTL_SEC, "session_idle_ttl": TTL_SEC,
+            "max_file_bytes": MAX_FILE_BYTES,
+            "max_session_bytes": MAX_SESSION_BYTES,
+            "max_files": MAX_FILES,
+            "upload_ttl": UPLOAD_TTL_SEC,
+            "disk_free": _disk_free(), "disk_reserve": DISK_RESERVE}
 
 
 def _disk_free():
@@ -624,13 +698,70 @@ def _disk_free():
         return 0
 
 
-def _check_disk(need):
-    if _disk_free() - max(0, int(need)) < DISK_RESERVE:
-        raise HttpError(507, "服务器磁盘空间不足，请稍后再试或先关闭其它互联会话")
+def _fmt_mib(value):
+    return "%d MiB" % (int(value) // (1024 * 1024))
+
+
+def _check_disk(need, reason=None):
+    """磁盘安全余量检查：可用空间 - need 必须仍 ≥ DISK_RESERVE，否则 507。"""
+    need = max(0, int(need))
+    free = _disk_free()
+    if free - need < DISK_RESERVE:
+        raise HttpError(507, reason or (
+            "服务器磁盘空间不足（可用 %s，需要 %s，保留余量 %s），"
+            "请稍后再试或先关闭其它文件传输会话"
+            % (_fmt_mib(free), _fmt_mib(need), _fmt_mib(DISK_RESERVE))))
+
+
+def _file_limit():
+    """单文件上限（字节）；0 = 不限。"""
+    return MAX_FILE_BYTES if MAX_FILE_BYTES > 0 else 0
+
+
+def _session_limit():
+    """单会话总量上限（字节）；0 = 不限。"""
+    return MAX_SESSION_BYTES if MAX_SESSION_BYTES > 0 else 0
+
+
+
+def _expire_files_locked(sess, now):
+    """逐文件 TTL 清理（v2.1）：`now - file.at > TTL_SEC` → 删文件实体 + 从会话文件表移除。
+
+    文件按「各自上传完成时刻 + 72h」独立过期（不是会话统一过期）；返回 (个数, 释放字节)。
+    file 事件保留 seq（历史不丢），/state 会把它标记为 expired 并不再重签下载链接。
+    """
+    expired = []
+    keep = []
+    for item in _session_files(sess):
+        if _file_expired(item, now):
+            expired.append(item)
+        else:
+            keep.append(item)
+    if not expired:
+        return 0, 0
+    freed = 0
+    for item in expired:
+        file_id = str(item.get("id") or "")
+        if _valid_hex_id(file_id):
+            try:
+                os.remove(os.path.join(FILES_DIR, sess["id"], file_id + ".bin"))
+            except OSError:
+                pass
+        try:
+            freed += int(item.get("size") or 0)
+        except (TypeError, ValueError):
+            pass
+    sess["files"] = keep
+    return len(expired), freed
 
 
 def cleanup_once():
-    """清理过期/已关闭会话与其文件、超 TTL 的孤儿分片；每 60s 由后台线程调用。"""
+    """清理（每 60s 后台线程调用）：
+    ① 逐文件 TTL：文件自上传完成起 72h 后删实体并移出会话文件表；
+    ② 会话空闲 TTL：无未过期文件且最后活动 > 72h → 删除整个会话（含残留文件/未完成分片）；
+    ③ 长时间无活动的孤儿分片（24h）；
+    会话「有未过期文件」期间不会因空闲被删（保证文件可下载），文件全部过期后再按空闲规则收尾。
+    """
     now = _now_ms()
     removed = 0
     with _LOCK:
@@ -640,14 +771,27 @@ def cleanup_once():
             if sess is None:
                 index.pop(sid_hash, None)
                 continue
-            if (sess.get("closed")
-                    or int(sess.get("expiresAt") or 0) <= now):
+            expired_count, freed = _expire_files_locked(sess, now)
+            if expired_count:
+                log("file ttl cleanup session=%s files=%d bytes=%d"
+                    % (session_id, expired_count, freed))
+            if sess.get("closed"):
                 _delete_session_locked(session_id)
                 index.pop(sid_hash, None)
                 removed += 1
-                log("session cleanup session=%s" % session_id)
+                log("session cleanup session=%s (closed)" % session_id)
+                continue
+            if not _session_alive(sess, now):
+                _delete_session_locked(session_id)
+                index.pop(sid_hash, None)
+                removed += 1
+                log("session idle cleanup session=%s" % session_id)
+                continue
+            if expired_count:
+                _save_session(sess)       # 文件表变化落盘
         _save_index(index)
-    # 孤儿分片：会话已不存在或创建超过 TTL
+    # 孤儿分片：会话已不存在、或长时间无活动（UPLOAD_TTL_SEC，默认 24h）后回收。
+    # 注意：会话 TTL 是 72h，但未完成分片不属于「已上传文件」，用更短 TTL 避免占满磁盘。
     try:
         names = os.listdir(UPLOAD_DIR)
     except OSError:
@@ -658,15 +802,21 @@ def cleanup_once():
         stale = False
         if meta is None:
             try:
-                stale = (time.time() - os.path.getmtime(path)) > TTL_SEC
+                stale = (time.time() - os.path.getmtime(path)) > UPLOAD_TTL_SEC
             except OSError:
                 stale = True
         else:
-            created = int(meta.get("createdAt") or 0)
+            # 每次传分片都会重写 meta.json → 用 meta mtime 表示「最后活动时间」
+            last_touch = int(meta.get("createdAt") or 0)
+            try:
+                last_touch = max(last_touch, int(
+                    os.path.getmtime(os.path.join(path, "meta.json")) * 1000))
+            except OSError:
+                pass
             session_id = meta.get("sessionId")
             if not session_id or _load_session(session_id) is None:
                 stale = True
-            elif created and (now - created) > TTL_SEC * 1000:
+            elif last_touch and (now - last_touch) > UPLOAD_TTL_SEC * 1000:
                 stale = True
         if stale:
             shutil.rmtree(path, ignore_errors=True)
@@ -945,13 +1095,39 @@ class Handler(BaseHTTPRequestHandler):
             raise HttpError(400, "since 非法")
         with _LOCK:
             sess = _sess_owned_locked(auth, session_id)
-            events = [dict(ev) for ev in (sess.get("events") or [])
-                      if int(ev.get("seq") or 0) > since]
+            now = _now_ms()
+            events = []
+            for ev in sess.get("events") or []:
+                if int(ev.get("seq") or 0) <= since:
+                    continue
+                item = dict(ev)
+                payload = dict(ev.get("payload") or {})
+                # v2.1：文件各自「上传完成 + 72h」过期；每次读事件列表时只对
+                # **未过期且实体仍在** 的文件重新签发下载 URL（解决「文件保留 3 天但签名仅 30 分钟」）；
+                # 过期文件保留 seq（历史不丢），标记 expired 且不再给 downloadUrl。
+                if ev.get("kind") == "file":
+                    file_id = str(payload.get("fileId") or "")
+                    path = os.path.join(FILES_DIR, sess["id"], file_id + ".bin")
+                    record = None
+                    for f in _session_files(sess):
+                        if f.get("id") == file_id:
+                            record = f
+                            break
+                    if (record is not None and not _file_expired(record, now)
+                            and _valid_hex_id(file_id) and os.path.isfile(path)):
+                        payload["downloadUrl"] = _download_url(
+                            self, file_id, sess["id"])
+                        payload.pop("expired", None)
+                    else:
+                        payload.pop("downloadUrl", None)
+                        payload["expired"] = True
+                item["payload"] = payload
+                events.append(item)
             cursor = int(events[-1]["seq"]) if events else since
             payload = {
                 "ok": True,
                 "session": {"id": sess["id"], "code": sess["code"],
-                            "expiresAt": int(sess["expiresAt"]),
+                            "expiresAt": _session_expires_at(sess),
                             "closed": bool(sess.get("closed"))},
                 "events": events,
                 "cursor": cursor,
@@ -991,23 +1167,23 @@ class Handler(BaseHTTPRequestHandler):
             raise HttpError(400, "文件大小非法")
         if size <= 0:
             raise HttpError(400, "文件大小非法")
-        if size > MAX_FILE_BYTES:
-            raise HttpError(413, "文件超过单文件上限（%d MiB）"
-                            % (MAX_FILE_BYTES // (1024 * 1024)))
+        if _file_limit() and size > _file_limit():
+            raise HttpError(413, "文件超过单文件上限（%s）" % _fmt_mib(_file_limit()))
         try:
             total_chunks = int(body.get("totalChunks"))
         except (TypeError, ValueError):
             raise HttpError(400, "分片数非法")
         if total_chunks < 1 or total_chunks > MAX_TOTAL_CHUNKS:
-            raise HttpError(400, "分片数非法")
+            raise HttpError(400, "分片数非法（1..%d）" % MAX_TOTAL_CHUNKS)
         mime = _safe_mime(body.get("mime") or "")
         with _LOCK:
             sess = _sess_owned_locked(auth, session_id)
-            if len(sess.get("files") or []) >= MAX_FILES:
+            if len(_live_files(sess)) >= MAX_FILES:
                 raise HttpError(413, "该会话文件数已达上限（%d 个）" % MAX_FILES)
-            if _session_bytes_locked(sess) + size > MAX_SESSION_BYTES:
-                raise HttpError(413, "该会话文件总量已达上限（%d MiB）"
-                                % (MAX_SESSION_BYTES // (1024 * 1024)))
+            if (_session_limit()
+                    and _session_bytes_locked(sess) + size > _session_limit()):
+                raise HttpError(413, "该会话文件总量已达上限（%s）"
+                                % _fmt_mib(_session_limit()))
             _check_disk(size)
             for _ in range(5):
                 upload_id = secrets.token_hex(8)
@@ -1026,6 +1202,11 @@ class Handler(BaseHTTPRequestHandler):
             }
             os.makedirs(_upload_dir(upload_id), exist_ok=True)
             _save_upload_meta(upload_id, meta)
+            # 上传发起算会话活动（滑动空闲 TTL）
+            now = _now_ms()
+            sess["lastActivityAt"] = now
+            sess["updatedAt"] = now
+            _save_session(sess)
         self._send_json(200, {"ok": True, "uploadId": upload_id,
                               "chunkSize": CHUNK_SIZE})
 
@@ -1061,17 +1242,29 @@ class Handler(BaseHTTPRequestHandler):
             with _LOCK:
                 if _load_session(str(meta.get("sessionId") or "")) is None:
                     raise HttpError(404, "会话已结束")
+            # 大文件 / 无单文件上限时唯一的硬约束：磁盘余量。写入前先检查，
+            # 不足返回 507（中文 reason），避免半途 ENOSPC 留下损坏分片。
+            _check_disk(length, reason=(
+                "服务器磁盘空间不足，无法继续上传该分片（单分片 %s，保留余量 %s）"
+                % (_fmt_mib(length), _fmt_mib(DISK_RESERVE))))
             data = self._read_body(CHUNK_BODY_MAX)
             part_path = os.path.join(_upload_dir(upload_id), "%d.part" % index)
             tmp = part_path + ".tmp"
-            with open(tmp, "wb") as fh:
-                fh.write(data)
-                fh.flush()
+            try:
+                with open(tmp, "wb") as fh:
+                    fh.write(data)
+                    fh.flush()
+                    try:
+                        os.fsync(fh.fileno())
+                    except OSError:
+                        pass
+                os.replace(tmp, part_path)
+            except OSError:
                 try:
-                    os.fsync(fh.fileno())
+                    os.remove(tmp)
                 except OSError:
                     pass
-            os.replace(tmp, part_path)
+                raise HttpError(507, "服务器磁盘空间不足，分片写入失败，请稍后重试")
             with _LOCK:
                 meta = _load_upload_meta(upload_id) or meta
                 received = meta.setdefault("received", {})
@@ -1094,6 +1287,7 @@ class Handler(BaseHTTPRequestHandler):
         acquired = lock.acquire(timeout=600)
         file_id = ""
         final_path = ""
+        part_tmp = ""
         try:
             if not acquired:
                 raise HttpError(500, "上传繁忙，请重试")
@@ -1127,26 +1321,38 @@ class Handler(BaseHTTPRequestHandler):
                 raise HttpError(400, "文件大小不符（声明 %d / 实际 %d）" % (size, actual))
             with _LOCK:
                 sess = _sess_owned_locked(auth, session_id or str(meta.get("sessionId")))
-                if _session_bytes_locked(sess) + actual > MAX_SESSION_BYTES:
-                    raise HttpError(413, "该会话文件总量已达上限（%d MiB）"
-                                    % (MAX_SESSION_BYTES // (1024 * 1024)))
+                if (_session_limit()
+                        and _session_bytes_locked(sess) + actual > _session_limit()):
+                    raise HttpError(413, "该会话文件总量已达上限（%s）"
+                                    % _fmt_mib(_session_limit()))
+            # 拼接需要「分片 + 成品」双份空间；磁盘不足直接 507，不留半成品。
+            _check_disk(actual, reason=(
+                "服务器磁盘空间不足，无法完成文件拼接（需要额外 %s，保留余量 %s）"
+                % (_fmt_mib(actual), _fmt_mib(DISK_RESERVE))))
             file_id = secrets.token_hex(8)
             final_path = os.path.join(FILES_DIR, sess["id"], file_id + ".bin")
             os.makedirs(os.path.dirname(final_path), exist_ok=True)
             part_tmp = final_path + ".part"
-            with open(part_tmp, "wb") as out:
-                for part_path in parts:
-                    with open(part_path, "rb") as src:
-                        while True:
-                            chunk = src.read(1024 * 1024)
-                            if not chunk:
-                                break
-                            out.write(chunk)
-                out.flush()
+            try:
+                with open(part_tmp, "wb") as out:
+                    for part_path in parts:
+                        with open(part_path, "rb") as src:
+                            while True:
+                                chunk = src.read(1024 * 1024)
+                                if not chunk:
+                                    break
+                                out.write(chunk)
+                    out.flush()
+                    try:
+                        os.fsync(out.fileno())
+                    except OSError:
+                        pass
+            except OSError:
                 try:
-                    os.fsync(out.fileno())
+                    os.remove(part_tmp)
                 except OSError:
                     pass
+                raise HttpError(507, "服务器磁盘空间不足，文件拼接失败，请稍后重试")
             os.replace(part_tmp, final_path)
             with _LOCK:
                 sess = _sess_owned_locked(auth, session_id or str(meta.get("sessionId")))
@@ -1172,11 +1378,12 @@ class Handler(BaseHTTPRequestHandler):
                 "id": file_id, "name": name, "size": actual, "mime": mime,
                 "downloadUrl": payload["downloadUrl"]}})
         except Exception:
-            if file_id and final_path:
-                try:
-                    os.remove(final_path)
-                except OSError:
-                    pass
+            for path in (part_tmp, final_path):
+                if path:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
             raise
         finally:
             if acquired:
@@ -1211,6 +1418,9 @@ class Handler(BaseHTTPRequestHandler):
                     break
         if record is None:
             raise HttpError(404, "文件不存在")
+        # v2.1：逐文件 TTL —— 上传完成超过 72h 即视为已删除（即使清理线程还没轮到）
+        if _file_expired(record):
+            raise HttpError(404, "文件已过期（上传超过 72 小时，已自动删除）")
         path = os.path.join(FILES_DIR, session_id, file_id + ".bin")
         try:
             size = os.path.getsize(path)
@@ -1330,10 +1540,12 @@ def main():
     if instance_fd is None:
         warn("FATAL 数据根 %s 已被另一个实例占用（.instance 锁），退出" % ROOT)
         return 1
-    log("start v%s root=%s port=%d ttl=%ss max_file=%dMiB max_session=%dMiB "
-        "whoami_key=%s" % (
-            VERSION, ROOT, PORT, TTL_SEC, MAX_FILE_BYTES // (1024 * 1024),
-            MAX_SESSION_BYTES // (1024 * 1024),
+    log("start v%s root=%s port=%d file_ttl=%ss(%.0fh) session_idle_ttl=%ss "
+        "max_file=%s max_session=%s max_files=%d upload_ttl=%ss whoami_key=%s" % (
+            VERSION, ROOT, PORT, TTL_SEC, TTL_SEC / 3600.0, TTL_SEC,
+            "unlimited" if MAX_FILE_BYTES <= 0 else _fmt_mib(MAX_FILE_BYTES),
+            "unlimited" if MAX_SESSION_BYTES <= 0 else _fmt_mib(MAX_SESSION_BYTES),
+            MAX_FILES, UPLOAD_TTL_SEC,
             "set" if PUBLISH_KEY else "MISSING"))
     try:
         srv = make_server("127.0.0.1", PORT)

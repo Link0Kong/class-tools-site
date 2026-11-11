@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-"""部署「大屏临时互联通道」到阿里云 ECS（云助手通道，无需 SSH）。
+"""部署「文件传输」服务到阿里云 ECS（云助手通道，无需 SSH）。
+
+用途（v2.1，2026-11-11）：同账号（同 sid）跨设备传输文件/文字/遥控指令的独立工具后端；
+**每个文件自上传完成起 72h（3 天）自动删除（逐文件）**，会话空闲 72h 滑动回收；
+单文件/单会话大小默认不限（磁盘为唯一限制）。
 
 - 代码：`deploy/drop_app.py` → `/opt/class-tools/drop/app.py`
 - 鉴权密钥：`deploy/cloudbase/publish_key.txt` → `/opt/class-tools/drop/publish_key`
@@ -13,7 +17,7 @@
 用法（web 目录，系统 python，需要 aliyunsdkcore）：
   python deploy\\ecs_drop.py probe       # 只读：systemd / 健康 / 目录 / Caddy 路由 / journal
   python deploy\\ecs_drop.py deploy      # 分片上传 app.py + publish_key → 装 unit → 重启 → 健康检查
-  python deploy\\ecs_drop.py verify      # 公网：/drop/__health + CORS 预检 + 无 token 401
+  python deploy\\ecs_drop.py verify      # 公网：/drop/__health（ttl/file_ttl/session_idle_ttl=259200）+ CORS + 无 token 401
   python deploy\\ecs_drop.py selftest    # 测试身份真实 E2E（登录/open/20MB 分片/下载 Range/测速/text/cmd/双 token）
 
 安全：真机自测的 token 只保存在进程内存，**不打印、不写文件、不发消息**。
@@ -47,7 +51,7 @@ TEST_SID, TEST_NAME = "3260799999", "测试账号"
 CHUNK_SIZE = 8388608
 
 UNIT_TEXT = r"""[Unit]
-Description=Class tools drop relay (same-account cross-device relay; Caddy /drop)
+Description=Class tools file transfer relay (same-account cross-device; Caddy /drop)
 After=network-online.target
 Wants=network-online.target
 
@@ -58,10 +62,11 @@ Group=www-data
 Environment=DROP_ROOT=/opt/class-tools/drop
 Environment=DROP_PORT=8093
 Environment=DROP_GATEWAY=https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/
-Environment=DROP_TTL_SEC=7200
-Environment=DROP_MAX_FILE_BYTES=2147483648
-Environment=DROP_MAX_SESSION_BYTES=8589934592
+Environment=DROP_TTL_SEC=259200
+Environment=DROP_MAX_FILE_BYTES=0
+Environment=DROP_MAX_SESSION_BYTES=0
 Environment=DROP_MAX_FILES=300
+Environment=DROP_UPLOAD_TTL_SEC=86400
 Environment=DROP_URL_TTL_SEC=1800
 Environment=DROP_AUTH_CACHE_SEC=120
 Environment=DROP_PUBLISH_KEY_FILE=/opt/class-tools/drop/publish_key
@@ -288,7 +293,24 @@ def verify():
                                               json.dumps(payload, ensure_ascii=False)))
     if r["status"] != 200 or payload.get("ok") is not True:
         fails += 1
-    if not {"version", "sessions", "files", "bytes"} <= set(payload.keys()):
+    if not {"version", "sessions", "files", "bytes", "ttl",
+            "max_file_bytes", "max_session_bytes"} <= set(payload.keys()):
+        print("   缺少 v2 健康字段")
+        fails += 1
+    ttl_ok = (payload.get("ttl") == 259200
+              and payload.get("file_ttl") == 259200
+              and payload.get("session_idle_ttl") == 259200)
+    print("1b) health ttl=%s file_ttl=%s session_idle_ttl=%s（期望均 259200 = 72h = 3 天）-> %s"
+          % (payload.get("ttl"), payload.get("file_ttl"),
+             payload.get("session_idle_ttl"), "OK" if ttl_ok else "FAIL"))
+    if not ttl_ok:
+        fails += 1
+    unlimited = (payload.get("max_file_bytes") == 0
+                 and payload.get("max_session_bytes") == 0)
+    print("1c) 大小上限 max_file_bytes=%s max_session_bytes=%s（0=不限）-> %s"
+          % (payload.get("max_file_bytes"), payload.get("max_session_bytes"),
+             "OK" if unlimited else "FAIL"))
+    if not unlimited:
         fails += 1
 
     origin = "http://121.196.47.2"
@@ -427,6 +449,7 @@ def selftest():
     report = Report()
     session_id = ""
     token = ""
+    boundary_upload_id = ""
     try:
         print("=== 0. 登录测试身份（token 不打印） ===")
         token, sid = login_test_identity()
@@ -443,6 +466,19 @@ def selftest():
                      "v=%s sessions=%s files=%s bytes=%s"
                      % (health.get("version"), health.get("sessions"),
                         health.get("files"), health.get("bytes")))
+        report.check("health v2.1：file_ttl=session_idle_ttl=259200 / max_file_bytes=0 / max_session_bytes=0",
+                     health.get("ttl") == 259200
+                     and health.get("file_ttl") == 259200
+                     and health.get("session_idle_ttl") == 259200
+                     and health.get("max_file_bytes") == 0
+                     and health.get("max_session_bytes") == 0
+                     and health.get("version") == "2.1",
+                     "version=%s file_ttl=%s session_idle_ttl=%s "
+                     "max_file=%s max_session=%s"
+                     % (health.get("version"), health.get("file_ttl"),
+                        health.get("session_idle_ttl"),
+                        health.get("max_file_bytes"),
+                        health.get("max_session_bytes")))
 
         print("\n=== 1. 会话 /open /mine（双 token 同 sid 互见） ===")
         r = _post_json("/open", {}, token=token)
@@ -461,6 +497,24 @@ def selftest():
         r = _http("GET", BASE_URL + "/mine", headers={"X-Device-Id": token}, timeout=20)
         report.check("token1 /mine 返回同一会话",
                      (_json_of(r).get("session") or {}).get("id") == session_id)
+
+        print("\n=== 1b. v2.1：文件/会话空闲 TTL 3 天 / 无大小上限（元数据边界，不实际传 2GiB） ===")
+        ttl_ms = int(session.get("expiresAt") or 0) - int(session.get("createdAt") or 0)
+        report.check("会话创建时 expiresAt = 创建时刻 + 259200s（72h 空闲滑动基准）",
+                     ttl_ms == 259200 * 1000, "%ss" % (ttl_ms // 1000))
+        old_limit = 2 * 1024 ** 3                 # v1 单文件上限 2GiB
+        declared = old_limit + 8 * 1024 ** 2      # 旧上限 + 8MiB
+        declared_chunks = (declared + CHUNK_SIZE - 1) // CHUNK_SIZE
+        r = _post_json("/upload/init", {
+            "sessionId": session_id, "name": "自测-超大声明.iso",
+            "size": declared, "mime": "application/octet-stream",
+            "totalChunks": declared_chunks}, token=token)
+        payload = _json_of(r)
+        boundary_upload_id = str(payload.get("uploadId") or "")
+        report.check("声明 > 旧单文件上限 2GiB 的文件 init 成功（不再 413）",
+                     r["status"] == 200 and payload.get("ok") is True
+                     and bool(boundary_upload_id),
+                     "size=%d (>2GiB) chunks=%d" % (declared, declared_chunks))
 
         print("\n=== 2. 小文件分片上传 + 事件 + 下载 ===")
         small = ("drop-selftest-%d\n" % int(time.time())).encode() + b"x" * 4096
@@ -521,6 +575,12 @@ def selftest():
         report.check("token2 /state 可见双端文件事件（file x2）",
                      kinds.count("file") == 2,
                      "kinds=%s cursor=%s" % (kinds, _json_of(r).get("cursor")))
+        event_urls = [ev.get("payload", {}).get("downloadUrl")
+                      for ev in events if ev.get("kind") == "file"]
+        rr = _download(event_urls[0], timeout=60) if event_urls else {"status": 0}
+        report.check("/state 文件事件带可用下载链接（读取时重签）",
+                     bool(event_urls) and rr["status"] == 200,
+                     "HTTP %s" % rr["status"])
         r = _post_json("/text", {"sessionId": session_id,
                                  "text": "大屏你好（自测）"}, token=token2)
         seq_text = _json_of(r).get("seq") or 0
@@ -559,6 +619,13 @@ def selftest():
         r = _download(file1["downloadUrl"])
         report.check("关闭后旧下载链接 404（文件已删除）", r["status"] == 404,
                      "HTTP %s" % r["status"])
+        if boundary_upload_id:
+            # 关闭会话时未完成分片任务也一并删除（v2 清理语义）
+            r = _http("POST", "%s/upload/chunk?uploadId=%s&index=0"
+                      % (BASE_URL, boundary_upload_id),
+                      headers={"X-Device-Id": token}, body=b"x", timeout=20)
+            report.check("关闭会话后未完成分片任务一并删除（chunk -> 404）",
+                         r["status"] == 404, "HTTP %s" % r["status"])
         r = _http("GET", HEALTH_URL, timeout=15)
         health = _json_of(r)
         report.check("健康统计回到基线（无残留会话/文件）",

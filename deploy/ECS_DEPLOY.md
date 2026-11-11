@@ -175,22 +175,26 @@ rm -rf /opt/class-tools/pptfiles /etc/systemd/system/class-tools-pptfiles.servic
 - 不要在前端/仓库中出现 OSS 写凭据；ECS 只读 OSS 公开对象。
 - 备案期 `tool.furina.fun` 仍不可解析；ECS 的 IP 入口仅用于本机验证，不对外宣传。
 
-## 9. 大屏临时互联通道（drop 服务，2026-11-11）
+## 9. 文件传输服务（drop，2026-11-11 v2.1）
 
-> 用途：团日活动大屏 ↔ 手机/其它设备**同账号（同 sid）临时互联**——跨端传文件、发文字、遥控指令中转。
-> 会话 2h 自动销毁、文件随关闭即删。**服务契约唯一来源：`drop/CONTRACT.md`**（接口/字段/限制/签名规则）。
+> 用途：**独立「文件传输」工具**的后端——同账号（同 sid）跨设备（手机/电脑/大屏）传文件、发文字、
+> 遥控指令中转，不再是大屏专属。**每个文件自上传完成起 72h（3 天）后自动删除（逐文件独立过期）**；
+> 会话空闲 72h 滑动回收（有未过期文件期间不回收）；**单文件/单会话大小默认不限（磁盘是唯一限制，保留 1GiB 余量）**。
+> **服务契约唯一来源：`drop/CONTRACT.md`**（接口/字段/限制/签名规则）。
 
 ### 9.1 组件
 
 | 项 | 值 |
 |---|---|
-| 服务代码 | `deploy/drop_app.py` → `/opt/class-tools/drop/app.py`（51812 B，Python 标准库） |
+| 服务代码 | `deploy/drop_app.py` → `/opt/class-tools/drop/app.py`（v2.1，62,134 B，Python 标准库） |
 | 数据根 | `/opt/class-tools/drop/`：`sessions/`（会话 JSON）、`files/`（文件实体）、`uploads/`（分片暂存）、`.secret`（HMAC secret，0600，服务自建） |
 | 鉴权密钥 | `/opt/class-tools/drop/publish_key`（root:www-data 0640，来自 `deploy/cloudbase/publish_key.txt`，只在服务端用于 `Authorization: Bearer`，不打印） |
 | systemd | `class-tools-drop.service`（User=www-data、`ProtectSystem=strict`、`ReadWritePaths=/opt/class-tools/drop`、Restart=always） |
+| 默认策略（unit 内） | `DROP_TTL_SEC=259200`（文件 TTL=逐文件 72h；会话空闲 TTL=滑动 72h）、`DROP_MAX_FILE_BYTES=0`（不限）、`DROP_MAX_SESSION_BYTES=0`（不限）、`DROP_MAX_FILES=300`、`DROP_UPLOAD_TTL_SEC=86400`（未完成分片 24h 回收）、`DROP_URL_TTL_SEC=1800` |
 | 监听 | `127.0.0.1:8093`（公网只能经 Caddy `/drop/*`） |
 | Caddy | `handle /drop/* { uri strip_prefix /drop; reverse_proxy 127.0.0.1:8093 }`（HTTP 与 HTTPS-ready 三处，见 `deploy/ecs_site.py`） |
 | 鉴权 RPC | `POST https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/rpc/class_whoami`（X-Device-Id → sid/seat/name；120s 缓存；网关不可用 503 fail closed）。迁移 `deploy/cloudbase/2026-11-11_stage_rpc.sql` |
+| 健康接口 | `GET /drop/__health` → `{ok,version:"2.1",sessions,files,bytes,ttl:259200,ttl_hours:72,file_ttl:259200,session_idle_ttl:259200,max_file_bytes:0,max_session_bytes:0,max_files:300,upload_ttl:86400,disk_free,disk_reserve}` |
 
 ### 9.2 部署与验证（web 目录，系统 python）
 
@@ -208,30 +212,37 @@ python deploy\ecs_drop.py selftest   # 测试身份真实 E2E（token 不打印/
   旧 Caddyfile 备份在 `/var/www/tool_backup/<时间戳>/Caddyfile.old`；
   数据清理 `rm -rf /opt/class-tools/drop/{sessions,files,uploads}`（不影响站点/att/pptfiles）。
 
-### 9.3 实测（2026-11-11 19:56–20:0x）
+### 9.3 实测（v2.1，2026-11-11 22:08）
 
-- 部署：`app.py` 51812 B、`publish_key` 1150 B（0640）；`class-tools-drop.service` **active/enabled**（含 `.instance` 文件锁 + 端口绑定双保险，单实例）；
-  本机 `/__health` = `{"ok":true,"version":"1.0","sessions":0,"files":0,"bytes":0}`。
-- Caddy：`apply` 后 `caddy validate` 通过（HTTP + HTTPS-ready 两份配置），reload active；
-  **站点 `index.html` 字节不变**：975,287 B / sha256 `56667b04…`（apply 前后一致，= 当前 OSS 最新）；
-  `/drop/__health` 公网 **200**（0.08s）；OPTIONS 预检 **204**（ACAO 回显、Allow-Headers 含 `X-Device-Id,X-Upload-Id`）；
+- 部署：`deploy/ecs_drop.py deploy` 成功（9 个分片 + publish_key，publish_key 1150 B/0640 不打印内容）；
+  `app.py` **62,134 B**（`VERSION=2.1`）；`class-tools-drop.service` **active/enabled**（`.instance` 文件锁 + 端口绑定双保险，单实例）。
+- 本机 + 公网 `/__health` = `{"ok":true,"version":"2.1","sessions":0,"files":0,"bytes":0,"ttl":259200,"ttl_hours":72,"file_ttl":259200,"session_idle_ttl":259200,"max_file_bytes":0,"max_session_bytes":0,"max_files":300,"upload_ttl":86400,"disk_free":32102490112,"disk_reserve":1073741824}`
+  → **文件 TTL=259200s（逐文件 3 天）**、**会话空闲 TTL=259200s（滑动）**、**单文件/单会话不限（0）**、磁盘余量 1GiB。
+- `verify` **PASS**：health ttl/file_ttl/session_idle_ttl=259200、max=0；OPTIONS 预检 204（ACAO 回显、Allow-Headers 含 `X-Device-Id,X-Upload-Id`）；
   无 token `/open` → **401**（fail closed）；无效 token → **401 未登录**（真实 `class_whoami` 生效）。
-- 真实公网 E2E（测试身份，`selftest` **23/23 PASS**）：
-  - 两次登录拿**不同 token、同 sid**；token2 `/open` 复用 token1 的会话（双端互见）；`/mine` 同会话；
+- 真实公网 E2E（测试身份，`selftest` **28/28 PASS**，token 不打印/不落盘）：
+  - 两次登录拿不同 token、同 sid；token2 `/open` 复用 token1 会话（双端互见）；`/mine` 同会话；
+  - 会话创建时 `expiresAt = 创建时刻 + 259200s`（72h 空闲滑动基准）；**声明 2GiB+8MiB（旧上限以上）的文件 `init` 成功（257 片）**，不再 413；
   - 小文件分片上传→finish→事件→下载 sha256 一致，`Content-Disposition: attachment; filename*=UTF-8''…`；
-  - **20MiB 文件 3 片（8MiB/chunk）**：上传 3.13s（**6.39MB/s**），下载 2.58s（**7.75MB/s**）且 sha256 一致；
+  - **20MiB 文件 3 片（8MiB/chunk）**：上传 2.67s（**7.49MB/s**），下载 3.84s（**5.21MB/s**）且 sha256 一致；
     `Range: bytes=100-1123` → **206** `Content-Range: bytes 100-1123/20971520`；HEAD 200 + 正确 Content-Length；
-  - token2 `/state` 可见 file×2 事件；token2 发文字 → token1 `/state` 收到（from=测试账号）；`/cmd toast` 200、未知 op 400 中文 reason；
-  - `/close` → `/mine` 为空、旧下载链接 **404**（文件已删）、健康统计回到基线（sessions/files=0/0，无残留）。
-- 磁盘：ECS `/` 40G，已用 7.3G，**可用 30G**（drop 默认单文件 ≤2GiB、单会话 ≤8GiB、磁盘保留 ≥1GiB）。
+  - token2 `/state` 可见 file×2 事件，**事件里的 downloadUrl 每次读取重新签发（30min）且实测下载 200**（3 天文件保留的关键）；
+  - token2 发文字 → token1 `/state` 收到（from=测试账号）；`/cmd toast` 200、未知 op 400 中文 reason；
+  - `/close` → `/mine` 为空、旧下载链接 **404**（文件已删）、**未完成分片任务也删除（chunk → 404）**、
+    健康统计回到基线（sessions/files=0/0，无残留；数据目录 `sessions/index.json` 为空索引）。
+- 逐文件 TTL 的删除逻辑无法在真机等 72h，由**单测注入文件时间覆盖**（85 项全绿，含：旧文件过期删除/新文件保留、
+  `/state` 过期事件标记 expired 无链接、会话空闲回收、有未过期文件时会话保留、活动滑动续期）。
+- 磁盘：ECS `/` 40G，已用 7.4G，**可用 30G**（v2.1 无单文件/会话业务上限，磁盘保留 ≥1GiB；不足时 init/分片/拼接返回 507）。
 
 ### 9.4 已知限制（如实）
 
-- 单实例（端口绑定 + 数据根 `.instance` 进程锁）、无持久化：会话 TTL 2h；关闭/过期即删文件；服务重启不丢会话/事件（磁盘），只丢鉴权缓存。
-- 单文件默认 2GiB / 单会话 8GiB / 300 文件 / 文字 1 万字 / 每会话事件 500 条（超出丢最旧）；env 可调。
+- 单实例（端口绑定 + 数据根 `.instance` 进程锁）、无持久化：**文件逐文件自上传完成起 72h 删除**；
+  **会话空闲 72h 滑动回收**（有未过期文件期间不回收；文件全过期后再按空闲规则收尾）；关闭即删全部文件与未完成分片；
+  服务重启不丢会话/事件（磁盘），只丢鉴权缓存。
+- 单文件/单会话大小**不限**（0）；限制来自磁盘：保留 ≥1GiB 余量，不足返回 507；300 文件/会话、文字 1 万字、每会话事件 500 条（超出丢最旧）；env 可调。
+- 未完成分片 **24h 无活动**（`DROP_UPLOAD_TTL_SEC=86400`）后由 60s 清理线程回收；断点续传不跨会话/不跨服务重启（刷新后需重传）。
 - 下载签名 URL 30 分钟有效，过期需重新上传/刷新事件（不提供手动续签接口）。
 - 鉴权依赖 CloudBase 网关 + `class_whoami`：不可用时**全部 API 503**（fail closed），不影响站点其它功能。
-- 2C2G 单机共享 CPU/带宽：大文件并发会与 `/pptfiles` 下载、站点访问争带宽；适合班级内临时使用。
-- 分片断点续传不跨会话/不跨服务重启（刷新后需重传）；`finish` 前中断由 60s 清理线程按 TTL 回收。
+- 2C2G 单机共享 CPU/磁盘/带宽：大文件并发上传/下载会与 `/pptfiles` 下载、站点访问争资源；删除超大文件为后台线程同步操作，
+  可能持续数秒~数十秒（不阻塞 API 线程）；适合班级内使用。
 - 房间码 `code` 只用于人工配对展示，**不是**鉴权凭据；权限完全等于班级 token（同 sid 即同权限）。
-

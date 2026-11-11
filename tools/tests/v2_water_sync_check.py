@@ -63,6 +63,10 @@ SID_A = W.SID_A
 SID_B = W.SID_B
 RV321 = W.RV321
 RV330 = W.RV330
+# 契约变更（2026-11-11，反馈6）：23A/23B 固定 4 人间 → 4↔6 人重算/人数同步改用 13 号楼房间；
+# 6 人间恢复/隔离类场景改用 16 号楼房间
+RV13 = "1-13---324"
+RV16 = "1-16---306"
 ATW_SEED = 1762300800000        # 云端 water at 种子（2025-11 附近，早于当前）
 ATW_OLD = 1700000000000         # 老旧云端时间戳（LWW 必输）
 
@@ -361,11 +365,23 @@ def sc_a_local(cdp):
     T("A14 删除后 at.water 继续递增", isinstance(at3, (int, float)) and isinstance(at2, (int, float)) and at3 > at2,
       "%s -> %s" % (at2, at3))
 
-    # 4 → 6 人间
+    # 契约变更（2026-11-11，反馈6）：23A/23B 固定 4 人、人数选择器禁用；
+    # 4↔6 人切换改到 13 号楼（1-13---324）验证（旧场景在 23A 房间设 6 人已不合契约）。
     W.set_select(cdp, "#wtPersons", "6")
-    b4 = find_post(cdp, lambda b: wroom(b, RV321).get("p") == 6, 15)
-    T("A15 切换 6 人间 → POST water.rooms[321].p=6（人数同步）", b4 is not None,
-      json.dumps(wroom(b4 or {}, RV321), ensure_ascii=False)[:160])
+    disp = W.jval(cdp, "#wtPersons")
+    fixed = bool(ev(cdp, "(function(){var e=document.getElementById('wtPersons');return !!e&&!!e.disabled;})()"))
+    T("A15 23A 房间人数固定 4（选择器禁用、6 人被拒绝）", disp == "4" and fixed,
+      "val=%s disabled=%s" % (disp, fixed))
+    W.select_water_room(cdp, RV13)
+    time.sleep(0.4)
+    W.save_record(cdp, W.M3, "88.88")
+    b6 = find_post(cdp, lambda b: wroom(b, RV13).get("p") == 4 and len(recs_of(b, RV13)) == 1, 15)
+    T("A15b 13 号楼可保存记录（p=4 推送）", b6 is not None,
+      json.dumps(wroom(b6 or {}, RV13), ensure_ascii=False)[:160])
+    W.set_select(cdp, "#wtPersons", "6")
+    b4 = find_post(cdp, lambda b: wroom(b, RV13).get("p") == 6, 15)
+    T("A15c 13 号楼切 6 人间 → POST water.rooms[324].p=6", b4 is not None,
+      json.dumps(wroom(b4 or {}, RV13), ensure_ascii=False)[:160])
     at4 = ((b4 or {}).get("at") or {}).get("water")
     T("A16 人数切换后 at.water 继续递增", isinstance(at4, (int, float)) and isinstance(at3, (int, float)) and at4 > at3,
       "%s -> %s" % (at3, at4))
@@ -373,15 +389,16 @@ def sc_a_local(cdp):
     # 等 >1.3s 后检查「最后一次」POST 终态
     time.sleep(1.5)
     last = last_blob(cdp)
-    rwL = wroom(last or {}, RV321)
-    T("A17 等 >1.3s 后最后一次 POST 终态：p=6 / recs=[M3 113.74] / 仅 1 间宿舍",
-      last is not None and rwL.get("p") == 6 and [x.get("m") for x in (rwL.get("recs") or [])] == [W.M3]
-      and list(((last.get("water") or {}).get("rooms") or {}).keys()) == [RV321],
-      json.dumps(rwL, ensure_ascii=False)[:220])
+    rwL = wroom(last or {}, RV13)
+    roomsL = ((last.get("water") or {}).get("rooms") or {})
+    T("A17 等 >1.3s 后最后一次 POST 终态：324 p=6 / 321 p=4 / 记录保留",
+      last is not None and rwL.get("p") == 6 and wroom(last or {}, RV321).get("p") == 4
+      and len(roomsL.keys()) >= 2 and [x.get("m") for x in (rwL.get("recs") or [])] == [W.M3],
+      json.dumps(roomsL, ensure_ascii=False)[:260])
     T("A18 最后一次 POST 仍为 14 键契约", key_order(last) == CONTRACT_KEYS, key_order(last))
     pw = (last or {}).get("power") or {}
-    T("A19 power section 共用关注宿舍（sel=321 / at>0）",
-      pw.get("sel") == RV321 and isinstance(pw.get("at"), (int, float)) and pw.get("at") > 0,
+    T("A19 power section 共用关注宿舍（sel=13号楼324 / at>0）",
+      pw.get("sel") == RV13 and isinstance(pw.get("at"), (int, float)) and pw.get("at") > 0,
       json.dumps(pw, ensure_ascii=False)[:160])
 
     bd = badge(cdp)
@@ -398,7 +415,7 @@ def sc_a_local(cdp):
 def sc_b_restore(cdp):
     rooms = {
         RV321: {"p": 4, "recs": [W.rec("2025-01", 50.00), W.rec("2025-02", 60.50)]},
-        RV330: {"p": 6, "recs": [W.rec("2025-03", 10.00), W.rec("2025-04", 30.00)]},
+        RV16: {"p": 6, "recs": [W.rec("2025-03", 10.00), W.rec("2025-04", 30.00)]},
     }
     seed = seed_blob(power_sel=RV321, rooms=rooms, atw=ATW_SEED)
     T("B01 新设备（清本机 + 云端 v6 ud 种子）启动", W.nav(cdp, W.purl(ud=seed), clear=True))
@@ -412,19 +429,19 @@ def sc_b_restore(cdp):
     T("B06 恢复历史内容（2025-02 / 60.50 / 用量 10.50 / 水费 7.57）",
       W.has_all(row2, "2025-02", "60.50", "10.50", "7.57"), W.norm(row2)[:140])
     got = water_rooms(cdp)
-    ok2 = (RV321 in got and RV330 in got and got[RV321].get("p") == 4 and got[RV330].get("p") == 6
-           and len(got[RV321].get("recs") or []) == 2 and len(got[RV330].get("recs") or []) == 2)
-    T("B07 未选中房间也恢复（321 p=4 两条 + 330 p=6 两条）", ok2,
+    ok2 = (RV321 in got and RV16 in got and got[RV321].get("p") == 4 and got[RV16].get("p") == 6
+           and len(got[RV321].get("recs") or []) == 2 and len(got[RV16].get("recs") or []) == 2)
+    T("B07 未选中房间也恢复（321 p=4 两条 + 16号楼306 p=6 两条）", ok2,
       json.dumps(got, ensure_ascii=False)[:260])
     cache = cache_read(cdp, SID_A) or {}
     T("B08 UD 基线 at.water = 云端种子时间戳", ((cache.get("at") or {}).get("water")) == ATW_SEED,
       str((cache.get("at") or {}).get("water")))
-    # 切到 330：人数/记录跟随该宿舍
-    W.set_select(cdp, "#wtSel", RV330)
+    # 切到 16 号楼 306：人数/记录跟随该宿舍（23A/23B 固定 4 人，不能再用 330 验证 6 人）
+    W.set_select(cdp, "#wtSel", RV16)
     time.sleep(0.6)
     row4 = W.row_text(cdp, "2025-04")
-    T("B09 切到 330 号宿舍 → 人数 6 / 记录恢复（2025-04 / 30.00 / 24.24）",
-      W.jval(cdp, "#wtSel") == RV330 and W.jval(cdp, "#wtPersons") == "6" and W.has_all(row4, "2025-04", "30.00", "24.24"),
+    T("B09 切到 16 号楼 306 → 人数 6 / 记录恢复（2025-04 / 30.00 / 24.24）",
+      W.jval(cdp, "#wtSel") == RV16 and W.jval(cdp, "#wtPersons") == "6" and W.has_all(row4, "2025-04", "30.00", "24.24"),
       "%s/%s | %s" % (W.jval(cdp, "#wtSel"), W.jval(cdp, "#wtPersons"), W.norm(row4)[:120]))
     bucket = W.bucket_read(cdp, SID_A) or {}
     got_local = ((bucket.get("water") or {}).get("rooms") or {})
@@ -542,7 +559,8 @@ def cap_recs():
 
 def sc_f_cap(cdp):
     recs = cap_recs()
-    seed = seed_blob(power_sel=RV321, rooms={RV321: {"p": 4, "recs": recs}}, atw=ATW_SEED)
+    # 契约变更（2026-11-11，反馈6）：23A/23B 固定 4 人 → 改人数推送场景改到 13 号楼（1-13---324）
+    seed = seed_blob(power_sel=RV13, rooms={RV13: {"p": 4, "recs": recs}}, atw=ATW_SEED)
     T("F01 云端 130 条记录场景启动", W.nav(cdp, W.purl(ud=seed), clear=True))
     T("F02 基线就绪", ensure_base(cdp, SID_A))
     T("F03 进入水量页", W.open_water_page(cdp))
@@ -554,12 +572,12 @@ def sc_f_cap(cdp):
     T("F05 裁剪保留最近 120 条（最早显示 2010-11，最新 2020-10）",
       len(rows) == 120 and rows[-1].get("m") == "2010-11" and rows[0].get("m") == "2020-10",
       "%s .. %s | %d" % (rows[0].get("m") if rows else "none", rows[-1].get("m") if rows else "none", len(rows)))
-    raw = water_rooms(cdp).get(RV321, {}).get("recs") or []
+    raw = water_rooms(cdp).get(RV13, {}).get("recs") or []
     T("F06 远端 130 条经 applyRemote 归一后本机 raw 已裁到 120（修复后口径）", len(raw) == 120, "raw=%d" % len(raw))
     W.set_select(cdp, "#wtPersons", "6")
-    b = find_post(cdp, lambda x: wroom(x, RV321).get("p") == 6 and len(recs_of(x, RV321)) == 120, 15)
+    b = find_post(cdp, lambda x: wroom(x, RV13).get("p") == 6 and len(recs_of(x, RV13)) == 120, 15)
     T("F07 改人数后推送上云被裁剪为 120 条（p=6 / ≤120）",
-      b is not None and len(recs_of(b, RV321)) == 120, "posts=%d" % len(posts(cdp)))
+      b is not None and len(recs_of(b, RV13)) == 120, "posts=%d" % len(posts(cdp)))
     collect(cdp, "F 上限 120")
 
 
@@ -573,8 +591,8 @@ def sc_g_isolation(cdp):
     T("G02 A 基线", ensure_base(cdp, SID_A))
     T("G03 A 水量页恢复", W.open_water_page(cdp)
       and W.wait_until(cdp, "(function(){return document.querySelectorAll('#wtList [data-wm]').length>=2;})()", 15))
-    seedB = seed_blob(power_sel=RV330, rooms={
-        RV330: {"p": 6, "recs": [W.rec("2025-03", 10.00), W.rec("2025-04", 30.00)]}}, atw=ATW_SEED + 1000)
+    seedB = seed_blob(power_sel=RV16, rooms={
+        RV16: {"p": 6, "recs": [W.rec("2025-03", 10.00), W.rec("2025-04", 30.00)]}}, atw=ATW_SEED + 1000)
     # 不清 localStorage：验证 A 的本机桶不被 B 覆盖
     T("G04 切账号 B（保留本机 A 桶）启动", W.nav(cdp, W.purl(sid=SID_B, ud=seedB)))
     T("G05 B 基线", ensure_base(cdp, SID_B))

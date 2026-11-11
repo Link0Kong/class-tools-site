@@ -123,7 +123,7 @@ def _caddy_http():
 		uri strip_prefix /pptfiles
 		reverse_proxy 127.0.0.1:8092
 	}
-	# 大屏临时互联通道（同账号跨端传文件/文字/遥控；见 drop/CONTRACT.md）
+	# 文件传输服务（同账号跨端传文件/文字/遥控，72h 逐文件过期；见 drop/CONTRACT.md）
 	handle /drop/* {
 		uri strip_prefix /drop
 		reverse_proxy 127.0.0.1:8093
@@ -172,7 +172,7 @@ tool.furina.fun {
 		uri strip_prefix /pptfiles
 		reverse_proxy 127.0.0.1:8092
 	}
-	# 大屏临时互联通道（同账号跨端传文件/文字/遥控；见 drop/CONTRACT.md）
+	# 文件传输服务（同账号跨端传文件/文字/遥控，72h 逐文件过期；见 drop/CONTRACT.md）
 	handle /drop/* {
 		uri strip_prefix /drop
 		reverse_proxy 127.0.0.1:8093
@@ -214,7 +214,7 @@ tool.furina.fun {
 		uri strip_prefix /pptfiles
 		reverse_proxy 127.0.0.1:8092
 	}
-	# 大屏临时互联通道（同账号跨端传文件/文字/遥控；见 drop/CONTRACT.md）
+	# 文件传输服务（同账号跨端传文件/文字/遥控，72h 逐文件过期；见 drop/CONTRACT.md）
 	handle /drop/* {
 		uri strip_prefix /drop
 		reverse_proxy 127.0.0.1:8093
