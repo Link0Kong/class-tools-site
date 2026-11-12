@@ -2,7 +2,7 @@
 r"""网页批次2 · 反馈1：独立「文件传输」工具（web-b 专项，独立文件，不改既有测试）。
 
 需求：文件传输做成独立工具页（全部页卡片 / 可拖入工具栏 / #drop hash 路由），
-复用 ECS drop 服务：同账号会话房间码、跨设备互见、分片上传（任意大小/进度/取消）、
+复用 ECS drop 服务：同账号会话自动互见（**无房间码/配对码**，2026-11-12 起房间码从 UI 移除）、分片上传（任意大小/进度/取消）、
 文件列表下载（签名 URL）、发文字、会话关闭；文案「文件保留 3 天」；大屏互联面板不回归。
 （TTL 3 天 / 不限大小由 cloud-backend drop 服务契约负责，前端只按 drop/CONTRACT.md 口径。）
 
@@ -10,7 +10,7 @@ r"""网页批次2 · 反馈1：独立「文件传输」工具（web-b 专项，�
 A 静态：TOOLS 含 file、#s-file 位于 #s-all 前、全部页卡片自动出现、会话/上传/列表/文字/关闭/TTL 文案、
         #drop → 新页路由、大屏互联面板保留、APP_VER 2.0.0、单文件零外链
 B 运行时（fetch mock drop 服务，无真实网络）：
-  B1 进入页自动开通道：房间码/链接显示
+  B1 进入页自动开通道：已开启状态/链接显示（页面无房间码）
   B2 小文件上传：init→chunk→finish 口径正确，列表出现 + 下载链接
   B3 大文件（20MiB）分片 = 3 片（8MiB×2 + 4MiB），总大小正确
   B4 上传进度显示、取消后不再 finish
@@ -203,8 +203,7 @@ def snap(page):
       var ups=[].map.call(document.querySelectorAll('#fileUpList .file-up,.file-upitem'),function(it){
         return {name:it.textContent,pct:it.querySelector('.file-up-pct,.file-up-pct b')?it.querySelector('.file-up-pct,.file-up-pct b').textContent:''};});
       var ds=window.__ds||{};
-      return {room:q('#fileRoom')?q('#fileRoom').textContent:null,
-        state:q('#fileState')?q('#fileState').textContent:null,
+      return {state:q('#fileState')?q('#fileState').textContent:null,
         link:q('#fileLink')?String((q('#fileLink').value!==undefined?q('#fileLink').value:q('#fileLink').textContent)||''):'',
         ttl:q('#fileTTL')?q('#fileTTL').textContent:(document.getElementById('s-file')?document.getElementById('s-file').textContent:''),
         files:files,ups:ups,
@@ -274,9 +273,10 @@ def main():
     T("A2 #s-file section 位于 #s-all 之前",
       'id="s-file"' in SRC_TEXT and 'id="s-all"' in SRC_TEXT and
       SRC_TEXT.index('id="s-file"') < SRC_TEXT.index('id="s-all"'))
-    T("A3 文件传输页关键元素（房间码/链接/上传/列表/文字/关闭）",
-      all(k in SRC_TEXT for k in ('id="fileRoom"', 'id="fileLink"', 'id="fileUpInput"', 'id="fileList"',
-                                  'id="fileText"', 'id="fileSendText"', 'id="fileClose"')))
+    T("A3 文件传输页关键元素（链接/上传/列表/文字/关闭；无房间码）",
+      all(k in SRC_TEXT for k in ('id="fileLink"', 'id="fileUpInput"', 'id="fileList"',
+                                  'id="fileText"', 'id="fileSendText"', 'id="fileClose"'))
+      and ('id="fileRoom"' not in SRC_TEXT) and ("房间码" not in SRC_TEXT))
     T("A4 文案含「文件自上传起保留 3 天」+ 不限大小/分片说明",
       "文件自上传起保留 3 天" in SRC_TEXT and ("任意大小" in SRC_TEXT or "不限大小" in SRC_TEXT or "不限文件大小" in SRC_TEXT))
     T("A5 #drop hash 路由指向新文件传输页（gotoTab('file')）",
@@ -303,9 +303,9 @@ def main():
     if not ok:
         print("  [SKIP] 文件传输页未实现，运行时组跳过")
     else:
-        wait_for(lambda: "042317" in (snap(p)["room"] or ""), 10)
+        wait_for(lambda: "已开启" in (snap(p)["state"] or ""), 10)
         s = snap(p)
-        T("B1a 进入页自动开通道：房间码显示", "042317" in (s["room"] or ""), s["room"])
+        T("B1a 进入页自动开通道：状态=已开启（同账号互见）", "已开启" in (s["state"] or "") and "同账号" in (s["state"] or ""), s["state"])
         T("B1b 会话链接展示（含 #drop）", "#drop" in (s["link"] or ""), s["link"])
         T("B1c 页面说明「文件保留 3 天」", "3天" in "".join((s["ttl"] or "").split()), (s["ttl"] or "")[:120])
         T("B1d 大屏互联弹层未被误打开（独立页不弹旧弹层）",
@@ -366,8 +366,8 @@ def main():
         ok6 = wait_for(lambda: (snap(p)["ds"]["session"] is None), 8)
         s6 = snap(p)
         T("B6a 关闭 → POST /close 且会话清空", ok6 and any("/close" in c for c in s6["ds"]["calls"]), s6["ds"]["calls"][-6:])
-        T("B6b 关闭后 UI 复位（房间码清空/提示未开启）",
-          (not s6["room"]) or ("未" in (s6["room"] or "")) or ("—" in (s6["room"] or "")), s6["room"])
+        T("B6b 关闭后 UI 复位（链接清空/状态未开启）",
+          (not s6["link"]) and ("未" in (s6["state"] or "")), (s6["state"], s6["link"]))
         T("B6c 0 JS 报错 / 0 console.error", not s6["errs"] and not s6["cerrs"], (s6["errs"], s6["cerrs"]))
         T("B6d 无外部请求", not (p.evaluate(EXTS_JS) or []))
         try:

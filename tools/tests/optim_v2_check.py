@@ -288,8 +288,9 @@ RUNNER = r"""
           T("大屏互联：控制器可关闭", !q("#dropCtl").classList.contains("on"), "");
           /* 互联：大屏面板 */
           click("#o2sDropBtn"); await sleep(500);
-          T("大屏互联：面板显示通道/房间码/链接", !!q("#o2sDropModal") && !q("#o2sDropModal").hidden &&
-            txt("#o2sDropModal").indexOf("通道已开启")>=0 && txt("#o2sDropModal").indexOf("2468")>=0, "");
+          T("大屏互联：面板显示通道/链接（2026-11-12 起无房间码）", !!q("#o2sDropModal") && !q("#o2sDropModal").hidden &&
+            txt("#o2sDropModal").indexOf("通道已开启")>=0 && txt("#o2sDropModal").indexOf("房间码")<0 &&
+            !!q("#o2sDropLink") && String(q("#o2sDropLink").value||"").length>0, "");
           T("大屏互联：收到文件/文字列表", txt("#o2sDropModal").indexOf("收到的文件")>=0 && txt("#o2sDropModal").indexOf("现场照片.jpg")>=0, "");
           try{q("#o2sDropModal").hidden=true;}catch(e){}
           click("#o2sClose"); await sleep(250);

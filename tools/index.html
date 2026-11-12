@@ -2323,8 +2323,6 @@ body.ppt-dl-lock{overflow:hidden!important}
 
 /* ---------- B. 文件传输 #s-file ---------- */
 #s-file .file-hero{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:2px 0 4px}
-#s-file .file-code{font-size:30px;font-weight:800;letter-spacing:.22em;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.15}
-#s-file .file-code.empty{color:var(--ink3);letter-spacing:.1em;font-size:16px}
 #s-file .file-states{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 #s-file .file-pill{font-size:11.5px;padding:3px 9px;border-radius:999px;background:#EDF4F1;color:var(--cy);font-weight:700;white-space:nowrap}
 #s-file .file-pill.warn{background:#FBF2E6;color:var(--sd)}
@@ -2930,10 +2928,6 @@ body.ppt-dl-lock{overflow:hidden!important}
         <div class="card">
           <div class="pw-card-hd"><b>通道</b><span class="wt-ts" id="fileState">未开启</span></div>
           <div class="file-hero">
-            <div class="file-roomwrap">
-              <div class="f" style="margin-top:0">房间码</div>
-              <div class="file-code empty" id="fileRoom">—</div>
-            </div>
             <div class="file-states"><span class="file-pill off" id="filePill">未开启</span></div>
           </div>
           <div class="file-linkrow">
@@ -16556,7 +16550,7 @@ function optSaveCanvas(c,o){
     var texts=(d.events||[]).filter(function(e){return e.kind==="text";});
     var h='<div class="opt2-drop-st">';
     if(d.active){
-      h+='<span class="opt2-drop-dot"></span><b>通道已开启</b><span class="opt2-tag">'+esc(String(sess.code||""))+'</span>';
+      h+='<span class="opt2-drop-dot"></span><b>通道已开启</b>';
       if(sess.expiresAt)h+='<span class="opt2-dim" id="o2sDropExp" data-exp="'+(Number(sess.expiresAt)||0)+'">剩余 '+Math.max(0,Math.ceil((Number(sess.expiresAt)-Date.now())/60000))+' 分钟</span>';
     }else{
       h+='<span class="opt2-drop-dot off"></span><b>通道未开启</b>'+(d.err?'<span class="opt2-dim">'+esc(d.err)+'</span>':'');
@@ -16655,7 +16649,7 @@ function optSaveCanvas(c,o){
       body.innerHTML=h;
       return;
     }
-    h+='<div class="dropctl-st"><span class="dropctl-dot"></span><b>已连接大屏</b><span class="dropctl-code">'+esc(String(sess.code||""))+'</span></div>';
+    h+='<div class="dropctl-st"><span class="dropctl-dot"></span><b>已连接大屏</b></div>';
     h+='<div class="dropctl-sec"><b>传文件</b><div class="dropctl-up">'+
       '<label class="dropctl-btn pri">选择文件<input type="file" id="dropCtlFile" multiple hidden></label>'+
       '<span class="dropctl-dim">可多选 · 大文件分片直传 ECS</span></div><div id="dropCtlUps"></div></div>';
@@ -17573,18 +17567,14 @@ function optSaveCanvas(c,o){
       var r=el("fileRefresh");if(r)r.disabled=!S.session;
     }
     function renderState(){
-      var room=el("fileRoom"),pill=el("filePill"),state=el("fileState"),linkEl=el("fileLink");
-      if(room){
-        if(S.session){room.textContent=String(S.session.code||"——");room.classList.remove("empty");}
-        else{room.textContent=S.err?"—":"—";room.classList.add("empty");}
-      }
+      var pill=el("filePill"),state=el("fileState"),linkEl=el("fileLink");
       if(pill){
         if(S.session){pill.className="file-pill";pill.textContent="已开启";}
         else if(S.err){pill.className="file-pill warn";pill.textContent="连接中断";}
         else{pill.className="file-pill off";pill.textContent="未开启";}
       }
       if(state){
-        state.textContent=S.session?("已开启 · 房间码 "+String(S.session.code||"")):(S.err||"未开启");
+        state.textContent=S.session?"已开启 · 同账号设备互见":(S.err||"未开启");
         state.style.color=S.err?"#A25B45":"";
       }
       if(linkEl)linkEl.value=S.session?link():"";
