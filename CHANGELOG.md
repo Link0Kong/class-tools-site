@@ -2,6 +2,40 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-12 21:0x–21:5x · 增量 51：三端「使用说明」卡片化重构（网页已上线 OSS+ECS；小程序源码待用户上传发布；安卓 APK 已交付）
+
+> 用户需求原话：「对三端使用说明进行重构，从文字堆叠改为卡片展示，左右滑动切换卡片，且加入一键总览等按钮的形式，可加入一定配图对功能说明，重写使用说明，使其更清晰易懂」。
+
+### 共享契约
+- 新增 `使用说明_卡片化重构契约_20261112.md`（三端唯一契约）：一屏一张卡 + 左右滑动切换 + 一键总览 + 分类快捷标签 + 上一张/下一张 + 11 种配图 scene + 文案硬规则（标题≤8 / 作用≤20 / 步骤≤24 / 提示≤30）；三端按本端真实功能实现，不写别端入口。
+
+### 网页（`tools/index.html` `__UG_CARDS_V1__`；已上线）
+- `#s-ug` 重写：**17 张卡片横向 scroll-snap 轮播**（一屏一张、首尾 clamp、触摸/触控板/鼠标拖动跟手）+ **5 个分类 chips**（点跳该分类首卡、分类高亮、点按高度 40px）+ **一键总览弹层**（按分类分组、桌面 ≥960px 两列、点条目关闭并跳卡、遮罩/×/返回键/Esc 关闭，关闭不误弹「再按一次返回退出」）+ 上一张/下一张/页码/进度条 + 键盘 ←/→。
+- 配图：11 个内联 SVG symbol（picks/steps/grid/list/chart/people/transfer/ballot/droplet/shield/slides），**零外部请求、零图片请求**；修复 `<use>` 百分比尺寸导致的非等比拉伸/裁切。
+- 文案全部重写去重（删除原使用说明里重复的「文件传输」「水量」「通知提醒」条目）；保留既有测试断言短语（重置 / 名单不支持自定义输入 / 关注宿舍按楼栋 / 不提供 24h）。
+- 手势：全局滑动引擎 `resolveStart()` 排除 `#ugPager` / `#ugOv`（卡片横滑与总览内滑动不切工具）。
+- 测试：新增 `tools/tests/v2_ug_check.py` **56/56**（静态 20 + 运行时 36：430/360/390/1280 四档、翻页、分类跳转、总览开关/点跳/返回键/Esc、键盘、无横向溢出、0 JS 报错、0 console.error、0 外部请求、所有按钮点按 ≥40px；截图 `tools/tests/_shots_ug/`）。
+- 回归：`v2_ui_check 27/27`、`overflow 430=0`、`v2_drag_check 69/69`、`v2_pos_restore 12/12`、`v2_swipe_perf PASS`、`v2_power_pick_mem 48/48`、`v2_power_trend_compare 32/32`；`vote_check 82/83`、`reset_check 108/109`、`roster_check_verify 154/157` 的唯一失败均为并行会话大屏 presence 外部请求（已知基线噪音），`v2_scroll_check 36/40`（C7/C8/C9/G3）与改造前副本逐项一致。
+- 兼容性适配：使用说明不再长滚动，`v2_pos_restore_check` / `v2_scroll_check` / `v2_swipe_perf` 中把「使用说明」当长滚动代表页的几处改用「全部」页（断言不变，理由写在测试注释）。
+- 部署：`python deploy/sync_tools.py index.html` + `python deploy/ecs_site.py apply` → OSS/ECS **1,227,464 B / sha256 `891a6389edf18143d4e75bac168fde9f113001cc323e3159f880b0defeb77b19`**（`oss_object.py check` MATCH、ECS verify MATCH、gzip 380,265 B）；部署前线上备份 `tools/_backup/index_online_20261112_2124_preUGdeploy.html`（1,163,168 B/`c4676d57…`）。
+- 回滚：重传上述备份（会同时回退并行会话在本功能之后的改动；若只回退使用说明，可 revert 本提交中 index.html 的 `__UG_CARDS_V1__` 相关 hunk）；无 DB / 同步契约变更。
+
+### 小程序（`pages/ug`；源码待用户上传发布）
+- 重写为 **swiper 19 卡**（id/顺序按契约 §4.2）+ 分类 chips + 总览遮罩清单 + 上一张/下一张/页码 + **11 类 WXSS 形状配图（0 新增图片资源）** + 全量重写文案；top-app-bar 标题置空避免与原生导航栏重复；保留 share / agent handoff / scrollmem / 身份校验，版本仍 2.0.0。
+- swiper 高度用 `createSelectorQuery` 实测卡片最大高度后 clamp 屏幕可用高度；内容装不下回退「内容高度 + 卡内 scroll-view」，不截断。
+- 测试：Lead 复跑 `unit.js 535/0`、`staticcheck.py exit 0`、`code_quality_check.js` 全规则通过、新增 `ug_cards_check.js 59/59`；automator（390 宽）`ui_scroll_test 10/0`、`perf_ug_preview 10/0`、`ug_cards_shot 7/0`（19 卡逐张截图 `_shots_ug_cards/`，0 console error）。
+- 已知：仅开发者工具 390 宽验证，未真机；发布前仍需按既有流程处理微信后台合法域名（与本功能无关）。
+
+### Android（`ui/screens/guide/`；APK 已交付）
+- `UserGuideScreen.kt` 重写 + 新增 `GuideContent.kt` / `GuideScenes.kt`：CtTopBar（右侧「总览」）+ 5 分类 chips + **`HorizontalPager` 20 卡** + 11 种 scene Compose 自绘（无图片依赖）+ 底部上一张/页码/下一张（≥48dp、首尾禁用、clamp 不循环）+ `ModalBottomSheet` 分组总览（点条目关 sheet 并跳卡、BackHandler 关 sheet）+ 卡内 verticalScroll；`UserGuideContent.VERSION="2026-11-12.1"`；全局版本号未改。
+- 测试：新增 `UserGuideContentTest` **13/13**（20 卡/id 唯一/分类合法/文案长度/事实/VERSION/Android 独有 reminder·calendar·permissions）；`:app:testDebugUnitTest` **1098/0**、`assembleDebug` 通过、`assembleRelease` 成功。
+- APK：`C:\Users\Ko_Li\Desktop\classtools-4.42.0-ug-cards-release-signed.apk`（3,075,869 B / sha256 `352E0C9F78ADBD045C35A84BFE79BF8637DC5F75C235DA322F4E8C343D3283C7`，v4.42.0 / vc58，apksigner 验证通过）。注意：该 APK 构建自当前工作区，**同时包含并行会话未提交改动**（版本号 4.42.0/vc58 由并行会话维护，本功能未改全局版本号）。
+
+### 独立验收
+- `验收报告/使用说明_重构_独立验收_20261112.md`：QA 独立复核三端 **PASS（P0=0 / P1=0 / P2=1 记录豁免）**——web 自研 CDP 真实触摸驱动 122/122、`v2_ug_check 56/56`、上线对象三方字节一致；mp 535/0 + staticcheck/ug_cards_check；android 单测复跑 1098/0。初验 P1（chips 34px<40px）已修复重新上线，P2 已修 4 项（桌面两列总览 / power 提示长度 / fb 文案 / nt「右下提醒」位置），SVG 阴影色按记录豁免。
+
+---
+
 ## 2026-11-12 21:00–21:35 · v2.0.0 增量 52：抽签升级 v1——云端存证防作弊 + 今日抽签次数 + 自定义序号名称映射（网页已上线 OSS+ECS / 小程序源码待用户上传发布）
 
 > 用户需求：「抽签导出图片还是会被质疑有作弊」+「重新将可自定义序号对应的名称功能添加回来（可将序号对应组名等）」。唯一契约 `web/draw/CONTRACT.md`；范围=网页+小程序源码（安卓本轮不做）。

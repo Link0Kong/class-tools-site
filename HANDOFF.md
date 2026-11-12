@@ -3220,9 +3220,10 @@ sync-repos.cmd "feat: 说明本次改了什么"
   - `pendingGroups()` 与简报统计排除长期通知（本例「待处理」29 → 19；24h/7 天内/最近截止同口径）；「待处理」筛选不再出现长期通知；
   - 长期区卡片沿用完整卡：长期安排保留「长期安排 · label + 下次 MM-DD 周X HH:MM」且无「标记已处理」；info 可标记已处理，标记后仍留长期区、不回流主列表。
 - `tools/build_notice_embed.py` 的网页内嵌 OVERRIDE 增加 `.lt-wrap` 白底（与已过期区一致）；重跑模板生成 demo 并重新嵌入 `tools/index.html`（仅 `NOTICE_TPL_B64` 变化）。
-- 测试：新增 `tools/tests/v2_notice_longterm_check.py` **25/25**（静态模板标记、主列表无长期、计数、默认收起、展开/收起、长期安排/ info 排序、统计排除、待处理/已截止筛选、分类筛选、已处理不回流、430/390/360 无横向溢出、0 JS 报错、0 console.error、0 外部请求）；`v2_notice_live_check.py` 16 项除既有 `L16 外部请求 drop/presence`（HEAD 基线同样失败）外全 PASS；`v2_ui_check.py` 27/27；`briefdesk-plan` 的 `_check_template.py` / `_check_embed.py` / `_check_template_embed_match.py` PASS（TEMPLATE MATCH，纯模板变化）。
-- 部署（并行会话正在改本地 index.html，未验收，故没上传本地工作区版本）：**以线上 OSS index.html 为基底、只替换 NOTICE_TPL_B64 合成部署**。线上 1,158,556B/`9fac5b58…` → **1,163,168B / sha256 `c4676d57418c5aae7f7266e09682e96af3418678296742300f992792c064d5e8`**；OSS 对象 MATCH；`ecs_site.py apply --https` 后 ECS 侧 curl `https://ko-link.cn/` / `https://www.ko-link.cn/` / `http://121.196.47.2/` 均为同一 sha；`/drop/__health` v2.3、`/pptfiles/__health` 200。
-- 备份/回滚：`tools/_backup/index_online_20261112-211603_preLongtermNotice.html`（1,158,556B/`9fac5b58…`），回滚=重传该文件（OSS+ECS `apply --https`）。
+- 测试：新增 `tools/tests/v2_notice_longterm_check.py` **26/26**（静态模板标记、主列表无长期、计数、折叠头「长期通知 · N 条」、默认收起、展开/收起、长期安排/ info 排序、统计排除、待处理/已截止筛选、分类筛选、已处理不回流、430/390/360 无横向溢出、0 JS 报错、0 console.error、0 外部请求；对最终线上字节实跑 26/26）；`v2_notice_live_check.py` 16 项除既有 `L16 外部请求 drop/presence`（HEAD 基线同样失败，非本次引入）外全 PASS；`v2_ui_check.py` 27/27；`briefdesk-plan` 的 `_check_template.py` / `_check_embed.py` / `_check_template_embed_match.py` PASS（TEMPLATE MATCH，纯模板变化）。
+- 部署（并行会话正在改本地 index.html，未验收，故没上传本地工作区版本）：**以线上 OSS index.html 为基底、只替换 NOTICE_TPL_B64 合成部署**（三次：首次 21:16 → 并行「抽签升级」21:26 部署 4a6a49ba 覆盖 → 21:38 本增量合并折叠头「·」v2 模板再部署）。**最终线上 = 1,227,365B / sha256 `ef255356344c7dfd9d13b586becbbfbebe1d94e3b4d904426438e866b87851cb`**（= 4a6a49ba 的并行已验收内容 + 本增量通知模板；OSS/HTTP IP/ECS 文件/ECS 侧 http+https 域名全部一致）；通知模板 112,609B / sha256 `f8284f9521fda39b446a410b394389323cc338a6eed25ba31e4f2778648b95af`；`/drop/__health` v2.3、`/pptfiles/__health` 200。
+- **HTTPS 回归与恢复**：21:23 并行会话用 `ecs_site.py apply`（未带 `--https`）把 Caddy 写回 HTTP-only，443 消失；21:39 已用 `python deploy\ecs_site.py apply --https` 恢复，ECS 侧 curl `https://ko-link.cn/` / `https://www.ko-link.cn/` 均 200 且 sha 与线上一致。**教训：现有域名+HTTPS 已启用时重新 apply 必须带 `--https`**（详见 `deploy/ECS_DEPLOY.md` §3.5/§3.6）。
+- 备份/回滚：两次线上备份 `tools/_backup/index_online_20261112-211603_preLongtermNotice.html`（1,158,556B/`9fac5b58…`，原始线上）与 `tools/_backup/index_online_20261112-213812_preLongtermNotice.html`（1,227,297B/`4a6a49ba…`，第三次部署前）；回滚=把对应备份重传线上（OSS+ECS `apply --https`）。
 - 本机网络说明：当前开发机访问 `https://ko-link.cn/` TLS 被重置（`WinError 10054`），但 ECS 侧 curl 200、外部 web_fetch 200，属本机网络路径问题，线上未复现。
 
 ### 51.2 小程序（源码已改，待用户上传发布）
@@ -3231,7 +3232,8 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - `pages/nt/nt.js`：`applyFilter` 三桶（主列表排除长期+过期；长期区仅「全部」展示；统计/简报排除长期）；主列表改为网页同口径紧急度排序（原为云端 `ts.asc` 旧到新：alert → urgent/today → extended → soon/active → done，档内 `whenOf` 升序、null 最后、数据源稳定）；新增 `longtermCards / longtermCount / showLongterm`、`toggleLongterm`；`_cardById / patchCard / toggleDone / jumpPendingGid` 覆盖长期区；长期区展开才懒加载图片/补 body。
 - `pages/nt/nt.wxml|wxss`：主列表后、已过期区块前新增「长期通知 · N 条」折叠区（默认收起、复用 `ntCard`、42px 点按区、M3 主题）。
 - `pages/index/index.js`：工作台待办通知轮换/计数排除长期通知。
-- 测试：`unit.js` **535/0**（新增 `notice_longterm_unit.js` 12/12 并挂载）、`notice_time_test.js` 20/0、`sync_contract_test.js` 34/0、`staticcheck.py` exit 0、`code_quality_check.js` 3 规则 PASS；同步修正 3 处依赖旧「长期安排留在主列表」的断言（`v2_unit_tests.js` / `v3_power_diag_tests.js`）。未跑 automator（9420 被其他会话占用）。`VERSION` 仍 2.0.0、UD v6 未动、零新增请求/依赖/外链。
+- 测试：`unit.js` **536/0**（新增 `notice_longterm_unit.js` **13/13** 并挂载）、`notice_time_test.js` 20/0、`sync_contract_test.js` 34/0、`staticcheck.py` exit 0、`code_quality_check.js` 3 规则 PASS；同步修正 3 处依赖旧「长期安排留在主列表」的断言（`v2_unit_tests.js` / `v3_power_diag_tests.js`）。未跑 automator（9420 被其他会话占用）。`VERSION` 仍 2.0.0、UD v6 未动、零新增请求/依赖/外链。
+- 独立验收 P2 修复（2026-11-12 21:4x）：① 网页折叠头补「·」（与小程序「长期通知 · N 条」一致）；② 跨端 info 排序锚点统一 —— 小程序 `cardAnchorTs` 改为「第一条带可解析 time 的 item（任意 kind）」，与网页 `cardAnchorTs` 同口径；③ 小程序 `statusOf` 补 `expired:true` 分支（与网页模板同口径：alert 优先 / extensions→extended_past / 否则 expired「已过期」，长期安排永远优先）并新增单测。修复后复跑 unit **536/0**、notice_time **20/0**、sync **34/0**、staticcheck/code_quality exit 0。
 
 ### 51.3 独立验收
 
@@ -3283,3 +3285,39 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 上线：网页 **1,227,297 B / sha256 `4a6a49ba33d177aae4ee9f651e223395a68d930fe0f46c645702f3d8522fb978`**；`python deploy/oss_object.py check index.html` = **MATCH**、`python deploy/ecs_site.py verify` = **MATCH**（OSS+ECS；本轮与并行会话合并部署）。部署前线上 1,163,168B/`c4676d57…` 备份 `tools/_backup/index_online_20261112-2132_preDrawProof.html`。
 - 回滚：网页重传上述备份（OSS+ECS 重新 apply）；SQL 回滚按迁移文件头 `DROP FUNCTION ... / DROP TABLE draw_events / draw_records`；小程序回退本次源码。
 - 已知取舍：存证只覆盖主抽签工作流（大屏快捷抽签、分组不存证）；名称映射只影响显示/导出（不限制抽签池；抽签后修改映射不会改已存证 labels）；真实用户今日次数=全班共用（is_test=false 同一桶）；测试身份记录不显示/不计数；APP_VER 仍 2.0.0。
+
+---
+
+## 2026-11-12 21:0x–21:5x · 增量 51：三端「使用说明」卡片化重构（网页已上线 OSS+ECS；小程序/安卓源码已改，待发布）
+
+### 需求与契约
+- 用户原话：「对三端使用说明进行重构，从文字堆叠改为卡片展示，左右滑动切换卡片，且加入一键总览等按钮的形式，可加入一定配图对功能说明，重写使用说明，使其更清晰易懂」。
+- 唯一共享契约 **`使用说明_卡片化重构契约_20261112.md`**：一屏一张卡 + 左右滑动 + 一键总览 + 分类快捷标签 + 上一张/下一张 + 11 种配图 scene（picks/steps/grid/list/chart/people/transfer/ballot/droplet/shield/slides）+ 文案硬规则（标题≤8 / 作用≤20 / 步骤≤24 / 提示≤30）；三端按本端真实功能实现，不写别端入口、不写实现细节。
+
+### Web（`tools/index.html`）
+- 新块 `__UG_CARDS_V1__`（CSS 在 `</style>` 前、HTML 替换 `#s-ug`、JS 在主 IIFE 末尾）：`#s-ug` = `.ug-shell`（标题行 + 总览按钮 + 分类 chips + `.ug-track` 横向 scroll-snap 轮播 + 上/下一张 + 页码 + 进度条 + `.ugver`）+ `#ugOv` 总览弹层 + 隐藏 `<svg class="ug-sprite">`（11 个 symbol 配图，固定 cy/bl/sd/白 + 低透明阴影）。
+- 数据单一真源 `UG.CARDS`（17 张）→ 卡片 DOM 与总览清单都由它渲染；`UG` 返回 `{cards,cats,onShow,open,close,go,idx,built,count}` 只读探针。
+- 轮播：原生 overflow-x + `scroll-snap-type:x mandatory`（跟手/惯性交给浏览器；另实现鼠标 pointer 拖动 + 拖后 snap）、`go()` 用 `scrollTo({behavior:"smooth"})`、`onScroll` rAF 同步页码/分类高亮/首尾 disabled；`MutationObserver` 监听 `#s-ug` class，切回 tab 时把 `scrollLeft` 复位到当前卡（避免 display:none 重置）。
+- 总览：`HIST.openModal("ugov", closeOv)` 接入返回键；**手动关闭不复用 `HIST.closeModal()`**（其 `setTimeout(0)` 清 `_closing` 存在竞态：popstate 晚到会被当成根层返回而误弹「再按一次返回退出」），改为自行 `HIST.modal=null; _closing=true; history.back(); setTimeout(...,400)`；Esc/遮罩/× 走同一 `closeOv()`。
+- 手势互斥：全局滑动引擎 `resolveStart()` 增加 `if(closest(t,"#ugPager")||closest(t,"#ugOv"))return null;`（卡片横滑/总览内滑动不切工具）。
+- 键盘：`#s-ug.on` 时 ←/→ 切卡、Esc 关总览（输入控件/带修饰键时跳过）。
+- QA P1/P2 修复：分类 chips `min-height:40px`（A9）；桌面 ≥960 总览两列网格；power 提示 28 字；fb 卡步骤③与实现一致（普通成员看不到反馈列表）；nt 卡「右下提醒」。`v2_ug_check` 新增 R32「#s-ug 内所有按钮点按高度 ≥40px」。
+- 测试：`tools/tests/v2_ug_check.py` **56/56**（静态 20 + 运行时 36，430/360/390/1280 四档 + 截图 4 张 `_shots_ug/`）；回归见 CHANGELOG 增量 51（v2_ui 27/27、overflow 0、v2_drag 69/69、pos_restore 12/12、swipe_perf PASS、power_pick 48、power_trend_compare 32；已知噪音 vote/reset/roster/scroll 的失败均为并行会话 presence 外部请求或既有环境问题）。
+- 兼容性适配：使用说明不再是长滚动页，`v2_pos_restore_check`（A/C 段）、`v2_scroll_check`（C4/C5/C6/C9）、`v2_swipe_perf`（do_scroll_writes）改以「全部」页为长滚动代表（POS 白名单含 all，断言不变）。
+- 部署：`python deploy/sync_tools.py index.html` + `python deploy/ecs_site.py apply` → OSS/ECS **1,227,464 B / sha256 `891a6389edf18143d4e75bac168fde9f113001cc323e3159f880b0defeb77b19`**（oss_object check MATCH；ECS verify MATCH；gzip 380,265 B）；部署前线上备份 `tools/_backup/index_online_20261112_2124_preUGdeploy.html`（1,163,168 B/`c4676d57…`）。
+- 回滚：重传备份；或 revert 本提交 index.html 的 UG 相关 hunk。无 DB/UD v6 契约变更。
+
+### 小程序（`mp-class-tools/pages/ug/`，仓库外；待用户上传发布）
+- 重写 `ug.js/ug.wxml/ug.wxss`（`ug.json` 未改）：swiper 19 卡（契约 §4.2 顺序）+ 分类 chips + 总览遮罩 + 上/下一张/页码 + 11 类 WXSS 形状配图（0 新增图片/依赖）+ 文案重写；top-app-bar title 置空避免与原生导航重复；保留 `share.enable()` / `onShareAppMessage/Timeline` / agent handoff（SECTION_MAP→卡片 index，setData 切卡）/ `scrollmem` / 身份校验；VERSION 仍 2.0.0。
+- 高度：`createSelectorQuery` 实测卡片最大高度 → clamp 屏幕可用高度 → `setData({swiperH,cardH})`；装不下回退内容高度 + 卡内 `scroll-view`。
+- 测试（Lead 复跑）：`unit.js 535/0`、`staticcheck.py exit 0`、`code_quality_check.js` 全规则通过、新增 `ug_cards_check.js 59/59`；automator 390 宽 `ui_scroll_test 10/0`、`perf_ug_preview 10/0`、`ug_cards_shot 7/0`（19 卡逐张截图 `mp-class-tools-tests/_shots_ug_cards/`）。
+- 遗留（如实）：仅 devtools 390 宽，未真机；`ai/skills/identity/apis/getUsageGuide.js` 与 `agent/page-meta.json` 中的旧版使用说明文案不在本任务范围，未同步（如需一致需另派）。
+
+### Android（`android-class-tools/.../ui/screens/guide/`；仓库外；APK 已交付）
+- `UserGuideScreen.kt` 重写 + 新增 `GuideContent.kt`（20 卡数据，`VERSION="2026-11-12.1"`，保留 `sectionOf` 兼容入口）与 `GuideScenes.kt`（11 scene Compose Canvas 自绘 + tone→主题色映射 + 总览图标）。
+- 页面：CtTopBar（右侧总览）+ LazyRow 5 chips（点跳分类首卡/高亮跟随）+ `HorizontalPager` 20 卡（卡头胶囊+页码 / hero / 标题+作用 / ①②③ / 💡提示 / 卡内 verticalScroll）+ 底部上一张/页码/下一张（≥48dp、首尾 disabled、clamp）+ `ModalBottomSheet` 分组总览（点条目 hide 后 animateScrollToPage、BackHandler）。
+- 测试：新增 `UserGuideContentTest` 13/13；`:app:testDebugUnitTest` 1098/0（QA 复跑）、`assembleDebug`/`assembleRelease` 通过；APK 交付 `C:\Users\Ko_Li\Desktop\classtools-4.42.0-ug-cards-release-signed.apk`（3,075,869 B / sha256 `352E0C9F…`；v4.42.0/vc58；含并行会话未提交改动，本功能未改全局版本号）。
+- 已知：本机无模拟器/真机，视觉需 Preview/真机复核；总览 sheet 独立窗口时 BackHandler 可能不触发，返回键仍由 sheet 自身关闭。
+
+### 独立验收
+- `验收报告/使用说明_重构_独立验收_20261112.md`（QA 独立跑：web 真实 CDP 触摸 122/122、v2_ug_check 56/56；mp 静态+automator；android 单测复跑 1098/0）。**PASS，P0=0 / P1=0 / P2=1（记录豁免）**；初验 P1 chips 34→40px 已修复并重新上线（hash 891a6389…）；P2 修 4 项、记录豁免 1 项（symbol 额外阴影/描边色）。

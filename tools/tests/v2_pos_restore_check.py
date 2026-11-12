@@ -2,7 +2,7 @@
 """v2 专项自检：刷新保位（需求 2）—— 固定视口 iframe + iframe 原生滚动架构
 
 覆盖：
-  A. 普通页面（使用说明）：父页 tab + 滚动位置刷新恢复；
+  A. 普通页面（全部）：父页 tab + 滚动位置刷新恢复；
   B. 通知 tab：父页只恢复 tab；滚动位置由 iframe 内部自存自恢
      —— 冷启动/弱网（无 IDB 缓存 + notices 延迟 3.5s）下内容晚到位，仍能恢复内部 scrollY；
   C. 用户手势取消父页恢复（不抢滚动）；
@@ -186,8 +186,8 @@ def run():
         boot = wait_until(cdp, BOOT_READY, 30)
         T("A1 首次加载完成", boot, "")
 
-        # ===== A. 普通页面（使用说明）父页 tab + 滚动位置恢复 =====
-        cdp.eval("__v2live.gotoTab('ug')")
+        # ===== A. 普通页面（全部）父页 tab + 滚动位置恢复（使用说明已改为单屏轮播，改用全部页做代表） =====
+        cdp.eval("__v2live.gotoTab('all')")
         time.sleep(0.5)
         maxs = cdp.eval("Math.max(document.documentElement.scrollHeight,document.body.scrollHeight)-innerHeight")
         target = int(min(1200, max(200, (maxs or 300) - 100)))
@@ -195,7 +195,7 @@ def run():
         time.sleep(1.0)
         pos = cdp.eval("(function(){try{return JSON.parse(sessionStorage.getItem('zq_pos_v1')||'null');}catch(e){return null;}})()") or {}
         T("A2 普通页面滚动后 zq_pos_v1 记录 tab/y",
-          pos.get("tab") == "ug" and abs(int(pos.get("y") or 0) - target) <= 40,
+          pos.get("tab") == "all" and abs(int(pos.get("y") or 0) - target) <= 40,
           json.dumps(pos, ensure_ascii=False))
         cdp.send("Page.reload", {"ignoreCache": False})
         wait_until(cdp, BOOT_READY, 30)
@@ -203,7 +203,7 @@ def run():
         cur = cdp.eval("(function(){var b=document.querySelector('#tabsBar button.on');return b?b.dataset.tab:'';})()")
         cur2 = cdp.eval("(function(){try{return (window.__v2live&&__v2live.curtab)?__v2live.curtab():'';}catch(e){return '';}})()")
         y_after = cdp.eval("Math.round(window.pageYOffset||0)")
-        T("A3 普通页面刷新：tab 恢复为使用说明", cur2 == "ug", cur2)
+        T("A3 普通页面刷新：tab 恢复为全部", cur2 == "all", cur2)
         T("A4 普通页面刷新：滚动位置恢复 %d±60" % target, abs(int(y_after or 0) - target) <= 60, y_after)
 
         # ===== B. 通知 tab：父页只恢复 tab；iframe 内部滚动自存自恢（慢网/冷启动） =====
@@ -240,7 +240,7 @@ def run():
         seed_ids.remove(sid)
 
         # ===== C. 用户手势取消父页恢复（普通页面，不强行拉回） =====
-        cdp.eval("__v2live.gotoTab('ug')")
+        cdp.eval("__v2live.gotoTab('all')")
         time.sleep(0.5)
         cdp.eval("window.scrollTo(0,1200)")
         time.sleep(1.0)

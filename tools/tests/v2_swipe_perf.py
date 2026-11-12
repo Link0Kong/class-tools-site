@@ -499,7 +499,7 @@ def do_toolbar_swipe(cdp):
 
 def do_scroll_writes(cdp):
     """在可滚动的普通页面滚动 ~1s，统计 zq_pos_v1 写入；停止 0.7s 后再统计。"""
-    cdp.eval("__swipe.gotoTab('ug')")
+    cdp.eval("__swipe.gotoTab('all')")
     time.sleep(0.5)
     cdp.eval("window.__sw.posWrites=0")
     # 按页面最大滚动量均分 12 步、每步 80ms（约 0.96s 持续滚动；避免中途触底导致提前停止）

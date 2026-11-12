@@ -465,8 +465,8 @@ def run():
           "saved=%r scrollY=%s" % (saved_nt, g5["frameScrollY"]))
         T("C3 通知 tab 的父页由 iframe 自管（父页 scrollY≈0）", g5["scrollY"] <= 3, g5["scrollY"])
 
-        # C4/C5 普通页面（使用说明）父页滚动位置恢复
-        cdp.eval("__v2.gotoTab('ug')")
+        # C4/C5 普通页面（全部）父页滚动位置恢复（使用说明已改为单屏轮播，改用全部页做代表）
+        cdp.eval("__v2.gotoTab('all')")
         time.sleep(0.5)
         maxs = cdp.eval("Math.max(document.documentElement.scrollHeight,document.body.scrollHeight)-innerHeight")
         target = int(min(1200, max(200, (maxs or 300) - 100)))
@@ -474,14 +474,14 @@ def run():
         time.sleep(1.0)
         saved = cdp.eval("(function(){try{return JSON.parse(sessionStorage.getItem('zq_pos_v1')||'null');}catch(e){return null;}})()")
         T("C4 普通页面滚动后 zq_pos_v1 记录 tab/y",
-          bool(saved) and saved.get("tab") == "ug" and abs(int(saved.get("y") or 0) - target) <= 40,
+          bool(saved) and saved.get("tab") == "all" and abs(int(saved.get("y") or 0) - target) <= 40,
           json.dumps(saved, ensure_ascii=False))
         cdp.send("Page.reload", {"ignoreCache": False})
         wait_until(cdp, "(function(){return !!(document.querySelector('#tabsBar button.on')&&window.__v2&&__v2.bootDone&&__v2.bootDone());})()", 30)
         time.sleep(1.5)
         g6 = geo(cdp)
         cur5 = cdp.eval("__v2.curtab()")
-        T("C5 刷新恢复：普通页面 tab + 滚动位置恢复", cur5 == "ug" and abs(g6["scrollY"] - target) <= 60,
+        T("C5 刷新恢复：普通页面 tab + 滚动位置恢复", cur5 == "all" and abs(g6["scrollY"] - target) <= 60,
           "%r/%s vs %s" % (cur5, g6["scrollY"], target))
         # C6 恢复后用户滚动仍被记录（滚动停止 480ms 单次落盘）
         cdp.eval("window.scrollTo(0,520)")
@@ -505,7 +505,7 @@ def run():
 
         # C9 用户手势取消恢复（普通页面）
         sid = cdp.send("Page.addScriptToEvaluateOnNewDocument", {
-            "source": ("try{sessionStorage.setItem('zq_pos_v1',JSON.stringify({v:1,sid:'%s',tab:'ug',y:1200,ts:Date.now()}));"
+            "source": ("try{sessionStorage.setItem('zq_pos_v1',JSON.stringify({v:1,sid:'%s',tab:'all',y:1200,ts:Date.now()}));"
                        "localStorage.setItem('__v2_user_cancel','1');}catch(e){}") % SID})["identifier"]
         seed_ids.append(sid)
         cdp.send("Page.reload", {"ignoreCache": False})
