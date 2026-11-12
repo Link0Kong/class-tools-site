@@ -266,10 +266,21 @@ def snapshot(page):
       var q=function(s){return document.querySelector(s);};
       var ranges=[].map.call(document.querySelectorAll('#pwRanges .pw-range'),function(b){
         return {k:b.getAttribute('data-range'),hidden:!!b.hidden,display:getComputedStyle(b).display,on:b.classList.contains('on')};});
-      var tile=q('#pwUseTile'), delta=tile?tile.querySelector('.opt-pw-delta'):null, tr=q('#pwTrend');
+      var tile=q('#pwUseTile'), delta=tile?tile.querySelector('.opt-pw-delta'):null,
+          line=tile?tile.querySelector('.pw-cmp'):null, ts=tile?tile.querySelector('.pw-ts'):null, tr=q('#pwTrend');
+      function box(el){if(!el)return null;var b=el.getBoundingClientRect();
+        return {x:Math.round(b.x),y:Math.round(b.y),w:Math.round(b.width),h:Math.round(b.height),
+                right:Math.round(b.right),bottom:Math.round(b.bottom)};}
+      var cmpClipped=false;
+      if(line&&tile){
+        var lb=line.getBoundingClientRect(),tb=tile.getBoundingClientRect();
+        cmpClipped=(lb.right>tb.right-1||lb.left<tb.left-1||lb.bottom>tb.bottom+1);
+      }
       return {ranges:ranges, title:(q('#pwTrendTitle')||{}).textContent,
               tile2:tile?tile.textContent:null, delta:delta?delta.textContent:null,
               deltaTitle:delta?delta.getAttribute('title'):null,
+              cmpLine:!!line, cmpBox:box(line), cmpDeltaBox:box(delta), tileBox:box(tile),
+              cmpClipped:cmpClipped, tsClipped:!!(ts&&ts.scrollWidth>ts.clientWidth+1),
               hasSvg:!!(tr&&tr.querySelector('svg')), sel:(q('#pwSelect')||{}).value,
               trect:tr?tr.getBoundingClientRect().width:0,
               overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
@@ -294,6 +305,12 @@ def pick_range(page, k):
 def pick_room(page, rv):
     page.evaluate("(function(){var s=document.querySelector('#pwSelect');s.value=%s;s.dispatchEvent(new Event('change',{bubbles:true}));return true;})()" % json.dumps(rv))
     time.sleep(2.2)
+
+
+def scroll_tile(page):
+    """把「区间用电」tile 滚到视口中间，供手机比例肉眼/截图核查。"""
+    page.evaluate("(function(){var t=document.getElementById('pwUseTile');if(t)t.scrollIntoView({block:'center'});return true;})()")
+    time.sleep(0.4)
 
 
 def wait_ready(page, timeout=25):
@@ -359,6 +376,9 @@ def main():
             ("A6 不再出现「较上窗口」文案", "较上窗口" not in SRC_TEXT),
             ("A7 使用说明注明 13/16 不提供 24h", "不提供 24h" in SRC_TEXT),
             ("A8 APP_VER 仍为 2.0.0", 'var APP_VER="2.0.0"' in SRC_TEXT),
+            ("A9 手机比例比较行独立（.pw-cmp 样式 + opt2PowerDelta 建独立行，不再追加进 .pw-ts）",
+             ".pw-tile .pw-cmp" in SRC_TEXT and 'line.className="pw-cmp ' in SRC_TEXT
+             and 'ts.insertAdjacentElement("afterend",line)' in SRC_TEXT),
         ]:
             T(name, cond)
 
@@ -443,13 +463,41 @@ def main():
         dup = [k for k in set(keys) if keys.count(k) > 1]
         T("D1 同一房间同一窗口不重复请求", not dup, dup)
         T("D2 430 无横向溢出", snapshot(pd)["overflow"] == 0, snapshot(pd)["overflow"])
+        scroll_tile(pd)
+        sd = snapshot(pd)
+        T("D2b 430 手机比例：同期比较独立成行、完整显示（不被单行 .pw-ts 裁掉）",
+          sd["cmpLine"] and (not sd["cmpClipped"]) and (not sd["tsClipped"]) and "较上周同期" in (sd["delta"] or ""),
+          (sd["cmpBox"], sd["tileBox"], sd["tsClipped"], sd["delta"]))
+        pd.screenshot(os.path.join(SHOTS, "430_tile_compare.png"))
         pd.close()
         p2 = new_page(b, port, hist_rich, rows, cache=ud_blob(), w=360, h=780, mobile=True)
         open_power(p2)
+        wait_delta(p2)
+        scroll_tile(p2)
+        s360 = snapshot(p2)
+        T("D3b 360 手机比例：比较行完整可见（tile 内无裁切）",
+          s360["cmpLine"] and (not s360["cmpClipped"]),
+          (s360["cmpBox"], s360["tileBox"], s360["delta"]))
+        p2.screenshot(os.path.join(SHOTS, "360_tile_compare.png"))
         pick_range(p2, "30d")
         T("D3 360 无横向溢出（24h 隐藏时按钮行不撑破）", snapshot(p2)["overflow"] == 0, snapshot(p2)["overflow"])
         p2.screenshot(os.path.join(SHOTS, "360_30d.png"))
         p2.close()
+        p4 = new_page(b, port, hist_rich, rows, cache=ud_blob(), w=390, h=844, mobile=True)
+        open_power(p4)
+        wait_delta(p4)
+        scroll_tile(p4)
+        s390 = snapshot(p4)
+        T("D4 390 手机比例：「较昨日同期」比较行完整显示（在 tile 矩形内、无 ts 裁切）",
+          s390["cmpLine"] and (not s390["cmpClipped"]) and (not s390["tsClipped"]),
+          (s390["cmpBox"], s390["tileBox"], s390["tsClipped"]))
+        T("D5 390 比较文案与百分比完整（较昨日同期 + N%）",
+          "较昨日同期" in (s390["delta"] or "") and delta_pct(s390["delta"]) is not None
+          and s390["cmpBox"] is not None and s390["cmpBox"]["h"] > 8,
+          (s390["delta"], s390["cmpBox"]))
+        T("D6 390 比较行不破坏布局（无横向溢出）", s390["overflow"] == 0, s390["overflow"])
+        p4.screenshot(os.path.join(SHOTS, "390_tile_compare.png"))
+        p4.close()
         p3 = new_page(b, port, hist_rich, rows, cache=ud_blob(), w=1280, h=900, mobile=False)
         open_power(p3)
         pick_range(p3, "7d")

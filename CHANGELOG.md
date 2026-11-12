@@ -2,6 +2,37 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-12 22:2x–22:4x · 增量 53：手机比例修复（电费同期比较被裁切 / 团员人数首次不显示）+ 全站手机比例审计（网页已上线 OSS+ECS）
+
+> 用户反馈：「网页修复手机比例下电费对比无法正常显示的问题，同时检查各处是否有未适配手机比例的场景，修复团员人数初次点击不显示的问题」。
+
+### ① 电费「自然周期同期比较」手机比例下不显示（P0 修复）
+- **根因**：比较徽标由 OPTIM V2 `opt2PowerDelta()` 追加进「区间用电」tile 的 `.pw-ts` 子行；该行 `white-space:nowrap;overflow:hidden;text-overflow:ellipsis`。手机 2 列 tile 宽仅 176–196px，`≈ ¥2.61 电费 · 较昨日同期 +100%` 需要 177px+，实测 390 宽被裁 13px、430 宽被裁 11px、360 更宽；1280 桌面 tile 311px 可完整显示 → 只在手机比例暴露。
+- **修复**：`opt2PowerDelta()` 改为在 tile 内 `.pw-ts` **之后另起一行** `.pw-cmp`（新增 `.pw-tile .pw-cmp{font-size:11px;line-height:1.35;margin-top:2px;white-space:normal;overflow-wrap:anywhere}`），比较文案不再参与单行 ellipsis；保留 `.opt-pw-delta` 类、title 与涨跌配色，24h/7d/30d 及慢楼栋逻辑不变。实测 360/390/430 均为独立一行完整显示「较昨日同期 +N%」。
+
+### ② 团员人数「初次点击不显示」（P1 修复）
+- **根因**：`团员` tab 人数徽标 `#cmCntL` 只在 `renderCommittee()` 里由 `CM_LEAGUE` 计算，而团员名单只在**点击团员 tab 之后**才懒加载；首次进入名单页时徽标为空；点击时 `renderCommittee()` 与 tab 点击处理器各发一次 `class_league`（真实云端实测 2 个并发请求 160/202ms），慢网下首次点击瞬间人数仍空白。
+- **修复**：`cmLeagueFetch()` 增加 `CM_LEAGUE_P` **并发去重**；`renderCommittee()` 在 `CM_LEAGUE===null` 时**进入名单页即预取**并自动重渲染；tab 点击不再二次请求；加载失败显示「—」（不再误显示 0）。真实本地通道（官方测试身份）实测：进入名单页 0.15s 内自动显示团员 50 人、全程仅 **1 次** `class_league` 请求；点击团员 tab 即时 50 行。
+- 影响面：名单工具（网页）；`optim_v2_check` 名单三 tab 用例同步复跑 GREEN。
+
+### ③ 全站手机比例适配审计（本次范围）
+- **自动化审计**：网页 16 个工具页（抽签/课表/作业/通知/体测/点名/名单/诊断/电费/水量/演示/投票/文件/反馈/使用说明/全部）× 360/390/430 竖屏 + 844×390、932×430 手机横屏 → 页面级横向溢出全部 **0**；弹层实测 rosterModal / 电费关注宿舍选择器 / 投票发起 / 通知提醒 / 抽签名称映射（390、320、375、844×390）均在视口内且可滚动；大屏 V4 手机竖屏自动单列堆叠、可滚动操作；320 小屏无溢出。
+- **结论**：本次审计范围内唯一未适配场景即 ①（已修）；②为加载时序问题（已修）。其余页面无需新增样式改动（未为适配而改桌面布局）。
+- 审计脚本为临时本地脚本（未入库）；防回归落在：`v2_power_trend_compare_check.py` 新增 A9/D2b/D3b/D4/D5/D6（手机比例比较行完整显示且不撑破），新增 `tools/tests/v2_committee_league_check.py`（静态 + 运行 30 项）。
+
+### 测试（实跑）
+- `v2_power_trend_compare_check.py` **38/38**（原 32 + 手机比例 6：430/360/390 比较行不裁切、独立成行、不撑破）
+- 新增 `v2_committee_league_check.py` **30/30**（进入即预取 / 只发 1 次请求 / 首次点击列表与人数 / 切走切回不重复 / 390 与 844×390 无溢出 / 0 报错 / 0 外部请求〔既有大屏 presence 基线除外〕）
+- 回归：`power_check 155/155`、`v2_ui_check 27/27`、`overflow_check 430/360 = 0`、`v2_ug_check 56/56`、`v2_drag_check 69/69`、`optim_v2_check GREEN`（含名单三 tab 计数/列表）
+- 真实链路：本机临时通道 + 官方测试身份（3260799999/测试账号）→ 名单页自动 50 人、单请求、0 JS 报错；未使用任何真实账号、未读密钥。
+
+### 上线 / 回滚
+- 部署：`python deploy/sync_tools.py index.html` + `python deploy/ecs_site.py apply` → OSS/ECS **1,228,439 B / sha256 `89685d55858eac107ca284f8307e2127e396f1ba4eab3e14035fc22f05b08265`**（`oss_object.py check` MATCH、ECS verify MATCH、gzip 380,687 B）。
+- 部署前线上备份：`tools/_backup/index_online_20261112_2238_prePowerCmpMobile.html`（1,227,464 B/`891a6389…`）。
+- 回滚：重传该备份（OSS+ECS apply）；**无 DB / userdata v6 同步契约变更**。
+
+---
+
 ## 2026-11-12 21:0x–21:5x · 增量 51：三端「使用说明」卡片化重构（网页已上线 OSS+ECS；小程序源码待用户上传发布；安卓 APK 已交付）
 
 > 用户需求原话：「对三端使用说明进行重构，从文字堆叠改为卡片展示，左右滑动切换卡片，且加入一键总览等按钮的形式，可加入一定配图对功能说明，重写使用说明，使其更清晰易懂」。

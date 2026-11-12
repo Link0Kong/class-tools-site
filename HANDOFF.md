@@ -3325,3 +3325,32 @@ sync-repos.cmd "feat: 说明本次改了什么"
 
 ### 独立验收
 - `验收报告/使用说明_重构_独立验收_20261112.md`（QA 独立跑：web 真实 CDP 触摸 122/122、v2_ug_check 56/56；mp 静态+automator；android 单测复跑 1098/0）。**PASS，P0=0 / P1=0 / P2=1（记录豁免）**；初验 P1 chips 34→40px 已修复并重新上线（hash 891a6389…）；P2 修 4 项、记录豁免 1 项（symbol 额外阴影/描边色）。
+
+---
+
+## 2026-11-12 22:2x–22:4x · 增量 53：手机比例修复（电费同期比较 / 团员人数）+ 全站手机比例审计（网页已上线 OSS+ECS）
+
+### 需求
+用户原话：「网页修复手机比例下电费对比无法正常显示的问题，同时检查各处是否有未适配手机比例的场景，修复团员人数初次点击不显示的问题」。
+
+### ① 电费「自然周期同期比较」手机比例被裁切（P0）
+- 根因：OPTIM V2 `opt2PowerDelta()` 把「较昨日/上周/上月同期 +N%」`appendChild` 到 `#pwUseTile .pw-ts`；`.pw-ts` 是 `white-space:nowrap;overflow:hidden;text-overflow:ellipsis` 单行。手机 `.pw-tiles` 2 列（tile 176–196px），`≈ ¥2.61 电费 · 较昨日同期 +100%` 需 177px+ → 390 宽裁 13px、430 裁 11px；1280 桌面 311px 完整（故只在手机比例复现）。
+- 修复：`opt2PowerDelta()` 在 tile 内 `.pw-ts` 之后另建 `<div class="pw-cmp ..."><span class="opt-pw-delta">较昨日同期 +N%</span></div>`；CSS 新增 `.pw-tile .pw-cmp{font-size:11px;line-height:1.35;margin-top:2px;white-space:normal;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}`，保留 `.opt-pw-delta` 配色/title。旧渲染残留兼容：renderTiles 每次重建 tile innerHTML，无需额外清理；仍做 `tile.querySelector('.opt-pw-delta')` 移除兜底。
+- 不变量：`POWER.naturalCompare` / `ensureCompare` / 24h·7d·30d / 慢楼栋隐藏 24h 逻辑未改；APP_VER 仍 2.0.0。
+- 测试：`v2_power_trend_compare_check.py` **38/38**——新增 A9（源码比较行独立）、D2b（430 手机比例独立成行且不裁切）、D3b（360 完整可见）、D4/D5/D6（390 比较行在 tile 内、文案含标签+百分比、无横向溢出）；截图 `_shots_power_trend/{430,360,390}_tile_compare.png`。
+
+### ② 团员人数「初次点击不显示」（P1）
+- 根因：`#cmCntL` 人数只在 `renderCommittee()` 由 `CM_LEAGUE` 计算；`CM_LEAGUE` 仅在点击团员 tab 后才懒加载 → 首次进入名单页徽标空；且点击时 renderCommittee 内 + tab handler 各触发一次 `cmLeagueFetch`（真实云端实测 2 个并发 class_league 160/202ms）。
+- 修复：新增 `CM_LEAGUE_P` 共享 promise 并发去重；`renderCommittee()` 在 `CM_LEAGUE===null&&!CM_LEAGUE_ERR` 时预取（进入名单页即加载，完成后 `renderCommittee()` 自动刷新徽标）；tab 点击处理器删除二次 fetch；`cntL` 在请求失败时显示「—」而非 0/空。
+- 真实链路（本机临时通道 `deploy/local_channel.py` + 官方测试身份 3260799999）实测：进入名单页 **0.15s** 内自动显示「团员 50」；`performance` 资源记录 class_league 仅 **1** 次；点击团员 tab 即时 50 行、0 JS 报错。未使用真实账号/未读密钥。
+- 测试：新增 `tools/tests/v2_committee_league_check.py` **30/30**（静态 S1–S6：并发去重/预取/无二次 fetch/失败「—」/RPC 保留/计数位；运行 B390/B844x390：启动、进入名单页、未点击自动显示 3、只 1 次请求、首次点击列表 3 行、切走再回不重复请求、无横向溢出、0 JS 报错/0 console.error、0 外部请求〔既有大屏 presence 基线除外〕、截图 `_shots_committee_league/`）。QA 本地 mock：`tools/tests/_qa_v2/_fixtures.py` 增 `rpc/class_league` → `{ok:true,count:3,seats:[…]}`（该目录 `.gitignore` 忽略，属本机测试夹具，不影响线上）。
+
+### ③ 手机比例适配审计结论
+- 审计方式：`_cdp` 真实视口，16 个工具页 × 360×780 / 390×844 / 430×900 竖屏 + 844×390、932×430 手机横屏；另测弹层：rosterModal（选择名单）、电费关注宿舍选择器、投票发起、通知提醒、抽签名称映射/抽签记录（390/375/320/844×390）。
+- 结果：页面级 `documentElement.scrollWidth-clientWidth` 全为 0；固定/绝对定位元素越界 0；各弹层均在视口内且内部可滚动；大屏面板手机竖屏自动单列堆叠可滚动（非缺陷）；320 小屏无溢出。**除 ①（裁切）与 ②（加载时序）外未发现其它手机比例未适配场景**，因此未改其它页面样式（避免影响桌面布局）。
+- 审计脚本为本地临时脚本（不提交）；防回归见 ①② 的测试项。
+
+### 上线 / 回滚 / 备注
+- 部署：`python deploy/sync_tools.py index.html` + `python deploy/ecs_site.py apply` → OSS/ECS **1,228,439 B / sha256 `89685d55858eac107ca284f8307e2127e396f1ba4eab3e14035fc22f05b08265`**；`deploy/oss_object.py check index.html` = MATCH；`SITE_URL=https://ko-link.cn python deploy/ecs_site.py verify` = MATCH；gzip 380,687 B。
+- 部署前线上备份：`tools/_backup/index_online_20261112_2238_prePowerCmpMobile.html`（1,227,464 B / `891a6389…`，含并行会话最近改动）；回滚=重传该备份后 OSS+ECS apply。
+- 无 DB / `userdata` v6 / 云函数变更；仅 `tools/index.html` + 测试文件。
