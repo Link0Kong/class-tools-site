@@ -129,9 +129,13 @@ def _caddy_http():
 		reverse_proxy 127.0.0.1:8093
 	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
+	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
+	# 当前访问域名的 Origin（IP / ko-link.cn 等）→ 网关 403，页面报「网络错误」。
+	# 同源请求不需要 CORS，故反代侧去掉 Origin（2026-11-12 修复 IP/临时域名登录失败）。
 	handle /v1/rdb/rest/* {
 		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
 			header_up Host tool-d4gosudok46e0e081.api.tcloudbasegateway.com
+			header_up -Origin
 		}
 	}
 	handle /board* {
@@ -178,9 +182,13 @@ tool.furina.fun, ko-link.cn, www.ko-link.cn {
 		reverse_proxy 127.0.0.1:8093
 	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
+	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
+	# 当前访问域名的 Origin（IP / ko-link.cn 等）→ 网关 403，页面报「网络错误」。
+	# 同源请求不需要 CORS，故反代侧去掉 Origin（2026-11-12 修复 IP/临时域名登录失败）。
 	handle /v1/rdb/rest/* {
 		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
 			header_up Host tool-d4gosudok46e0e081.api.tcloudbasegateway.com
+			header_up -Origin
 		}
 	}
 	handle /board* {
@@ -220,9 +228,13 @@ tool.furina.fun, ko-link.cn, www.ko-link.cn {
 		reverse_proxy 127.0.0.1:8093
 	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
+	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
+	# 当前访问域名的 Origin（IP / ko-link.cn 等）→ 网关 403，页面报「网络错误」。
+	# 同源请求不需要 CORS，故反代侧去掉 Origin（2026-11-12 修复 IP/临时域名登录失败）。
 	handle /v1/rdb/rest/* {
 		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
 			header_up Host tool-d4gosudok46e0e081.api.tcloudbasegateway.com
+			header_up -Origin
 		}
 	}
 	handle /board* {

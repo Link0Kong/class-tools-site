@@ -3199,3 +3199,9 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 小程序：`dropBase: 'https://ko-link.cn/drop'`（临时）；上传体验版前需在微信后台 request+downloadFile 加 `https://ko-link.cn`；备案号展示待用户提供号码。
 - 切回 furina：小程序 dropBase 改回 `''` 并重新上传；Caddy 两个域名都保留。
 
+### 50.1 同源反代 Origin 修复 + ko-link 大陆阻断核实（2026-11-12 21:20–21:25）
+
+- **ko-link.cn 大陆侧不可用**：`http://ko-link.cn/` 被阿里云备案阻断页 403（`Server: Beaver`，标题 Non-compliance ICP Filing，域名未备案）、`https://` TLS 握手被重置；**境外探针与 ECS 机内均 200**。用户确认 ICP 备案**尚未提交** → 备案通过前大陆同学/教室电脑均打不开；过渡期用 `http://121.196.47.2/`。DNS/LE 证书（至 2027-02-10）/Caddy 均已就绪，备案通过后自动生效、无需改代码。
+- **IP 入口登录「网络错误」根因**：CloudBase 网关 Origin 白名单仅 `https://tool.furina.fun` + `http://127.0.0.1:*`；浏览器对同源 POST/PATCH/DELETE 会带当前域名 Origin，Caddy 同源反代透传后网关 403。修复：`deploy/ecs_site.py` 三处 `/v1/rdb/rest/*` 反代块加 `header_up -Origin`，已 `apply --https` 部署；headless Edge（测试身份）在 IP 入口登录成功、数据接口全 200。详见 `deploy/ECS_DEPLOY.md §3.6`。
+- 相关：小程序 `webBase`/`dropBase` 已临时指向 ko-link.cn —— **备案通过前不要上传**（大陆请求会被阻断，微信后台也要求域名已备案），必要时临时改回 `http://121.196.47.2`。
+

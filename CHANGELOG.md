@@ -2,6 +2,15 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-12 21:20–21:25 · 修复 IP/临时域名访问登录「网络错误」（Caddy 同源反代去 Origin）
+
+- 用户反馈 `http://121.196.47.2/` 登录提示「网络错误」。根因：CloudBase 网关 Origin 白名单只含 `https://tool.furina.fun` / `http://127.0.0.1:*`，而浏览器对同源 POST/PATCH/DELETE 也会带 `Origin: <当前访问域名>`，经 Caddy `/v1/rdb/rest/*` 反代原样透传 → 网关 **403**（`ko-link.cn`、IP、OSS 域名、`null` 实测均 403；`tool.furina.fun`/`127.0.0.1` 200）。
+- 修复：`deploy/ecs_site.py` 三处 `/v1/rdb/rest/*` 反代块加 `header_up -Origin`（同源请求不需要 CORS；鉴权仍是 Bearer anon key + `X-Device-Id` 班级 token，不变）。
+- 部署：`python deploy\ecs_site.py apply --https`（ECS Caddy 生效，`grep -c 'header_up -Origin' /etc/caddy/Caddyfile` = 2）；带 Origin 的请求返回 401（需鉴权）而不是 403。
+- 验证：headless Edge 打开 `http://121.196.47.2/` 用测试身份 `3260799999/测试账号` 登录成功（auth-pending 移除；`class_verify`/`class_members`/`fitrecs`/`marks`/`userdata` 全 200；0 console error）。
+- 副作用：只影响本机反代对网关请求头的处理；直连 CloudBase 网关的页面仍受网关白名单约束。ko-link.cn 备案通过后同样走这个反代，无需再改 CloudBase 配置。
+- 回滚：还原 `deploy/ecs_site.py` 三处 `header_up -Origin` 后重新 `apply --https`。
+
 ## 2026-11-12 20:4x–21:0x · 临时切换公网域名到 ko-link.cn（HTTPS 已启用；网页已上线；小程序源码已改，待上传）
 
 > 背景：`tool.furina.fun` 因备案/DNS 暂停不可解析，微信小程序体验版必须有 HTTPS + 已备案域名。用户提供阿里云同账号域名 `ko-link.cn`（注意实际是**连字符**，不是下划线）。
