@@ -3205,3 +3205,81 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - **IP 入口登录「网络错误」根因**：CloudBase 网关 Origin 白名单仅 `https://tool.furina.fun` + `http://127.0.0.1:*`；浏览器对同源 POST/PATCH/DELETE 会带当前域名 Origin，Caddy 同源反代透传后网关 403。修复：`deploy/ecs_site.py` 三处 `/v1/rdb/rest/*` 反代块加 `header_up -Origin`，已 `apply --https` 部署；headless Edge（测试身份）在 IP 入口登录成功、数据接口全 200。详见 `deploy/ECS_DEPLOY.md §3.6`。
 - 相关：小程序 `webBase`/`dropBase` 已临时指向 ko-link.cn —— **备案通过前不要上传**（大陆请求会被阻断，微信后台也要求域名已备案），必要时临时改回 `http://121.196.47.2`。
 
+
+
+## 2026-11-12 21:0x–21:5x · 增量 51：长期通知优化显示（网页已上线 OSS+ECS；小程序源码已改、待用户上传发布）
+
+- 用户需求（原话）：「对长期通知进行优化显示，防止长期霸占通知前排」。用户确认口径：**网页 + 小程序**；「长期通知」= **长期安排（recurrence）+ 无时间/长期有效通知**；展示 = 移到主列表**下方独立折叠区（默认收起）**，主列表只保留时间明确、可处理的通知。唯一规格 `tools/tests/notice_longterm_display_spec.md`。
+
+### 51.1 网页（通知内嵌模板，改的是 briefdesk-plan 模板源）
+
+- 模板源 `C:\Users\Ko_Li\.openclaw\workspace\briefdesk-plan\build_notice_board.py` 新增 `hasTimeAnchor / isLongtermGroup / orderLongterm / renderLongterm`：
+  - 长期通知判据（内在时间锚点，不用 `statusOf().key==='none'`，因为已处理会先返回 done）：`recurrence.freq` 存在，或无真实截止（含 extensions 最后一条）/无 eventAt/无报名窗口/无 signupWindows 且未过期；
+  - `render()`：主列表（所有筛选）排除过期与长期通知；列表下方、已过期区上方新增「长期通知 · N 条」折叠区（默认收起、点折叠头展开/收起；仅「全部」筛选出现，分类筛选同样生效）；
+  - 长期区排序：长期安排在前（本地计算「下次发生」升序）→ info 在后（卡片消息时间倒序）→ 数据源顺序；
+  - `pendingGroups()` 与简报统计排除长期通知（本例「待处理」29 → 19；24h/7 天内/最近截止同口径）；「待处理」筛选不再出现长期通知；
+  - 长期区卡片沿用完整卡：长期安排保留「长期安排 · label + 下次 MM-DD 周X HH:MM」且无「标记已处理」；info 可标记已处理，标记后仍留长期区、不回流主列表。
+- `tools/build_notice_embed.py` 的网页内嵌 OVERRIDE 增加 `.lt-wrap` 白底（与已过期区一致）；重跑模板生成 demo 并重新嵌入 `tools/index.html`（仅 `NOTICE_TPL_B64` 变化）。
+- 测试：新增 `tools/tests/v2_notice_longterm_check.py` **25/25**（静态模板标记、主列表无长期、计数、默认收起、展开/收起、长期安排/ info 排序、统计排除、待处理/已截止筛选、分类筛选、已处理不回流、430/390/360 无横向溢出、0 JS 报错、0 console.error、0 外部请求）；`v2_notice_live_check.py` 16 项除既有 `L16 外部请求 drop/presence`（HEAD 基线同样失败）外全 PASS；`v2_ui_check.py` 27/27；`briefdesk-plan` 的 `_check_template.py` / `_check_embed.py` / `_check_template_embed_match.py` PASS（TEMPLATE MATCH，纯模板变化）。
+- 部署（并行会话正在改本地 index.html，未验收，故没上传本地工作区版本）：**以线上 OSS index.html 为基底、只替换 NOTICE_TPL_B64 合成部署**。线上 1,158,556B/`9fac5b58…` → **1,163,168B / sha256 `c4676d57418c5aae7f7266e09682e96af3418678296742300f992792c064d5e8`**；OSS 对象 MATCH；`ecs_site.py apply --https` 后 ECS 侧 curl `https://ko-link.cn/` / `https://www.ko-link.cn/` / `http://121.196.47.2/` 均为同一 sha；`/drop/__health` v2.3、`/pptfiles/__health` 200。
+- 备份/回滚：`tools/_backup/index_online_20261112-211603_preLongtermNotice.html`（1,158,556B/`9fac5b58…`），回滚=重传该文件（OSS+ECS `apply --https`）。
+- 本机网络说明：当前开发机访问 `https://ko-link.cn/` TLS 被重置（`WinError 10054`），但 ECS 侧 curl 200、外部 web_fetch 200，属本机网络路径问题，线上未复现。
+
+### 51.2 小程序（源码已改，待用户上传发布）
+
+- `utils/notice.js`：新增 `isLongterm / longtermSubtypeOf / hasTimeAnchor / isRecurGroup`、`listRankOf / mainListCompare`、`cardAnchorTs / longtermCompare / orderLongterm`；`statOf` / `mostUrgent` 排除长期通知。
+- `pages/nt/nt.js`：`applyFilter` 三桶（主列表排除长期+过期；长期区仅「全部」展示；统计/简报排除长期）；主列表改为网页同口径紧急度排序（原为云端 `ts.asc` 旧到新：alert → urgent/today → extended → soon/active → done，档内 `whenOf` 升序、null 最后、数据源稳定）；新增 `longtermCards / longtermCount / showLongterm`、`toggleLongterm`；`_cardById / patchCard / toggleDone / jumpPendingGid` 覆盖长期区；长期区展开才懒加载图片/补 body。
+- `pages/nt/nt.wxml|wxss`：主列表后、已过期区块前新增「长期通知 · N 条」折叠区（默认收起、复用 `ntCard`、42px 点按区、M3 主题）。
+- `pages/index/index.js`：工作台待办通知轮换/计数排除长期通知。
+- 测试：`unit.js` **535/0**（新增 `notice_longterm_unit.js` 12/12 并挂载）、`notice_time_test.js` 20/0、`sync_contract_test.js` 34/0、`staticcheck.py` exit 0、`code_quality_check.js` 3 规则 PASS；同步修正 3 处依赖旧「长期安排留在主列表」的断言（`v2_unit_tests.js` / `v3_power_diag_tests.js`）。未跑 automator（9420 被其他会话占用）。`VERSION` 仍 2.0.0、UD v6 未动、零新增请求/依赖/外链。
+
+### 51.3 独立验收
+
+- 报告：`验收报告/长期通知优化_独立验收_20261112.md`（独立 QA 复跑 + 线上字节核对 + 小程序单测复核）。
+
+### 51.4 提交说明
+
+- 多会话并行：工作区同时存在「使用说明卡片化」「抽签升级」等未验收改动（`tools/index.html` 等）。本次提交在**干净 worktree**中只提交本功能相关文件（模板嵌入后的 `tools/index.html` = 线上已验收字节、demo、测试/规格、本模板源改动说明），不把并行未验收改动带入版本库；主工作区 WIP 原样保留。
+
+## 2026-11-12 21:00–21:35 · 增量 52：抽签升级 v1——云端存证防作弊 + 今日抽签次数 + 自定义序号名称映射（网页已上线 / 小程序源码待上传）
+
+### 52.1 需求与口径（用户已确认）
+- 用户原话：①「我打算再对抽签功能进行升级，因为目前的抽签导出图片还是会被质疑有作弊等情况」；②「同时重新将可自定义序号对应的名称功能添加回来（可将序号对应组名等）」。
+- 问询确认：防作弊方案 = **A（云端存证 + 扫码核验）** + **当天抽签次数统计**（防止看到不理想结果就重开一轮）；核验页**登录后本班可见**；名称映射 = **独立面板**（不替代班级名单）；范围 = **网页 + 小程序源码**（安卓本轮不做）。
+- 唯一契约：`web/draw/CONTRACT.md`（表/RPC/canon/算法固定向量/三端 UI/导出/测试/文件所有权/部署回滚）。
+
+### 52.2 云端（已应用，幂等）
+- 迁移 `deploy/cloudbase/2026-11-12_draw_proof.sql`：`public.draw_records`（15 列）+ `public.draw_events`（10 列，FK 级联）。
+- 两表 **RLS 开启 + 0 策略 + REVOKE ALL anon/PUBLIC**（实测直连 GET/POST 均 401）；只经 SECURITY DEFINER RPC 访问。
+- 6 个 RPC：`draw_record_create`（白名单归一 + 幂等 + advisory lock 取当天 seq_day + 哈希链 + canon/hash）/ `draw_event_append`（remove/refill/sort/reset，事件哈希链、note≤120）/ `draw_record_get`（详情/核验，返回 canon 供前端 SHA-256 自检；无 sid）/ `draw_record_list`（today/all/日期，limit 1–100；摘要不含 seed/pool/canon/events）/ `draw_test_purge` / `draw_test_clear`（仅测试身份、仅本人测试记录）。
+- `is_test` 口径隔离：`sid='3260799999' OR ^9999[0-9]{6}$`；真实用户看不到测试记录、今日次数不含测试记录。
+- canon 规范（12 行 `\n` 连接）：`v1 / id / created_ms / day / seq_day / algo / seed / prev_hash(首条空→空行) / params::text / pool::text / result::text / labels::text`，`hash=sha256(canon)`；params/pool/result/labels 均由服务端重建后存库，读取同路径重建 → 逐字节稳定（已 Python/PG 双向交叉验证）。
+- 应用：`python apply_sql.py 2026-11-12_draw_proof.sql` → **38 statements / fails=0**（连跑两次）；测试记录 0 残留。
+
+### 52.3 网页（已上线）
+- `tools/index.html` 新块 `__DRAW_PROOF_V1__`（CSS 在 `</style>` 前、HTML 弹层 `#nmModal/#recModal` 在 `#toast` 前、JS 在 STEP1 块后）。
+- 名称映射：`D.d.draw.names`（每行 `序号 名称`；无序号按行自增；名称 1–40 字、≤300 项、保存归一升序）；优先级 映射 > 班级名单派生名 > 空；`UD_DRAW_KEYS` 增 `names`、`UD.merge` 对旧数据归一 `names:""`（避免首同步误脏）、`UD.apply` 回填摘要（不新增顶层键）；不改变抽签池语义。
+- 存证：`doDraw()` 改为 **draw-v1**（mulberry32 uint32 显式版；seed=16 hex；fisher-yates/可重复抽取与旧逻辑同形）；每次点「开始抽签」即创建一条云端记录（`recordId = 'd'+base36+rand`，幂等）；`A.proof={pending|ok|failed}`；结果区状态「已存证 · 今日第 N 次（全班今日共 M 次）」/「存证中…」/「未存证（原因）+ 重试存证」；`drawTodayPull()` 进入班级后拉今日计数显示在「抽签记录」旁。
+- 事件：`removeFlow` → `draw_event_append(remove, n, added)`；「重置本轮」清空前追加 `reset`；「排序/随机打乱」只改显示顺序、不改成记录（契约 §2）。
+- 抽签记录：`#aRecBtn` 弹层（今日/全部、列表含「第 N 次/时间/参数/结果/操作人/哈希/查看核验 ›」、详情：存证编号/时间(秒)/抽签人(姓名+座号)/今日次数/参数/初始结果 chips/时间线/算法+种子/记录哈希/前序哈希/复算 ✓/哈希自检 ✓/二维码+复制链接/返回）。
+- 深链 `#verify=<id>`：脚本初始化即 `drawCaptureVerifyHash()` 收 id + `history.replaceState` 去掉 URL hash（登录前/后均可），登录后 `drawHandleVerifyHash()` 打开详情；避免关闭时 `history.back()` 回到带 hash 条目导致 hashchange 重开（QA 复现 → 已修，6 场景复测 PASS）。
+- 导出：`rec`=存证编号；参数区加存证编号/存证时间(秒)/今日抽签/记录哈希；QR=核验链接（`qrTitle="抽签存证核验"`、`qrCap`），`qrNote` 3 行；剔除明细改为纯文本块（≤8 行+省略）；未存证时不画 QR、标注「未存证（网络不可用）」、rec 回退 `recId("DRAW")`。`export_card_v2_spec.md` 已同步（qrTitle/qrCap 可选）。
+
+### 52.4 小程序（源码已改，待用户上传发布）
+- 新增 `utils/drawproof.js`：draw-v1 算法（契约 4 组固定向量逐元素一致）、名称映射解析、labels、recordId/seed、verifyUrl（`cloud-config.webBase`，临时 `https://ko-link.cn`）、记录/视图模型、二维码绘制、4 个 RPC 封装（复用 cloud 统一 header/token，失败静默）。
+- `pages/draw`：名称映射弹层+摘要；抽签用 seed 算法并异步存证；状态显示；剔除/补抽/重置追加事件（在途排队）；导出图 rec=存证 id + 存证参数 + QR；「抽签记录」入口。
+- 新增 `pages/drawrec`（app.json 注册）：今日/全部列表 + 详情（参数/初始结果/时间线/复算/哈希/二维码/复制核验链接/`?id=` 深链/下拉刷新/分享），不显示学号。
+- `utils/canvas.js` 可选 qrTitle/qrCap；`utils/store.js`、`utils/privacy.js` 默认 `draw.names:''`；`utils/cloud.js` `udSections/udApply` 应用 names（仍是 draw section，11 section/14 顶层键不变）。
+- 测试：`drawproof_unit_tests 35/0`、`unit.js 535/0`、`sync_contract_test 34/0`、`staticcheck.py` exit 0、`code_quality_check.js` 通过、`ai_unit_lottery 51/0`；云端只读探测通过（未写入）。
+- **发布前**：微信开发者工具上传（VERSION 仍 2.0.0，无新依赖/域名）；建议真机验：映射保存→抽签→已存证状态→记录/详情→导出图片；若 `tool.furina.fun` DNS 恢复，把 `utils/cloud-config.js` 的 `webBase` 改回 `https://tool.furina.fun`（一行）后再上传。
+
+### 52.5 测试与独立验收
+- 云端：`tools/tests/draw_cloud_check.py` **179/179**（连续两次，80.3s/101.6s，exit 0；含鉴权/非法入参中文 reason/归一/canon Python 重算/幂等/seq & today_mine 不变式/哈希链/get/list 字段与无 sid/event 链/直连 401/is_test 隔离/purge/clear/清理复核）。
+- 网页（QA 独立）：`tools/tests/draw_proof_check.py` **166/166**（mock UI：映射/请求体/状态/导出/记录/深链/复算/哈希篡改/未存证降级/360·390·430 无溢出/0 JS 报错/0 意外外部请求）；`tools/tests/draw_live_check.py` **45/45**（真实云端 E2E：本地临时通道 + 测试身份 + CDP 写白名单 blocked=3/allowed_draw=7；真 create/get/list/event、canon 逐字节复算、导出/详情/深链、finally `draw_test_clear` 清零）；QA 自写黑盒 probe **78/78**；canon Python↔PG 交叉验证 2/2。
+- 回归：`export_check.py draw` PASS、`v2_ui_check` 27/27、`overflow_check 430` overflowCount=0、`v2_drag_check` 69/69；`roster_check` 197/199 与 `sync_check` 142/144 的 4 项均为已知非本功能（并行会话使用说明文案断言 + 既有 drop presence 外部请求；HEAD 基线同样失败）；`selfcheck.py` 旧夹具引用已移除的 `#aRoster`，HEAD 同样失败。
+- 独立验收报告：`验收报告/抽签存证与名称映射_独立验收_20261112.md`（P0/P1=0，P2 为口径澄清/覆盖缺口）。
+
+### 52.6 上线 / 回滚 / 已知取舍
+- 上线：网页 **1,227,297 B / sha256 `4a6a49ba33d177aae4ee9f651e223395a68d930fe0f46c645702f3d8522fb978`**；`python deploy/oss_object.py check index.html` = **MATCH**、`python deploy/ecs_site.py verify` = **MATCH**（OSS+ECS；本轮与并行会话合并部署）。部署前线上 1,163,168B/`c4676d57…` 备份 `tools/_backup/index_online_20261112-2132_preDrawProof.html`。
+- 回滚：网页重传上述备份（OSS+ECS 重新 apply）；SQL 回滚按迁移文件头 `DROP FUNCTION ... / DROP TABLE draw_events / draw_records`；小程序回退本次源码。
+- 已知取舍：存证只覆盖主抽签工作流（大屏快捷抽签、分组不存证）；名称映射只影响显示/导出（不限制抽签池；抽签后修改映射不会改已存证 labels）；真实用户今日次数=全班共用（is_test=false 同一桶）；测试身份记录不显示/不计数；APP_VER 仍 2.0.0。

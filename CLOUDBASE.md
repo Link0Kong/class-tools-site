@@ -908,3 +908,113 @@ Content-Type: application/json
 DROP FUNCTION IF EXISTS public.class_whoami();
 DROP FUNCTION IF EXISTS public.class_league();
 ```
+
+## 抽签存证：`draw_records` / `draw_events` + 6 个 RPC（2026-11-12，已应用）
+
+> 需求（用户 2026-11-12）：「抽签导出图片还是会被质疑有作弊」→ 云端存证 + 扫码核验 + **当天抽签次数统计**
+> （防止看到不理想结果就重新开一轮）。契约唯一真源：`web/draw/CONTRACT.md` §1。
+> 迁移：`deploy/cloudbase/2026-11-12_draw_proof.sql`（**已应用，幂等**：`apply_sql.py` 实测 38 条语句 **fails=0**，可重复执行）。
+> 应用命令：`cd web/deploy/cloudbase && python apply_sql.py 2026-11-12_draw_proof.sql`。
+
+### 表结构
+
+`public.draw_records`（**只存序号 + 自定义名称，不存班级名单姓名/学号以外信息；所有 RPC 不返回 sid**）：
+
+| 列 | 类型 | 说明 |
+|---|---|---|
+| `id` | text PK | `'d' + 8..31 位 [0-9a-z]`（客户端生成，幂等键） |
+| `sid` | text | 操作用户学号（内部，任何 RPC 响应都不返回） |
+| `is_test` | boolean | 由 sid 判定：`'3260799999'` 或 9999 段 10 位（测试身份口径隔离） |
+| `at` / `created_ms` | timestamptz / bigint | 服务端时间 / 毫秒时间戳（哈希/展示用） |
+| `day` / `seq_day` | date / int | `(at AT TIME ZONE 'Asia/Shanghai')::date` / 当天第几次（同 is_test 口径全表递增） |
+| `params` | jsonb | 服务端白名单归一后的参数（见下） |
+| `pool` / `result` | jsonb | 抽签池号码数组（去重升序）/ 抽取顺序结果号码数组 |
+| `labels` | jsonb | 自定义名称命中结果 `[{n,nm}]`（≤300，按 n 升序去重） |
+| `seed` / `algo` | text | 16 位小写 hex / `'draw-v1'` |
+| `prev_hash` / `hash` | text | 同 is_test 口径链上前一条 hash（第一条空串）/ `sha256(canon)` 64 hex |
+
+索引：`draw_records_day_idx(day DESC, seq_day DESC)`、`draw_records_at_idx(at DESC, id)`。
+约束：`draw_records_id_chk` / `draw_records_day_chk` / `draw_records_seed_chk` / `draw_records_algo_chk`（+ PK）。
+
+`public.draw_events`（剔除重抽时间线）：`record_id`（FK → draw_records，**ON DELETE CASCADE**）、`seq`（从 1 起，PK 同 record_id）、
+`kind`（`remove|refill|sort|reset`，`draw_events_kind_chk`）、`n`/`added`（可空）、`note`（≤120 字截断）、
+`at`/`created_ms`、`prev_hash`（上一条事件 hash，无则 record.hash）、`hash`。
+
+### 权限（重要：两表对 anon 完全无直连权限）
+
+- 两表 `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` + **不建任何策略** + `REVOKE ALL ... FROM PUBLIC/anon`；
+  匿名（PostgREST `anon` 角色）直连 `GET/POST {REST}/draw_records` 实测 **401**（`DATABASE_42501: permission denied for table draw_records`），
+  `draw_events` 同；读写全部只经 `SECURITY DEFINER` RPC。
+- 6 个 RPC 均 `SECURITY DEFINER` + `SET search_path = public, private, pg_temp`，`REVOKE ALL FROM PUBLIC` 后 `GRANT EXECUTE ... TO anon`；
+  另 4 个内部归一函数 `draw_norm_params/pool/result/labels` 仅服务端调用（同样的 search_path 固定）。
+- 记录**不可改**：没有任何 UPDATE 已存证记录的 RPC；唯一 DELETE = `is_test` 测试身份清理自己的测试数据。
+- 鉴权统一 `public.auth_ok()`（有效班级 token，网页 `X-Device-Id` / 小程序 `X-Class-Token`）+ `public.auth_sid()`；
+  失败返回 **HTTP 200 + `{ok:false,reason:"身份已失效，请重新进入班级"}`**。
+
+### 哈希规范（服务端计算；网页核验页直接对返回的 `canon` 做 SHA-256）
+
+```text
+canon = concat_ws(E'\n', 'v1', id, created_ms::text, day::text, seq_day::text, algo, seed,
+                  prev_hash, params::text, pool::text, result::text, labels::text)   -- 固定 12 行
+hash  = encode(digest(canon,'sha256'),'hex')                                          -- pgcrypto
+ev_canon = concat_ws(E'\n','e1',record_id,seq::text,kind,coalesce(n::text,''),
+                     coalesce(added::text,''),note,created_ms::text,prev_hash)
+```
+
+- `jsonb::text` 为 PostgreSQL 规范文本（键按 jsonb 规则重排，`": "` / `", "` 带空格，中文原样 UTF-8，不转义）；
+  `params/pool/result/labels` 全由服务端白名单重建成上述规范形式后存库，读取时用同一路径重建 canon → **逐字节稳定**。
+  UTF8 库下与网页 `crypto.subtle.digest('SHA-256', TextEncoder(canon))`、Python `hashlib.sha256(canon.encode('utf-8'))` 完全一致（实测）。
+- 真实示例（`draw_record_get` 返回，**含中文名称；不含个人信息**；该记录已清理，仅作规范说明）：
+  ```
+  v1\nd1a1cfe35644faec20\n1794489146871\n2026-11-12\n1\ndraw-v1\na1b2c3d4e5f60718\n\n{"dup": false, "excl": [3, 5], "sort": "num", "count": 3, "range": [1, 70], "namesN": 3, "rosterN": 12}\n[1, 3, 5, 7, 10]\n[7, 10, 1]\n[{"n": 1, "nm": "第三组"}, {"n": 7, "nm": "甲组"}]
+  ```
+  （`\n` 为真实换行；首条记录 `prev_hash` 为空串 → canon 第 8 行是空行，即连续两个换行。）
+- `params` 服务端归一（未知键丢弃，顺序固定）：`{"range":[lo,hi],"count":n,"dup":bool,"excl":[...],"sort":"draw|num|desc|rand","rosterN":0,"namesN":0}`；
+  `range` 两个整数 0..99999 且 lo≤hi；`count` 1..1000；`excl` 整数 ≤200 去重升序；`rosterN` 0..70；`namesN` 0..300。
+  `pool` 1..1000 个号码 0..99999、去重升序（重复→`抽签池不合法`）；`result` 元素必须 ∈ pool 且长度 = count，
+  `dup=false` 时互不重复（否则 `结果不合法`）；`labels` 的 n 必须 ∈ result（否则 `名称映射不合法`）。
+
+### RPC（`POST {REST}/rpc/<name>`；班级 token：网页 `X-Device-Id` / 小程序 `X-Class-Token`）
+
+| RPC | 参数 | 返回 / 语义 |
+|---|---|---|
+| `draw_record_create` | `p_id text, p_params jsonb, p_pool jsonb, p_result jsonb, p_labels jsonb, p_seed text, p_algo text DEFAULT 'draw-v1'` | `{ok:true,today_count,today_mine,record:{…公开视图…}}`。**幂等**：同 id 同 sid 重复调用返回已存记录（不覆盖）；同 id 不同 sid → `{ok:false,reason:"记录编号冲突"}`。服务端校验/归一全部参数后，`pg_advisory_xact_lock(hashtext('public.draw_records'))` 内取 `seq_day` + 链 `prev_hash`，算 canon/hash 落库；异常兜底 `存证失败，请重试`（不泄露 SQL 细节） |
+| `draw_event_append` | `p_id text, p_kind text, p_n integer DEFAULT NULL, p_added integer DEFAULT NULL, p_note text DEFAULT ''` | `{ok:true,event:{seq,kind,n,added,note,at,hash,prev_hash},event_count}`；仅记录本人（`sid`）可追加；kind 白名单（否则 `事件类型不合法`）；note 超 120 字截断；记录不存在/非本人 → `记录不存在` |
+| `draw_record_get` | `p_id text` | `{ok:true,record:{id,at,day,seq_day,today_count,today_mine,is_mine,op_name,op_seat,params,pool,result,labels,seed,algo,hash,canon,prev_hash,event_count,events:[…]}}`；登录 + `is_test` 同口径才可见，否则 `记录不存在`；**不返回 sid**（op_name/op_seat 来自 `private.class_ids`） |
+| `draw_record_list` | `p_scope text DEFAULT 'today', p_limit integer DEFAULT 30` | `{ok:true,scope,day,today_count,today_mine,records:[摘要]}`；scope = `today` / `all` / `YYYY-MM-DD`（其它按 today）；limit 夹取 1..100；只返回同 is_test 口径；摘要 = `id,at,day,seq_day,params,result,labels,hash,event_count,is_mine,op_name,op_seat`（**不含** seed/pool/canon/events）；today 按 `seq_day DESC`，其它按 `at DESC, id DESC` |
+| `draw_test_purge` | `p_id text` | 仅 `is_test=true` 且 `sid=auth_sid()` 的记录硬删（events 级联）；`{ok:true,deleted:n}`；真实用户 → `{ok:false,reason:"仅测试身份可清理"}` |
+| `draw_test_clear` | （无） | 同上，硬删本人全部测试记录；`{ok:true,deleted:n}`；真实用户 → `仅测试身份可清理` |
+
+- **is_test 口径隔离**：`is_test := (sid='3260799999' OR sid ~ '^9999[0-9]{6}$')`；
+  `seq_day`/`today_count`/`prev_hash` 链/list/get 可见性全部按 is_test 口径隔离；
+  真实用户永远看不到测试记录、也不计入真实「今日抽签次数」（测试记录 `is_test=true`，真实口径查询恒 0 行 —— 已实测断言）。
+
+### 测试
+
+- `tools/tests/draw_cloud_check.py` **179 项 PASS / 0 FAIL**（真实 CloudBase 黑盒，实测两次全绿，约 80–100s）：
+  迁移结构（6 RPC SECURITY DEFINER + search_path + anon EXECUTE、两表 RLS 无策略且 anon 无直连权限、列/约束齐全）、
+  鉴权、create 全部非法输入中文 reason 且不落库（30 项）、params/pool/result/labels 归一、
+  **canon 用 Python hashlib.sha256 重算 == hash**、幂等（同 id 同 sid 返回原记录；不同 sid 冲突）、
+  `seq_day == today_count` 与 `today_mine` 递增、prev_hash 链（DB 口径逐条核对）、get/list（scope/limit/摘要字段/无 sid）、
+  event 时间线与 hash 链（Python 复算 + note 截断 + 级联）、is_test 隔离（含 `3260799999` 与 9999 段两分支）、
+  直连表 401/403、purge 权限/级联、clear 可重复调用；**finally** 里 `draw_test_clear` + 按 id purge + SQL 复核 **0 残留**，
+  临时 9999 QA 身份与一次性会话也一并删除。身份只用测试身份（`3260799999/测试账号` + 脚本临时创建 9999 段 QA 身份），
+  CB/CBK 仅运行时从 `tools/index.html` 解析进内存、不打印，全程不接触真实账号/token。
+
+### 回滚
+
+```sql
+DROP FUNCTION IF EXISTS public.draw_test_clear();
+DROP FUNCTION IF EXISTS public.draw_test_purge(text);
+DROP FUNCTION IF EXISTS public.draw_record_list(text, integer);
+DROP FUNCTION IF EXISTS public.draw_record_get(text);
+DROP FUNCTION IF EXISTS public.draw_event_append(text, text, integer, integer, text);
+DROP FUNCTION IF EXISTS public.draw_record_create(text, jsonb, jsonb, jsonb, jsonb, text, text);
+DROP FUNCTION IF EXISTS public.draw_norm_labels(jsonb, jsonb);
+DROP FUNCTION IF EXISTS public.draw_norm_result(jsonb, jsonb, integer, boolean);
+DROP FUNCTION IF EXISTS public.draw_norm_pool(jsonb);
+DROP FUNCTION IF EXISTS public.draw_norm_params(jsonb);
+DROP TABLE IF EXISTS public.draw_events;
+DROP TABLE IF EXISTS public.draw_records;
+-- pgcrypto 为既有扩展，不删
+```

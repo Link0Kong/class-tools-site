@@ -268,7 +268,8 @@ EXP_WEB_MP = json.loads(r"""{
     "count": 10,
     "dup": false,
     "excl": "",
-    "sort": "draw"
+    "sort": "draw",
+    "names": ""
   },
   "group": {
     "source": "prev",
@@ -400,7 +401,8 @@ EXP_MP_WEB = json.loads(r"""{
     "count": 10,
     "dup": false,
     "excl": "",
-    "sort": "draw"
+    "sort": "draw",
+    "names": ""
   },
   "group": {
     "source": "prev",
@@ -526,7 +528,7 @@ EXP_V5 = json.loads(r"""{
     "durM": "",
     "durS": ""
   },
-  "draw": {},
+  "draw": { "names": "" },
   "group": {},
   "roster": {
     "rosterSel": [],

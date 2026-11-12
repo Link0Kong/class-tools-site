@@ -2,6 +2,17 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-12 21:00–21:35 · v2.0.0 增量 52：抽签升级 v1——云端存证防作弊 + 今日抽签次数 + 自定义序号名称映射（网页已上线 OSS+ECS / 小程序源码待用户上传发布）
+
+> 用户需求：「抽签导出图片还是会被质疑有作弊」+「重新将可自定义序号对应的名称功能添加回来（可将序号对应组名等）」。唯一契约 `web/draw/CONTRACT.md`；范围=网页+小程序源码（安卓本轮不做）。
+
+- **云端**（迁移 `deploy/cloudbase/2026-11-12_draw_proof.sql`，已应用 **38 statements / fails=0**）：新增 `public.draw_records` + `public.draw_events`（RLS 开启 + 0 策略 + REVOKE ALL → 直连 401；仅 SECURITY DEFINER RPC 访问）与 6 个 RPC（`draw_record_create` / `draw_event_append` / `draw_record_get` / `draw_record_list` / `draw_test_purge` / `draw_test_clear`）+ 4 个内部归一函数；服务器时间 + Asia/Shanghai 当日 `seq_day`/`today_count`/`today_mine`（is_test 口径隔离：测试身份记录真实用户不可见、不计真实次数），哈希链 `prev_hash`，`canon`（12 行固定规范）+ sha256，params/pool/result/labels 服务端白名单归一，`pg_advisory_xact_lock` 并发取号，响应不含学号；测试记录已清零。
+- **网页** `tools/index.html` 新块 `__DRAW_PROOF_V1__`：STEP1 新增「名称映射」面板（`D.d.draw.names`，格式 `序号 名称`，优先级 映射 > 班级名单派生名 > 空；`UD_DRAW_KEYS` 增 `names`、旧数据按空，不新增顶层键）；每次点「开始抽签」= 一条云端存证（draw-v1 种子算法：seed+pool 可复算，替换原 Math.random 洗牌），结果区显示「已存证 · 今日第 N 次（全班今日共 M 次）」；「抽签记录」弹层（今日/全部、详情、算法复算 ✓、哈希自检 ✓、`#verify=<id>` 深链（登录后打开；初始化时先收 id + replaceState 清 hash，关闭不重开））；剔除/补抽/重置追加事件；导出图 `rec`=存证编号、参数区存证编号/时间(秒)/今日次数/记录哈希、QR=核验链接（`qrTitle/qrCap`，`export_card_v2_spec.md` 已同步）、未存证降级标注；跨端同步 `draw.names` 走既有 draw section。
+- **小程序源码**（待用户上传发布）：新增 `utils/drawproof.js`（draw-v1 算法/名称映射/RPC 封装/记录视图模型）+ `pages/draw` 名称映射弹层/存证状态/事件/导出核验二维码 + 新增 `pages/drawrec`（今日/全部/详情/深链，app.json 注册）+ `utils/canvas.js` 可选 qrTitle/qrCap + `utils/cloud-config.js webBase`（临时 ko-link.cn，恢复后改回）；VERSION 仍 2.0.0、零新依赖。
+- **测试（真实跑过）**：云端 `draw_cloud_check.py` **179/179**（连续两次）+ QA 独立 probe **78/78**；网页 QA mock **166/166** + 真实云端 E2E `draw_live_check.py` **45/45**（本地临时通道+测试身份+CDP 写白名单+finally 清理）；回归 export_check draw PASS、v2_ui 27/27、overflow 430=0、v2_drag 69/69；roster 197/199 与 sync 142/144 的 4 项均为并行会话/既有 drop presence 的已知非本功能失败。小程序 `drawproof_unit_tests 35/0`、`unit.js 535/0`、`sync_contract_test 34/0`、staticcheck/code_quality exit 0。独立验收报告 `web/验收报告/抽签存证与名称映射_独立验收_20261112.md`（P0/P1=0）。
+- **上线**：网页 **1,227,297 B / sha256 `4a6a49ba…`**（OSS `check index.html` MATCH、ECS verify MATCH；本轮与并行会话合并部署）。回滚 `tools/_backup/index_online_20261112-2132_preDrawProof.html`（1,163,168B/`c4676d57…`）；SQL 回滚见迁移文件头；小程序回退源码。
+- **已知取舍**：存证只覆盖主抽签工作流（大屏快捷抽签/分组不存证）；名称映射只影响显示/导出（不限制抽签池；抽签后改映射不改已存证 labels）；真实用户今日次数=全班共用（同一 is_test=false 桶）；测试身份记录不显示/不计数。
+
 ## 2026-11-12 21:20–21:25 · 修复 IP/临时域名访问登录「网络错误」（Caddy 同源反代去 Origin）
 
 - 用户反馈 `http://121.196.47.2/` 登录提示「网络错误」。根因：CloudBase 网关 Origin 白名单只含 `https://tool.furina.fun` / `http://127.0.0.1:*`，而浏览器对同源 POST/PATCH/DELETE 也会带 `Origin: <当前访问域名>`，经 Caddy `/v1/rdb/rest/*` 反代原样透传 → 网关 **403**（`ko-link.cn`、IP、OSS 域名、`null` 实测均 403；`tool.furina.fun`/`127.0.0.1` 200）。
@@ -10,6 +21,17 @@
 - 验证：headless Edge 打开 `http://121.196.47.2/` 用测试身份 `3260799999/测试账号` 登录成功（auth-pending 移除；`class_verify`/`class_members`/`fitrecs`/`marks`/`userdata` 全 200；0 console error）。
 - 副作用：只影响本机反代对网关请求头的处理；直连 CloudBase 网关的页面仍受网关白名单约束。ko-link.cn 备案通过后同样走这个反代，无需再改 CloudBase 配置。
 - 回滚：还原 `deploy/ecs_site.py` 三处 `header_up -Origin` 后重新 `apply --https`。
+
+## 2026-11-12 20:58–21:25 · 长期通知优化显示（网页已上线 OSS+ECS；小程序源码已改，待上传发布）
+
+> 用户需求：「对长期通知进行优化显示，防止长期霸占通知前排」。确认口径：网页+小程序；长期通知 = 长期安排（recurrence）+ 无时间/长期有效通知；展示 = 主列表下方独立折叠区（默认收起），主列表只留时间明确、可处理的通知。规格 `tools/tests/notice_longterm_display_spec.md`。
+
+- **网页模板**（源 `briefdesk-plan/build_notice_board.py`）：新增长期通知判据 `isLongtermGroup`（recurrence 或 无 deadline/eventAt/报名窗口且未过期）、`renderLongterm` 折叠区（主列表下方、已过期区上方；仅「全部」筛选；默认收起）、长期区排序（长期安排按下次发生升序 → info 按消息时间倒序）、待处理统计/简报/待处理筛选排除长期通知；长期区内标记已处理不回流主列表。`tools/build_notice_embed.py` OVERRIDE 补 `.lt-wrap`；重新 embed 到 `tools/index.html` 的 `NOTICE_TPL_B64`。
+- **网页测试**：新增 `tools/tests/v2_notice_longterm_check.py` **25/25**；`v2_notice_live_check.py` 与 HEAD 基线一致（既有 L16 drop/presence 外部请求 FAIL 非本次引入）；`v2_ui_check.py` 27/27；briefdesk-plan 模板/嵌入三检查 PASS（TEMPLATE MATCH）。
+- **网页上线**：因并行会话正在改本地 index.html（未验收），采用「线上 OSS index 为基底 + 只替换 NOTICE_TPL_B64」合成部署 → **1,163,168 B / sha256 `c4676d57418c5aae7f7266e09682e96af3418678296742300f992792c064d5e8`**（OSS MATCH；ECS `apply --https` 后 ko-link.cn/www/IP 三个入口 curl 均为该 sha；drop v2.3、pptfiles 健康）。备份 `tools/_backup/index_online_20261112-211603_preLongtermNotice.html`（1,158,556B/`9fac5b58…`），回滚=重传备份。
+- **小程序源码**（待用户上传发布）：`utils/notice.js` 新增 `isLongterm`/主列表排序/长期区排序并让 `statOf`/`mostUrgent` 排除长期通知；`pages/nt/nt.js` 三桶拆分 + 主列表改网页同口径紧急度排序（原 ts.asc 旧到新）+ `longtermCards/showLongterm/toggleLongterm` + `_cardById/patchCard/toggleDone/jumpPendingGid` 覆盖；`nt.wxml|wxss` 新增「长期通知 · N 条」折叠区（默认收起、42px 点按）；`pages/index/index.js` 工作台待办排除长期通知。测试：`unit.js` **535/0**（新增 `notice_longterm_unit.js` 12/12）、`notice_time_test.js` 20/0、`sync_contract_test.js` 34/0、`staticcheck.py` exit 0、`code_quality_check.js` PASS；未跑 automator（9420 被其他会话占用）。`VERSION` 仍 2.0.0、UD v6 未动、零新增请求/依赖/外链。
+- **独立验收**：`验收报告/长期通知优化_独立验收_20261112.md`。
+- **回滚**：网页重传备份文件（OSS+ECS）；小程序回退本次 5 个源码文件；模板源回退 `briefdesk-plan/build_notice_board.py` 本次改动（长期区相关函数与 CSS/HTML/JS 片段）。
 
 ## 2026-11-12 20:4x–21:0x · 临时切换公网域名到 ko-link.cn（HTTPS 已启用；网页已上线；小程序源码已改，待上传）
 

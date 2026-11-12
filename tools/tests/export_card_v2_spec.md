@@ -79,13 +79,15 @@
   - 成员区 top = panelTop+34：成员横排换行，成员间水平距 10，行高 21；
     数字 11.5px/600 ink3 + 3px 间距 + 姓名 13.5px/700 ink；无姓名只画数字。
   - 组高 = 34 + 行数*21 + 10；同排两卡取等高，奇数个时最后一卡占半宽。
-- 二维码（`o.qr`，仅网页抽签有）：
+- 二维码（`o.qr`，抽签导出使用；2026-11-12 起为「存证核验」码）：
+  - 可选 `o.qrTitle`（默认 `剔除重抽记录`）与 `o.qrCap`（默认 `扫码查看本次剔除与补抽的完整记录`）；
+    抽签存证导出传 `qrTitle="抽签存证核验"`、`qrCap="扫码核验本次抽签记录（需登录班级身份）"`，
+    `qr` 为核验链接 `https://<站点域名>/#verify=<存证编号>`，`qrNote` 3 行为存证编号 / 记录哈希前 12 位 / 今日第 N 次。
   - 位置：所有内容块之后；`qMod = qr.n < 37 ? 4 : 3`，安静区 4 模块；`qBox = qr.n*qMod + 8*qMod`。
   - 整行面板：**通栏** tinted 面板（宽 CW、高 `qBox+12+20 = plate+20`，圆角 14，panel 底 + panelBorder 描边）。
   - 右侧白底板：`plate = qBox+12`，圆角 10、chipBg 底、chipBorder 描边，距面板右/上各 10；二维码绘于板内 `6+quiet` 处。
-  - 左侧：标题「剔除重抽记录」12.5px/800 primary（面板 top+28）；`o.qrNote` 前 3 条每条 12px/500 ink2
-    （top+52 起、行高 18，超宽截断加 `…`）；底部说明「扫码查看本次剔除与补抽的完整记录」11px/500 ink3
-    （面板 bottom-14）；抽签页同时传 `qr: logStr()` 与 `qrNote: [...]`。
+  - 左侧：标题 = `o.qrTitle`（缺省「剔除重抽记录」）12.5px/800 primary（面板 top+28）；`o.qrNote` 前 3 条每条 12px/500 ink2
+    （top+52 起、行高 18，超宽截断加 `…`）；底部说明 = `o.qrCap` 11px/500 ink3（面板 bottom-14）。
   - 区块 bottom = 面板 top + plate + 20 + 4。
 - 内容 bottom = 最后一块内容 bottom。
 
@@ -103,7 +105,7 @@
 
 ## 3. API（两边保持一致）
 
-`exportCard({title, sub, file, rec, config:[[k,v]], blocks:[...], foot, qr})`
+`exportCard({title, sub, file, rec, config:[[k,v]], blocks:[...], foot, qr, qrNote, qrTitle?, qrCap?})`
 - `blocks` 元素三种：
   1. `{label, lines:[string | runs], mono?, atomic?}`（旧的文本块，全保留兼容）
   2. `{label, chips:[{n,nm}]}`（新增）
@@ -113,7 +115,9 @@
 ## 4. 各导出入口改法
 
 网页（web/tools/index.html）：
-- 抽签 `#aImg`：`blocks:[{label:"抽签结果", chips:A.result.map(n=>({n:n, nm:nameOf(n)}))}]`。
+- 抽签 `#aImg`（2026-11-12 存证版）：`blocks:[{label:"抽签结果", chips:A.result.map(n=>({n:n, nm:nameOf(n)}))}]`；
+  有剔除时追加文本块「剔除重抽」；`rec` = 云端存证编号（未存证回退 `recId("DRAW")`）；
+  `qr` = 核验链接、`qrTitle="抽签存证核验"`、`qrCap` 见上；参数区另含存证编号/存证时间/今日抽签次数/记录哈希。
 - 分组 `#gImg`：`blocks:[{label:"分组结果", groups:G.result.map(gp=>gp.map(m=>({n:m.n,nm:m.nm})))}]`。
 - 结果单 `#sImg`：抽签用 chips、分组用一个 groups 块（有哪个放哪个）。
 - 课表/作业/体测：维持文本块（可保留现 rich runs）。
