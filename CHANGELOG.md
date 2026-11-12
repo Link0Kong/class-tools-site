@@ -56,16 +56,17 @@
 - 副作用：只影响本机反代对网关请求头的处理；直连 CloudBase 网关的页面仍受网关白名单约束。ko-link.cn 备案通过后同样走这个反代，无需再改 CloudBase 配置。
 - 回滚：还原 `deploy/ecs_site.py` 三处 `header_up -Origin` 后重新 `apply --https`。
 
-## 2026-11-12 20:58–21:25 · 长期通知优化显示（网页已上线 OSS+ECS；小程序源码已改，待上传发布）
+## 2026-11-12 20:58–21:50 · 长期通知优化显示（网页已上线 OSS+ECS；小程序源码已改，待上传发布）
 
 > 用户需求：「对长期通知进行优化显示，防止长期霸占通知前排」。确认口径：网页+小程序；长期通知 = 长期安排（recurrence）+ 无时间/长期有效通知；展示 = 主列表下方独立折叠区（默认收起），主列表只留时间明确、可处理的通知。规格 `tools/tests/notice_longterm_display_spec.md`。
 
-- **网页模板**（源 `briefdesk-plan/build_notice_board.py`）：新增长期通知判据 `isLongtermGroup`（recurrence 或 无 deadline/eventAt/报名窗口且未过期）、`renderLongterm` 折叠区（主列表下方、已过期区上方；仅「全部」筛选；默认收起）、长期区排序（长期安排按下次发生升序 → info 按消息时间倒序）、待处理统计/简报/待处理筛选排除长期通知；长期区内标记已处理不回流主列表。`tools/build_notice_embed.py` OVERRIDE 补 `.lt-wrap`；重新 embed 到 `tools/index.html` 的 `NOTICE_TPL_B64`。
-- **网页测试**：新增 `tools/tests/v2_notice_longterm_check.py` **25/25**；`v2_notice_live_check.py` 与 HEAD 基线一致（既有 L16 drop/presence 外部请求 FAIL 非本次引入）；`v2_ui_check.py` 27/27；briefdesk-plan 模板/嵌入三检查 PASS（TEMPLATE MATCH）。
-- **网页上线**：因并行会话正在改本地 index.html（未验收），采用「线上 OSS index 为基底 + 只替换 NOTICE_TPL_B64」合成部署 → **1,163,168 B / sha256 `c4676d57418c5aae7f7266e09682e96af3418678296742300f992792c064d5e8`**（OSS MATCH；ECS `apply --https` 后 ko-link.cn/www/IP 三个入口 curl 均为该 sha；drop v2.3、pptfiles 健康）。备份 `tools/_backup/index_online_20261112-211603_preLongtermNotice.html`（1,158,556B/`9fac5b58…`），回滚=重传备份。
-- **小程序源码**（待用户上传发布）：`utils/notice.js` 新增 `isLongterm`/主列表排序/长期区排序并让 `statOf`/`mostUrgent` 排除长期通知；`pages/nt/nt.js` 三桶拆分 + 主列表改网页同口径紧急度排序（原 ts.asc 旧到新）+ `longtermCards/showLongterm/toggleLongterm` + `_cardById/patchCard/toggleDone/jumpPendingGid` 覆盖；`nt.wxml|wxss` 新增「长期通知 · N 条」折叠区（默认收起、42px 点按）；`pages/index/index.js` 工作台待办排除长期通知。测试：`unit.js` **535/0**（新增 `notice_longterm_unit.js` 12/12）、`notice_time_test.js` 20/0、`sync_contract_test.js` 34/0、`staticcheck.py` exit 0、`code_quality_check.js` PASS；未跑 automator（9420 被其他会话占用）。`VERSION` 仍 2.0.0、UD v6 未动、零新增请求/依赖/外链。
-- **独立验收**：`验收报告/长期通知优化_独立验收_20261112.md`。
-- **回滚**：网页重传备份文件（OSS+ECS）；小程序回退本次 5 个源码文件；模板源回退 `briefdesk-plan/build_notice_board.py` 本次改动（长期区相关函数与 CSS/HTML/JS 片段）。
+- **网页模板**（源 `briefdesk-plan/build_notice_board.py`）：新增长期通知判据 `isLongtermGroup`（recurrence 或 无 deadline/eventAt/报名窗口且未过期）、`renderLongterm` 折叠区（主列表下方、已过期区上方；仅「全部」筛选；默认收起；折叠头「长期通知 · N 条」）、长期区排序（长期安排按下次发生升序 → info 按消息时间倒序）、待处理统计/简报/待处理筛选排除长期通知；长期区内标记已处理不回流主列表。`tools/build_notice_embed.py` OVERRIDE 补 `.lt-wrap` 底纹。
+- **网页测试**：新增 `tools/tests/v2_notice_longterm_check.py` **26/26**（对最终线上字节实跑）；`v2_notice_live_check.py` 与 HEAD 基线一致（既有 L16 drop/presence 外部请求 FAIL 非本次引入）；`v2_ui_check.py` 27/27；briefdesk-plan 模板/嵌入三检查 PASS（TEMPLATE MATCH）。
+- **网页上线（多次并行覆盖后的最终状态）**：最终线上 = **1,227,464 B / sha256 `891a6389edf18143d4e75bac168fde9f113001cc323e3159f880b0defeb77b19`**（并行已验收的抽签/使用说明内容 + 本增量通知模板 v2；OSS/HTTP IP/ECS 文件/http·https 域名均一致）；通知模板 112,609B / sha256 `f8284f9521fda39b446a410b394389323cc338a6eed25ba31e4f2778648b95af`；drop v2.3、pptfiles 健康。
+- **HTTPS 两次被并行会话的 `ecs_site.py apply`（旧默认 HTTP-only）写没（21:23、21:40），21:46 已恢复**；根治：`ecs_site.py apply` **默认改为 HTTPS**（兼容 `--https`，新增 `--http-only` 显式降级），`deploy/ECS_DEPLOY.md` §3 同步说明。
+- **小程序源码**（待用户上传发布）：`utils/notice.js` 新增 `isLongterm`/主列表排序/长期区排序并让 `statOf`/`mostUrgent` 排除长期通知；`pages/nt/nt.js` 三桶拆分 + 主列表改网页同口径紧急度排序（原 ts.asc 旧到新）+ `longtermCards/showLongterm/toggleLongterm` + `_cardById/patchCard/toggleDone/jumpPendingGid` 覆盖；`nt.wxml|wxss` 新增「长期通知 · N 条」折叠区（默认收起、42px 点按）；`pages/index/index.js` 工作台待办排除长期通知。测试：`unit.js` **536/0**（新增 `notice_longterm_unit.js` **13/13**）、`notice_time_test.js` 20/0、`sync_contract_test.js` 34/0、`staticcheck.py` exit 0、`code_quality_check.js` PASS；未跑 automator（9420 被其他会话占用）。`VERSION` 仍 2.0.0、UD v6 未动、零新增请求/依赖/外链。
+- **独立验收**：`验收报告/长期通知优化_独立验收_20261112.md` —— **PASS，P0=0 / P1=0 / P2=0**（网页独立测试 43/43、线上 App 内嵌 12/12、小程序复跑 536/0 + 独立用例 49/49；原 3 项 P2 已修复复验，HTTPS 运维 P1 已消除）。
+- **回滚**：网页重传线上备份（OSS+ECS apply）；小程序回退本次 5 个源码文件；模板源回退 `briefdesk-plan/build_notice_board.py` 本次改动（长期区相关函数与 CSS/HTML/JS 片段）；ECS apply 默认改动可保留（不回退更安全）。
 
 ## 2026-11-12 20:4x–21:0x · 临时切换公网域名到 ko-link.cn（HTTPS 已启用；网页已上线；小程序源码已改，待上传）
 

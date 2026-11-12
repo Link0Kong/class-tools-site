@@ -3221,9 +3221,9 @@ sync-repos.cmd "feat: 说明本次改了什么"
   - 长期区卡片沿用完整卡：长期安排保留「长期安排 · label + 下次 MM-DD 周X HH:MM」且无「标记已处理」；info 可标记已处理，标记后仍留长期区、不回流主列表。
 - `tools/build_notice_embed.py` 的网页内嵌 OVERRIDE 增加 `.lt-wrap` 白底（与已过期区一致）；重跑模板生成 demo 并重新嵌入 `tools/index.html`（仅 `NOTICE_TPL_B64` 变化）。
 - 测试：新增 `tools/tests/v2_notice_longterm_check.py` **26/26**（静态模板标记、主列表无长期、计数、折叠头「长期通知 · N 条」、默认收起、展开/收起、长期安排/ info 排序、统计排除、待处理/已截止筛选、分类筛选、已处理不回流、430/390/360 无横向溢出、0 JS 报错、0 console.error、0 外部请求；对最终线上字节实跑 26/26）；`v2_notice_live_check.py` 16 项除既有 `L16 外部请求 drop/presence`（HEAD 基线同样失败，非本次引入）外全 PASS；`v2_ui_check.py` 27/27；`briefdesk-plan` 的 `_check_template.py` / `_check_embed.py` / `_check_template_embed_match.py` PASS（TEMPLATE MATCH，纯模板变化）。
-- 部署（并行会话正在改本地 index.html，未验收，故没上传本地工作区版本）：**以线上 OSS index.html 为基底、只替换 NOTICE_TPL_B64 合成部署**（三次：首次 21:16 → 并行「抽签升级」21:26 部署 4a6a49ba 覆盖 → 21:38 本增量合并折叠头「·」v2 模板再部署）。**最终线上 = 1,227,365B / sha256 `ef255356344c7dfd9d13b586becbbfbebe1d94e3b4d904426438e866b87851cb`**（= 4a6a49ba 的并行已验收内容 + 本增量通知模板；OSS/HTTP IP/ECS 文件/ECS 侧 http+https 域名全部一致）；通知模板 112,609B / sha256 `f8284f9521fda39b446a410b394389323cc338a6eed25ba31e4f2778648b95af`；`/drop/__health` v2.3、`/pptfiles/__health` 200。
-- **HTTPS 回归与恢复**：21:23 并行会话用 `ecs_site.py apply`（未带 `--https`）把 Caddy 写回 HTTP-only，443 消失；21:39 已用 `python deploy\ecs_site.py apply --https` 恢复，ECS 侧 curl `https://ko-link.cn/` / `https://www.ko-link.cn/` 均 200 且 sha 与线上一致。**教训：现有域名+HTTPS 已启用时重新 apply 必须带 `--https`**（详见 `deploy/ECS_DEPLOY.md` §3.5/§3.6）。
-- 备份/回滚：两次线上备份 `tools/_backup/index_online_20261112-211603_preLongtermNotice.html`（1,158,556B/`9fac5b58…`，原始线上）与 `tools/_backup/index_online_20261112-213812_preLongtermNotice.html`（1,227,297B/`4a6a49ba…`，第三次部署前）；回滚=把对应备份重传线上（OSS+ECS `apply --https`）。
+- 部署（并行会话正在改本地 index.html，未验收，故没上传本地工作区版本）：**以线上 OSS index.html 为基底、只替换 NOTICE_TPL_B64 合成部署**（21:16 首次 → 21:38 折叠头「·」v2 模板）。随后并行「使用说明卡片化」21:41 部署其已验收版本时，同步带上了本增量的 v2 通知模板（模板未变，见下）。**最终线上 = 1,227,464B / sha256 `891a6389edf18143d4e75bac168fde9f113001cc323e3159f880b0defeb77b19`**（= 并行已验收的抽签/使用说明内容 + 本增量通知模板；OSS/HTTP IP/ECS 文件/ECS 侧 http+https 域名全部一致）；通知模板 112,609B / sha256 `f8284f9521fda39b446a410b394389323cc338a6eed25ba31e4f2778648b95af`（v2，含折叠头「·」）；`/drop/__health` v2.3、`/pptfiles/__health` 200。本增量对最终线上字节实跑 `v2_notice_longterm_check.py` **26/26 PASS**。
+- **HTTPS 两次事故与根治**：21:23、21:40 两个并行会话分别用 `ecs_site.py apply`（旧默认 HTTP-only）把 Caddy 写回 HTTP-only，443 两次消失；21:46 已恢复并复核 `https://ko-link.cn/` / `https://www.ko-link.cn/` / `http://121.196.47.2/` 三入口字节一致。**根治：`deploy/ecs_site.py` 的 `apply` 默认改为 HTTPS**（`--https` 仍兼容，新增显式降级 `--http-only`），`deploy/ECS_DEPLOY.md` §3 同步说明；以后误跑不带参数的 apply 不会再把 443 写没。
+- 备份/回滚：三次线上备份 `tools/_backup/index_online_20261112-211603_preLongtermNotice.html`（1,158,556B/`9fac5b58…`）、`...-213812_...`（1,227,297B/`4a6a49ba…`）与本增量前线上 1,227,365B/`ef255356…`（线上被并行覆盖前快照）；回滚=把对应备份重传线上（OSS+ECS `apply`）。
 - 本机网络说明：当前开发机访问 `https://ko-link.cn/` TLS 被重置（`WinError 10054`），但 ECS 侧 curl 200、外部 web_fetch 200，属本机网络路径问题，线上未复现。
 
 ### 51.2 小程序（源码已改，待用户上传发布）
@@ -3237,11 +3237,15 @@ sync-repos.cmd "feat: 说明本次改了什么"
 
 ### 51.3 独立验收
 
-- 报告：`验收报告/长期通知优化_独立验收_20261112.md`（独立 QA 复跑 + 线上字节核对 + 小程序单测复核）。
+- 报告：`验收报告/长期通知优化_独立验收_20261112.md`（独立 QA，fresh context；两轮：初验 + P2 修复复验；基线用**当前线上字节**，未用工作区 index.html）。
+- **结论：功能 PASS，P0=0 / P1=0 / P2=0（原 3 项 P2 已修复并复验通过）**。
+- 关键数字：网页独立测试页（线上解码模板 + demo 真实数据，430/390/360）**43/43**；线上 App 内嵌路径（mock + 9999 段测试身份）**12/12**（iframe 固定视口+内部滚动架构完整）；小程序复跑 unit **536/0**、notice_time **20/0**、notice_longterm **13/13**、sync **34/0**、staticcheck/code_quality exit 0；验收者自写独立用例 **49/49**。
+- 原 P2（已修）：① 折叠头缺「·」；② 跨端 info 排序锚点口径不一致；③ mp statusOf 不读 `expired:true`。
+- 运维 P1（已消除）：HTTPS 被并行会话不带 `--https` 的 apply 两次覆盖 → 已恢复并将 apply 默认改为 HTTPS（见 51.1）。
 
 ### 51.4 提交说明
 
-- 多会话并行：工作区同时存在「使用说明卡片化」「抽签升级」等未验收改动（`tools/index.html` 等）。本次提交在**干净 worktree**中只提交本功能相关文件（模板嵌入后的 `tools/index.html` = 线上已验收字节、demo、测试/规格、本模板源改动说明），不把并行未验收改动带入版本库；主工作区 WIP 原样保留。
+- 多会话并行期间 `tools/index.html` 已被并行已验收提交（4e86e1b 抽签、087095e 使用说明）带上本增量的通知模板（HEAD 的 index.html = 线上 `891a6389…`）；因此本次提交在 `087095e` 之上**只提交本功能剩余文件**：模板源嵌入修正 `tools/build_notice_embed.py`、demo、规格/测试、独立验收报告、HANDOFF/CHANGELOG，以及 `deploy/ecs_site.py`（apply 默认 HTTPS，防再次把 443 写没）与 `deploy/ECS_DEPLOY.md`。**未把任何并行会话未验收改动带入版本库**；主工作区其它 WIP 原样保留。小程序源码在仓库外（`mp-class-tools`），随用户上传发布生效。
 
 ## 2026-11-12 21:00–21:35 · 增量 52：抽签升级 v1——云端存证防作弊 + 今日抽签次数 + 自定义序号名称映射（网页已上线 / 小程序源码待上传）
 

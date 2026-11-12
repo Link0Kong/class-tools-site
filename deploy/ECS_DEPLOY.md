@@ -30,10 +30,12 @@
 
 ```powershell
 python deploy\ecs_site.py probe            # 只读：磁盘 / Caddy 版本 / Caddyfile / 站点文件 / 本机 HTTP / gzip
-python deploy\ecs_site.py apply            # 从 OSS 拉最新静态站 → /var/www/tool；写入 HTTP Caddy 配置并 reload
+python deploy\ecs_site.py apply            # 从 OSS 拉最新静态站 → /var/www/tool；写入 Caddy 配置（默认 HTTPS）并 reload
 python deploy\ecs_site.py verify           # 本机校验 ECS 字节（sha、gzip、/board、/api/status、/tt.json）
 python deploy\ecs_site.py apply --dry-run  # 只打印将要执行的远端脚本
 ```
+
+- **`apply` 默认启用 HTTPS 站点块**（2026-11-12 起；`--https` 仍兼容，等价）。已有 `tool.furina.fun/ko-link.cn` HTTPS 时**绝不要**再用 HTTP-only 配置覆盖：21:23 与 21:40 两次并行会话误跑旧默认，把 443 写没、线上 HTTPS 中断。若确实需要临时降级（域名/证书尚未启用），显式加 **`--http-only`**。
 
 - `apply` 流程：备份 → 从 OSS 公开地址下载（`https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com`）→ 原子替换 → 写 `Caddyfile.new` + `Caddyfile.https.ready` → `caddy validate` 两个文件 → 替换并 `systemctl reload caddy` → 本机 `verify`。
 - 站点内容以 **OSS 为唯一真源**：先 `python deploy/sync_tools.py` 上传 OSS，再 `ecs_site.py apply` 同步 ECS（两步都成功才算上线）。
@@ -144,7 +146,7 @@ python deploy\ecs_pptfiles.py probe             # 服务状态/缓存文件/磁�
 python deploy\ecs_pptfiles.py verify --path ppt/a/<deckId>/<buildId>/compat.pptx --timeout 25
                                                 # 公网：health / HEAD / 预热 / Range(206) / 下载测速
 python deploy\ecs_pptfiles.py force-selftest   # 强制刷新自测：同 key 换内容 → force 后 GET 必须换新
-python deploy\ecs_site.py apply                 # 同时更新 Caddy 配置（含 /pptfiles 路由）并再次安装本服务
+python deploy\ecs_site.py apply                 # 同时更新 Caddy 配置（含 /pptfiles 路由，默认 HTTPS）并再次安装本服务
 python deploy\ecs_site.py verify                # 末尾含 pptfiles health 检查
 ```
 
@@ -218,7 +220,7 @@ rm -rf /opt/class-tools/pptfiles /etc/systemd/system/class-tools-pptfiles.servic
 ```powershell
 python deploy\ecs_drop.py probe      # 只读：systemd / 健康 / 数据目录 / Caddy 路由 / journal
 python deploy\ecs_drop.py deploy     # 分片上传 app.py + publish_key → 装 unit → 重启 → 本机健康检查
-python deploy\ecs_site.py apply      # 重写 Caddy 加 /drop/*（自动备份旧 Caddyfile；caddy validate 通过才 reload）
+python deploy\ecs_site.py apply      # 重写 Caddy 加 /drop/*（默认 HTTPS；自动备份旧 Caddyfile；caddy validate 通过才 reload）
 python deploy\ecs_drop.py verify     # 公网：/drop/__health + CORS 预检 + 无 token 401
 python deploy\ecs_drop.py selftest   # 测试身份真实 E2E（token 不打印/不落盘）
 ```

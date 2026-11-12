@@ -384,7 +384,10 @@ def verify():
 def main(argv=None):
     ap = argparse.ArgumentParser(description="ECS 静态站部署（云助手）")
     ap.add_argument("cmd", choices=["probe", "apply", "verify"])
-    ap.add_argument("--https", action="store_true", help="同时启用 tool.furina.fun HTTPS 站点块")
+    ap.add_argument("--https", action="store_true",
+                    help="兼容旧参数：apply 默认已启用 HTTPS 站点块（保留此参数不报错）")
+    ap.add_argument("--http-only", action="store_true",
+                    help="仅 HTTP（仅在域名/证书尚未启用 HTTPS 时使用；已有 HTTPS 时会把 Caddy 写回 HTTP-only，慎用）")
     ap.add_argument("--dry-run", action="store_true", help="只打印远端脚本，不执行")
     ns = ap.parse_args(argv)
 
@@ -394,7 +397,9 @@ def main(argv=None):
         script = PROBE_SCRIPT
         label = "probe"
     else:
-        script = build_apply_script(https=ns.https)
+        # 2026-11-12 教训：ko-link.cn/tool.furina.fun 的 HTTPS 已启用后，并行会话误跑 apply（旧默认 HTTP-only）
+        # 会把 443 写没（21:23、21:40 两次事故）。默认改为 HTTPS，只有显式 --http-only 才降级。
+        script = build_apply_script(https=not ns.http_only)
         label = "apply"
     if ns.dry_run:
         print(script)

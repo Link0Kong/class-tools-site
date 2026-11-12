@@ -19,7 +19,7 @@ html,body{background:#F4F0E6!important;color:#303A35!important}
 body{padding:0!important;background-image:none!important}
 .brand{display:none!important}
 .wrap{max-width:none!important;padding:0!important}
-.card,.brief,.aibrief,.gcard,.seg-fact,.linkrow,.formrow,.imgrow,.expired-wrap,.bstat{background:#FFFFFF!important;border-color:#E0D2BC!important;box-shadow:0 1px 2px rgba(72,64,44,.07),0 12px 26px -14px rgba(72,64,44,.34)!important}
+.card,.brief,.aibrief,.gcard,.seg-fact,.linkrow,.formrow,.imgrow,.expired-wrap,.lt-wrap,.bstat{background:#FFFFFF!important;border-color:#E0D2BC!important;box-shadow:0 1px 2px rgba(72,64,44,.07),0 12px 26px -14px rgba(72,64,44,.34)!important}
 .brief{background:linear-gradient(180deg,#FFFFFF 0%,#FBF7ED 100%)!important}
 .bstat{background:#FBF6EC!important;border-color:#E4D6BF!important;box-shadow:0 1px 2px rgba(72,64,44,.05)!important}
 .aibrief{background:#F6F9F2!important}
