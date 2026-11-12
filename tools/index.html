@@ -1570,6 +1570,13 @@ body.opt2-lock{overflow:hidden!important}
   .opt2-rm:hover,.opt2-rm:focus-visible{color:#E0B48C;background:rgba(224,180,140,.12);outline:none}
   /* 拖动：按住卡片=跟手幽灵；源卡留位虚线框；其他模块 WAAPI FLIP 让位 */
   .opt2-phd{cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none}
+  .opt2-grip{flex:none;font-size:12px;line-height:1;letter-spacing:-1px;color:rgba(244,247,246,.38);
+    cursor:grab;user-select:none;transition:color .15s}
+  .opt2-phd:hover .opt2-grip{color:var(--s-acc)}
+  #opt2Stage.opt2-locked .opt2-phd{cursor:default}
+  #opt2Stage.opt2-locked .opt2-grip{color:rgba(244,247,246,.22)}
+  #opt2Stage.opt2-locked .opt2-resize{display:none}
+  .opt2-ibtn.off{opacity:.4}
   .opt2-panel.opt2-dragging{opacity:.34;outline:1px dashed rgba(95,168,149,.55);outline-offset:-1px}
   .opt2-panel.opt2-dragging .opt2-phd{cursor:grabbing}
   .opt2-ghost{position:fixed;left:0;top:0;z-index:118;pointer-events:none;opacity:.94;
@@ -2321,50 +2328,41 @@ body.ppt-dl-lock{overflow:hidden!important}
 .opt2-crtmempreset{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 6px}
 .opt2-crtmempreset .opt2-chipbtn{min-height:34px}
 
-/* ---------- B. 文件传输 #s-file ---------- */
-#s-file .file-hero{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:2px 0 4px}
-#s-file .file-states{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-#s-file .file-pill{font-size:11.5px;padding:3px 9px;border-radius:999px;background:#EDF4F1;color:var(--cy);font-weight:700;white-space:nowrap}
-#s-file .file-pill.warn{background:#FBF2E6;color:var(--sd)}
-#s-file .file-pill.off{background:#F1F2F2;color:var(--ink3)}
-#s-file .file-linkrow{display:flex;gap:8px;align-items:center;margin-top:10px}
-#s-file .file-link{flex:1;min-width:0;font-size:12.5px;color:var(--ink2);background:#FBFCFC;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-family:inherit}
-#s-file .file-linkrow .btn{flex:none;min-height:40px}
-#s-file .file-roomwrap{flex:1;min-width:0}
+/* ---------- B. 文件传输 #s-file（临时云空间） ---------- */
+#s-file .file-stats{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 2px}
+#s-file .file-stat{flex:1 1 96px;min-width:96px;border:1px solid var(--line);border-radius:12px;padding:9px 11px;background:#FBFCFC}
+#s-file .file-stat b{display:block;font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.25}
+#s-file .file-stat span{font-size:11px;color:var(--ink3);font-weight:400}
+#s-file .file-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+#s-file .file-actions .btn,#s-file .file-upbtn{min-height:40px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}
+#s-file .file-upbtn{cursor:pointer}
 #s-file .file-hintline{font-size:11.5px;color:var(--ink3);line-height:1.6;margin-top:8px}
-#s-file .file-pick{display:flex;align-items:center;justify-content:center;gap:8px;min-height:88px;border:1.5px dashed #D9CBB4;border-radius:14px;background:#FBFCFC;color:var(--ink2);font-size:13.5px;font-weight:700;cursor:pointer;transition:border-color .15s ease,background-color .15s ease}
-#s-file .file-pick:hover{border-color:var(--cy);background:#F3F8F6}
-#s-file .file-pick b{color:var(--cy);font-weight:800}
-#s-file .file-pick small{display:block;font-size:11px;color:var(--ink3);font-weight:400;margin-top:3px;text-align:center}
-#s-file .file-ups{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+#s-file .file-ups{display:flex;flex-direction:column;gap:8px}
 #s-file .file-up{border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:var(--card, #fff)}
 #s-file .file-up-top{display:flex;align-items:center;gap:8px}
 #s-file .file-up-name{flex:1;min-width:0;font-size:12.5px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #s-file .file-up-pct{flex:none;font-size:11.5px;color:var(--ink3);font-variant-numeric:tabular-nums}
 #s-file .file-up-bar{height:7px;border-radius:4px;background:#EDF1EF;overflow:hidden;margin-top:7px}
-#s-file .file-up-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cy),#83B7A9);border-radius:4px;transition:width .25s ease}
+#s-file .file-up-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cy),#83B7A9);border-radius:4px;transition:width .18s linear}
 #s-file .file-up-foot{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11.5px;color:var(--ink3)}
 #s-file .file-up-foot .file-cancel{min-height:32px;padding:4px 10px;font-size:11.5px}
 #s-file .file-up.err .file-up-bar i{background:#C98C74}
 #s-file .file-list{display:flex;flex-direction:column;gap:8px}
 #s-file .file-item{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:var(--card, #fff)}
-#s-file .file-ico{flex:none;width:34px;height:34px;border-radius:10px;background:#EDF4F1;color:var(--cy);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800}
+#s-file .file-ico{flex:none;width:34px;height:34px;border-radius:10px;background:#EDF4F1;color:var(--cy);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}
 #s-file .file-name{flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #s-file .file-meta{font-size:11px;color:var(--ink3);font-weight:400;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#s-file .file-dl{flex:none;display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 13px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--cy);font-size:12.5px;font-weight:700;text-decoration:none;white-space:nowrap}
+#s-file .file-acts{flex:none;display:flex;gap:6px;align-items:center}
+#s-file .file-dl{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card, #fff);color:var(--cy);font-size:12.5px;font-weight:700;text-decoration:none;font-family:inherit}
 #s-file .file-dl:hover{border-color:var(--cy);background:#F3F8F6}
-#s-file .file-empty{padding:18px 4px;text-align:center;color:var(--ink3);font-size:12.5px;border:1px dashed var(--line);border-radius:12px;background:#FBFCFC}
+#s-file .file-del{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card, #fff);color:#A25B45;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer}
+#s-file .file-del:hover{border-color:#C98C74;background:#FCF6F3}
+#s-file .file-empty{padding:18px 4px;text-align:center;color:var(--ink3);font-size:12.5px;border:1px dashed var(--line);border-radius:12px}
 #s-file .file-ttl{font-size:11.5px;color:var(--ink3);line-height:1.65;padding:2px 2px 0}
-#s-file .file-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-#s-file .file-actions .btn{min-height:40px}
-#s-file #fileText{min-height:76px}
 #s-file .file-count{font-size:11.5px;color:var(--ink3);font-weight:400}
-@media (min-width:960px){
-  #s-file .file-cols{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;align-items:start}
-}
-@media (prefers-reduced-motion:reduce){
-  #s-file .file-pick,#s-file .file-up-bar i{transition:none!important}
-}
+#s-file .file-cols{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;align-items:start}
+@media (max-width:759px){#s-file .file-cols{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){#s-file .file-up-bar i{transition:none!important}}
 
 /* ---------- C. 网页提醒 ---------- */
 .nt-remind-fab{position:fixed;right:14px;bottom:calc(18px + env(safe-area-inset-bottom,0px));top:auto;z-index:38;display:inline-flex;align-items:center;gap:6px;
@@ -2916,56 +2914,41 @@ body.ppt-dl-lock{overflow:hidden!important}
     </div>
   </section>
 <!-- __WEB_B2_FILE_BEGIN__ -->
-  <!-- ==================== 文件传输（独立工具；同账号跨设备 · 分片上传不限大小 · 文件保留 3 天） ==================== -->
+  <!-- ==================== 文件传输（临时云空间：同账号跨设备 · 分片上传不限大小 · 文件保留 3 天） ==================== -->
   <section id="s-file">
     <div class="lghead pw-head">
-      <span class="lgico">⇄</span>
-      <div style="flex:1;min-width:0"><b>文件传输</b><div class="lgsub" id="fileMeta">同账号 · 跨设备 · 文件自上传起保留 3 天</div></div>
+      <span class="lgico">☁</span>
+      <div style="flex:1;min-width:0"><b>临时云空间</b><div class="lgsub" id="fileMeta">同账号 · 跨设备 · 文件自上传起保留 3 天</div></div>
       <button class="btn ghost sm" id="fileRefresh" type="button">刷新</button>
     </div>
     <div class="file-cols">
       <div>
         <div class="card">
-          <div class="pw-card-hd"><b>通道</b><span class="wt-ts" id="fileState">未开启</span></div>
-          <div class="file-hero">
-            <div class="file-states"><span class="file-pill off" id="filePill">未开启</span></div>
-          </div>
-          <div class="file-linkrow">
-            <input class="file-link" id="fileLink" readonly placeholder="开启后生成跨设备链接，另一台设备打开即可互传">
-            <button class="btn sm" id="fileCopy" type="button">复制链接</button>
+          <div class="pw-card-hd"><b>空间</b><span class="wt-ts" id="fileState">连接中…</span></div>
+          <div class="file-stats">
+            <div class="file-stat"><b id="fileStatCount">0</b><span>文件</span></div>
+            <div class="file-stat"><b id="fileStatSize">0 B</b><span>已占用</span></div>
+            <div class="file-stat"><b>3 天</b><span>自动保留</span></div>
           </div>
           <div class="file-actions">
-            <button class="btn pri" id="fileOpen" type="button">开启通道</button>
-            <button class="btn ghost" id="fileClose" type="button">关闭通道</button>
+            <label class="btn pri file-upbtn">上传文件<input type="file" id="fileUpInput" multiple hidden></label>
+            <button class="btn ghost" id="fileClear" type="button">清空空间</button>
           </div>
-          <div class="file-hintline">同账号的电脑 / 手机 / 大屏打开同一链接即可互见；#drop 直接打开本页。</div>
+          <div class="file-hintline">同账号的电脑 / 手机 / 大屏打开本页即可看到同一批文件；任意大小，自动分片上传。</div>
         </div>
         <div class="card">
-          <div class="pw-card-hd"><b>发文件</b><span class="wt-ts">任意大小 · 8MiB 分片 · 可取消</span></div>
-          <label class="file-pick" id="fileUpBtn">
-            <span><b>选择文件</b><small>可多选 · 大文件自动分片 · 进度可见</small></span>
-            <input type="file" id="fileUpInput" multiple hidden>
-          </label>
-          <div class="file-ups" id="fileUpList"></div>
+          <div class="pw-card-hd"><b>上传进度</b><span class="wt-ts" id="fileUpCount"></span></div>
+          <div class="file-ups" id="fileUpList"><div class="file-empty">选择文件后自动上传</div></div>
         </div>
         <div class="card">
-          <div class="pw-card-hd"><b>收到的文件</b><span class="wt-ts file-count" id="fileCount"></span></div>
+          <div class="pw-card-hd"><b>文件</b><span class="wt-ts file-count" id="fileCount"></span></div>
           <div class="file-list" id="fileList"><div class="file-empty">还没有文件</div></div>
-        </div>
-        <div class="card">
-          <div class="pw-card-hd"><b>发文字</b><span class="wt-ts">另一台设备立即可见</span></div>
-          <textarea id="fileText" maxlength="10000" placeholder="粘贴文字，发送到另一台设备"></textarea>
-          <div class="row"><button class="btn pri" id="fileSendText" type="button">发送文字</button></div>
         </div>
       </div>
       <div>
         <div class="card">
-          <div class="pw-card-hd"><b>文字记录</b><span class="wt-ts">最近 50 条</span></div>
-          <div class="file-list" id="fileTexts"><div class="file-empty">还没有文字</div></div>
-        </div>
-        <div class="card">
           <div class="pw-card-hd"><b>说明</b></div>
-          <div class="file-ttl" id="fileTTL">文件自上传起保留 3 天：每个文件上传完成 72 小时后自动过期删除（会话空闲 72 小时同样过期），也可手动关闭通道立即删除；单文件不限大小（仅受服务器磁盘限制，空间不足会提示）。</div>
+          <div class="file-ttl" id="fileTTL">文件自上传起保留 3 天：每个文件上传完成 72 小时后自动删除，也可在列表里单独删除或「清空空间」立即全部删除；单文件不限大小（仅受服务器磁盘限制，空间不足会提示）。同账号的电脑 / 手机 / 大屏共享同一空间，无需配对或链接。</div>
         </div>
       </div>
     </div>
@@ -3048,12 +3031,12 @@ body.ppt-dl-lock{overflow:hidden!important}
       <section class="ugsec"><h4>文件传输</h4><ul>
         <li>独立工具：同账号的电脑 / 手机 / 大屏打开同一链接互传文件与文字，不需要加好友。</li>
         <li>文件分片上传、任意大小，有进度、可取消；文件列表下载走签名链接（过期自动重新获取）。</li>
-        <li>文件自上传起保留 3 天，也可手动关闭通道立即删除；#drop 直接打开本页。</li>
+        <li>临时云空间：文件自上传起保留 3 天，可单独删除或「清空空间」立即删除；同账号设备打开「文件传输」即共享同一空间。</li>
       </ul></section>
       <section class="ugsec"><h4>文件传输</h4><ul>
         <li>独立工具：同账号的电脑 / 手机 / 大屏打开同一链接互传文件与文字，不需要加好友。</li>
         <li>文件分片上传、任意大小，有进度、可取消；文件列表下载走签名链接（过期自动重新获取）。</li>
-        <li>文件自上传起保留 3 天，也可手动关闭通道立即删除；#drop 直接打开本页。</li>
+        <li>临时云空间：文件自上传起保留 3 天，可单独删除或「清空空间」立即删除；同账号设备打开「文件传输」即共享同一空间。</li>
       </ul></section>
       <section class="ugsec"><h4>水量</h4><ul>
         <li>每月读一次水表，选月份填读数，自动和上次对比。</li>
@@ -15066,7 +15049,7 @@ function optSaveCanvas(c,o){
     vote:{list:[],id:"",detail:null,listLoading:false,detLoading:false,err:"",listAt:0,detAt:0},
     drop:{active:false,session:null,events:[],cursor:0,iv:0,err:"",busy:false,lastCount:0},
     ctl:{open:false,timer:0,cursor:0,events:[],err:"",busy:false,uploads:[]},
-    fsWant:false,fsLost:false,visBound:false};
+    fsWant:false,fsLost:false,visBound:false,layoutHist:[],lockTipAt:0};
   var STG_DECK_KEY="zq_stage_deck_v1";
   var STG_LAYOUT_KEY="zq_stage_layout_v1";
   var STG_PPT_DL_KEY="zq_stage_ppt_dl_v1";
@@ -15123,10 +15106,38 @@ function optSaveCanvas(c,o){
     var L=STAGE.layout||{},dk={},n=0;
     try{Object.keys(L.pptDl||{}).forEach(function(k){if(n<50){dk[k]=L.pptDl[k];n++;}});}catch(e){}
     return {v:1,order:(L.order||[]).slice(),span:Object.assign({},L.span||{}),hidden:(L.hidden||[]).slice(),
-      lastDeck:String(L.lastDeck||""),pptDl:dk,at:Number(L.at)||0};
+      lastDeck:String(L.lastDeck||""),pptDl:dk,locked:!!L.locked,at:Number(L.at)||0};
+  }
+  function stgLayoutSnap(){
+    try{return JSON.parse(JSON.stringify(stgLayoutClean()));}catch(e){return null;}
+  }
+  function stgPushHist(snap){
+    if(!snap)return;
+    STAGE.layoutHist.push(snap);
+    if(STAGE.layoutHist.length>12)STAGE.layoutHist.shift();
+    stgSyncUndo();
+  }
+  function stgRememberLayout(){stgPushHist(stgLayoutSnap());}
+  function stgUndoLayout(){
+    if(!STAGE.layoutHist.length){toast("没有可撤销的布局调整");return;}
+    var snap=STAGE.layoutHist.pop();
+    STAGE.layout=stgLayoutNorm(snap);
+    STAGE.focus="";
+    stgLayoutTouched();stgRenderAll();
+    if(el("o2sModModal")&&!el("o2sModModal").hidden)stgModRender();
+    toast("已撤销布局调整");
+  }
+  function stgSyncUndo(){
+    var b=el("o2sUndo");
+    if(b){var has=STAGE.layoutHist.length>0;b.classList.toggle("off",!has);b.setAttribute("aria-disabled",has?"false":"true");}
+    var mb=el("o2sModUndo");if(mb)mb.disabled=!STAGE.layoutHist.length;
+  }
+  function stgSyncLock(){
+    var ov=el("opt2Stage");if(ov)ov.classList.toggle("opt2-locked",!!(STAGE.layout&&STAGE.layout.locked));
+    var mb=el("o2sModLock");if(mb)mb.textContent=(STAGE.layout&&STAGE.layout.locked)?"解锁布局":"锁定布局";
   }
   function stgLayoutNorm(o){
-    var keys=stgKeys(),L={v:1,order:[],span:{},hidden:[],lastDeck:"",pptDl:{},at:0};
+    var keys=stgKeys(),L={v:1,order:[],span:{},hidden:[],lastDeck:"",pptDl:{},locked:false,at:0};
     if(o&&o.order instanceof Array)o.order.forEach(function(k){if(keys.indexOf(k)>=0&&L.order.indexOf(k)<0)L.order.push(k);});
     keys.forEach(function(k){if(L.order.indexOf(k)<0)L.order.push(k);});
     keys.forEach(function(k){L.span[k]=stgSpanVal(o&&o.span&&o.span[k]!=null?o.span[k]:STG_DEFAULT.span[k]);});
@@ -15135,6 +15146,7 @@ function optSaveCanvas(c,o){
     if(o&&o.pptDl&&typeof o.pptDl==="object"){
       var n=0;Object.keys(o.pptDl).forEach(function(k){if(n<50){L.pptDl[k]=o.pptDl[k];n++;}});
     }
+    L.locked=!!(o&&o.locked);
     L.at=Math.max(0,Number(o&&o.at)||0);
     return L;
   }
@@ -15276,6 +15288,7 @@ function optSaveCanvas(c,o){
   /* ---------- 模块增删（顶栏「＋ 模块」弹层 / 卡片表头 ×） ---------- */
   function stgHide(k,quiet){
     if(!STAGE.layout||!stgPanel(k))return;
+    stgRememberLayout();
     if(STAGE.layout.hidden.indexOf(k)<0)STAGE.layout.hidden.push(k);
     if(STAGE.focus===k)STAGE.focus="";
     stgLayoutTouched();stgRenderAll();
@@ -15283,11 +15296,13 @@ function optSaveCanvas(c,o){
   }
   function stgShow(k){
     if(!STAGE.layout)return;
+    stgRememberLayout();
     var i=STAGE.layout.hidden.indexOf(k);
     if(i>=0)STAGE.layout.hidden.splice(i,1);
     stgLayoutTouched();stgRenderAll();
   }
   function stgPreset(){
+    stgRememberLayout();
     var p=STG_DEFAULT;
     STAGE.layout.order=p.order.slice();
     STG_PANELS.forEach(function(pp){STAGE.layout.span[pp.k]=stgSpanVal((p.span||{})[pp.k]||6);});
@@ -15301,7 +15316,9 @@ function optSaveCanvas(c,o){
       ov.innerHTML='<div class="opt2-modal opt2-modmodal" role="dialog" aria-modal="true" aria-label="模块管理">'+
         '<div class="opt2-mhd"><b>模块</b><button type="button" class="opt2-ibtn" data-stg="modclose" aria-label="关闭">×</button></div>'+
         '<div class="opt2-mbd" id="o2sModBody"></div>'+
-        '<div class="opt2-mfoot"><button type="button" class="opt2-btn" data-stg="modreset">恢复默认</button>'+
+        '<div class="opt2-mfoot"><button type="button" class="opt2-btn" data-stg="modundo" id="o2sModUndo" disabled>撤销</button>'+
+        '<button type="button" class="opt2-btn" data-stg="modlock" id="o2sModLock">锁定布局</button>'+
+        '<button type="button" class="opt2-btn" data-stg="modreset">恢复默认</button>'+
         '<button type="button" class="opt2-btn pri" data-stg="modclose">完成</button></div></div>';
       var root=el("opt2Stage");if(root)root.appendChild(ov);else document.body.appendChild(ov);
     }
@@ -15356,6 +15373,10 @@ function optSaveCanvas(c,o){
     if(t.closest("button,a,input,select,textarea,label"))return;
     var k=panel.getAttribute("data-panel")||"";
     if(!k)return;
+    if(STAGE.layout&&STAGE.layout.locked){
+      if(Date.now()-(STAGE.lockTipAt||0)>6000){STAGE.lockTipAt=Date.now();toast("布局已锁定 · 「＋模块」里可解锁");}
+      return;
+    }
     var touch=(e.pointerType==="touch");
     var hd=t.closest("[data-panelhd]");
     if(!touch&&!hd)return; /* 鼠标：按住表头拖动 */
@@ -15417,7 +15438,7 @@ function optSaveCanvas(c,o){
     var root=el("opt2Stage");(root||document.body).appendChild(g);
     panel.classList.add("opt2-dragging");
     STAGE.drag={k:p.k,panel:panel,ghost:g,ox:p.x-r.left,oy:p.y-r.top,x:p.x,y:p.y,
-      order0:STAGE.layout.order.slice(),insPos:-1,flipOlds:stgCaptureRects()};
+      order0:STAGE.layout.order.slice(),insPos:-1,flipOlds:stgCaptureRects(),snap:stgLayoutSnap()};
     try{if(navigator.vibrate)navigator.vibrate(8);}catch(e){}
     try{document.documentElement.style.cursor="grabbing";}catch(e){}
   }
@@ -15476,7 +15497,7 @@ function optSaveCanvas(c,o){
     try{document.documentElement.style.cursor="";}catch(e){}
     STAGE.suppressClick=Date.now()+320;
     var changed=d.order0.join(",")!==STAGE.layout.order.join(",");
-    if(changed){stgLayoutTouched();try{if(navigator.vibrate)navigator.vibrate(6);}catch(e){}}
+    if(changed){stgPushHist(d.snap);stgLayoutTouched();try{if(navigator.vibrate)navigator.vibrate(6);}catch(e){}}
     stgApplyLayout();
     stgRenderIsland();
   }
@@ -15486,7 +15507,7 @@ function optSaveCanvas(c,o){
     if(!body||!STAGE.layout||!stgPanel(k))return;
     if(e.preventDefault)e.preventDefault();
     STAGE.resize={k:k,startX:e.clientX,colW:Math.max(16,body.clientWidth/12),
-      startSpan:stgSpanVal(STAGE.layout.span[k])};
+      startSpan:stgSpanVal(STAGE.layout.span[k]),snap:stgLayoutSnap()};
     document.addEventListener("pointermove",stgResizeMove,{passive:false});
     document.addEventListener("pointerup",stgResizeEnd,{passive:false});
     document.addEventListener("pointercancel",stgResizeEnd,{passive:false});
@@ -15503,14 +15524,15 @@ function optSaveCanvas(c,o){
     document.removeEventListener("pointermove",stgResizeMove);
     document.removeEventListener("pointerup",stgResizeEnd);
     document.removeEventListener("pointercancel",stgResizeEnd);
-    if(d.startSpan!==stgSpanVal(STAGE.layout.span[d.k]))stgLayoutTouched();
+    if(d.startSpan!==stgSpanVal(STAGE.layout.span[d.k])){stgPushHist(d.snap);stgLayoutTouched();}
     stgApplyLayout();
   }
 
   /* ---------- 面板骨架 / 通用渲染 ---------- */
   function stgBuildPanel(k){
     var sec=document.createElement("section");sec.className="opt2-panel";sec.setAttribute("data-panel",k);
-    sec.innerHTML='<div class="opt2-phd" data-panelhd="'+k+'" data-dragpanel="'+k+'">'+
+    sec.innerHTML='<div class="opt2-phd" data-panelhd="'+k+'" data-dragpanel="'+k+'" title="按住拖动排序">'+
+      '<span class="opt2-grip" aria-hidden="true">⠿</span>'+
       '<span class="opt2-plabel">'+esc(stgPName(k))+'</span>'+
       '<span class="opt2-pacts" data-pacts="'+k+'"></span>'+
       '<button type="button" class="opt2-zbtn" data-stg="zoom" data-k="'+k+'" title="放大" aria-label="放大">⤢</button>'+
@@ -15556,6 +15578,7 @@ function optSaveCanvas(c,o){
     var tm=el("o2sTime");if(tm)tm.textContent=clockText();
     var dt=el("o2sDate");if(dt)dt.textContent=stgDateText();
     var db=el("o2sDropBtn");if(db)db.classList.toggle("on",!!(STAGE.drop.active));
+    stgSyncUndo();stgSyncLock();
     setTimeout(stgFit,0);
   }
 
@@ -16798,8 +16821,11 @@ function optSaveCanvas(c,o){
   document.addEventListener("change",dropCtlFileChange,true);
   function dropHashOpen(){
     try{
-      if(String(location.hash||"")!=="#drop")return;
-      if(typeof AUTH!=="undefined"&&AUTH&&AUTH.ready){if(typeof gotoTab==="function")gotoTab("file");}
+      if(String(location.hash||"")!=="#drop"&&String(location.hash||"")!=="#file")return;
+      if(typeof AUTH!=="undefined"&&AUTH&&AUTH.ready){
+        if(String(location.hash||"")==="#file"){if(typeof gotoTab==="function")gotoTab("file");}
+        else if(typeof dropCtlOpen==="function")dropCtlOpen();
+      }
       else setTimeout(dropHashOpen,800);
     }catch(e){}
   }
@@ -16849,6 +16875,11 @@ function optSaveCanvas(c,o){
       case "modtoggle":stgModToggle(k);break;
       case "modremove":stgHide(k);break;
       case "modreset":stgPreset();stgModRender();break;
+      case "modundo":stgUndoLayout();stgModRender();break;
+      case "undolayout":stgUndoLayout();break;
+      case "modlock":
+        if(STAGE.layout){STAGE.layout.locked=!STAGE.layout.locked;stgLayoutTouched();stgSyncLock();stgModRender();toast(STAGE.layout.locked?"布局已锁定":"布局已解锁");}
+        break;
       case "pptlib":opt2StageClose();try{gotoTab("ppt");}catch(e){}break;
       case "pptrefresh":stgPptRefresh();break;
       case "votecreate":stgVoteCreateOpen();break;
@@ -16945,6 +16976,7 @@ function optSaveCanvas(c,o){
       '<span class="opt2-date" id="o2sDate"></span></div>'+
       '<div class="opt2-topright">'+
       '<button type="button" class="opt2-ibtn opt2-dropbtn'+(STAGE.drop.active?" on":"")+'" id="o2sDropBtn" data-stg="dropopen" title="大屏互联（同账号传文件/遥控）" aria-label="大屏互联">🛰</button>'+
+      '<button type="button" class="opt2-ibtn off" id="o2sUndo" data-stg="undolayout" title="撤销布局调整" aria-label="撤销布局调整">↶</button>'+
       '<button type="button" class="opt2-ibtn opt2-modbtn" id="o2sModBtn" data-stg="modopen" title="模块（添加 / 移除）" aria-label="模块">＋</button>'+
       '<button type="button" class="opt2-ibtn" id="o2sFs" data-stg="fs" title="全屏（F）" aria-label="全屏">⛶</button>'+
       '<button type="button" class="opt2-ibtn" id="o2sClose" data-stg="close" title="退出（Esc）" aria-label="退出">×</button>'+
@@ -16982,6 +17014,12 @@ function optSaveCanvas(c,o){
       if(!STAGE.keyBound){document.addEventListener("keydown",stgKey,true);STAGE.keyBound=true;}
       if(!STAGE.visBound){window.addEventListener("focus",stgOnFocusBack);document.addEventListener("visibilitychange",stgOnVis);STAGE.visBound=true;}
       stgStartTimers();stgTick();
+      try{
+        if(localStorage.getItem("zq_stage_hint_v1")!=="1"){
+          localStorage.setItem("zq_stage_hint_v1","1");
+          setTimeout(function(){toast("按住卡片可拖动排序 · 右上角 ⤢ 放大模块");},900);
+        }
+      }catch(e){}
       window.addEventListener("resize",stgOnResize);
       stgPptRefresh();stgVoteRefresh();
       try{stgDropEnsure().then(function(ok){if(ok){stgDropStartPoll();stgRenderAll();}});}catch(e){}
@@ -17021,7 +17059,11 @@ function optSaveCanvas(c,o){
     }catch(e){}
   }
   function stgOpenHash(){
-    try{if(String(location.hash||"")==="#drop"){if(typeof gotoTab==="function")gotoTab("file");}}catch(e){}
+    try{
+      var h=String(location.hash||"");
+      if(h==="#drop"&&typeof dropCtlOpen==="function")dropCtlOpen();
+      else if(h==="#file"&&typeof gotoTab==="function")gotoTab("file");
+    }catch(e){}
   }
   window.addEventListener("hashchange",stgOpenHash);
   setTimeout(dropHashOpen,1200);
@@ -17083,7 +17125,7 @@ function optSaveCanvas(c,o){
       先渲染本机缓存 → 云端合并（云端 month 覆盖本地；本地独有补传）→ 保存/删除先本地再云；
       失败进 pending（zq_water_pend_<sid>），联网/回前台/进页重试；23A/23B 固定 4 人。
    3) 反馈1 文件传输独立页 #s-file：复用 ECS drop 服务（drop/CONTRACT.md，8MiB 分片、
-      不限大小、磁盘不足 507、文件自上传起保留 3 天）。#drop 打开本页；大屏互联面板保留。
+      不限大小、磁盘不足 507、文件自上传起保留 3 天）。文件传输=临时云空间（同账号自动共享，无配对码/链接）；大屏互联仍用 #drop 打开控制器。
    4) 反馈10 网页提醒：通知页浮动入口 + 设置弹层；Notification 授权状态/开关/测试；
       后台仅用 cbSig() 轻量签名轮询（签名变化才拉整表），新通知 → 系统通知 / 页内 toast +
       标题【新通知】闪烁；隐藏→可见补一次静默检查；设置存本机 zq_remind_v1。
@@ -17523,9 +17565,12 @@ function optSaveCanvas(c,o){
   /* ============================================================
      3. 文件传输独立页（ECS drop 服务；drop/CONTRACT.md v2）
      ============================================================ */
+  /* ============================================================
+     3b. 文件传输（临时云空间：同账号跨设备 · 分片上传不限大小 · 文件保留 3 天）
+     ============================================================ */
   var B2FILE=(function(){
-    var CHUNK=8388608;
-    var S={session:null,files:[],texts:[],ups:[],cursor:0,pollT:0,busy:false,err:"",bound:false,seen:{}};
+    var CHUNK=8388608, TTL=259200000;
+    var S={session:null,files:[],ups:[],cursor:0,pollT:0,busy:false,err:"",bound:false,loading:false};
     function el(id){return document.getElementById(id);}
     function base(){
       try{
@@ -17534,7 +17579,6 @@ function optSaveCanvas(c,o){
       }catch(e){return "http://121.196.47.2/drop";}
     }
     function token(){try{var h=authHdr();return String(h["X-Device-Id"]||"");}catch(e){return "";}}
-    function link(){try{return location.origin+location.pathname+"#drop";}catch(e){return "#drop";}}
     function jhandled(r){
       return r.json().catch(function(){return {ok:false,reason:"服务响应异常"};}).then(function(j){
         if(!j||typeof j!=="object")j={ok:false,reason:"服务响应异常"};
@@ -17548,77 +17592,79 @@ function optSaveCanvas(c,o){
       if(opt.body!==undefined){init.headers["Content-Type"]="application/json";init.body=(typeof opt.body==="string")?opt.body:JSON.stringify(opt.body);}
       if(opt.signal)init.signal=opt.signal;
       return fetch(base()+path,init).then(jhandled,function(){
-        return {ok:false,reason:(navigator.onLine===false?"网络不可用":"互联服务不可达")};
+        return {ok:false,reason:(navigator.onLine===false?"网络不可用":"云空间服务不可达")};
       });
     }
     function reqRaw(path,blob,signal){
       return fetch(base()+path,{method:"POST",cache:"no-store",headers:{"X-Device-Id":token()},body:blob,signal:signal})
         .then(jhandled,function(){return {ok:false,reason:(navigator.onLine===false?"网络不可用":"上传中断")};});
     }
+    function p2(n){return (n<10?"0":"")+n;}
     function fmtSize(n){
       n=Number(n)||0;
       if(n>=1048576)return (n/1048576).toFixed(n>=10485760?0:1)+" MB";
       if(n>=1024)return (n/1024).toFixed(1)+" KB";
       return Math.max(1,Math.round(n))+" B";
     }
-    function renderButtons(){
-      var b=el("fileOpen");if(b){b.disabled=!!S.session||S.busy;b.textContent=S.busy?"开启中…":"开启通道";}
-      var c=el("fileClose");if(c)c.disabled=!S.session;
-      var r=el("fileRefresh");if(r)r.disabled=!S.session;
+    function fmtWhen(ms){
+      try{var d=new Date(Number(ms)||Date.now());return p2(d.getMonth()+1)+"-"+p2(d.getDate())+" "+p2(d.getHours())+":"+p2(d.getMinutes());}
+      catch(e){return "";}
+    }
+    function ttlText(at){
+      var left=(Number(at)||0)+TTL-Date.now();
+      if(left<=0)return "已过期";
+      var h=Math.ceil(left/3600000);
+      if(h>=24){var d=Math.floor(h/24),r=h%24;return "剩 "+d+" 天"+(r?(" "+r+" 小时"):"");}
+      return "剩 "+h+" 小时";
+    }
+    function liveFiles(){var a=[];S.files.forEach(function(f){if(f&&!f.expired)a.push(f);});return a;}
+    function totalBytes(){var t=0;liveFiles().forEach(function(f){t+=Number(f.size)||0;});return t;}
+    function renderStats(){
+      var c=el("fileStatCount"),z=el("fileStatSize");
+      if(c)c.textContent=String(liveFiles().length);
+      if(z)z.textContent=fmtSize(totalBytes());
     }
     function renderState(){
-      var pill=el("filePill"),state=el("fileState"),linkEl=el("fileLink");
-      if(pill){
-        if(S.session){pill.className="file-pill";pill.textContent="已开启";}
-        else if(S.err){pill.className="file-pill warn";pill.textContent="连接中断";}
-        else{pill.className="file-pill off";pill.textContent="未开启";}
+      var st=el("fileState");
+      if(st){
+        if(S.err)st.textContent="连接异常 · "+S.err;
+        else if(S.loading)st.textContent="连接中…";
+        else if(S.session)st.textContent="已连接 · 同账号共享";
+        else st.textContent="未连接";
+        st.style.color=S.err?"#A25B45":"";
       }
-      if(state){
-        state.textContent=S.session?"已开启 · 同账号设备互见":(S.err||"未开启");
-        state.style.color=S.err?"#A25B45":"";
-      }
-      if(linkEl)linkEl.value=S.session?link():"";
-      renderButtons();
-      try{
-        var fab=$id("ntRemindFab");
-        if(fab){} /* 不相关，保持 */
-      }catch(e){}
+      renderStats();
     }
     function fileRow(f){
-      if(f.expired)return "";
-      var url=String((f&&f.downloadUrl)||"");
-      return '<div class="file-item" data-fid="'+esc(String(f.id||""))+'">'+
+      if(!f||f.expired)return "";
+      var id=esc(String(f.id||"")), url=esc(String(f.downloadUrl||""));
+      return '<div class="file-item" data-fid="'+id+'">'+
         '<span class="file-ico">⇩</span>'+
         '<div style="flex:1;min-width:0"><div class="file-name">'+esc(String(f.name||"文件"))+'</div>'+
-        '<div class="file-meta">'+esc(fmtSize(f.size))+' · '+esc(String((f.from&&f.from.name)||"对方"))+' 发送</div></div>'+
-        '<a class="file-dl" data-fid="'+esc(String(f.id||""))+'" href="'+esc(url)+'" target="_blank" rel="noopener">下载</a></div>';
+        '<div class="file-meta">'+esc(fmtSize(f.size))+' · '+esc(fmtWhen(f.at))+' · '+esc(ttlText(f.at))+'</div></div>'+
+        '<div class="file-acts">'+
+          '<a class="file-dl" data-fid="'+id+'" href="'+url+'" target="_blank" rel="noopener">下载</a>'+
+          '<button type="button" class="file-del" data-filedel="'+id+'">删除</button>'+
+        '</div></div>';
     }
     function renderFiles(){
       var box=el("fileList");if(!box)return;
-      var live=[];S.files.forEach(function(f){if(f&&!f.expired)live.push(f);});
-      if(!live.length){box.innerHTML='<div class="file-empty">'+(S.files.length?'文件已过期':'还没有文件')+'</div>';}
-      else box.innerHTML=live.map(fileRow).join("");
+      var live=liveFiles();
+      if(!live.length)box.innerHTML='<div class="file-empty">'+(S.files.length?'文件已过期':'还没有文件')+'</div>';
+      else box.innerHTML=live.slice().sort(function(a,b){return Number(b.at||0)-Number(a.at||0);}).map(fileRow).join("");
       if(S.files.length>live.length){
         box.innerHTML+='<div class="file-expired" style="margin-top:8px;font-size:11.5px;color:var(--ink3)">'+
           (S.files.length-live.length)+' 个文件已过期（上传超过 72 小时，已自动删除）</div>';
       }
       var cnt=el("fileCount");
-      if(cnt)cnt.textContent=live.length?("共 "+live.length+" 个"):(S.files.length?("已过期 "+S.files.length):"");
-    }
-    function renderTexts(){
-      var box=el("fileTexts");if(!box)return;
-      if(!S.texts.length){box.innerHTML='<div class="file-empty">还没有文字</div>';return;}
-      box.innerHTML=S.texts.slice(-50).reverse().map(function(t){
-        return '<div class="file-item"><span class="file-ico" style="background:#F3F0FA;color:#7A6BA8">T</span>'+
-          '<div style="flex:1;min-width:0"><div class="file-name" style="white-space:normal;word-break:break-word">'+esc(String(t.text||""))+'</div>'+
-          '<div class="file-meta">'+esc(String((t.from&&t.from.name)||"对方"))+' · '+esc(t.timeText||"")+'</div></div></div>';
-      }).join("");
+      if(cnt)cnt.textContent=live.length?("共 "+live.length+" 个 · "+fmtSize(totalBytes())):(S.files.length?("已过期 "+S.files.length):"");
+      renderStats();
     }
     function upRow(u){
       var pct=Math.max(0,Math.min(100,Number(u.pct)||0));
       var foot="";
       if(u.state==="up"||u.state==="wait")foot='<button type="button" class="btn ghost file-cancel" data-filecancel="'+esc(u.id)+'">取消</button>';
-      else if(u.state==="done")foot='<span style="color:var(--cy);font-weight:700">已发送</span>';
+      else if(u.state==="done")foot='<span style="color:var(--cy);font-weight:700">已上传</span>';
       else if(u.state==="cancel")foot='<span>已取消</span>';
       else if(u.state==="err")foot='<span style="color:#A25B45">'+(esc(u.err||"失败"))+'</span>';
       return '<div class="file-up'+(u.state==="err"?" err":"")+'" data-up="'+esc(u.id)+'">'+
@@ -17629,28 +17675,23 @@ function optSaveCanvas(c,o){
     }
     function renderUps(){
       var box=el("fileUpList");if(!box)return;
-      box.innerHTML=S.ups.map(upRow).join("");
+      if(!S.ups.length)box.innerHTML='<div class="file-empty">选择文件后自动上传</div>';
+      else box.innerHTML=S.ups.slice().reverse().map(upRow).join("");
+      var c=el("fileUpCount");if(c)c.textContent=S.ups.length?("本次 "+S.ups.length+" 个"):"";
     }
-    function renderAll(){renderState();renderFiles();renderTexts();renderUps();}
-    function addText(p,at){
-      var txt=String((p&&p.text)||"");
-      if(!txt)return;
-      S.texts.push({text:txt,from:p.from||null,timeText:fmtTime(at||Date.now())});
-      if(S.texts.length>100)S.texts=S.texts.slice(-100);
-    }
+    function renderAll(){renderState();renderFiles();renderUps();}
     function addFile(p,at){
       if(!p||!p.id)return;
       var id=String(p.id);
-      if(S.seen["f:"+id])return;
-      S.seen["f:"+id]=1;
-      /* drop v2.1：文件自上传起 72h 过期；过期事件 expired=true 且无 downloadUrl → 列表标记已过期、不可下载 */
+      for(var i=0;i<S.files.length;i++){if(String(S.files[i].id)===id)return;}
       var expired=!!p.expired||!p.downloadUrl;
       S.files.push({id:id,name:p.name||"文件",size:Number(p.size)||0,mime:p.mime||"",
         downloadUrl:expired?"":String(p.downloadUrl||""),expired:expired,from:p.from||null,at:Number(at)||Date.now()});
       if(S.files.length>300)S.files=S.files.slice(-300);
     }
-    function fmtTime(t){
-      try{var d=new Date(Number(t)||Date.now());function p2(n){return (n<10?"0":"")+n;}return p2(d.getHours())+":"+p2(d.getMinutes());}catch(e){return "";}
+    function delFileLocal(id){
+      var out=[];S.files.forEach(function(f){if(String(f.id)!==String(id))out.push(f);});
+      S.files=out;
     }
     function refreshState(force){
       if(!S.session)return Promise.resolve(false);
@@ -17658,69 +17699,62 @@ function optSaveCanvas(c,o){
         if(!r||!r.ok){S.err=(r&&r.reason)||"连接中断";renderState();return false;}
         S.err="";
         if(r.session)S.session=r.session;
-        if(force){S.files=[];S.texts=[];S.seen={};}
+        if(force){S.files=[];S.ups=S.ups.filter(function(u){return u.state==="up"||u.state==="wait";});}
         var evs=(r.events instanceof Array)?r.events:[];
         evs.forEach(function(ev){
           if(!ev)return;
-          if(String(ev.kind)==="file")addFile(ev.payload,ev.at);
-          else if(String(ev.kind)==="text")addText(ev.payload,ev.at);
+          var kind=String(ev.kind);
+          if(kind==="file")addFile(ev.payload,ev.at);
+          else if(kind==="filedel"&&ev.payload)delFileLocal(ev.payload.fileId);
         });
         var cur=Number(r.cursor);
         if(isFinite(cur)&&cur>(S.cursor||0))S.cursor=cur;
-        renderAll();
+        renderFiles();renderState();
         return true;
-      },function(){S.err="互联服务不可达";renderState();return false;});
+      },function(){S.err="服务不可达";renderState();return false;});
     }
-    function poll(){if(!S.session)return;refreshState(false);}
-    function startPoll(){stopPoll();S.pollT=setInterval(poll,2500);}
+    function poll(){if(!S.session)return;if(document.hidden)return;refreshState(false);}
+    function startPoll(){stopPoll();S.pollT=setInterval(poll,5000);}
     function stopPoll(){if(S.pollT){clearInterval(S.pollT);S.pollT=0;}}
-    function openChannel(){
+    function ensureSpace(){
       if(S.busy)return;
-      S.busy=true;renderState();
-      req("/open",{method:"POST",body:{}}).then(function(r){
-        S.busy=false;
-        if(!r||!r.ok){S.err=(r&&r.reason)||"通道开启失败";renderState();return;}
-        S.session=r.session;S.err="";
-        renderAll();startPoll();refreshState(true);
-      },function(){S.busy=false;S.err="互联服务不可达";renderState();});
-    }
-    function enter(){
-      bind();
-      renderAll();
       if(S.session){startPoll();refreshState(true);return;}
-      req("/mine",{method:"GET"}).then(function(r){
-        if(r&&r.ok&&r.session){S.session=r.session;S.err="";renderAll();startPoll();refreshState(true);return;}
-        openChannel();
-      },function(){S.err="互联服务不可达";renderState();});
+      S.busy=true;S.loading=true;S.err="";renderState();
+      req("/mine").then(function(r){
+        if(r&&r.ok&&r.session){
+          S.busy=false;S.loading=false;S.session=r.session;renderAll();startPoll();refreshState(true);return;
+        }
+        req("/open",{method:"POST",body:{}}).then(function(r2){
+          S.busy=false;S.loading=false;
+          if(!r2||!r2.ok){S.err=(r2&&r2.reason)||"云空间连接失败";renderState();return;}
+          S.session=r2.session;S.err="";renderAll();startPoll();refreshState(true);
+        },function(){S.busy=false;S.loading=false;S.err="服务不可达";renderState();});
+      },function(){S.busy=false;S.loading=false;S.err="服务不可达";renderState();});
     }
+    function enter(){bind();renderAll();ensureSpace();}
     function leave(){stopPoll();}
-    function closeChannel(){
-      if(!S.session)return;
-      var sid=String(S.session.id);
-      S.session=null;S.files=[];S.texts=[];S.seen={};S.cursor=0;S.err="";
-      stopPoll();renderAll();
-      req("/close",{method:"POST",body:{sessionId:sid}}).then(function(){},function(){});
-      toast("通道已关闭，文件已删除");
+    function findName(id){
+      for(var i=0;i<S.files.length;i++){if(String(S.files[i].id)===String(id))return S.files[i].name;}
+      return "";
     }
-    function sendText(){
-      var ta=el("fileText");if(!ta||!S.session)return;
-      var txt=String(ta.value||"").trim();
-      if(!txt){toast("先输入文字");return;}
-      if(txt.length>10000){toast("文字过长（上限 10000 字）");return;}
-      req("/text",{method:"POST",body:{sessionId:S.session.id,text:txt}}).then(function(r){
-        if(!r||!r.ok){toast((r&&r.reason)||"发送失败");return;}
-        ta.value="";toast("已发送文字");refreshState(false);
+    function deleteFile(id){
+      if(!S.session||!id)return;
+      if(!window.confirm('删除「'+(findName(id)||"这个文件")+'」？删除后不可恢复。'))return;
+      req("/file/"+encodeURIComponent(String(id))+"?sessionId="+encodeURIComponent(String(S.session.id)),{method:"DELETE"}).then(function(r){
+        if(!r||!r.ok){toast((r&&r.reason)||"删除失败");return;}
+        delFileLocal(id);renderAll();toast("已删除");
       },function(){toast("网络不可用");});
     }
-    function copyLink(){
-      var t=link();
-      try{
-        if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){toast("链接已复制");},function(){toast("复制失败，请长按选择");});return;}
-      }catch(e){}
-      try{var a=document.createElement("textarea");a.value=t;a.style.position="fixed";a.style.opacity="0";document.body.appendChild(a);a.select();document.execCommand("copy");document.body.removeChild(a);toast("链接已复制");}catch(e){toast("复制失败，请长按选择");}
+    function clearSpace(){
+      if(!S.session)return;
+      if(!window.confirm("清空云空间？将立即删除全部文件，且不可恢复。"))return;
+      var sid=String(S.session.id);
+      S.session=null;S.files=[];S.ups=[];S.cursor=0;S.err="";stopPoll();renderAll();
+      req("/close",{method:"POST",body:{sessionId:sid}}).then(function(){ensureSpace();toast("云空间已清空");},
+        function(){ensureSpace();toast("已清空（网络异常，稍后自动重连）");});
     }
     function startUpload(f){
-      if(!S.session){toast("先开启通道");return;}
+      if(!S.session){toast("云空间连接中，请稍后再选");return;}
       var item={id:"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),file:f,name:String(f.name||"file"),size:Number(f.size)||0,
         pct:0,sent:0,state:"wait",err:"",ctrl:null};
       S.ups.push(item);renderUps();
@@ -17737,7 +17771,7 @@ function optSaveCanvas(c,o){
           req("/upload/finish",{method:"POST",body:{sessionId:S.session.id,uploadId:uid}}).then(function(rr){
             if(item.state==="cancel")return;
             if(!rr||!rr.ok){item.state="err";item.err=(rr&&rr.reason)||"完成上传失败";renderUps();return;}
-            item.state="done";item.pct=100;item.sent=item.size;renderUps();toast("已发送："+item.name);
+            item.state="done";item.pct=100;item.sent=item.size;renderUps();toast("已上传："+item.name);
             refreshState(true);
           },function(){if(item.state==="cancel")return;item.state="err";item.err="网络中断";renderUps();});
         }
@@ -17779,12 +17813,10 @@ function optSaveCanvas(c,o){
     }
     function bind(){
       if(S.bound)return;S.bound=true;
-      var inp=el("fileUpInput");if(inp)inp.addEventListener("change",function(){var fs=inp.files;onFiles(fs);try{inp.value="";}catch(e){}});
-      var ob=el("fileOpen");if(ob)ob.addEventListener("click",openChannel);
-      var cb=el("fileClose");if(cb)cb.addEventListener("click",closeChannel);
-      var cp=el("fileCopy");if(cp)cp.addEventListener("click",copyLink);
-      var st=el("fileSendText");if(st)st.addEventListener("click",sendText);
+      var inp=el("fileUpInput");
+      if(inp)inp.addEventListener("change",function(){var fs=inp.files;onFiles(fs);try{inp.value="";}catch(e){}});
       var rf=el("fileRefresh");if(rf)rf.addEventListener("click",function(){refreshState(true);});
+      var cl=el("fileClear");if(cl)cl.addEventListener("click",clearSpace);
       var ul=el("fileUpList");
       if(ul)ul.addEventListener("click",function(e){
         var b=closestOf(e.target,"[data-filecancel]");
@@ -17792,23 +17824,27 @@ function optSaveCanvas(c,o){
       });
       var fl=el("fileList");
       if(fl)fl.addEventListener("click",function(e){
+        var del=closestOf(e.target,"[data-filedel]");
+        if(del){try{e.preventDefault();}catch(x){}deleteFile(del.getAttribute("data-filedel"));return;}
         var a=closestOf(e.target,".file-dl");
         if(!a)return;
         try{e.preventDefault();}catch(x){}
         var fid=String(a.getAttribute("data-fid")||"");
         refreshState(true).then(function(){
-          var f=null,i;
-          for(i=0;i<S.files.length;i++){if(String(S.files[i].id)===fid){f=S.files[i];break;}}
+          var f=null;
+          for(var i=0;i<S.files.length;i++){if(String(S.files[i].id)===fid){f=S.files[i];break;}}
           if(!f||f.expired){toast("文件已过期（上传超过 72 小时，已自动删除）");return;}
           var href=f.downloadUrl||a.getAttribute("href");
-          if(href){try{window.open(href,"_blank","noopener");}catch(x){try{location.href=href;}catch(y){}}}
+          if(href){try{window.open(href,"_blank","noopener");}catch(x2){try{location.href=href;}catch(y){}}}
           else toast("文件不存在或已过期");
         });
       });
     }
-    return {enter:enter,leave:leave,bind:bind,status:function(){return {session:S.session?{id:S.session.id,code:S.session.code}:null,files:S.files.length,ups:S.ups.length};}};
+    return {enter:enter,leave:leave,bind:bind,status:function(){
+      return {session:S.session?{id:S.session.id}:null,files:liveFiles().length,bytes:totalBytes(),
+        ups:S.ups.map(function(u){return u.state;}),err:S.err};
+    }};
   })();
-
   /* ============================================================
      4. 网页提醒（浏览器 Notification + 轻量签名轮询）
      ============================================================ */
@@ -18020,13 +18056,15 @@ function optSaveCanvas(c,o){
     };
   }catch(e){}
 
-  /* ---------------- 6. #drop hash → 文件传输页 ---------------- */
+  /* ---------------- 6. hash 路由：#drop → 大屏互联控制器；#file → 临时云空间 ---------------- */
   function fileHashRoute(){
     try{
-      if(String(location.hash||"")!=="#drop")return;
+      var h=String(location.hash||"");
+      if(h!=="#drop"&&h!=="#file")return;
       var ready=false;try{ready=!!(typeof AUTH!=="undefined"&&AUTH&&AUTH.ready);}catch(e){}
       if(!ready){setTimeout(fileHashRoute,700);return;}
-      if(typeof gotoTab==="function")gotoTab("file");
+      if(h==="#file"){if(typeof gotoTab==="function")gotoTab("file");}
+      else if(typeof dropCtlOpen==="function")dropCtlOpen();
     }catch(e){}
   }
   try{window.addEventListener("hashchange",fileHashRoute);}catch(e){}
@@ -18037,7 +18075,7 @@ function optSaveCanvas(c,o){
     var hasFile=false;
     if(typeof TOOLS!=="undefined"&&TOOLS){
       TOOLS.forEach(function(t){if(t&&t.k==="file")hasFile=true;});
-      if(!hasFile)TOOLS.push({k:"file",n:"文件传输",d:"同账号跨设备传文件与文字 · 分片上传不限大小 · 文件自上传起保留 3 天"});
+      if(!hasFile)TOOLS.push({k:"file",n:"文件传输",d:"临时云空间 · 同账号跨设备 · 分片上传不限大小 · 文件自上传起保留 3 天"});
     }
     if(typeof ALL_TONE!=="undefined"&&ALL_TONE)ALL_TONE.file="mint";
   }catch(e){}

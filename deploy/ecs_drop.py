@@ -466,13 +466,13 @@ def selftest():
                      "v=%s sessions=%s files=%s bytes=%s"
                      % (health.get("version"), health.get("sessions"),
                         health.get("files"), health.get("bytes")))
-        report.check("health v2.1：file_ttl=session_idle_ttl=259200 / max_file_bytes=0 / max_session_bytes=0",
+        report.check("health v2.2：file_ttl=session_idle_ttl=259200 / max_file_bytes=0 / max_session_bytes=0",
                      health.get("ttl") == 259200
                      and health.get("file_ttl") == 259200
                      and health.get("session_idle_ttl") == 259200
                      and health.get("max_file_bytes") == 0
                      and health.get("max_session_bytes") == 0
-                     and health.get("version") == "2.1",
+                     and health.get("version") == "2.2",
                      "version=%s file_ttl=%s session_idle_ttl=%s "
                      "max_file=%s max_session=%s"
                      % (health.get("version"), health.get("file_ttl"),
@@ -567,6 +567,34 @@ def selftest():
                      r["status"] == 200
                      and r["headers"].get("content-length") == str(len(big)))
 
+        print("\n=== 3b. 临时云空间：单文件删除（DELETE /file/<fileId>） ===")
+        r = _http("DELETE", "%s/file/%s?sessionId=%s" % (BASE_URL, file1["id"], session_id),
+                  headers={"X-Device-Id": token}, timeout=30)
+        payload = _json_of(r)
+        report.check("DELETE /file/<id> 成功（deleted=true）",
+                     r["status"] == 200 and payload.get("ok") is True
+                     and payload.get("deleted") is True,
+                     "HTTP %s deleted=%s" % (r["status"], payload.get("deleted")))
+        r = _http("GET", "%s/state?sessionId=%s&since=0" % (BASE_URL, session_id),
+                  headers={"X-Device-Id": token}, timeout=20)
+        events = _json_of(r).get("events") or []
+        kinds = [ev.get("kind") for ev in events]
+        file1_ev = [ev for ev in events
+                    if ev.get("kind") == "file"
+                    and ev.get("payload", {}).get("fileId") == file1["id"]]
+        report.check("删除后 /state：原 file 事件 expired 无链接 + 新增 filedel 事件",
+                     "filedel" in kinds and bool(file1_ev)
+                     and file1_ev[0]["payload"].get("expired") is True
+                     and not file1_ev[0]["payload"].get("downloadUrl"),
+                     "kinds=%s" % kinds)
+        r = _download(file1["downloadUrl"], timeout=30)
+        report.check("删除后旧下载链接失效（403/404）", r["status"] in (403, 404),
+                     "HTTP %s" % r["status"])
+        r = _http("DELETE", "%s/file/%s?sessionId=%s" % (BASE_URL, file1["id"], session_id),
+                  headers={"X-Device-Id": token}, timeout=30)
+        report.check("重复删除幂等（deleted=false）",
+                     r["status"] == 200 and _json_of(r).get("deleted") is False)
+
         print("\n=== 4. 事件 / 文字 / 指令（跨端互见） ===")
         r = _http("GET", "%s/state?sessionId=%s&since=0" % (BASE_URL, session_id),
                   headers={"X-Device-Id": token2}, timeout=20)
@@ -575,8 +603,10 @@ def selftest():
         report.check("token2 /state 可见双端文件事件（file x2）",
                      kinds.count("file") == 2,
                      "kinds=%s cursor=%s" % (kinds, _json_of(r).get("cursor")))
+        # 删除过的 file 事件会被标记 expired 且无 downloadUrl，只挑仍可用的链接
         event_urls = [ev.get("payload", {}).get("downloadUrl")
-                      for ev in events if ev.get("kind") == "file"]
+                      for ev in events if ev.get("kind") == "file"
+                      and ev.get("payload", {}).get("downloadUrl")]
         rr = _download(event_urls[0], timeout=60) if event_urls else {"status": 0}
         report.check("/state 文件事件带可用下载链接（读取时重签）",
                      bool(event_urls) and rr["status"] == 200,

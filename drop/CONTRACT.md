@@ -4,6 +4,8 @@
 > 「文件传输直接做成单独的工具，上传的文件三天后删除，不限制上传文件大小」。
 > **v2.1（2026-11-11 晚）** 按用户原话收紧「三天后删除」语义：**逐文件**从上传完成起 72h 过期，
 > 会话改为**空闲滑动**回收（见下）。
+> **v2.2（2026-11-12）** 新增 `DELETE /file/<fileId>`（临时云空间单文件删除，仅本账号会话 owner、幂等）；
+> 413 拒收前有界读取请求体，避免客户端连接 RST。
 >
 > - 用途：**同账号（同 sid）跨设备传文件**、发文字、遥控指令中转；服务是独立「文件传输」工具的后端
 >   （网页 `#s-file` 文件传输页 / 大屏互联面板共用同一服务），**不限于大屏**，手机 ↔ 电脑 ↔ 大屏均可。
@@ -152,6 +154,14 @@ body `{}`（可为空 body）。返回：
   `payload.downloadUrl`（30 分钟有效，见 §4）；文件已过期 → 该事件保留 `seq`，但 `payload.expired=true`
   且不再返回 `downloadUrl`（前端文件列表应过滤 `expired`，历史聊天记录可显示「文件已过期」）。
 - 跨账号访问别人的 sessionId → 403；sessionId 不存在/已回收 → 404。
+
+#### `DELETE /file/<fileId>?sessionId=<sid>`（鉴权，临时云空间单文件删除）
+
+- 仅本账号会话 owner 可删；幂等：文件不存在/已过期 → `{ok:true,deleted:false}`。
+- 成功：删除文件实体 + 从会话文件表移除，并追加 `filedel` 事件（`payload={fileId,name,size}`）；
+  其它同账号设备通过 `/state` 收到 `filedel` 后从列表移除该文件。
+- 原 `file` 事件保留 seq：`/state` 将其标记 `payload.expired=true` 且不再返回 `downloadUrl`；下载返回 403/404。
+- 返回：`{"ok":true,"deleted":true,"name":"…","size":123}`。
 
 #### `POST /close`（鉴权）
 

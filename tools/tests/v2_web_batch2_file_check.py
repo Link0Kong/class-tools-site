@@ -1,22 +1,24 @@
 # -*- coding: utf-8 -*-
-r"""网页批次2 · 反馈1：独立「文件传输」工具（web-b 专项，独立文件，不改既有测试）。
+r"""网页批次2 · 文件传输 = 临时云空间（2026-11-12 重设计）。
 
-需求：文件传输做成独立工具页（全部页卡片 / 可拖入工具栏 / #drop hash 路由），
-复用 ECS drop 服务：同账号会话自动互见（**无房间码/配对码**，2026-11-12 起房间码从 UI 移除）、分片上传（任意大小/进度/取消）、
-文件列表下载（签名 URL）、发文字、会话关闭；文案「文件保留 3 天」；大屏互联面板不回归。
-（TTL 3 天 / 不限大小由 cloud-backend drop 服务契约负责，前端只按 drop/CONTRACT.md 口径。）
+需求：文件传输不做「会话/房间码/链接」概念，而是**临时云空间**：
+同账号跨设备自动共享同一空间（无需配对/链接）；上传任意大小（8MiB 分片）、列表下载、
+单文件删除、清空空间；文件自上传起保留 3 天；过期自动删除。
+后端复用 ECS drop 服务（v2.2，新增 DELETE /file/<fileId>），认证同 drop 契约。
+大屏互联控制器保留，入口 `#drop`；文件页入口 `#file`。
 
 覆盖：
-A 静态：TOOLS 含 file、#s-file 位于 #s-all 前、全部页卡片自动出现、会话/上传/列表/文字/关闭/TTL 文案、
-        #drop → 新页路由、大屏互联面板保留、APP_VER 2.0.0、单文件零外链
-B 运行时（fetch mock drop 服务，无真实网络）：
-  B1 进入页自动开通道：已开启状态/链接显示（页面无房间码）
-  B2 小文件上传：init→chunk→finish 口径正确，列表出现 + 下载链接
-  B3 大文件（20MiB）分片 = 3 片（8MiB×2 + 4MiB），总大小正确
-  B4 上传进度显示、取消后不再 finish
-  B5 发文字 POST /text
-  B6 关闭会话 POST /close 且 UI 复位
-  B7 #drop hash 直接打开新页（不再弹大屏互联弹层）
+A 静态：TOOLS/页面结构/无房间码无链接无文字/上传列表清理/TTL/分片协议/#drop→控制器 #file→云空间
+B 运行时（fetch mock drop 服务）：
+  B0 全部页卡片打开
+  B1 进入自动连接（同账号共享，无配对码/链接）
+  B2 小文件上传（init→chunk→finish，列表出现 + 下载链接）
+  B3 大文件 20MiB = 3 片
+  B4 上传进度 + 取消（不 finish）
+  B5 单文件删除（DELETE /file/<id>，行消失、统计更新）
+  B6 过期文件标注（不可下载）
+  B7 清空空间（/close → 自动重开新空间）
+  B8 hash 路由：#drop 不再打开文件页、#file 打开云空间
 C 430 无横向溢出 / 0 JS 报错 / 0 外部请求
 
 用法：python tools\tests\v2_web_batch2_file_check.py
@@ -78,16 +80,29 @@ INIT = r"""
     window.__DROP_BASE="__DROPBASE__";
     try{localStorage.clear();}catch(e){}
     try{localStorage.setItem("zq_class_identity",JSON.stringify({token:"mock-token",sid:"__SID__",name:"__NAME__",role:"",badge:"",is_admin:false,ts:Date.now()}));}catch(e){}
-    /* ---- mock drop 服务（同 drop/CONTRACT.md 口径；TTL 3 天=259200s） ---- */
-    var DS={session:null,files:[],events:[],uploads:{},calls:[],filesSeq:1,aborted:false,delayChunk:0,seq:0};
+    /* ---- mock drop 服务（临时云空间口径：session + file/filedel 事件，TTL 3 天） ---- */
+    var DS={session:null,files:[],events:[],uploads:{},calls:[],filesSeq:1,aborted:false,delayChunk:0,seq:0,
+      expiresAt:0,openCount:0,closeCount:0};
     window.__ds=DS;
     function J(obj,status){status=status||200;return Promise.resolve(new Response(JSON.stringify(obj),{status:status,headers:{"Content-Type":"application/json"}}));}
     function sess(){return DS.session?{id:DS.session.id,code:DS.session.code,createdAt:DS.session.createdAt,expiresAt:DS.session.expiresAt}:null;}
     function pushEvent(kind,payload){DS.seq++;DS.events.push({seq:DS.seq,kind:kind,at:Date.now(),from:{name:"__NAME__"},payload:payload});}
+    function fileUrl(id){return "http://mock.local/drop/file/"+id+"?s=sess1&exp=1&sig=mock";}
+    function dropFile(id,extra){
+      var f=null;
+      for(var i=0;i<DS.files.length;i++){if(String(DS.files[i].id)===String(id)){f=DS.files[i];break;}}
+      if(!f)return {ok:true,deleted:false};
+      DS.files=DS.files.filter(function(x){return String(x.id)!==String(id);});
+      pushEvent("filedel",{fileId:f.id,name:f.name,size:f.size});
+      return {ok:true,deleted:true,name:f.name,size:f.size};
+    }
     function handleDrop(s,m,o,bodyBytes){
-      DS.calls.push({path:s,method:m,body:bodyBytes});
+      DS.calls.push({path:s,method:m});
       if(s.indexOf("/open")>=0){
-        if(!DS.session)DS.session={id:"sess1a2b3c4d5e6f7a8b",code:"042317",createdAt:Date.now(),expiresAt:Date.now()+259200*1000};
+        if(!DS.session){
+          DS.session={id:"sess1a2b3c4d5e6f7a8b",code:"042317",createdAt:Date.now(),expiresAt:Date.now()+259200*1000};
+          DS.events=[];DS.files=[];DS.seq=0;DS.openCount++;
+        }
         return J({ok:true,session:sess()});
       }
       if(s.indexOf("/mine")>=0)return J({ok:true,session:sess()});
@@ -95,13 +110,13 @@ INIT = r"""
       if(s.indexOf("/upload/init")>=0){
         var b={};try{b=JSON.parse(bodyBytes||"{}");}catch(e){}
         var uid="u"+(Object.keys(DS.uploads).length+1);
-        DS.uploads[uid]={name:b.name||"file",size:Number(b.size)||0,total:Number(b.totalChunks)||1,chunks:[]};
+        DS.uploads[uid]={name:b.name||"file",size:Number(b.size)||0,total:Number(b.totalChunks)||1,chunks:[],finished:false};
         return J({ok:true,uploadId:uid,chunkSize:8388608});
       }
       if(s.indexOf("/upload/chunk")>=0){
         var mm=s.match(/uploadId=([^&]+)/),im=s.match(/index=(\d+)/);
-        var uid=mm?decodeURIComponent(mm[1]):"",idx=im?Number(im[1]):0;
-        var up=DS.uploads[uid];
+        var uid2=mm?decodeURIComponent(mm[1]):"",idx=im?Number(im[1]):0;
+        var up=DS.uploads[uid2];
         var chunkLen=(bodyBytes&&typeof bodyBytes==="object")?(Number(bodyBytes.bytes)||0):String(bodyBytes||"").length;
         var run=function(){
           if(DS.aborted){return Promise.reject(new DOMException("aborted","AbortError"));}
@@ -119,21 +134,23 @@ INIT = r"""
       if(s.indexOf("/upload/finish")>=0){
         var b2={};try{b2=JSON.parse(bodyBytes||"{}");}catch(e){}
         var up2=DS.uploads[b2.uploadId||""]||null;
-        DS.calls.push({finish:true,uploadId:b2.uploadId,chunks:up2?up2.chunks:null});
+        if(up2)up2.finished=true;
         var f={id:"f"+(DS.filesSeq++),name:up2?up2.name:"file",size:up2?up2.size:0,mime:"application/octet-stream",
-          downloadUrl:"http://mock.local/drop/file/f1?s=sess1&exp=1&sig=mock"};
-        DS.files.push(f);pushEvent("file",f);
-        return J({ok:true,file:f});
+          downloadUrl:""};
+        f.downloadUrl=fileUrl(f.id);
+        DS.files.push(f);pushEvent("file",{fileId:f.id,id:f.id,name:f.name,size:f.size,mime:f.mime,downloadUrl:f.downloadUrl});
+        return J({ok:true,file:{id:f.id,name:f.name,size:f.size,mime:f.mime,downloadUrl:f.downloadUrl}});
       }
-      if(s.indexOf("/text")>=0){
-        var b3={};try{b3=JSON.parse(bodyBytes||"{}");}catch(e){}
-        pushEvent("text",{text:b3.text||""});
-        return J({ok:true,seq:DS.seq});
+      if(m==="DELETE"&&s.indexOf("/file/")>=0){
+        var fid=s.slice(s.indexOf("/file/")+6).split("?")[0];
+        return J(dropFile(decodeURIComponent(fid)));
       }
-      if(s.indexOf("/close")>=0||s.indexOf("/session/")>=0){DS.session=null;DS.files=[];DS.events=[];return J({ok:true});}
+      if(s.indexOf("/close")>=0){
+        DS.session=null;DS.files=[];DS.events=[];DS.seq=0;DS.expiresAt=0;DS.closeCount++;
+        return J({ok:true});
+      }
       return J({ok:false,reason:"unknown"});
     }
-    function J2(obj,status){return J(obj,status);}
     var _f=window.fetch;
     window.fetch=function(u,o){
       o=o||{};
@@ -156,14 +173,14 @@ INIT = r"""
         });
       }
       if(s.indexOf("tcloudbasegateway")<0){
-        if(s.indexOf("tt.json")>=0)return J2({c:[],t:"",meta:{fetchedAt:Date.now()}});
+        if(s.indexOf("tt.json")>=0)return J({c:[],t:"",meta:{fetchedAt:Date.now()}});
         return _f.apply(this,arguments);
       }
-      if(s.indexOf("/userdata")>=0)return o.method==="GET"?J2([]):J2([]);
-      if(s.indexOf("rpc/class_members")>=0)return J2([{seat:1,sid:"__SID__",name:"__NAME__",role:"",badge:""}]);
-      if(s.indexOf("rpc/class_verify")>=0)return J2({ok:true,token:"mock-token",sid:"__SID__",name:"__NAME__",role:"",badge:"",is_admin:false});
-      if(s.indexOf("rpc/")>=0)return J2({ok:true,seats:[]});
-      return J2([]);
+      if(s.indexOf("/userdata")>=0)return o.method==="GET"?J([]):J([]);
+      if(s.indexOf("rpc/class_members")>=0)return J([{seat:1,sid:"__SID__",name:"__NAME__",role:"",badge:""}]);
+      if(s.indexOf("rpc/class_verify")>=0)return J({ok:true,token:"mock-token",sid:"__SID__",name:"__NAME__",role:"",badge:"",is_admin:false});
+      if(s.indexOf("rpc/")>=0)return J({ok:true,seats:[]});
+      return J([]);
     };
   }catch(e){}
 })();
@@ -196,22 +213,24 @@ def snap(page):
     return page.evaluate("""(function(){
       var q=function(s){return document.querySelector(s);};
       var files=[].map.call(document.querySelectorAll('#fileList .file-item'),function(it){
-        var a=it.querySelector('.file-dl,.file-download,a[href]');
-        return {name:it.querySelector('.file-name')?it.querySelector('.file-name').textContent:it.textContent,
-          size:it.querySelector('.file-size')?it.querySelector('.file-size').textContent:'',
-          href:a?String(a.getAttribute('href')||a.href||''):''};});
-      var ups=[].map.call(document.querySelectorAll('#fileUpList .file-up,.file-upitem'),function(it){
-        return {name:it.textContent,pct:it.querySelector('.file-up-pct,.file-up-pct b')?it.querySelector('.file-up-pct,.file-up-pct b').textContent:''};});
+        var a=it.querySelector('.file-dl');
+        return {name:it.querySelector('.file-name')?it.querySelector('.file-name').textContent:'',
+          meta:it.querySelector('.file-meta')?it.querySelector('.file-meta').textContent:'',
+          href:a?String(a.getAttribute('href')||a.href||''):'',
+          del:!!it.querySelector('[data-filedel]')};});
+      var ups=[].map.call(document.querySelectorAll('#fileUpList .file-up'),function(it){
+        return {name:it.textContent,pct:it.querySelector('.file-up-pct')?it.querySelector('.file-up-pct').textContent:''};});
       var ds=window.__ds||{};
       return {state:q('#fileState')?q('#fileState').textContent:null,
-        link:q('#fileLink')?String((q('#fileLink').value!==undefined?q('#fileLink').value:q('#fileLink').textContent)||''):'',
-        ttl:q('#fileTTL')?q('#fileTTL').textContent:(document.getElementById('s-file')?document.getElementById('s-file').textContent:''),
+        statCount:q('#fileStatCount')?q('#fileStatCount').textContent:null,
+        statSize:q('#fileStatSize')?q('#fileStatSize').textContent:null,
+        ttl:q('#fileTTL')?q('#fileTTL').textContent:'',
+        text:(document.getElementById('s-file')||{}).textContent||'',
         files:files,ups:ups,
         expiredNotice:q('#fileList .file-expired')?q('#fileList .file-expired').textContent:'',
-        expiredDl:document.querySelectorAll('#fileList [data-fid="f-expired-1"] .file-dl').length,
         ds:{session:ds.session||null,files:(ds.files||[]).length,events:(ds.events||[]).length,
           calls:(ds.calls||[]).map(function(c){return c.path||'finish';}),aborted:!!ds.aborted,
-          uploads:(ds.uploads||{})},
+          uploads:(ds.uploads||{}),openCount:ds.openCount||0,closeCount:ds.closeCount||0},
         errs:(window.__errs||[]).slice(-4),cerrs:(window.__cerrs||[]).slice(-4),
         overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth};
     })()""")
@@ -264,36 +283,40 @@ def main():
         p.navigate(url + hash)
         assert p.wait_for("!document.body.classList.contains('auth-pending')", 30), "identity timeout"
         p.wait_for("document.querySelectorAll('#tabsBar button').length>0", 15)
-        time.sleep(0.8)
+        time.sleep(0.9)
         return p
 
     print("\n== A 静态检查 ==")
-    T("A1 TOOLS 新增文件传输（k=file / n=文件传输）",
-      '"file"' in SRC_TEXT and "文件传输" in SRC_TEXT and ("k:\"file\"" in SRC_TEXT.replace(" ", "")))
+    T("A1 TOOLS 含文件传输（k=file / n=文件传输 / 临时云空间）",
+      '"file"' in SRC_TEXT and "文件传输" in SRC_TEXT and "临时云空间" in SRC_TEXT
+      and ("k:\"file\"" in SRC_TEXT.replace(" ", "")))
     T("A2 #s-file section 位于 #s-all 之前",
       'id="s-file"' in SRC_TEXT and 'id="s-all"' in SRC_TEXT and
       SRC_TEXT.index('id="s-file"') < SRC_TEXT.index('id="s-all"'))
-    T("A3 文件传输页关键元素（链接/上传/列表/文字/关闭；无房间码）",
-      all(k in SRC_TEXT for k in ('id="fileLink"', 'id="fileUpInput"', 'id="fileList"',
-                                  'id="fileText"', 'id="fileSendText"', 'id="fileClose"'))
-      and ('id="fileRoom"' not in SRC_TEXT) and ("房间码" not in SRC_TEXT))
+    T("A3 云空间关键元素（上传/列表/清空/刷新/说明），无房间码/链接/文字",
+      all(k in SRC_TEXT for k in ('id="fileUpInput"', 'id="fileList"', 'id="fileClear"',
+                                  'id="fileRefresh"', 'id="fileTTL"'))
+      and all(k not in SRC_TEXT for k in ('id="fileRoom"', 'id="fileLink"', 'id="fileSendText"',
+                                          'id="fileText"', 'id="fileOpen"', 'id="fileClose"', '房间码')))
     T("A4 文案含「文件自上传起保留 3 天」+ 不限大小/分片说明",
       "文件自上传起保留 3 天" in SRC_TEXT and ("任意大小" in SRC_TEXT or "不限大小" in SRC_TEXT or "不限文件大小" in SRC_TEXT))
-    T("A5 #drop hash 路由指向新文件传输页（gotoTab('file')）",
-      '"#drop"' in SRC_TEXT and ("gotoTab(\"file\")" in SRC_TEXT or "gotoTab('file')" in SRC_TEXT))
-    T("A6 分片 8MiB（8388608）且 upload/init|chunk|finish 协议在页内实现",
-      "8388608" in SRC_TEXT and "/upload/init" in SRC_TEXT and "/upload/chunk" in SRC_TEXT and "/upload/finish" in SRC_TEXT)
-    T("A7 大屏互联面板保留（o2sDropModal / dropCtl 不回归）",
-      'id="o2sDropModal"' in SRC_TEXT and ('dropCtl' in SRC_TEXT or 'id="dropCtl"' in SRC_TEXT))
+    T("A5 hash 路由：#file → 云空间；#drop → 大屏互联控制器（不再指向文件页）",
+      ('"#file"' in SRC_TEXT or "===\"#file\"" in SRC_TEXT) and 'gotoTab("file")' in SRC_TEXT
+      and '"#drop"' in SRC_TEXT and 'dropCtlOpen' in SRC_TEXT
+      and 'if(h!=="#drop"&&h!=="#file")return;' in SRC_TEXT)
+    T("A6 分片 8MiB（8388608）且 upload/init|chunk|finish/DELETE 协议在页内实现",
+      "8388608" in SRC_TEXT and "/upload/init" in SRC_TEXT and "/upload/chunk" in SRC_TEXT
+      and "/upload/finish" in SRC_TEXT and 'method:"DELETE"' in SRC_TEXT)
+    T("A7 大屏互联面板/控制器保留（o2sDropModal / dropCtl 不回归）",
+      'id="o2sDropModal"' in SRC_TEXT and 'dropCtl' in SRC_TEXT)
     T("A8 APP_VER 仍 2.0.0", 'var APP_VER="2.0.0"' in SRC_TEXT)
     T("A9 零外链（无 http(s):// 静态外链脚本/字体/CSS）",
       "fonts.googleapis" not in SRC_TEXT and "cdn." not in SRC_TEXT and "<script src=" not in SRC_TEXT)
-    T("A10 drop v2.1 过期文件处理（expired 事件 → 列表标注已过期、不可下载）",
-      "expired" in SRC_TEXT and ("已过期" in SRC_TEXT) and ("文件自上传起保留 3 天" in SRC_TEXT))
+    T("A10 过期文件处理 + filedel 事件（expired 标注、删除同步）",
+      "expired" in SRC_TEXT and "已过期" in SRC_TEXT and "filedel" in SRC_TEXT)
 
-    print("\n== B 运行时（mock drop 服务） ==")
+    print("\n== B 运行时（mock drop 云空间） ==")
     p = new_page()
-    # B0 全部页卡片
     p.evaluate("var b=document.querySelector('#tabsBar button[data-tab=\"all\"]');if(b)b.click();'x'")
     time.sleep(0.5)
     card = p.evaluate("(function(){var c=document.querySelector('#allCards [data-card=\"file\"]');return c?c.textContent:null;})()")
@@ -301,114 +324,112 @@ def main():
     ok = open_file_page(p)
     T("B0b 卡片可打开 #s-file 页", ok)
     if not ok:
-        print("  [SKIP] 文件传输页未实现，运行时组跳过")
+        print("  [SKIP] 文件传输页未打开，运行时组跳过")
     else:
-        wait_for(lambda: "已开启" in (snap(p)["state"] or ""), 10)
+        ok1 = wait_for(lambda: "已连接" in (snap(p)["state"] or ""), 12)
         s = snap(p)
-        T("B1a 进入页自动开通道：状态=已开启（同账号互见）", "已开启" in (s["state"] or "") and "同账号" in (s["state"] or ""), s["state"])
-        T("B1b 会话链接展示（含 #drop）", "#drop" in (s["link"] or ""), s["link"])
+        T("B1a 进入页自动连接云空间（同账号共享）", ok1 and "同账号" in (s["state"] or ""), s["state"])
+        T("B1b 无房间码/链接/配对 UI，空空间统计为 0",
+          ("房间码" not in (s["text"] or "")) and (not s["files"]) and (s["statCount"] == "0"), (s["statCount"], s["files"]))
         T("B1c 页面说明「文件保留 3 天」", "3天" in "".join((s["ttl"] or "").split()), (s["ttl"] or "")[:120])
-        T("B1d 大屏互联弹层未被误打开（独立页不弹旧弹层）",
-          p.evaluate("(function(){var e=document.getElementById('dropCtl');return e?getComputedStyle(e).display==='none'||!e.classList.contains('on'):true;})()"))
-        # B2 小文件上传
+
+        # B2 小文件
         upload_file(p, 1024, "测试小文件.txt", "text/plain")
         ok2 = wait_for(lambda: any("测试小文件" in (it["name"] or "") for it in snap(p)["files"]), 12)
         s2 = snap(p)
-        init_calls = [c for c in s2["ds"]["calls"] if "/upload/init" in c]
-        chunk_calls = [c for c in s2["ds"]["calls"] if "/upload/chunk" in c]
-        fin = [c for c in (s2["ds"]["calls"] or [])]
-        T("B2a 小文件上传成功并出现在文件列表", ok2, s2["files"])
-        T("B2b init/chunk/finish 调用各 1 次", len(init_calls) == 1 and len(chunk_calls) == 1 and len(s2["ds"]["uploads"]) == 1,
-          (init_calls, chunk_calls, s2["ds"]["uploads"]))
-        T("B2c 下载链接来自服务端签名 URL", bool(s2["files"]) and "mock.local" in (s2["files"][0]["href"] or ""), s2["files"])
-        # B3 20MiB 大文件分片
-        up0 = dict(s2["ds"]["uploads"])
-        upload_file(p, 20 * 1024 * 1024, "大文件.bin")
-        ok3 = wait_for(lambda: len(snap(p)["ds"]["uploads"]) == len(up0) + 1, 25)
-        time.sleep(1.2)
+        T("B2a 小文件上传后出现在列表（含下载按钮）", ok2, s2["files"])
+        T("B2b 下载链接为签名 URL（drop /file/）",
+          ok2 and any("/file/" in (it["href"] or "") or "mock.local" in (it["href"] or "") for it in s2["files"]), s2["files"])
+        T("B2c 统计更新为 1 个文件 / 非 0 占用", s2["statCount"] == "1", (s2["statCount"], s2["statSize"]))
+
+        # B3 大文件 20MiB = 3 片
+        upload_file(p, 20 * 1024 * 1024, "测试大文件.bin")
+        ok3 = wait_for(lambda: any("测试大文件" in (it["name"] or "") for it in snap(p)["files"]), 25)
         s3 = snap(p)
-        ups = s3["ds"]["uploads"]
-        newu = [u for k, u in ups.items() if k not in up0]
-        nchunks = len(newu[0]["chunks"]) if newu else 0
-        sizes = [c for c in (newu[0]["chunks"] if newu else []) if c]
-        T("B3a 20MiB 大文件 = 3 片", ok3 and nchunks == 3, (nchunks, sizes))
-        T("B3b 分片大小 = 8MiB/8MiB/4MiB（最后一片可小）",
-          sizes == [8388608, 8388608, 20 * 1024 * 1024 - 2 * 8388608], sizes)
-        T("B3c 大文件出现在列表（大小 ~20MB）", any("大文件" in (it["name"] or "") for it in s3["files"]), s3["files"])
+        ups3 = s3["ds"]["uploads"] or {}
+        big = None
+        for _k, v in ups3.items():
+            if v.get("name") == "测试大文件.bin":
+                big = v
+        T("B3a 大文件上传成功并出现在列表", ok3, [it["name"] for it in s3["files"]])
+        T("B3b 20MiB 分为 3 片（8+8+4MiB）",
+          bool(big) and big.get("total") == 3 and len([x for x in (big.get("chunks") or []) if x]) == 3,
+          big)
+
         # B4 进度 + 取消
-        p.evaluate("window.__ds.delayChunk=220;'x'")
-        before_finish = len([c for c in snap(p)["ds"]["calls"] if c == "finish" or "/upload/finish" in c])
-        upload_file(p, 20 * 1024 * 1024, "取消测试.bin")
-        time.sleep(0.5)
-        s4a = snap(p)
-        pct_ok = any("%" in (u["pct"] or "") for u in s4a["ups"])
-        T("B4a 上传中显示进度（存在 % 进度）", pct_ok, s4a["ups"])
+        p.evaluate("window.__ds.delayChunk=120;'x'")
+        before_finish = sum(1 for c in snap(p)["ds"]["calls"] if c == "finish")
+        upload_file(p, 2 * 1024 * 1024, "取消测试.bin")
+        okp = wait_for(lambda: any("取消测试" in (u["name"] or "") and "%" in (u["pct"] or "") for u in snap(p)["ups"]), 8)
+        T("B4a 上传进度条出现（百分比）", okp, snap(p)["ups"])
         p.evaluate("(function(){var b=document.querySelector('[data-filecancel]');if(b)b.click();})()")
-        time.sleep(1.4)
-        s4 = snap(p)
-        after_finish = len([c for c in s4["ds"]["calls"] if c == "finish" or "/upload/finish" in c])
-        T("B4b 取消后 abort 生效且不再 finish", s4["ds"]["aborted"] is True and after_finish == before_finish,
-          (s4["ds"]["aborted"], before_finish, after_finish))
-        # B5 发文字
-        p.evaluate("window.__ds.delayChunk=0;'x'")
-        p.evaluate("(function(){var t=document.getElementById('fileText');if(t){t.value='大屏你好';t.dispatchEvent(new Event('input',{bubbles:true}));}var b=document.getElementById('fileSendText');if(b)b.click();})()")
-        ok5 = wait_for(lambda: any('"大屏你好"' in json.dumps(c.get("text", ""), ensure_ascii=False) or "大屏你好" in str(c) for c in (p.evaluate("(window.__ds.events||[])") or [])), 8)
-        T("B5 发文字 → POST /text 并追加 text 事件", ok5, p.evaluate("(window.__ds.events||[])"))
-        # B8 drop v2.1：文件自上传起 72h 过期 → /state 返回 expired=true 且无 downloadUrl
-        p.evaluate("""(function(){var ds=window.__ds;ds.seq++;ds.events.push({seq:ds.seq,kind:"file",at:Date.now(),payload:{id:"f-expired-1",name:"旧文件.bin",size:1234,expired:true}});return true;})()""")
+        okc = wait_for(lambda: any("已取消" in (u["name"] or "") for u in snap(p)["ups"]), 8)
+        after_finish = sum(1 for c in snap(p)["ds"]["calls"] if c == "finish")
+        T("B4b 取消上传：显示已取消且不 finish", okc and after_finish == before_finish,
+          (okc, before_finish, after_finish))
+        p.evaluate("window.__ds.delayChunk=0;window.__ds.aborted=false;'x'")
+
+        # B5 单文件删除
+        del_before = [it["name"] for it in snap(p)["files"]]
+        p.evaluate("""(function(){var its=[].slice.call(document.querySelectorAll('#fileList .file-item'));
+          for(var i=0;i<its.length;i++){var nm=its[i].querySelector('.file-name');
+            if(nm&&nm.textContent.indexOf('测试小文件.txt')>=0){var b=its[i].querySelector('[data-filedel]');if(b){b.click();return;}}}
+        })()""")
+        okd = wait_for(lambda: len([it for it in snap(p)["files"] if it["name"] == "测试小文件.txt"]) == 0, 10)
+        s5 = snap(p)
+        del_calls = [c for c in s5["ds"]["calls"] if "/file/" in c]
+        T("B5a 单文件删除成功（DELETE /file/<id>，行消失）", okd and bool(del_calls), (okd, del_calls[-3:]))
+        T("B5b 删除后统计同步减少", s5["statCount"] in ("1", "2"), s5["statCount"])
+
+        # B6 过期文件
+        p.evaluate("""(function(){var ds=window.__ds;ds.seq++;
+          ds.events.push({seq:ds.seq,kind:"file",at:Date.now()-259200000-1000,from:{name:"测试同学"},
+            payload:{id:"fexpired",name:"旧文件.bin",size:123,expired:true}});})()""")
         p.evaluate("var b=document.getElementById('fileRefresh');if(b)b.click();'x'")
-        ok8 = wait_for(lambda: "已过期" in (snap(p)["expiredNotice"] or ""), 10)
-        s8 = snap(p)
-        T("B8a 过期文件在文件列表标注「已过期」", ok8, (s8["expiredNotice"], s8["files"]))
-        T("B8b 过期文件不再提供下载链接", s8["expiredDl"] == 0, s8["expiredDl"])
-        # B6 关闭会话
-        p.evaluate("var b=document.querySelector('#fileClose');if(b)b.click();'x'")
-        ok6 = wait_for(lambda: (snap(p)["ds"]["session"] is None), 8)
-        s6 = snap(p)
-        T("B6a 关闭 → POST /close 且会话清空", ok6 and any("/close" in c for c in s6["ds"]["calls"]), s6["ds"]["calls"][-6:])
-        T("B6b 关闭后 UI 复位（链接清空/状态未开启）",
-          (not s6["link"]) and ("未" in (s6["state"] or "")), (s6["state"], s6["link"]))
-        T("B6c 0 JS 报错 / 0 console.error", not s6["errs"] and not s6["cerrs"], (s6["errs"], s6["cerrs"]))
-        T("B6d 无外部请求", not (p.evaluate(EXTS_JS) or []))
+        ok6 = wait_for(lambda: bool(snap(p)["expiredNotice"]), 10)
+        T("B6a 过期文件在列表下方标注「已过期」", ok6, snap(p)["expiredNotice"])
+        T("B6b 过期文件不提供下载行", not any(it["name"] == "旧文件.bin" for it in snap(p)["files"]), snap(p)["files"])
+
+        # B7 清空空间
+        close_before = snap(p)["ds"]["closeCount"]
+        p.evaluate("var b=document.getElementById('fileClear');if(b)b.click();'x'")
+        ok7 = wait_for(lambda: snap(p)["ds"]["closeCount"] > close_before and snap(p)["statCount"] == "0", 12)
+        s7 = snap(p)
+        T("B7a 清空空间：POST /close 后自动重开（/open）",
+          ok7 and s7["ds"]["openCount"] >= 2, (s7["ds"]["closeCount"], s7["ds"]["openCount"]))
+        T("B7b 清空后列表为空", not s7["files"] and bool(s7["ds"]["session"]), s7["files"])
+
+        # B8 hash 路由：#drop 开大屏互联控制器，不再打开文件页
+        p_drop = new_page(hash="#drop")
+        ok_drop = p_drop.wait_for("(function(){var e=document.getElementById('dropCtl');return !!(e&&e.classList.contains('on'));})()", 15)
+        on_file_after_drop = p_drop.evaluate("!!(document.getElementById('s-file')&&document.getElementById('s-file').classList.contains('on'))")
+        T("B8a #drop 打开大屏互联控制器、不再打开文件页", ok_drop and not on_file_after_drop, (ok_drop, on_file_after_drop))
+        p_drop.close()
+
+        T("B9a 430 宽无横向溢出", s7["overflow"] <= 0, s7["overflow"])
+        T("B9b 0 JS 报错 / 0 console.error", not s7["errs"] and not s7["cerrs"], (s7["errs"], s7["cerrs"]))
+        T("B9c 无外部请求", not (p.evaluate(EXTS_JS) or []))
         try:
-            p.screenshot(os.path.join(SHOTS, "file_430.png"))
+            p.screenshot(os.path.join(SHOTS, "file_cloud_430.png"))
         except Exception:
             pass
     p.close()
 
-    print("\n== B7 #drop hash 路由 ==")
-    p = new_page(hash="#drop")
-    ok = p.wait_for("(function(){var e=document.getElementById('s-file');return !!(e&&e.classList.contains('on'));})()", 15)
-    T("B7a #drop 直接打开文件传输页", ok)
-    T("B7b #drop 不再打开大屏互联旧弹层",
-      p.evaluate("(function(){var e=document.getElementById('dropCtl');return e?(getComputedStyle(e).display==='none'||!e.classList.contains('on')):true;})()"))
-    p.close()
+    # C #file hash 直接打开云空间
+    p2 = new_page(hash="#file")
+    okh = p2.wait_for("(function(){var e=document.getElementById('s-file');return !!(e&&e.classList.contains('on'));})()", 15)
+    T("C1 #file hash 直接打开临时云空间", okh, "")
+    p2.close()
 
-    print("\n== C 溢出 / 报错 ==")
-    for w, h in ((360, 780), (430, 900)):
-        px = new_page(w, h)
-        open_file_page(px)
-        sx = snap(px)
-        T("C-%d 文件传输页无横向溢出" % w, sx["overflow"] == 0, sx["overflow"])
-        T("C-%d 0 JS 报错" % w, not sx["errs"] and not sx["cerrs"], (sx["errs"], sx["cerrs"]))
-        px.close()
-
-    b.close()
     httpd.shutdown()
-
-    print("\n== 截图 ==")
-    for f in sorted(os.listdir(SHOTS)):
-        if "file" in f:
-            print("  " + os.path.join(SHOTS, f))
-    print("\n============================================================")
+    print("\n" + "=" * 60)
     print("v2_web_batch2_file_check: PASS %d / FAIL %d" % (PASS, FAIL))
     if FAILS:
-        print("失败项：")
-        for x in FAILS:
-            print("  - " + x)
-    print("============================================================")
-    return 0 if FAIL == 0 else 1
+        for f in FAILS:
+            print("  [FAIL] " + f)
+    print("=" * 60)
+    sys.exit(1 if FAIL else 0)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

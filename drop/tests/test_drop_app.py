@@ -353,14 +353,14 @@ class TestCorsAndHealth(Base):
         self.assertEqual(app.MAX_FILE_BYTES, 0)      # 0 = 不限
         self.assertEqual(app.MAX_SESSION_BYTES, 0)   # 0 = 不限
         self.assertEqual(app.UPLOAD_TTL_SEC, 86400)
-        self.assertEqual(app.VERSION, "2.1")
+        self.assertEqual(app.VERSION, "2.2")
 
     def test_health_no_auth_and_shape(self):
         status, headers, data = self.get("/__health")
         self.assertEqual(status, 200)
         payload = self.client.json_of(status, data)
         self.assertTrue(payload.get("ok"))
-        self.assertEqual(payload["version"], "2.1")
+        self.assertEqual(payload["version"], "2.2")
         self.assertEqual(payload["sessions"], 0)
         self.assertEqual(payload["files"], 0)
         self.assertEqual(payload["bytes"], 0)
@@ -872,6 +872,59 @@ class TestUploadDownload(Base):
 # ---------------------------------------------------------------------------
 # 限制 / 文本 / 指令 / 事件上限 / 清理
 # ---------------------------------------------------------------------------
+class TestFileDelete(Base):
+    """临时云空间：单文件删除（DELETE /file/<fileId>）。"""
+
+    def test_delete_file_removes_entity_and_emits_filedel(self):
+        session = self.open_session("tok_alice")
+        blob = b"delete-me-" * 100
+        info = self.upload("tok_alice", session["id"], "待删除.bin", blob)
+        path = os.path.join(app.FILES_DIR, session["id"], info["id"] + ".bin")
+        self.assertTrue(os.path.isfile(path))
+        status, _hd, data = self.req(
+            "DELETE", "/file/%s?sessionId=%s" % (info["id"], session["id"]),
+            token="tok_alice")
+        self.assertEqual(status, 200, data[:200])
+        payload = self.client.json_of(status, data)
+        self.assertTrue(payload.get("ok"))
+        self.assertTrue(payload.get("deleted"))
+        self.assertEqual(payload.get("size"), len(blob))
+        self.assertFalse(os.path.exists(path))
+        # /state：原 file 事件标 expired 无 downloadUrl；新增 filedel 事件
+        status, state = self.state("tok_alice", session["id"])
+        self.assertEqual(status, 200)
+        kinds = [ev.get("kind") for ev in state["events"]]
+        self.assertIn("filedel", kinds)
+        file_ev = [ev for ev in state["events"] if ev.get("kind") == "file"][0]
+        self.assertNotIn("downloadUrl", file_ev["payload"])
+        self.assertTrue(file_ev["payload"].get("expired"))
+        filedel = [ev for ev in state["events"] if ev.get("kind") == "filedel"][0]
+        self.assertEqual(filedel["payload"]["fileId"], info["id"])
+        # 旧下载链接失效（记录已移除 → 404；签名过期 → 403，两者都可接受）
+        self.assertIn(self.download(info["downloadUrl"])[0], (403, 404))
+        # 幂等：再删一次返回 deleted=false
+        status, _hd, data = self.req(
+            "DELETE", "/file/%s?sessionId=%s" % (info["id"], session["id"]),
+            token="tok_alice")
+        self.assertEqual(status, 200)
+        self.assertFalse(self.client.json_of(status, data).get("deleted"))
+
+    def test_delete_foreign_session_or_bad_id_rejected(self):
+        alice = self.open_session("tok_alice")
+        info = self.upload("tok_alice", alice["id"], "a.bin", b"aaa")
+        self.open_session("tok_bob")
+        status, _hd, data = self.req(
+            "DELETE", "/file/%s?sessionId=%s" % (info["id"], alice["id"]),
+            token="tok_bob")
+        self.assertIn(status, (403, 404), data[:200])
+        # 非法 fileId / 缺少身份
+        self.assertEqual(self.req("DELETE", "/file/not-a-hex", token="tok_alice")[0], 404)
+        self.assertEqual(self.req("DELETE", "/file/%s" % info["id"])[0], 401)
+        # 原文件仍在（未被他人删除）
+        self.assertTrue(os.path.isfile(
+            os.path.join(app.FILES_DIR, alice["id"], info["id"] + ".bin")))
+
+
 class TestLimitsAndText(Base):
     def _init(self, token, session_id, name, size, total_chunks=None):
         total_chunks = total_chunks or max(

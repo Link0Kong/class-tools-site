@@ -2,6 +2,29 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-12 13:0x–13:1x · v2.0.0 增量 48：文件传输改「临时云空间」+ 大屏自定义体验优化 + drop v2.2（网页已上线 OSS+ECS；小程序源码待上传发布）
+
+> 用户要求：①删除开场指令文件；②文件传输「做成类似临时云空间的工具」；③大屏自定义体验继续优化；④「把微信小程序的功能也同步更新一下」。
+
+### ① 文件传输 = 临时云空间（网页 `#s-file` 重写）
+- 去掉通道/房间码/链接/文字记录等会话概念：进入页面自动连接，同账号（同 token）的电脑/手机/大屏自动共享同一空间，无需配对。
+- 页面：文件数 / 已占用 / 3 天保留统计；上传（任意大小、8MiB 分片、进度/取消）；文件列表（大小/上传时间/剩余保留时间、下载、删除）；清空空间（二次确认）；过期文件标注且不可下载；5s 静默刷新。
+- 路由：`#file` → 文件传输（云空间）；`#drop` 恢复为大屏互联控制器（不再指向文件页）。
+### ② drop 服务 v2.2（ECS 已上线）
+- 新增 `DELETE /file/<fileId>?sessionId=…`：仅本账号会话 owner、幂等、删实体 + 追加 `filedel` 事件（其它同账号设备同步移除）；原 file 事件标记 expired 不再重签。
+- 413 拒收超大请求体前有界读取（消除客户端 ConnectionAborted 竞态）；`ecs_drop.py selftest` 扩到 **32/32 PASS**（真实 ECS：删除/幂等/旧链接失效/关闭清理）。
+### ③ 大屏自定义体验（`tools/index.html` §11）
+- 表头加 ⠿ 拖动把手（可发现性，仍可按住卡片拖动）；顶栏新增撤销 ↶；模块弹层新增「撤销 / 锁定布局 / 恢复默认」；布局历史 `layoutHist`≤12（拖动/拖宽/增删模块/恢复默认都可撤销）；锁定后禁止拖动/拖宽（按钮/聚焦不受影响），`locked` 随 `stage_prefs` 云同步；首次进入提示「按住卡片可拖动排序 · 右上角 ⤢ 放大模块」。
+### ④ 小程序同步（源码就绪，待用户上传发布；VERSION 仍 2.0.0、UD v6 不变）
+- 新增 `utils/cloudspace.js` + `pages/cloudspace`（临时云空间：同账号共享、上传/下载/删除/清空、72h、5s 轮询、分享）；`utils/tools.js` 新增「文件传输」入口；`app.json` 注册；`utils/cloud-config.js` 新增 `dropBase`（开发/体验版直连 ECS、正式版 https://tool.furina.fun/drop）。
+- 正式版发布前需在微信后台配置 request + downloadFile 合法域名（DNS/HTTPS 就绪后）。
+- 按测试账号红线，`mp-class-tools-tests/**` 55 个文件的真实学号/姓名夹具替换为测试身份；`node unit.js` **461/0**、`staticcheck.py` 通过、`code_quality_check.js` 全规则通过。
+### ⑤ 测试/上线/回滚
+- 网页：`v2_web_batch2_file_check` **33/33**（云空间语义）、`v2_stage_v5_check` **126/126**（新增撤销/锁定/把手/提示断言）、`optim_v2_check` GREEN、`v2_ui 27/27`、`v2_pos_restore 12/12`、overflow 430=0、0 JS 报错。
+- 上线：备份 `tools/_backup/index_online_20261112_preCloudSpace.html`（1,143,924B/`8ddf817f…`）→ OSS+ECS **1,146,207 B / sha256 `9f680c0c…`**（OSS check MATCH、ECS verify MATCH）；drop v2.2 `/drop/__health` version=2.2。
+- 回滚：网页重传备份；drop 回滚=重装上一版 `drop_app.py`（`ecs_drop.py deploy`）；小程序回退源码。
+- 删除 `给ZCode的开场指令.txt`（用户要求）。
+
 ## 2026-11-12 12:4x · v2.0.0 增量 47：文件传输 / 大屏互联移除「房间码」（网页已上线 OSS+ECS）
 
 > 用户问「为什么要做房间码」。房间码来自大屏 V4 的会话模型，但实际**同账号设备自动复用同一会话**，`code` 只是 6 位展示字段，

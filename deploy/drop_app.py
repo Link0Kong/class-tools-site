@@ -59,7 +59,7 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = "2.1"
+VERSION = "2.2"
 ROOT = os.path.abspath(os.environ.get("DROP_ROOT", "/opt/class-tools/drop"))
 PORT = int(os.environ.get("DROP_PORT", "8093"))
 DEFAULT_GATEWAY = ("https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com"
@@ -935,8 +935,19 @@ class Handler(BaseHTTPRequestHandler):
     def _read_body(self, limit, required=True):
         length = self._content_length(required=required)
         if length > limit:
+            # 拒绝前尽力把客户端已发送的 body 读掉（有界），否则直接关连接会让客户端 write 收到 RST
+            # （表现为 ConnectionAbortedError；测试/浏览器上传超限时也更友好）。
             self._body_read = True
             self.close_connection = True
+            try:
+                remain = min(int(length), 16 * 1024 * 1024)
+                while remain > 0:
+                    chunk = self.rfile.read(min(256 * 1024, remain))
+                    if not chunk:
+                        break
+                    remain -= len(chunk)
+            except OSError:
+                pass
             raise HttpError(413, "请求体过大")
         data = self.rfile.read(length) if length else b""
         self._body_read = True
@@ -1006,9 +1017,11 @@ class Handler(BaseHTTPRequestHandler):
                     raise HttpError(405, "方法不支持")
                 return self._send_json(200, health_stats())
             if path.startswith("/file/"):
-                if method not in ("GET", "HEAD"):
-                    raise HttpError(405, "方法不支持")
-                return self._route_file(path[len("/file/"):], query)
+                if method in ("GET", "HEAD"):
+                    return self._route_file(path[len("/file/"):], query)
+                if method == "DELETE":
+                    return self._route_file_delete(path[len("/file/"):], query)
+                raise HttpError(405, "方法不支持")
 
             if path == "/open":
                 if method != "POST":
@@ -1428,6 +1441,54 @@ class Handler(BaseHTTPRequestHandler):
             raise HttpError(404, "文件不存在")
         inline = str(_query_one(query, "inline", "0")).lower() in ("1", "true", "yes")
         self._serve_file(path, record, size, inline)
+
+    def _route_file_delete(self, file_id, query):
+        """临时云空间：删除单个文件（仅本账号会话 owner；幂等）。
+
+        - 删除实体 + 从会话 files 表移除，并追加 `filedel` 事件（其它同账号设备收到后从列表移除）；
+        - 原 file 事件保留 seq（/state 会把它标记 expired、不再重签链接）；
+        - 网络/磁盘异常不影响幂等语义：记录不存在返回 {ok:true,deleted:false}。
+        """
+        auth = self._auth()
+        file_id = str(file_id or "").strip()
+        if "/" in file_id or not _valid_hex_id(file_id):
+            raise HttpError(404, "文件不存在")
+        session_id = str(_query_one(query, "sessionId") or "").strip()
+        name = ""
+        size = 0
+        with _LOCK:
+            if session_id:
+                sess = _sess_owned_locked(auth, session_id)
+            else:
+                sess = _find_active_session_locked(auth["sid"])
+            if sess is None:
+                raise HttpError(404, "云空间不存在或已回收")
+            record = None
+            keep = []
+            for item in _session_files(sess):
+                if str(item.get("id") or "") == file_id:
+                    record = item
+                else:
+                    keep.append(item)
+            if record is not None:
+                name = str(record.get("name") or "")
+                size = int(record.get("size") or 0)
+                sess["files"] = keep
+                now = _now_ms()
+                sess["lastActivityAt"] = now
+                sess["updatedAt"] = now
+                _append_event_locked(sess, "filedel",
+                                     {"fileId": file_id, "name": name, "size": size},
+                                     auth.get("name"))
+                _save_session(sess)
+        if record is not None:
+            try:
+                os.remove(os.path.join(FILES_DIR, sess["id"], file_id + ".bin"))
+            except OSError:
+                pass
+            log("file delete session=%s file=%s size=%d" % (sess["id"], file_id, size))
+        self._send_json(200, {"ok": True, "deleted": record is not None,
+                              "name": name, "size": size})
 
     def _serve_file(self, path, record, size, inline):
         name = _safe_filename(record.get("name"))

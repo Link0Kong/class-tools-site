@@ -356,6 +356,16 @@ def main():
          "prefers-reduced-motion:reduce" in s),
         ("A15 名单工具无重复「班委」badge（cmbadge 源码清零）", "cmbadge" not in s),
         ("A16 全部页卡片描述去掉「班级身份气泡」", "班级身份气泡" not in s and 'd:"班委、团员与全班名单"' in s),
+        ("A17 布局撤销：顶栏↶ + 模块弹层撤销 + 历史栈（layoutHist/stgUndoLayout）",
+         all(x in s for x in ('id="o2sUndo"', 'data-stg="undolayout"', 'data-stg="modundo"',
+                              "layoutHist", "stgUndoLayout", "stgPushHist"))),
+        ("A18 布局锁定：模块弹层锁定按钮 + layout.locked 持久化 + opt2-locked",
+         all(x in s for x in ('data-stg="modlock"', 'id="o2sModLock"', "locked:!!L.locked",
+                              "L.locked=!!(o&&o.locked)", "opt2-locked"))),
+        ("A19 拖动把手：表头 ⠿ + title（可发现性）",
+         'class="opt2-grip"' in s and 'title="按住拖动排序"' in s and ".opt2-grip{" in s),
+        ("A20 首次进入提示：按住卡片可拖动排序（每浏览器一次）",
+         "zq_stage_hint_v1" in s and "按住卡片可拖动排序" in s),
     ]
     for name, cond in checks:
         T(name, cond)
@@ -370,6 +380,8 @@ def main():
     st = snap(p)
     T("B1 顶栏无布局/退出聚焦按钮", p.evaluate("!document.querySelector('#o2sLay')&&!document.querySelector('#o2sFocusExit')&&!document.querySelector('#o2sLbar')"))
     T("B1 顶栏有「＋ 模块」/全屏/关闭/互联", p.evaluate("!!document.querySelector('#o2sModBtn')&&!!document.querySelector('#o2sFs')&&!!document.querySelector('#o2sClose')&&!!document.querySelector('#o2sDropBtn')"))
+    T("B1 顶栏有撤销布局按钮（初始不可用）",
+      p.evaluate("(function(){var b=document.querySelector('#o2sUndo');return !!b&&b.classList.contains('off');})()"))
     T("B1 4 个模块面板顺序=布局", st["order"] == ["ppt", "vote", "timer", "draw"], st["order"])
     T("B1 右下角拖宽手柄 4 个", p.evaluate("document.querySelectorAll('#opt2Stage [data-resize]').length===4"))
     p.screenshot(os.path.join(SHOTS, "desktop_default_1366.png"))
@@ -407,6 +419,16 @@ def main():
     T("B2 POST body={sid,layout} 且 Prefer=merge-duplicates",
       bool(posts) and posts[-1]["body"].get("sid") == SID and isinstance(posts[-1]["body"].get("layout"), dict) and
       "merge-duplicates" in posts[-1]["prefer"], posts[-1] if posts else None)
+    # 撤销：点击顶栏 ↶ 恢复拖动前顺序
+    p.evaluate("document.querySelector('#o2sUndo').click();'x'")
+    time.sleep(0.5)
+    st_u = snap(p)
+    lo_u = json.loads(p.evaluate("localStorage.getItem('zq_stage_layout_v1')||'null'"))
+    T("B2 撤销布局：恢复拖动前顺序并持久化",
+      st_u["order"] == ["ppt", "vote", "timer", "draw"] and lo_u and lo_u.get("order")[:2] == ["ppt", "vote"],
+      (st_u["order"], lo_u and lo_u.get("order")))
+    T("B2 撤销后按钮回到不可用（栈空）",
+      p.evaluate("document.querySelector('#o2sUndo').classList.contains('off')"))
 
     # B3 拖宽
     p.evaluate(r"""(function(){
@@ -439,6 +461,16 @@ def main():
     p.evaluate("document.querySelector('#o2sModBody [data-stg=\"modtoggle\"][data-k=\"timer\"]').click();'x'")
     time.sleep(0.3)
     T("B4 加回模块生效", p.evaluate("document.querySelector('#opt2Stage [data-panel=\"timer\"]').hidden===false"))
+    T("B4 模块管理含撤销/锁定按钮",
+      p.evaluate("!!document.querySelector('#o2sModUndo')&&!!document.querySelector('#o2sModLock')"))
+    p.evaluate("document.querySelector('#o2sModLock').click();'x'")
+    time.sleep(0.3)
+    locked = p.evaluate("(function(){var lo=JSON.parse(localStorage.getItem('zq_stage_layout_v1')||'null');return !!(lo&&lo.locked)&&document.getElementById('opt2Stage').classList.contains('opt2-locked');})()")
+    T("B4 锁定布局：写入 layout.locked + opt2-locked 生效", locked, locked)
+    p.evaluate("document.querySelector('#o2sModLock').click();'x'")
+    time.sleep(0.25)
+    unlocked = p.evaluate("!document.getElementById('opt2Stage').classList.contains('opt2-locked')")
+    T("B4 解锁布局生效", unlocked, unlocked)
     p.evaluate("document.querySelector('#o2sModModal [data-stg=\"modclose\"]').click();'x'")
     time.sleep(0.2)
     T("B4 卡片表头 × 移除按钮可移除模块",
@@ -552,7 +584,9 @@ def main():
       p.evaluate("String((document.querySelector('#o2sTimer')||{}).textContent||'')"))
     T("B7 重开：抽签结果清空", p.evaluate("String((document.querySelector('#o2sPick')||{}).textContent||'')") == "?")
     T("B7 重开：聚焦/灵动岛状态清空", st["bodyFocus"] is False and st["island"]["open"] is False, st["island"])
-    T("B7 重开：布局偏好保留（顺序仍为拖动后的）", st["order"][:2] == ["vote", "ppt"], st["order"])
+    _lo7 = json.loads(p.evaluate("localStorage.getItem('zq_stage_layout_v1')||'null'"))
+    T("B7 重开：布局偏好保留（顺序与关闭前一致）",
+      bool(_lo7) and st["order"] == _lo7.get("order"), (st["order"], _lo7 and _lo7.get("order")))
     T("B7 重开：文件传输会话保留（互联按钮高亮，未重新 /open）",
       p.evaluate("document.querySelector('#o2sDropBtn').classList.contains('on')") and snap(p)["mock"]["dropOpen"] == 1, snap(p)["mock"])
     # 退出→重开→发起投票：DOM 与 STAGE.crt 都必须为空（P1 回归：上次未提交草稿不得复活）

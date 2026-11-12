@@ -3128,3 +3128,31 @@ sync-repos.cmd "feat: 说明本次改了什么"
   （`oss_object check` MATCH、ECS verify MATCH，gzip 355,792B）。
 - **回滚**：重传上述备份；后端无需回滚（`code` 字段未改）。
 
+## 2026-11-12 13:0x–13:1x · 增量 48：文件传输=临时云空间 + 大屏自定义优化 + drop v2.2 + 小程序同步
+
+> 用户原话：①开场指令删掉；②「文件传输我希望的是做成类似临时云空间的工具」；③「大屏的自定义体验还是不好，请继续优化」；④「把微信小程序的功能也同步更新一下」。
+
+### 48.1 文件传输=临时云空间（网页）
+- `#s-file` 重写：自动连接（GET /mine → 无则 POST /open）；同账号自动共享，**无房间码/链接/文字**；统计（文件数/占用/3 天保留）；上传任意大小（8MiB 分片、进度/取消）；列表下载/单文件删除；清空空间（confirm → POST /close → 自动重开）；过期文件标注不可下载；5s 静默刷新。
+- `#file` → 云空间；`#drop` → 大屏互联控制器（恢复，不再指向文件页）；大屏互联面板/控制器保留（传文件/文字/遥控）。
+- 测试 `v2_web_batch2_file_check.py` 重写为云空间语义（33/33）。
+
+### 48.2 drop v2.2（ECS）
+- 新增 `DELETE /file/<fileId>?sessionId=`（owner-only、幂等、删实体+追加 `filedel` 事件；原 file 事件 expired 无链接）；413 前有界 drain 请求体；`VERSION="2.2"`。
+- 单测 87/87；真实 ECS `ecs_drop.py deploy/verify/selftest` → health version=2.2、**selftest 32/32 PASS**（含删除/幂等/旧链接失效）。
+
+### 48.3 大屏自定义体验（`tools/index.html` §11）
+- 表头 ⠿ 拖动把手 + `title`；顶栏撤销 ↶（`#o2sUndo`，初始 off）；模块弹层「撤销 / 锁定布局 / 恢复默认」；`layoutHist`≤12（拖动/拖宽/增删/恢复默认入栈；拖/拖宽仅在真的有变化时入栈）；锁定后 pointerdown 阻止拖动/拖宽（6s 节流提示），`layout.locked` 持久化并随 `stage_prefs` 云同步；首次进入提示（`zq_stage_hint_v1`）。
+- `v2_stage_v5_check.py` 116→**126/126**（新增 A17-A20 静态 + B1/B2/B4 撤销/锁定运行时断言；B7 改为与关闭前布局对比）。
+
+### 48.4 小程序同步（源码就绪，待用户上传发布）
+- 新增 `mp-class-tools/utils/cloudspace.js`、`pages/cloudspace/*`（4 文件）、`images/tool-file.png`；`utils/tools.js` 入口 key=`file`（与网页对齐）；`app.json` 注册；`cloud-config.js` 增加 `dropBase`（开发/体验版直连 ECS；正式版 `https://tool.furina.fun/drop`，需 request+downloadFile 合法域名）。
+- 上传 `wx.chooseMessageFile` + 逐片 `readFile(position/length)`；下载 downloadFile→openDocument→shareFileMessage 回退；删除/清空/轮询/下拉刷新/原生分享。
+- 测试：新增 `cloudspace_unit_tests.js`（24 项）挂入 `unit.js`；`node unit.js` **461/0**、`staticcheck.py` 通过、`code_quality_check.js` 全规则通过；`node --check` 新 JS OK。
+- 合规：`mp-class-tools-tests/**` 55 文件真实学号/姓名夹具 → 测试身份（3260799999/测试账号、9999 段），复跑 461/0。
+- 待用户：DevTools 重新编译上传（代理 18081 已修复）；正式版配置域名后真机验上传/下载/删除。
+
+### 48.5 上线/回滚
+- 网页备份 `tools/_backup/index_online_20261112_preCloudSpace.html`（1,143,924B/`8ddf817f…`）→ OSS+ECS **1,146,207 B / sha256 `9f680c0c…`**（OSS `check` MATCH、ECS verify MATCH、gzip 生效）。
+- 回滚：网页重传备份；drop 重装上一版（`ecs_drop.py deploy`）；小程序回退源码。
+
