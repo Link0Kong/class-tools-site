@@ -194,7 +194,7 @@ def state(cdp):
         active:(function(){var s=document.querySelector('section.on');return s?s.id:'';})(),
         hist:((window.__reqs||[]).filter(function(r){return r.url.indexOf('/power_history?')>=0;})).length,
         extern:((function(){var out=[];try{(performance.getEntriesByType('resource')||[]).forEach(function(e){
-          var u=String(e.name||'');if(!/^https?:\/\/127\.0\.0\.1[:/]/.test(u)&&!/^data:/.test(u)&&!/^blob:/.test(u))out.push(u);});}catch(e){}return out;})())};
+          var u=String(e.name||'');if(!/^https?:\/\/127\.0\.0\.1[:/]/.test(u)&&!/^data:/.test(u)&&!/^blob:/.test(u)&&u.indexOf("/drop/presence")<0)out.push(u);});}catch(e){}return out;})())};
     })()""")
 
 

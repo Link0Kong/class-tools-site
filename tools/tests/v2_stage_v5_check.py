@@ -167,7 +167,7 @@ INIT_TMPL = r"""
 })()
 """
 
-REMOTE_DEFAULT = {"v": 1, "order": ["ppt", "vote", "timer", "draw"], "span": {"ppt": 8, "vote": 4, "timer": 6, "draw": 6},
+REMOTE_DEFAULT = {"v": 1, "order": ["ppt", "vote", "timer", "draw", "recv"], "span": {"ppt": 8, "vote": 4, "timer": 6, "draw": 6, "recv": 12},
                   "hidden": [], "lastDeck": "", "pptDl": {}, "at": 1000}
 
 
@@ -222,7 +222,7 @@ def open_stage(p, timeout=12):
     if not p.wait_for("!!document.querySelector('#opt2StageBtn')", timeout):
         return False
     p.evaluate("document.querySelector('#opt2StageBtn').click();'x'")
-    ok = p.wait_for("(function(){var s=document.querySelector('#opt2Stage');return !!s&&s.style.display!=='none'&&document.querySelectorAll('#o2sBody .opt2-panel').length===4;})()", timeout)
+    ok = p.wait_for("(function(){var s=document.querySelector('#opt2Stage');return !!s&&s.style.display!=='none'&&document.querySelectorAll('#o2sBody .opt2-panel').length===5;})()", timeout)
     time.sleep(0.7)
     return ok
 
@@ -366,6 +366,16 @@ def main():
          'class="opt2-grip"' in s and 'title="按住拖动排序"' in s and ".opt2-grip{" in s),
         ("A20 首次进入提示：按住卡片可拖动排序（每浏览器一次）",
          "zq_stage_hint_v1" in s and "按住卡片可拖动排序" in s),
+        ("A21 新模块「接收」：STG_PANELS recv + 渲染/事件合并逻辑",
+         all(x in s for x in ('{k:"recv",n:"接收"', "stgRenderRecv", "stgRecvItems", 'data-fv="recv"'))),
+        ("A22 预设布局按钮：顶栏▦ + 4 套预设 + 应用/撤销",
+         all(x in s for x in ('id="o2sPresetBtn"', 'data-stg="presetopen"', "STG_PRESETS",
+                              "stgApplyPreset", 'data-stg="presetapply"'))),
+        ("A23 拖动占位块：opt2-ph + 固定原始几何命中（防抖动）",
+         "opt2-ph" in s and "stgDragPlaceholderMove" in s and "rects0" in s),
+        ("A24 大屏在线 presence：心跳 POST/GET + 无大屏隐藏互联",
+         all(x in s for x in ("/presence", "stgPresenceStart", "stgPresenceStop",
+                              "stgPresenceGet", "opt2DropPresenceCheck", "dropCtlOpenIfPresent"))),
     ]
     for name, cond in checks:
         T(name, cond)
@@ -376,14 +386,33 @@ def main():
     print("\n== B 桌面 1366×768 ==")
     remote_row = [{"layout": dict(REMOTE_DEFAULT), "updated_at": iso_ago(3600)}]
     p = new_page(b, 1366, 768, mobile=False, mode="remote", remote=remote_row)
-    T("B0 大屏可打开（4 面板）", open_stage(p))
+    T("B0 大屏可打开（5 面板）", open_stage(p))
     st = snap(p)
     T("B1 顶栏无布局/退出聚焦按钮", p.evaluate("!document.querySelector('#o2sLay')&&!document.querySelector('#o2sFocusExit')&&!document.querySelector('#o2sLbar')"))
     T("B1 顶栏有「＋ 模块」/全屏/关闭/互联", p.evaluate("!!document.querySelector('#o2sModBtn')&&!!document.querySelector('#o2sFs')&&!!document.querySelector('#o2sClose')&&!!document.querySelector('#o2sDropBtn')"))
     T("B1 顶栏有撤销布局按钮（初始不可用）",
       p.evaluate("(function(){var b=document.querySelector('#o2sUndo');return !!b&&b.classList.contains('off');})()"))
-    T("B1 4 个模块面板顺序=布局", st["order"] == ["ppt", "vote", "timer", "draw"], st["order"])
-    T("B1 右下角拖宽手柄 4 个", p.evaluate("document.querySelectorAll('#opt2Stage [data-resize]').length===4"))
+    T("B1 5 个模块面板顺序=布局（含接收）", st["order"] == ["ppt", "vote", "timer", "draw", "recv"], st["order"])
+    T("B1 右下角拖宽手柄 5 个", p.evaluate("document.querySelectorAll('#opt2Stage [data-resize]').length===5"))
+    T("B1 接收面板已渲染（空态：等待手机上传）",
+      p.evaluate("(function(){var e=document.querySelector('#opt2Stage [data-panel=\"recv\"]');return !!(e&&e.textContent.indexOf('收到的文件')>=0&&e.textContent.indexOf('手机')>=0);})()"))
+    T("B1 顶栏预设布局按钮存在", p.evaluate("!!document.querySelector('#o2sPresetBtn')"))
+    p.evaluate("document.querySelector('#o2sPresetBtn').click();'x'")
+    time.sleep(0.3)
+    T("B1 预设弹层：4 套布局可选",
+      p.evaluate("(function(){var m=document.querySelector('#o2sPresetModal');return !!m&&!m.hidden&&document.querySelectorAll('#o2sPresetBody .opt2-modrow').length===4;})()"))
+    p.evaluate("document.querySelector('#o2sPresetBody [data-stg=\"presetapply\"][data-k=\"even\"]').click();'x'")
+    time.sleep(0.5)
+    lo_pre = json.loads(p.evaluate("localStorage.getItem('zq_stage_layout_v1')||'null'"))
+    T("B1 应用「四等分」预设：四模块 6 格 + 接收整行",
+      lo_pre and all(str(lo_pre.get("span", {}).get(k)) == "6" for k in ("ppt", "vote", "timer", "draw"))
+      and str(lo_pre.get("span", {}).get("recv")) == "12", lo_pre and lo_pre.get("span"))
+    # 应用预设会改变顺序/宽度 → 回到默认布局再继续拖动测试
+    p.evaluate("document.querySelector('#o2sPresetBtn').click();'x'")
+    time.sleep(0.3)
+    p.evaluate("document.querySelector('#o2sPresetBody [data-stg=\"presetapply\"][data-k=\"default\"]').click();'x'")
+    time.sleep(0.5)
+    T("B1 恢复默认预设后顺序正确", snap(p)["order"] == ["ppt", "vote", "timer", "draw", "recv"], snap(p)["order"])
     p.screenshot(os.path.join(SHOTS, "desktop_default_1366.png"))
 
     # B2 鼠标直拖 + 幽灵 + FLIP
@@ -425,10 +454,17 @@ def main():
     st_u = snap(p)
     lo_u = json.loads(p.evaluate("localStorage.getItem('zq_stage_layout_v1')||'null'"))
     T("B2 撤销布局：恢复拖动前顺序并持久化",
-      st_u["order"] == ["ppt", "vote", "timer", "draw"] and lo_u and lo_u.get("order")[:2] == ["ppt", "vote"],
+      st_u["order"] == ["ppt", "vote", "timer", "draw", "recv"] and lo_u and lo_u.get("order")[:2] == ["ppt", "vote"],
       (st_u["order"], lo_u and lo_u.get("order")))
-    T("B2 撤销后按钮回到不可用（栈空）",
-      p.evaluate("document.querySelector('#o2sUndo').classList.contains('off')"))
+    # 继续撤销（B1 预设也曾入栈）直到栈空，最终应回到默认布局
+    for _ in range(6):
+        if p.evaluate("document.querySelector('#o2sUndo').classList.contains('off')"):
+            break
+        p.evaluate("document.querySelector('#o2sUndo').click();'x'")
+        time.sleep(0.35)
+    T("B2 撤销到底：栈空且回到默认布局",
+      p.evaluate("document.querySelector('#o2sUndo').classList.contains('off')")
+      and snap(p)["order"] == ["ppt", "vote", "timer", "draw", "recv"], snap(p)["order"])
 
     # B3 拖宽
     p.evaluate(r"""(function(){
@@ -453,7 +489,7 @@ def main():
     p.evaluate("document.querySelector('#o2sModBtn').click();'x'")
     time.sleep(0.3)
     T("B4 模块管理弹层：4 模块 + 当前显示状态",
-      p.evaluate("(function(){var m=document.querySelector('#o2sModModal');return !!m&&!m.hidden&&document.querySelectorAll('#o2sModBody .opt2-modrow').length===4;})()"))
+      p.evaluate("(function(){var m=document.querySelector('#o2sModModal');return !!m&&!m.hidden&&document.querySelectorAll('#o2sModBody .opt2-modrow').length===5;})()"))
     p.screenshot(os.path.join(SHOTS, "desktop_module_manager_1366.png"))
     p.evaluate("document.querySelector('#o2sModBody [data-stg=\"modtoggle\"][data-k=\"timer\"]').click();'x'")
     time.sleep(0.3)
@@ -657,11 +693,11 @@ def main():
     T("D0 大屏可打开", open_stage(p))
     time.sleep(0.8)
     st = snap(p)
-    T("D1 LWW：云端更新 → 应用云端顺序", st["order"] == ["draw", "timer", "vote", "ppt"], st["order"])
+    T("D1 LWW：云端更新 → 应用云端顺序", st["order"] == ["draw", "timer", "vote", "ppt", "recv"], st["order"])
     T("D1 GET 请求含 select=layout,updated_at&sid=eq.<sid>",
       any("select=layout,updated_at" in u and ("sid=eq." + SID) in u for u in st["mock"]["gets"]), st["mock"]["gets"][:2])
     T("D1 应用云端后不再重复推送", st["mock"]["postCount"] == 0, st["mock"]["postCount"])
-    T("D1 云端布局写入本机离线缓存", (st["layout"] or {}).get("order") == ["draw", "timer", "vote", "ppt"], st["layout"] and st["layout"].get("order"))
+    T("D1 云端布局写入本机离线缓存", (st["layout"] or {}).get("order") == ["draw", "timer", "vote", "ppt", "recv"], st["layout"] and st["layout"].get("order"))
     p.close()
 
     # D2 本机更新 → 推本机（LWW）
@@ -673,11 +709,11 @@ def main():
     p = new_page(b, 1366, 768, mobile=False, mode="remote", remote=remote_old, local=local_newer)
     T("D2 大屏可打开", open_stage(p))
     time.sleep(0.4)
-    T("D2 LWW：本机更新 → 保留本机顺序", snap(p)["order"] == ["timer", "draw", "ppt", "vote"], snap(p)["order"])
+    T("D2 LWW：本机更新 → 保留本机顺序", snap(p)["order"] == ["timer", "draw", "ppt", "vote", "recv"], snap(p)["order"])
     time.sleep(1.2)
     st = snap(p)
     T("D2 本机更新 → 推送本机布局（含 sid/layout）", st["mock"]["postCount"] >= 1 and
-      st["mock"]["posts"][-1]["body"].get("sid") == SID and st["mock"]["posts"][-1]["body"]["layout"]["order"] == ["timer", "draw", "ppt", "vote"],
+      st["mock"]["posts"][-1]["body"].get("sid") == SID and st["mock"]["posts"][-1]["body"]["layout"]["order"] == ["timer", "draw", "ppt", "vote", "recv"],
       st["mock"]["posts"][-1:] or None)
     T("D2 推送头 Prefer=resolution=merge-duplicates,return=minimal",
       "resolution=merge-duplicates" in st["mock"]["posts"][-1]["prefer"], st["mock"]["posts"][-1]["prefer"])
@@ -690,7 +726,7 @@ def main():
     T("D3 表未就绪 404：大屏仍可打开", open_stage(p))
     time.sleep(1.2)
     st = snap(p)
-    T("D3 404 静默降级：应用 localStorage 布局", st["order"] == ["draw", "ppt", "timer", "vote"], st["order"])
+    T("D3 404 静默降级：应用 localStorage 布局", st["order"] == ["draw", "ppt", "timer", "vote", "recv"], st["order"])
     T("D3 404 静默降级：0 JS 报错 / 0 console.error", not st["errs"] and not st["cerrs"], (st["errs"], st["cerrs"]))
     T("D3 404 已发起 GET 且不阻塞", st["mock"]["getCount"] >= 1, st["mock"]["getCount"])
     p.screenshot(os.path.join(SHOTS, "desktop_404_fallback_1366.png"))
@@ -700,7 +736,7 @@ def main():
     p = new_page(b, 1366, 768, mobile=False, mode="error", local=local404)
     T("D4 网络失败：大屏仍可打开", open_stage(p))
     time.sleep(1.0)
-    T("D4 网络失败：静默降级 localStorage、0 报错", snap(p)["order"] == ["draw", "ppt", "timer", "vote"] and not snap(p)["errs"])
+    T("D4 网络失败：静默降级 localStorage、0 报错", snap(p)["order"] == ["draw", "ppt", "timer", "vote", "recv"] and not snap(p)["errs"])
     p.close()
 
     # D5 空表 → 首次 seed 推送
@@ -708,7 +744,7 @@ def main():
     T("D5 空表：大屏可打开", open_stage(p))
     time.sleep(1.3)
     st = snap(p)
-    T("D5 空表：用旧 localStorage 初始化并推一次 seed", st["mock"]["postCount"] >= 1 and st["mock"]["posts"][-1]["body"]["layout"]["order"] == ["draw", "ppt", "timer", "vote"], st["mock"]["postCount"])
+    T("D5 空表：用旧 localStorage 初始化并推一次 seed", st["mock"]["postCount"] >= 1 and st["mock"]["posts"][-1]["body"]["layout"]["order"] == ["draw", "ppt", "timer", "vote", "recv"], st["mock"]["postCount"])
     p.close()
 
     # ================================================================ E 溢出 + 截图

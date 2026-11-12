@@ -77,6 +77,7 @@ INIT = r"""
     var _ce=console.error;console.error=function(){window.__cerrs.push(Array.prototype.map.call(arguments,function(x){try{return String(x);}catch(e){return "?";}}).join(" "));try{_ce.apply(console,arguments);}catch(e){}};
     try{Object.defineProperty(window,"indexedDB",{value:undefined,configurable:true});}catch(e){}
     window.confirm=function(){return true;};
+    window.open=function(u){window.__opened=String(u||'');return null;};
     window.__DROP_BASE="__DROPBASE__";
     try{localStorage.clear();}catch(e){}
     try{localStorage.setItem("zq_class_identity",JSON.stringify({token:"mock-token",sid:"__SID__",name:"__NAME__",role:"",badge:"",is_admin:false,ts:Date.now()}));}catch(e){}
@@ -106,6 +107,7 @@ INIT = r"""
         return J({ok:true,session:sess()});
       }
       if(s.indexOf("/mine")>=0)return J({ok:true,session:sess()});
+      if(s.indexOf("/presence")>=0)return J({ok:true,stage:true,at:Date.now()});
       if(s.indexOf("/state")>=0)return J({ok:true,session:sess(),events:DS.events.slice(),cursor:DS.seq});
       if(s.indexOf("/upload/init")>=0){
         var b={};try{b=JSON.parse(bodyBytes||"{}");}catch(e){}
@@ -138,7 +140,7 @@ INIT = r"""
         var f={id:"f"+(DS.filesSeq++),name:up2?up2.name:"file",size:up2?up2.size:0,mime:"application/octet-stream",
           downloadUrl:""};
         f.downloadUrl=fileUrl(f.id);
-        DS.files.push(f);pushEvent("file",{fileId:f.id,id:f.id,name:f.name,size:f.size,mime:f.mime,downloadUrl:f.downloadUrl});
+        DS.files.push(f);pushEvent("file",{fileId:f.id,name:f.name,size:f.size,mime:f.mime,downloadUrl:f.downloadUrl});
         return J({ok:true,file:{id:f.id,name:f.name,size:f.size,mime:f.mime,downloadUrl:f.downloadUrl}});
       }
       if(m==="DELETE"&&s.indexOf("/file/")>=0){
@@ -217,6 +219,7 @@ def snap(page):
         return {name:it.querySelector('.file-name')?it.querySelector('.file-name').textContent:'',
           meta:it.querySelector('.file-meta')?it.querySelector('.file-meta').textContent:'',
           href:a?String(a.getAttribute('href')||a.href||''):'',
+          label:a?String(a.textContent||''):'',
           del:!!it.querySelector('[data-filedel]')};});
       var ups=[].map.call(document.querySelectorAll('#fileUpList .file-up'),function(it){
         return {name:it.textContent,pct:it.querySelector('.file-up-pct')?it.querySelector('.file-up-pct').textContent:''};});
@@ -341,6 +344,14 @@ def main():
         T("B2b 下载链接为签名 URL（drop /file/）",
           ok2 and any("/file/" in (it["href"] or "") or "mock.local" in (it["href"] or "") for it in s2["files"]), s2["files"])
         T("B2c 统计更新为 1 个文件 / 非 0 占用", s2["statCount"] == "1", (s2["statCount"], s2["statSize"]))
+        # 下载后按钮变「打开」（与 PPT 一致的用户预期）
+        p.evaluate("(function(){var a=document.querySelector('#fileList .file-dl');if(a)a.click();})()")
+        ok_open = wait_for(lambda: any(it["label"] == "打开" for it in snap(p)["files"]), 8)
+        op = p.evaluate("(function(){try{return localStorage.getItem('zq_file_opened_v1')||'';}catch(e){return '';}})()")
+        T("B2d 点击下载后按钮变「打开」并持久化标记", ok_open and "f1" in op, (ok_open, op[:80]))
+        p.evaluate("(function(){var a=document.querySelector('#fileList .file-dl');if(a)a.click();})()")
+        ok_reopen = wait_for(lambda: bool(p.evaluate("window.__opened")), 8)
+        T("B2e 再点「打开」会重新取签名链接并打开", ok_reopen, p.evaluate("String(window.__opened||'')")[:80])
 
         # B3 大文件 20MiB = 3 片
         upload_file(p, 20 * 1024 * 1024, "测试大文件.bin")

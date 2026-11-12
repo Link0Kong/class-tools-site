@@ -3156,3 +3156,36 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 网页备份 `tools/_backup/index_online_20261112_preCloudSpace.html`（1,143,924B/`8ddf817f…`）→ OSS+ECS **1,146,207 B / sha256 `9f680c0c…`**（OSS `check` MATCH、ECS verify MATCH、gzip 生效）。
 - 回滚：网页重传备份；drop 重装上一版（`ecs_drop.py deploy`）；小程序回退源码。
 
+## 2026-11-12 17:5x–18:3x · 增量 49：用户 10 项反馈（文件/电费/大屏/PPT/互联/小程序）
+
+### 49.1 P0：上传后文件列表看不到
+- 根因：drop `/state` file 事件 payload 是 `fileId`，网页 `addFile` 读 `p.id`；旧 mock 同时给 id 掩盖。修复 `p.id||p.fileId`；测试 mock 只给 fileId。已真实上传验证列表显示。
+
+### 49.2 电费充值趋势
+- `POWER.renderTrend`：检测充值跳变（>0.5 度）→ 绘图用「折算剩余」（q - 累计充值），连续下降；充值竖线 `.pw-rline`；标题「已折算充值」、图例「充值 +N 度（已折算）」。真实剩余仍显示在图例/详情，估算逻辑不变。
+- 测试 `v2_power_trend_compare_check` 新增 E1–E6 → 32/32；power_check 155/155 等回归通过。
+
+### 49.3 大屏拖动重做
+- 占位块 `.opt2-ph`（源卡 display:none，占位块参与网格 + FLIP）；命中几何用拖动开始时的 `rects0`（避免占位块让位导致命中抖动）+ 中心 ±8px 容差；松手才写 order/提交历史；自动边缘滚动。测试 135/135。
+
+### 49.4 大屏「接收」模块 + 预设布局
+- `STG_PANELS` 增加 `recv`（📥）；`stgRenderRecv` 从 `STAGE.drop.events` 渲染收到文件（下载）/文字（复制），顶部互联状态+打开互联；轮询自动刷新。
+- 顶栏 ▦ 预设：默认/演示优先/投票优先/四等分（`STG_PRESETS`/`stgApplyPreset`/预设弹层），应用入撤销栈。
+
+### 49.5 大屏在线 presence（drop v2.3）
+- drop：`GET/POST /presence`，`stageAt` 30s TTL；`VERSION=2.3`；单测 91/91、真实 selftest 38/38。
+- 网页：大屏每 10s POST true，关闭 POST false；全部页「大屏互联」默认隐藏，仅 presence 在线显示（轮询只在该页可见时执行）；`#drop` 先查 presence。
+- 小程序：`utils/screencast.js` + `pages/screencast`；全部页按 presence 动态显示「大屏互联」（不在线不显示）；发文字/传文件/11 项遥控。
+
+### 49.6 PPT / 文件云空间统一「打开文件」
+- 大屏 PPT 去掉 ms-powerpoint 直接放映：主按钮「打开文件」，列表「打开文件/详情」，详情页「打开文件」；遥控 ppt open→openfile。
+- 文件云空间下载后按钮变「打开」（`zq_file_opened_v1`；mp `zq_mp_file_opened_v1`）。
+
+### 49.7 域名停用期间小程序方案（结论）
+- 不依赖 tool.furina.fun 的功能（课表/作业/通知/投票/名单/水量/诊断等，走 CloudBase HTTPS）正常使用；文件云空间/大屏互联依赖 drop 域名。
+- 开发/体验版：dropBase 默认 `http://121.196.47.2/drop` + DevTools 不校验合法域名即可用；正式版必须 `https://tool.furina.fun/drop`（DNS+HTTPS+微信后台 request/downloadFile 合法域名）。临时可换已备案域名 CNAME 到 ECS；长期恢复 DNS 后 `web_pause.py --off` + `ecs_site.py apply --https`。
+
+### 49.8 测试/上线
+- 网页：stage 135、optim GREEN、file 35、power_trend_compare 32、v2_ui 27、overflow 0；mp unit 478/0、staticcheck/code_quality 通过。
+- 上线：网页备份 `index_online_20261112_preBatch2.html`（1,146,207B/`9f680c0c…`）→ OSS+ECS **1,158,525 B / sha256 `41dcfefc…`**；drop v2.3 已部署。
+

@@ -177,23 +177,22 @@ RUNNER = r"""
           /* 抽签面板 */
           var pick=q('[data-o2pick="1"]'); if(pick)pick.click(); await sleep(120);
           T("抽签可点（无名单也不报错）", ["—","无名单"].indexOf(txt("#o2sPick"))>=0 || String(txt("#o2sPick")).length>0, txt("#o2sPick"));
-          /* PPT 面板：放映 / 兼容包下载 */
-          await waitFor(function(){return !!q('#opt2Stage [data-panel="ppt"] [data-pptact="play"]');},6000);
-          T("PPT 面板：主位放映按钮", !!q('#opt2Stage [data-panel="ppt"] [data-pptact="play"]'), "");
-          click('#opt2Stage [data-panel="ppt"] [data-pptact="play"]');
-          await waitFor(function(){return !!q("#pptPlayer");},6000);
-          T("大屏在线放映 → 播放器打开", !!q("#pptPlayer"), "");
-          click('#pptPlayer [data-act="close"]'); await sleep(180);
-          var lv=q('#pptPlayer [data-act="leave"]'); if(lv)lv.click();
-          await waitFor(function(){return !q("#pptPlayer");},5000);
-          T("退出放映自动回到大屏", !q("#pptPlayer") && q("#opt2Stage").style.display!=="none", "");
+          /* PPT 面板：统一「打开文件」（不再直接调用放映） */
+          await waitFor(function(){return !!q('#opt2Stage [data-panel="ppt"] [data-pptact="openfile"]');},6000);
+          T("PPT 面板：主位「打开文件」按钮", !!q('#opt2Stage [data-panel="ppt"] [data-pptact="openfile"]'), "");
+          T("PPT 面板：文案含「打开文件」", txt('#opt2Stage [data-panel="ppt"]').indexOf("打开文件")>=0, "");
+          T("无直接放映按钮（data-pptact=play 已移除）", !q('#opt2Stage [data-panel="ppt"] [data-pptact="play"]'), "");
           await waitFor(function(){return txt('#opt2Stage [data-panel="ppt"]').indexOf("兼容包")>=0;},5000);
           T("PPT 面板：兼容包标签（v2 下载语义）", txt('#opt2Stage [data-panel="ppt"]').indexOf("兼容包")>=0, "");
-          var dlBtn=q('#opt2Stage [data-panel="ppt"] [data-pptact="dl"][data-ppt-id="d2"]');
+          var d2row0=q('#opt2Stage [data-panel="ppt"] [data-pptsel="d2"]');
+          if(d2row0){d2row0.click();await sleep(250);}
+          var dlBtn=q('#opt2Stage [data-panel="ppt"] [data-pptact="dl"]');
           if(dlBtn)dlBtn.click();
           await waitFor(function(){var d=q("#pptDl");return d&&!d.hidden&&txt("#pptDl").indexOf("兼容版")>=0;},6000);
           T("PPT 面板：打开下载详情（兼容版/PDF）", !!q("#pptDl") && !q("#pptDl").hidden && txt("#pptDl").indexOf("兼容版")>=0, "btn="+!!dlBtn+" dl="+(q("#pptDl")?String(q("#pptDl").hidden):"none")+" toast="+txt("#toast").slice(0,20));
-          T("PPT 详情：PowerPoint 打开（本机 Office 联动）", txt("#pptDl").indexOf("PowerPoint 打开")>=0 && !!q('#pptDl a[href^="ms-powerpoint:ofv|u|"]'), "");
+          T("PPT 详情：统一「打开文件」链接（不再 ms-powerpoint）",
+            txt("#pptDl").indexOf("打开文件")>=0 && !!q('#pptDl a.ppt-office') && !q('#pptDl a[href^="ms-powerpoint:"]'),
+            String(q("#pptDl")?q("#pptDl").innerHTML.slice(0,400):"none"));
           var dlx=q('#pptDl [data-dlact="close"]'); if(dlx)dlx.click();
           await sleep(250);
           T("PPT 详情可关闭", !q("#pptDl") || q("#pptDl").hidden, "");
@@ -201,9 +200,9 @@ RUNNER = r"""
           try{localStorage.setItem("zq_stage_ppt_dl_v1",JSON.stringify({d2:{at:Date.now(),kind:"compat"}}));}catch(e){}
           var d1row=q('#opt2Stage [data-panel="ppt"] [data-pptsel="d1"]'); if(d1row)d1row.click(); await sleep(200);
           var d2row=q('#opt2Stage [data-panel="ppt"] [data-pptsel="d2"]'); if(d2row)d2row.click(); await sleep(250);
-          var heroOpen=q('#opt2Stage [data-panel="ppt"] [data-pptact="open"]');
+          var heroOpen=q('#opt2Stage [data-panel="ppt"] [data-pptact="openfile"]');
           var hrefOk="";try{hrefOk=String(window.PPT&&window.PPT.hrefOf?window.PPT.hrefOf("d2","compat"):"");}catch(e){}
-          T("PPT：已下载 → 主按钮变「打开」", !!heroOpen && txt('#opt2Stage [data-panel="ppt"]').indexOf("已下载")>=0, "");
+          T("PPT：已打开过 → 主按钮仍是「打开文件」", !!heroOpen && txt('#opt2Stage [data-panel="ppt"]').indexOf("已打开过")>=0, "");
           T("PPT：Office 打开链接（ECS 加速）可用", hrefOk.indexOf("/pptfiles/ppt/")>=0, hrefOk.slice(0,60));
           /* 模块聚焦 / 灵动岛 / 直拖 / 模块管理（V5） */
           T("灵动岛：进行中模块汇总", !!q("#o2sIsland") && !q("#o2sIsland").hidden && txt("#o2sIsland").indexOf("进行中")>=0, txt("#o2sIsland"));
@@ -224,14 +223,14 @@ RUNNER = r"""
             var h=root.querySelector('[data-panel="ppt"] [data-panelhd]');var r=h.getBoundingClientRect();
             pe(h,"pointerdown",r.left+8,r.top+8);
             var t2=root.querySelector('[data-panel="vote"]');var tr=t2.getBoundingClientRect();
-            document.dispatchEvent(new PointerEvent("pointermove",{bubbles:true,cancelable:true,clientX:tr.left+Math.max(20,tr.width*0.4),clientY:tr.top+Math.max(20,tr.height*0.4),pointerId:1,button:0,pointerType:"mouse"}));
-            document.dispatchEvent(new PointerEvent("pointerup",{bubbles:true,cancelable:true,clientX:tr.left+40,clientY:tr.top+40,pointerId:1,button:0,pointerType:"mouse"}));
+            document.dispatchEvent(new PointerEvent("pointermove",{bubbles:true,cancelable:true,clientX:tr.left+tr.width*0.62,clientY:tr.top+tr.height*0.5,pointerId:1,button:0,pointerType:"mouse"}));
+            document.dispatchEvent(new PointerEvent("pointerup",{bubbles:true,cancelable:true,clientX:tr.left+tr.width*0.62,clientY:tr.top+tr.height*0.5,pointerId:1,button:0,pointerType:"mouse"}));
           })(); await sleep(400);
           var hdOrder="";try{hdOrder=JSON.parse(localStorage.getItem("zq_stage_layout_v1")).order.join(",");}catch(e){}
           T("直拖：鼠标按住卡片表头可换位", hdOrder.indexOf("vote,ppt")===0, hdOrder);
           T("直拖：落位写入本机离线缓存", !!localStorage.getItem("zq_stage_layout_v1"), "");
           var rz=q('#opt2Stage [data-panel="vote"] [data-resize]');
-          T("拖宽：右下角手柄存在（V5 不再依赖编辑模式；手机单列隐藏）", !!rz && document.querySelectorAll('#opt2Stage [data-resize]').length===4, "");
+          T("拖宽：右下角手柄存在（V5 不再依赖编辑模式；手机单列隐藏）", !!rz && document.querySelectorAll('#opt2Stage [data-resize]').length===5, "");
           (function(){
             var panel=q('#opt2Stage [data-panel="vote"]'),grip=panel.querySelector("[data-resize]");
             var r=grip.getBoundingClientRect(),colW=document.querySelector("#o2sBody").clientWidth/12;
@@ -244,7 +243,7 @@ RUNNER = r"""
           T("拖宽：改变宽度并持久化", spanNow!=="4" && spanNow!=="", spanNow);
           /* 模块管理弹层：移除 / 加回 */
           click("#o2sModBtn"); await sleep(250);
-          T("模块管理：弹层列出 4 个模块且可增删", !!q("#o2sModModal") && !q("#o2sModModal").hidden && document.querySelectorAll("#o2sModBody .opt2-modrow").length===4, "");
+          T("模块管理：弹层列出 5 个模块且可增删", !!q("#o2sModModal") && !q("#o2sModModal").hidden && document.querySelectorAll("#o2sModBody .opt2-modrow").length===5, "");
           click('#o2sModBody [data-stg="modtoggle"][data-k="timer"]'); await sleep(250);
           T("模块管理：移除模块生效", q('#opt2Stage [data-panel="timer"]').hidden===true, "");
           click('#o2sModBody [data-stg="modtoggle"][data-k="timer"]'); await sleep(250);

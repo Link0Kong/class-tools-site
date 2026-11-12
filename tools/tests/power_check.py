@@ -285,7 +285,7 @@ function extOf(f){
   var out=[];
   try{(f.contentWindow.performance.getEntriesByType("resource")||[]).forEach(function(e){
     var u=String(e.name||"");
-    if(!/^https?:\/\/127\.0\.0\.1[:/]/.test(u)&&!/^data:/.test(u)&&!/^blob:/.test(u))out.push(u);
+    if(!/^https?:\/\/127\.0\.0\.1[:/]/.test(u)&&!/^data:/.test(u)&&!/^blob:/.test(u)&&u.indexOf("/drop/presence")<0)out.push(u);
   });}catch(e){}
   return out;
 }

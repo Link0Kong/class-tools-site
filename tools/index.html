@@ -900,6 +900,7 @@ body.rst-lock{overflow:hidden}
 .pw-card-hd b{font-size:14px;color:var(--ink);white-space:nowrap}
 .pw-recharge{font-size:10.5px;font-weight:700;color:#8A6A3E;background:#FAF3E6;border-radius:999px;padding:0 8px;line-height:1.7;white-space:nowrap}
 .pw-recharge[hidden]{display:none}
+.pw-rline{stroke:#B98F63;stroke-width:1;stroke-dasharray:3 3;opacity:.55;vector-effect:non-scaling-stroke}
 /* 关注宿舍同步状态（极简：已同步 / 未同步 · 点重试） */
 .pw-sync{font-size:11px;line-height:1.5;color:var(--ink3);cursor:pointer;border-bottom:1px dashed transparent}
 .pw-sync[hidden]{display:none}
@@ -1379,7 +1380,9 @@ body.rst-lock{overflow:hidden}
   font-weight:700;cursor:pointer;padding:4px 6px;border-radius:6px;white-space:nowrap}
 .opt2-link:hover,.opt2-link:focus-visible{color:var(--s-ink);outline:none}
 /* 右下角拖宽：V5 起始终可用（不再依赖编辑模式；手机单列隐藏） */
-.opt2-resize{display:block;position:absolute;right:0;bottom:0;width:22px;height:22px;cursor:nwse-resize;
+.opt2-ph{border:1.5px dashed rgba(95,168,149,.62);border-radius:22px;background:rgba(95,168,149,.08);
+    box-sizing:border-box;pointer-events:none;min-height:60px}
+  .opt2-resize{display:block;position:absolute;right:0;bottom:0;width:22px;height:22px;cursor:nwse-resize;
   border-right:2px solid rgba(95,168,149,.55);border-bottom:2px solid rgba(95,168,149,.55);
   border-radius:0 0 20px 0;z-index:3;touch-action:none}
 .opt2-pbd{flex:1;display:flex;flex-direction:column;min-height:0;min-width:0;margin-top:8px;overflow:hidden}
@@ -1577,6 +1580,10 @@ body.opt2-lock{overflow:hidden!important}
   #opt2Stage.opt2-locked .opt2-grip{color:rgba(244,247,246,.22)}
   #opt2Stage.opt2-locked .opt2-resize{display:none}
   .opt2-ibtn.off{opacity:.4}
+  .opt2-recv-hd{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .opt2-recv-st{font-size:11.5px;font-weight:700;color:var(--s-dim2)}
+  .opt2-recv-st.on{color:var(--s-acc)}
+  .opt2-presetmodal{max-width:520px}
   .opt2-panel.opt2-dragging{opacity:.34;outline:1px dashed rgba(95,168,149,.55);outline-offset:-1px}
   .opt2-panel.opt2-dragging .opt2-phd{cursor:grabbing}
   .opt2-ghost{position:fixed;left:0;top:0;z-index:118;pointer-events:none;opacity:.94;
@@ -2355,6 +2362,8 @@ body.ppt-dl-lock{overflow:hidden!important}
 #s-file .file-acts{flex:none;display:flex;gap:6px;align-items:center}
 #s-file .file-dl{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card, #fff);color:var(--cy);font-size:12.5px;font-weight:700;text-decoration:none;font-family:inherit}
 #s-file .file-dl:hover{border-color:var(--cy);background:#F3F8F6}
+#s-file .file-dl.opened{background:var(--cy);border-color:var(--cy);color:#fff}
+#s-file .file-dl.opened:hover{background:#437F73;border-color:#437F73}
 #s-file .file-del{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card, #fff);color:#A25B45;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer}
 #s-file .file-del:hover{border-color:#C98C74;background:#FCF6F3}
 #s-file .file-empty{padding:18px 4px;text-align:center;color:var(--ink3);font-size:12.5px;border:1px dashed var(--line);border-radius:12px}
@@ -6556,7 +6565,14 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     }
     var pts=sel?POWER.ptsFor(rng):null;
     var d=pts?POWER.deriveRange(pts):null;
-    if(chip)chip.hidden=!(d&&d.recharge);
+    if(chip){
+      chip.hidden=!(d&&d.recharge);
+      if(d&&d.recharge){
+        chip.textContent="期间有充值";
+        chip.setAttribute("title","充值跳变已从趋势中扣除，曲线按实际用电趋势显示");
+      }else{chip.removeAttribute("title");}
+    }
+    if(title)title.textContent=meta.title+((d&&d.recharge)?" · 已折算充值":"");
     var dedEl=$("#pwDeduct");
     if(dedEl){
       var dn=(d&&d.deductN)||0;
@@ -6586,15 +6602,32 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     if(canvas)canvas.style.width=W+"px";
     if(scroll)scroll.style.overflowX="hidden";
     var H=Math.max(90,box.clientHeight||120),padX=8,padY=10;
-    var lo=pts[0].q,hi=pts[0].q,i;
-    for(i=1;i<n;i++){if(pts[i].q<lo)lo=pts[i].q;if(pts[i].q>hi)hi=pts[i].q;}
+    /* v2026-11-12：大额充值会让剩余电量整体抬高、把日常下降压成平线。
+       若区间内出现充值跳变，绘图值改为「扣除充值累计后的折算剩余」（保持连续下降），
+       真实剩余仍在图例/详情中显示；同时标出充值位置。 */
+    var vals=[],cumRech=0,rechIdx=[],i;
+    for(i=0;i<n;i++){
+      if(i>0){
+        var dq=Number(pts[i].q)-Number(pts[i-1].q);
+        if(dq>0.5){cumRech+=dq;rechIdx.push(i);}      /* 充值/修正：加回累计，折算值连续 */
+      }
+      vals.push(Number(pts[i].q)-cumRech);
+    }
+    var lo=vals[0],hi=vals[0];
+    for(i=1;i<n;i++){if(vals[i]<lo)lo=vals[i];if(vals[i]>hi)hi=vals[i];}
     /* 全房通用平态（§3）：数值几乎不变时线段垂直居中，避免贴边 */
     var flat=(hi-lo)<PW_CH;
     if(hi-lo<0.05)hi=lo+0.05;
     var coords=[],t0=pts[0].t,t1=pts[n-1].t,span=Math.max(1,t1-t0);
     for(i=0;i<n;i++){
-      var yy=flat?(H/2):(padY+(hi-pts[i].q)/(hi-lo)*(H-padY*2));
+      var yy=flat?(H/2):(padY+(hi-vals[i])/(hi-lo)*(H-padY*2));
       coords.push([padX+(pts[i].t-t0)/span*(W-padX*2),yy]);
+    }
+    /* 充值位置竖虚线（只做标记，不改变用电曲线） */
+    var rlines="";
+    if(rechIdx.length){
+      rlines=rechIdx.map(function(j){var x=coords[j][0];
+        return '<line class="pw-rline" x1="'+x.toFixed(1)+'" y1="'+padY+'" x2="'+x.toFixed(1)+'" y2="'+(H-padY)+'"/>';}).join("");
     }
     /* 慢频房按真实更新点画阶梯线（先水平后垂直、不插值）；实时房保持原折线 */
     var line;
@@ -6619,11 +6652,13 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
       '<path class="pw-trend-area" d="'+area+'"/>'+
       '<line class="pw-trend-grid" x1="0" y1="'+(H*0.32).toFixed(1)+'" x2="'+W+'" y2="'+(H*0.32).toFixed(1)+'"/>'+
       '<line class="pw-trend-grid" x1="0" y1="'+(H*0.72).toFixed(1)+'" x2="'+W+'" y2="'+(H*0.72).toFixed(1)+'"/>'+
+      rlines+
       '<path class="pw-trend-line" d="'+line+'" vector-effect="non-scaling-stroke"/>'+
       '</svg>'+dots+
       '<span class="pw-tdot" style="left:'+(last[0]/W*100).toFixed(3)+'%;top:'+(last[1]/H*100).toFixed(3)+'%"></span>';
     var mid=(hi+lo)/2;
     if(yax){
+      yax.setAttribute("title",cumRech>0?"已扣除充值跳变的折算剩余（度）":"剩余电量（度）");
       /* 平线：只标中心值一个刻度，避免三个相同数字看起来像渲染异常 */
       yax.innerHTML=flat
         ?('<span class="pw-ylab" style="top:50%">'+mid.toFixed(1)+'</span>')
@@ -6646,7 +6681,8 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
       legend.innerHTML='<span>'+(rng==="24h"?"起点":"起")+' <b>'+POWER.fmtDrop(d.start)+'</b> 度</span>'+
         '<span>当前 <b>'+POWER.fmtDrop(cur)+'</b> 度</span>'+
         '<span>'+meta.dropLabel+' <b>'+POWER.fmtDrop(down)+'</b> 度</span>'+
-        ((d&&d.deductDeg>0)?('<span>扣减 <b>'+POWER.fmtDrop(d.deductDeg)+'</b> 度</span>'):'');
+        ((d&&d.deductDeg>0)?('<span>扣减 <b>'+POWER.fmtDrop(d.deductDeg)+'</b> 度</span>'):'')+
+        (cumRech>0?('<span>充值 <b>+'+POWER.fmtDrop(cumRech)+'</b> 度（已折算）</span>'):'');
     }
   },
   /* 固定横轴：按当前可见窗口算 3–5 个日期刻度（不随内容一起横移） */
@@ -11993,13 +12029,13 @@ var PPT=(function(){
     /* 主「下载」优先 ECS 缓存；非缓存路径/解析失败时 href 即 OSS，此时不重复显示「备用」 */
     var alt=(href!==oss)?'<a class="ppt-alt" href="'+esc(oss)+'" download="'+esc(name)+
       '" rel="noopener" title="备用下载（较慢）">备用</a>':'';
-    /* 大屏联动：兼容版可直接交给本机 PowerPoint 打开（Office URI scheme；WPS 无公开远程打开协议，走下载） */
-    var office="";
+    /* 统一「打开文件」：不再尝试 ms-powerpoint 直接放映；浏览器下载/预览后用本机 PowerPoint 打开 */
+    var office='';
     try{
       var absHref=new URL(href,location.href).href;
-      if(kind==="compat"&&/^https?:/i.test(absHref)){
-        office='<a class="ppt-office" href="ms-powerpoint:ofv|u|'+esc(absHref)+
-          '" title="用本机 PowerPoint 打开（需已安装 Office；WPS 请下载后打开）">PowerPoint 打开</a>';
+      if(/^https?:/i.test(absHref)){
+        office='<a class="ppt-office" href="'+esc(absHref)+'" target="_blank" rel="noopener"'+
+          ' title="打开文件（浏览器下载/预览；用本机 PowerPoint 打开）">打开文件</a>';
       }
     }catch(e){}
     var deckId="";try{deckId=String((D&&D.deck&&D.deck.id)||"");}catch(e0){}
@@ -15049,12 +15085,18 @@ function optSaveCanvas(c,o){
     vote:{list:[],id:"",detail:null,listLoading:false,detLoading:false,err:"",listAt:0,detAt:0},
     drop:{active:false,session:null,events:[],cursor:0,iv:0,err:"",busy:false,lastCount:0},
     ctl:{open:false,timer:0,cursor:0,events:[],err:"",busy:false,uploads:[]},
-    fsWant:false,fsLost:false,visBound:false,layoutHist:[],lockTipAt:0};
+    fsWant:false,fsLost:false,visBound:false,layoutHist:[],lockTipAt:0,presenceIv:0};
   var STG_DECK_KEY="zq_stage_deck_v1";
   var STG_LAYOUT_KEY="zq_stage_layout_v1";
   var STG_PPT_DL_KEY="zq_stage_ppt_dl_v1";
-  var STG_PANELS=[{k:"ppt",n:"演示",ico:"📽"},{k:"vote",n:"投票",ico:"🗳"},{k:"timer",n:"计时",ico:"⏱"},{k:"draw",n:"抽签",ico:"🎲"}];
-  var STG_DEFAULT={order:["ppt","vote","timer","draw"],span:{ppt:8,vote:4,timer:6,draw:6},hidden:[]};
+  var STG_PANELS=[{k:"ppt",n:"演示",ico:"📽"},{k:"vote",n:"投票",ico:"🗳"},{k:"timer",n:"计时",ico:"⏱"},{k:"draw",n:"抽签",ico:"🎲"},{k:"recv",n:"接收",ico:"📥"}];
+  var STG_DEFAULT={order:["ppt","vote","timer","draw","recv"],span:{ppt:8,vote:4,timer:6,draw:6,recv:12},hidden:[]};
+  var STG_PRESETS=[
+    {k:"default",n:"默认布局",desc:"演示 8 · 投票 4 · 计时/抽签 6 · 接收整行",order:["ppt","vote","timer","draw"],span:{ppt:8,vote:4,timer:6,draw:6,recv:12}},
+    {k:"ppt",n:"演示优先",desc:"演示整行 · 其余并排",order:["ppt","vote","timer","draw"],span:{ppt:12,vote:6,timer:3,draw:3,recv:12}},
+    {k:"vote",n:"投票优先",desc:"投票整行 · 演示其次",order:["vote","ppt","timer","draw"],span:{vote:12,ppt:6,timer:3,draw:3,recv:12}},
+    {k:"even",n:"四等分",desc:"演示/投票/计时/抽签 6 格并排",order:["ppt","vote","timer","draw"],span:{ppt:6,vote:6,timer:6,draw:6,recv:12}}
+  ];
   var STG_CREATE_MINS=[5,10,30,60,120];
   var STG_MAX_OPTS=20;
   var STG_IMG_MAX=150000;
@@ -15302,12 +15344,7 @@ function optSaveCanvas(c,o){
     stgLayoutTouched();stgRenderAll();
   }
   function stgPreset(){
-    stgRememberLayout();
-    var p=STG_DEFAULT;
-    STAGE.layout.order=p.order.slice();
-    STG_PANELS.forEach(function(pp){STAGE.layout.span[pp.k]=stgSpanVal((p.span||{})[pp.k]||6);});
-    STAGE.layout.hidden=[];
-    stgLayoutTouched();stgRenderAll();toast("已恢复默认布局");
+    stgApplyPreset("default");
   }
   function stgModModal(){
     var ov=el("o2sModModal");
@@ -15425,10 +15462,59 @@ function optSaveCanvas(c,o){
     document.removeEventListener("pointercancel",stgPointerUp);
     document.removeEventListener("touchmove",stgTouchGuard);
   }
+  function stgDragOthers(k){return stgVisibleKeys().filter(function(x){return x!==k;});}
+  function stgDragInsIndex(x,y,others,rects0,dy){
+    var entries=[],i,r;
+    for(i=0;i<others.length;i++){
+      r=(rects0&&rects0[others[i]])?{l:rects0[others[i]].l,t:rects0[others[i]].t+ (dy||0),
+        w:rects0[others[i]].w,h:rects0[others[i]].h}:stgPanelRect(others[i]);
+      if(r&&r.w>0)entries.push({k:others[i],r:r});
+    }
+    if(!entries.length)return 0;
+    /* 指针落在某个面板上：左半 → 放它前；右半 → 放它后（整行面板同规则，避免跨行乱跳） */
+    for(i=0;i<entries.length;i++){
+      r=entries[i].r;
+      if(x>=r.l-8&&x<=r.l+r.w+8&&y>=r.t-8&&y<=r.t+r.h+8){
+        /* 中心 ±8px 容差：落在中点附近视为「放到该卡后面」，避免整数坐标/亚像素导致落点抖动 */
+        if(Math.abs(x-(r.l+r.w/2))<=8)return i+1;
+        return (x<r.l+r.w/2)?i:i+1;
+      }
+    }
+    /* 指针在空白处：取最近面板中心，按阅读顺序定前/后 */
+    var best=0,bd=1e18,bx=0,by=0;
+    for(i=0;i<entries.length;i++){
+      r=entries[i].r;
+      var cx=r.l+r.w/2,cy=r.t+r.h/2,dx=x-cx,dy=y-cy,d=dx*dx+dy*dy;
+      if(d<bd){bd=d;best=i;bx=cx;by=cy;}
+    }
+    r=entries[best].r;
+    if(y<r.t+r.h*0.5)return best;
+    if(y>r.t+r.h*0.5)return best+1;
+    return (x<bx)?best:best+1;
+  }
+  function stgDragPlaceholderMove(){
+    var d=STAGE.drag;if(!d||!d.ph)return;
+    var others=stgDragOthers(d.k);
+    var wrap0=document.querySelector(".opt2-bodywrap");
+    var dy=(wrap0?wrap0.scrollTop:0)-(d.scroll0||0);
+    var ins=stgDragInsIndex(d.x,d.y,others,d.rects0,dy);
+    if(ins===d.insPos)return;
+    d.insPos=ins;
+    var olds={};others.forEach(function(k){olds[k]=stgPanelRect(k);});
+    var body=el("o2sBody");if(!body)return;
+    var ref=(ins<others.length)?stgPanelEl(others[ins]):null;
+    if(ref&&ref.parentNode===body)body.insertBefore(d.ph,ref);else body.appendChild(d.ph);
+    stgAnimateFlip(olds,"");
+  }
   function stgDragBegin(){
     var p=STAGE.pt;if(!p||!p.panel)return;
     var panel=p.panel,r=panel.getBoundingClientRect();
     p.started=true;if(p.timer){clearTimeout(p.timer);p.timer=0;}
+    /* 命中几何必须在隐藏源卡/插入占位块之前采集（否则原位置重排，落点会算错） */
+    var rects0={};
+    stgDragOthers(p.k).forEach(function(k){rects0[k]=stgPanelRect(k);});
+    var wrapInit=document.querySelector(".opt2-bodywrap");
+    var scroll0=wrapInit?wrapInit.scrollTop:0;
     var g=panel.cloneNode(true);
     try{g.removeAttribute("id");}catch(e){}
     g.setAttribute("aria-hidden","true");
@@ -15437,8 +15523,18 @@ function optSaveCanvas(c,o){
     g.style.width=Math.round(r.width)+"px";g.style.height=Math.round(r.height)+"px";
     var root=el("opt2Stage");(root||document.body).appendChild(g);
     panel.classList.add("opt2-dragging");
-    STAGE.drag={k:p.k,panel:panel,ghost:g,ox:p.x-r.left,oy:p.y-r.top,x:p.x,y:p.y,
-      order0:STAGE.layout.order.slice(),insPos:-1,flipOlds:stgCaptureRects(),snap:stgLayoutSnap()};
+    /* 占位块放在源卡原位置（源卡隐藏），拖动时只移动占位块 → 其它卡片稳定让位 */
+    var ph=document.createElement("div");
+    ph.className="opt2-ph";ph.setAttribute("aria-hidden","true");
+    ph.style.gridColumn="span "+stgSpanVal(STAGE.layout.span[p.k]);
+    ph.style.height=Math.round(r.height)+"px";
+    if(panel.parentNode)panel.parentNode.insertBefore(ph,panel);
+    panel.style.display="none";
+    var vis=stgVisibleKeys();
+    var pos=vis.indexOf(p.k);if(pos<0)pos=vis.length;
+    STAGE.drag={k:p.k,panel:panel,ghost:g,ph:ph,ox:p.x-r.left,oy:p.y-r.top,x:p.x,y:p.y,
+      order0:STAGE.layout.order.slice(),insPos:pos,rects0:rects0,scroll0:scroll0,
+      flipOlds:stgCaptureRects(),snap:stgLayoutSnap()};
     try{if(navigator.vibrate)navigator.vibrate(8);}catch(e){}
     try{document.documentElement.style.cursor="grabbing";}catch(e){}
   }
@@ -15446,60 +15542,42 @@ function optSaveCanvas(c,o){
     var d=STAGE.drag;if(!d)return;
     d.x=x;d.y=y;
     try{d.ghost.style.transform="translate3d("+Math.round(x-d.ox)+"px,"+Math.round(y-d.oy)+"px,0)";}catch(e){}
-    stgCalcInsert();
-  }
-  function stgCalcInsert(){
-    var d=STAGE.drag;if(!d)return;
-    var keys=stgVisibleKeys();
-    var others=keys.filter(function(k){return k!==d.k;});
-    if(!others.length)return;
-    var best=0,bestDist=Infinity,i,r,cx,cy,dx,dy,dist;
-    for(i=0;i<others.length;i++){
-      r=stgPanelRect(others[i]);if(!r)continue;
-      cx=r.l+r.w/2;cy=r.t+r.h/2;
-      dx=d.x-cx;dy=d.y-cy;
-      dist=Math.sqrt(dx*dx+dy*dy*1.3);
-      if(dist<bestDist){bestDist=dist;best=i;}
-    }
-    r=stgPanelRect(others[best]);if(!r)return;
-    var rowTol=Math.max(10,r.h*.12),colTol=Math.max(6,r.w*.1);
-    var ins;
-    var cX=r.l+r.w/2,cY=r.t+r.h/2;
-    if(d.y<cY-rowTol)ins=best;
-    else if(d.y>cY+rowTol)ins=best+1;
-    else ins=(d.x<cX-colTol)?best:best+1;
-    ins=Math.max(0,Math.min(others.length,ins));
-    if(ins===d.insPos)return;
-    d.insPos=ins;
-    stgApplyOrder(others,d.k,ins);
-  }
-  function stgApplyOrder(others,dragKey,ins){
-    var L=STAGE.layout;
-    var rest=others.slice();
-    rest.splice(ins,0,dragKey);
-    var out=[],vi=0;
-    L.order.forEach(function(k){
-      if(L.hidden.indexOf(k)>=0)out.push(k);
-      else out.push(rest[vi++]);
-    });
-    if(out.join(",")===L.order.join(","))return;
-    var olds=stgCaptureRects();
-    L.order=out;
-    stgEnsurePanels();
-    stgAnimateFlip(olds,dragKey);
-    if(STAGE.drag)STAGE.drag.flipOlds=stgCaptureRects();
+    stgDragPlaceholderMove();
+    /* 拖到视口上下边缘自动滚动 */
+    try{
+      var wrap=document.querySelector(".opt2-bodywrap");
+      if(wrap){
+        var wr=wrap.getBoundingClientRect();
+        if(y<wr.top+70)wrap.scrollTop-=16;
+        else if(y>wr.bottom-90)wrap.scrollTop+=16;
+      }
+    }catch(e){}
   }
   function stgDragEnd(){
     var d=STAGE.drag;if(!d)return;
     STAGE.drag=null;
     try{if(d.ghost&&d.ghost.parentNode)d.ghost.parentNode.removeChild(d.ghost);}catch(e){}
-    try{d.panel.classList.remove("opt2-dragging");}catch(e){}
+    try{if(d.ph&&d.ph.parentNode)d.ph.parentNode.removeChild(d.ph);}catch(e){}
+    try{d.panel.classList.remove("opt2-dragging");d.panel.style.display="";}catch(e){}
     try{document.documentElement.style.cursor="";}catch(e){}
     STAGE.suppressClick=Date.now()+320;
-    var changed=d.order0.join(",")!==STAGE.layout.order.join(",");
-    if(changed){stgPushHist(d.snap);stgLayoutTouched();try{if(navigator.vibrate)navigator.vibrate(6);}catch(e){}}
+    var L=STAGE.layout,others=stgDragOthers(d.k);
+    var ins=Math.max(0,Math.min(others.length,Number(d.insPos)||0));
+    var rest=others.slice();rest.splice(ins,0,d.k);
+    var out=[],vi=0;
+    L.order.forEach(function(k){if(L.hidden.indexOf(k)>=0)out.push(k);else out.push(rest[vi++]);});
+    var changed=out.join(",")!==d.order0.join(",");
+    if(changed){
+      L.order=out;
+      stgPushHist(d.snap);
+      stgLayoutTouched();
+      try{if(navigator.vibrate)navigator.vibrate(6);}catch(e){}
+    }
+    stgEnsurePanels();
     stgApplyLayout();
+    stgRenderRecv();
     stgRenderIsland();
+    stgSyncUndo();
   }
   /* 右下角拖宽（始终可用；手机单列隐藏） */
   function stgResizeBegin(e,rz){
@@ -15573,7 +15651,7 @@ function optSaveCanvas(c,o){
   function stgOnResize(){if(!STAGE.open)return;stgApplyLayout();setTimeout(stgFit,0);}
   function stgRenderAll(){
     stgEnsurePanels();
-    stgRenderPpt();stgRenderVote();stgRenderTimer();stgRenderDraw();
+    stgRenderPpt();stgRenderVote();stgRenderTimer();stgRenderDraw();stgRenderRecv();
     stgApplyLayout();stgRenderIsland();
     var tm=el("o2sTime");if(tm)tm.textContent=clockText();
     var dt=el("o2sDate");if(dt)dt.textContent=stgDateText();
@@ -15784,22 +15862,20 @@ function optSaveCanvas(c,o){
     try{if(window.PPT&&window.PPT.hrefOf)return String(window.PPT.hrefOf(id,kind)||"");}catch(e){}
     return "";
   }
-  function stgIsWin(){try{return /Windows|Win32|Win64/i.test(String(navigator.userAgent||""));}catch(e){return false;}}
-  function stgPptOpenLocal(id){
+  function stgPptOpenFile(id){
     id=String(id||STAGE.ppt.lastId||"");if(!id)return;
     var href=stgPptHref(id,"compat")||stgPptHref(id,"pdf")||"";
     if(!href){toast("未找到可打开的文件","error");return;}
-    if(!stgIsWin()){toast("本机非 Windows，已为你打开资料详情");stgPptAct("dl",id);return;}
     try{
       var absHref=new URL(href,location.href).href;
       if(!/^https?:/i.test(absHref)){toast("链接不可用","error");return;}
-      var uri="ms-powerpoint:ofv|u|"+absHref;
-      var a=document.createElement("a");a.href=uri;a.style.display="none";document.body.appendChild(a);
-      try{a.click();}finally{setTimeout(function(){if(a.parentNode)a.parentNode.removeChild(a);},1000);}
       STAGE.fsWant=true;
       STAGE.ppt.activeAt=Date.now();
-      toast("已调起本机 PowerPoint · 按 F5 全屏放映");
-    }catch(e){toast("调起失败，请下载后打开","error");}
+      var a=document.createElement("a");a.href=absHref;a.target="_blank";a.rel="noopener";
+      a.style.display="none";document.body.appendChild(a);
+      try{a.click();}finally{setTimeout(function(){if(a.parentNode)a.parentNode.removeChild(a);},1000);}
+      toast("已打开文件（浏览器下载/预览）· 用本机 PowerPoint 放映");
+    }catch(e){toast("打开失败，请用「下载 / 详情」","error");}
   }
   function stgPptMeta(d){
     var out=[],n=Number(d&&d.slide_count)||0,f=stgPptFiles(d&&d.id);
@@ -15821,18 +15897,98 @@ function optSaveCanvas(c,o){
   function stgPptAct(kind,id){
     id=String(id||STAGE.ppt.lastId||"");if(!id)return;
     STAGE.ppt.lastId=id;stgPptSetLast(id,true);
-    if(kind==="open"){STAGE.ppt.activeAt=Date.now();stgPptOpenLocal(id);stgRenderPpt();stgRenderIsland();return;}
-    try{stgRenderPpt();}catch(e){}
-    if(kind==="dl"){
-      try{if(window.PPT&&window.PPT.openDetail)window.PPT.openDetail(id);else toast("资料详情不可用","error");}
-      catch(e){toast("打开失败","error");}
-    }else{
-      STAGE.ppt.activeAt=Date.now();
-      try{if(window.PPT&&window.PPT.open)window.PPT.open(id);else toast("演示功能不可用","error");}
-      catch(e){toast("播放器打开失败","error");}
+    if(kind==="open"||kind==="openfile"){
+      STAGE.ppt.activeAt=Date.now();stgPptOpenFile(id);stgRenderPpt();stgRenderIsland();return;
     }
+    /* 不再直接放映；统一进「资料详情」下载/打开文件 */
+    try{stgRenderPpt();}catch(e){}
+    try{if(window.PPT&&window.PPT.openDetail)window.PPT.openDetail(id);else toast("资料详情不可用","error");}
+    catch(e){toast("打开失败","error");}
     try{stgRenderIsland();}catch(e){}
   }
+  function stgRecvItems(){
+    var out={files:[],texts:[]};
+    var evs=(STAGE.drop&&STAGE.drop.events)||[];
+    evs.forEach(function(ev){
+      if(!ev)return;
+      var p=ev.payload||{};
+      if(ev.kind==="file"){
+        var fid=String(p.fileId||p.id||"");if(!fid)return;
+        out.files.push({id:fid,name:String(p.name||"文件"),size:Number(p.size)||0,
+          url:String(p.downloadUrl||""),from:String((ev.from&&ev.from.name)||""),at:Number(ev.at)||0});
+      }else if(ev.kind==="text"){
+        var t=String(p.text||"");if(!t)return;
+        out.texts.push({text:t,from:String((ev.from&&ev.from.name)||""),at:Number(ev.at)||0});
+      }
+    });
+    return out;
+  }
+  function stgRenderRecv(){
+    var bd=stgPb("recv");if(!bd)return;
+    var fv=STAGE.focus==="recv";
+    var items=stgRecvItems();
+    var files=items.files.slice(-8).reverse();
+    var texts=items.texts.slice(-6).reverse();
+    var h='<div class="opt2-recv-hd">'+
+      '<span class="opt2-recv-st'+(STAGE.drop.active?" on":"")+'">'+(STAGE.drop.active?"互联已开启":"互联未开启")+'</span>'+
+      '<button type="button" class="opt2-link" data-stg="dropopen">打开互联</button></div>';
+    h+='<div class="opt2-drop-sec"><b>收到的文件 · '+items.files.length+'</b></div>';
+    if(!files.length)h+='<div class="opt2-dim">手机或其它同账号设备上传的文件会显示在这里</div>';
+    files.forEach(function(f){
+      h+='<div class="opt2-drop-row"><span class="opt2-drop-ico">📄</span>'+
+        '<span class="opt2-drop-nm">'+esc(f.name)+'<i>'+esc(stgSize(f.size))+(f.from?" · "+esc(f.from):"")+'</i></span>'+
+        (f.url?'<a class="opt2-btn" href="'+esc(f.url)+'" download="'+esc(f.name)+'" rel="noopener">下载</a>':'<span class="opt2-dim">已过期</span>')+
+        '</div>';
+    });
+    h+='<div class="opt2-drop-sec"><b>收到的文字 · '+items.texts.length+'</b></div>';
+    if(!texts.length)h+='<div class="opt2-dim">手机发送的文字会显示在这里</div>';
+    texts.forEach(function(t){
+      var s=t.text.length>160?t.text.slice(0,160)+"…":t.text;
+      h+='<div class="opt2-drop-row opt2-drop-txt"><span class="opt2-drop-nm">'+esc(s)+'<i>'+esc(t.from)+'</i></span>'+
+        '<button type="button" class="opt2-btn" data-stg="droptextcopy" data-t="'+esc(t.text)+'">复制</button></div>';
+    });
+    h+='<div class="opt2-dim">同账号设备在「大屏互联」上传；仅本次大屏会话内可见</div>';
+    if(fv)h='<div class="opt2-fv opt2-fv-recv" data-fv="recv">'+h+'</div>';
+    bd.innerHTML=h;
+  }
+  function stgPresetFind(k){for(var i=0;i<STG_PRESETS.length;i++)if(STG_PRESETS[i].k===k)return STG_PRESETS[i];return null;}
+  function stgApplyPreset(k){
+    var p=stgPresetFind(k);if(!p||!STAGE.layout)return;
+    stgRememberLayout();
+    var keys=stgKeys(),order=[];
+    (p.order||[]).forEach(function(x){if(keys.indexOf(x)>=0)order.push(x);});
+    keys.forEach(function(x){if(order.indexOf(x)<0)order.push(x);});
+    STAGE.layout.order=order;
+    keys.forEach(function(x){STAGE.layout.span[x]=stgSpanVal((p.span||{})[x]||STG_DEFAULT.span[x]||6);});
+    STAGE.layout.hidden=[];
+    if(STAGE.focus&&STAGE.layout.hidden.indexOf(STAGE.focus)<0)STAGE.focus="";
+    stgLayoutTouched();stgRenderAll();
+    toast("已应用预设："+p.n);
+  }
+  function stgPresetModal(){
+    var ov=el("o2sPresetModal");
+    if(!ov){
+      ov=document.createElement("div");ov.id="o2sPresetModal";ov.className="opt2-mask";ov.hidden=true;
+      ov.innerHTML='<div class="opt2-modal opt2-presetmodal" role="dialog" aria-modal="true" aria-label="预设布局">'+
+        '<div class="opt2-mhd"><b>预设布局</b><button type="button" class="opt2-ibtn" data-stg="presetclose" aria-label="关闭">×</button></div>'+
+        '<div class="opt2-mbd" id="o2sPresetBody"></div>'+
+        '<div class="opt2-mfoot"><button type="button" class="opt2-btn pri" data-stg="presetclose">关闭</button></div></div>';
+      var root=el("opt2Stage");if(root)root.appendChild(ov);else document.body.appendChild(ov);
+    }
+    return ov;
+  }
+  function stgPresetOpen(){
+    var ov=stgPresetModal(),box=el("o2sPresetBody");
+    if(box){
+      box.innerHTML=STG_PRESETS.map(function(p){
+        return '<div class="opt2-modrow"><span class="opt2-modico">▦</span><b>'+esc(p.n)+'</b>'+
+          '<span class="opt2-modsub">'+esc(p.desc||"")+'</span>'+
+          '<button type="button" class="opt2-btn sm" data-stg="presetapply" data-k="'+esc(p.k)+'">应用</button></div>';
+      }).join("");
+    }
+    ov.hidden=false;
+  }
+  function stgPresetClose(){var ov=el("o2sPresetModal");if(ov)ov.hidden=true;}
   function stgRenderPpt(){
     var bd=stgPb("ppt");if(!bd)return;
     var decks=stgPptDecks(),loaded=false,err="";
@@ -15859,18 +16015,19 @@ function optSaveCanvas(c,o){
     var tags=[];
     if(f&&f.compat)tags.push('<span class="opt2-tag">兼容包</span>');
     if(f&&f.pdf)tags.push('<span class="opt2-tag sand">PDF</span>');
-    if(!f&&Number(hero.slide_count)>0)tags.push('<span class="opt2-tag">可放映</span>');
-    if(canOpen)tags.push('<span class="opt2-tag on">已下载</span>');
+    if(!f&&Number(hero.slide_count)>0)tags.push('<span class="opt2-tag">可预览</span>');
+    if(canOpen)tags.push('<span class="opt2-tag on">已打开过</span>');
     var primary,secondary;
-    if(canOpen){primary='<button type="button" class="opt2-play" data-pptact="open">▶ 打开放映</button>';
-      secondary='<button type="button" class="opt2-btn" data-pptact="dl">下载 / 详情</button>';}
-    else if(hasFiles){primary='<button type="button" class="opt2-play" data-pptact="dl">⤓ 下载资料</button>';
-      secondary='<button type="button" class="opt2-btn" data-pptact="open" title="若已下载过可直接打开">打开</button>';}
-    else{primary='<button type="button" class="opt2-play" data-pptact="play">▶ 开始放映</button>';
-      secondary='<button type="button" class="opt2-btn" data-pptact="dl">资料详情</button>';}
-    var hint=(canOpen&&stgIsWin())?'<div class="opt2-ppt-hint">PowerPoint 打开后按 F5 全屏放映；切回浏览器大屏仍在</div>':"";
+    if(hasFiles){
+      primary='<button type="button" class="opt2-play" data-pptact="openfile">📂 打开文件</button>';
+      secondary='<button type="button" class="opt2-btn" data-pptact="dl">下载 / 详情</button>';
+    }else{
+      primary='<button type="button" class="opt2-play" data-pptact="dl">📂 资料详情</button>';
+      secondary='';
+    }
+    var hint=hasFiles?'<div class="opt2-ppt-hint">打开文件后浏览器会下载/预览；用本机 PowerPoint 打开并按 F5 放映（切回浏览器大屏仍在）</div>':"";
     var h='<div class="opt2-ppt"><div class="opt2-ppt-hero">'+
-      '<div class="opt2-ppt-eyebrow">'+(canOpen?"准备放映":(used?"上次使用":"演示就绪"))+'</div>'+
+      '<div class="opt2-ppt-eyebrow">'+(hasFiles?"准备打开":(used?"上次使用":"演示就绪"))+'</div>'+
       '<div class="opt2-ppt-ttl">'+esc(String(hero.title||hero.source_name||"演示"))+'</div>'+
       '<div class="opt2-ppt-meta">'+esc(stgPptMeta(hero))+'</div>'+
       (tags.length?'<div class="opt2-tags">'+tags.join("")+'</div>':'')+
@@ -15885,7 +16042,7 @@ function optSaveCanvas(c,o){
           '<span class="opt2-prow-t">'+esc(String(d.title||d.source_name||"演示"))+'</span>'+
           (df&&df.compat?'<span class="opt2-tag">兼容包</span>':'')+
           '<span class="opt2-prow-m">'+esc(stgPptMeta(d))+'</span>'+
-          '<button type="button" class="opt2-prow-act" data-pptact="'+(op?"open":(dl?"dl":"play"))+'" data-ppt-id="'+esc(String(d.id))+'">'+(op?"打开":(dl?"下载":"放映"))+'</button></div>';
+          '<button type="button" class="opt2-prow-act" data-pptact="'+(dl?"openfile":"dl")+'" data-ppt-id="'+esc(String(d.id))+'">'+(dl?"打开文件":"详情")+'</button></div>';
       });
       h+='</div>';
     }
@@ -16508,6 +16665,7 @@ function optSaveCanvas(c,o){
       STAGE.drop.active=true;STAGE.drop.session=r.session||null;STAGE.drop.err="";
       STAGE.drop.events=[];STAGE.drop.cursor=0;STAGE.drop.lastCount=0;
       var db=el("o2sDropBtn");if(db)db.classList.add("on");
+      try{stgRenderRecv();}catch(e){}
       stgDropStartPoll();
       return true;
     });
@@ -16518,6 +16676,21 @@ function optSaveCanvas(c,o){
     STAGE.drop.iv=setInterval(function(){stgDropPoll();},2000);
   }
   function stgDropStopPoll(){if(STAGE.drop.iv){clearInterval(STAGE.drop.iv);STAGE.drop.iv=0;}}
+  function stgPresenceSet(on){
+    return stgDropReq("/presence",{method:"POST",body:{stage:!!on}}).catch(function(){return {ok:false};});
+  }
+  function stgPresenceGet(){
+    return stgDropReq("/presence").catch(function(){return {ok:false,stage:false};});
+  }
+  function stgPresenceStart(){
+    stgPresenceStop();
+    stgPresenceSet(true);
+    STAGE.presenceIv=setInterval(function(){stgPresenceSet(true);},10000);
+  }
+  function stgPresenceStop(){
+    if(STAGE.presenceIv){clearInterval(STAGE.presenceIv);STAGE.presenceIv=0;}
+    stgPresenceSet(false);
+  }
   function stgDropPoll(){
     if(!STAGE.drop.active||!STAGE.drop.session)return;
     var sid=String(STAGE.drop.session.id||"");
@@ -16540,6 +16713,7 @@ function optSaveCanvas(c,o){
         if(STAGE.drop.events.length>200)STAGE.drop.events=STAGE.drop.events.slice(-200);
         STAGE.drop.lastCount=STAGE.drop.events.filter(function(e){return e.kind==="file";}).length;
         var dm=el("o2sDropModal");if(dm&&!dm.hidden)stgDropRender();
+        try{stgRenderRecv();}catch(e){}
         stgRenderIsland();
         var db=el("o2sDropBtn");if(db)db.classList.toggle("on",true);
       }
@@ -16563,7 +16737,7 @@ function optSaveCanvas(c,o){
     else if(op==="toast"){toast(String(a.text||"收到遥控指令"));}
     else if(op==="restore_fs"){STAGE.fsWant=true;try{stgToggleFs();}catch(e){}}
     else if(op==="stage_close"){opt2StageClose();}
-    else if(op==="ppt"){var dk=String(a.deckId||"");if(a.action==="open")stgPptAct("open",dk);else stgPptAct("dl",dk);}
+    else if(op==="ppt"){var dk=String(a.deckId||"");if(a.action==="open")stgPptAct("openfile",dk);else stgPptAct("dl",dk);}
     stgRenderIsland();
   }
   function stgDropRender(){
@@ -16604,6 +16778,7 @@ function optSaveCanvas(c,o){
     STAGE.drop.active=false;STAGE.drop.session=null;STAGE.drop.events=[];STAGE.drop.cursor=0;STAGE.drop.lastCount=0;
     var db=el("o2sDropBtn");if(db)db.classList.remove("on");
     var ov=el("o2sDropModal");if(ov)ov.hidden=true;
+    try{stgRenderRecv();}catch(e){}
     stgRenderIsland();
     if(sess&&sess.id)stgDropReq("/close",{method:"POST",body:{sessionId:String(sess.id)}}).catch(function(){});
   }
@@ -16824,7 +16999,7 @@ function optSaveCanvas(c,o){
       if(String(location.hash||"")!=="#drop"&&String(location.hash||"")!=="#file")return;
       if(typeof AUTH!=="undefined"&&AUTH&&AUTH.ready){
         if(String(location.hash||"")==="#file"){if(typeof gotoTab==="function")gotoTab("file");}
-        else if(typeof dropCtlOpen==="function")dropCtlOpen();
+        else if(typeof dropCtlOpenIfPresent==="function")dropCtlOpenIfPresent();
       }
       else setTimeout(dropHashOpen,800);
     }catch(e){}
@@ -16877,6 +17052,9 @@ function optSaveCanvas(c,o){
       case "modreset":stgPreset();stgModRender();break;
       case "modundo":stgUndoLayout();stgModRender();break;
       case "undolayout":stgUndoLayout();break;
+      case "presetopen":stgPresetOpen();break;
+      case "presetclose":stgPresetClose();break;
+      case "presetapply":stgApplyPreset(k);stgPresetClose();break;
       case "modlock":
         if(STAGE.layout){STAGE.layout.locked=!STAGE.layout.locked;stgLayoutTouched();stgSyncLock();stgModRender();toast(STAGE.layout.locked?"布局已锁定":"布局已解锁");}
         break;
@@ -16976,6 +17154,7 @@ function optSaveCanvas(c,o){
       '<span class="opt2-date" id="o2sDate"></span></div>'+
       '<div class="opt2-topright">'+
       '<button type="button" class="opt2-ibtn opt2-dropbtn'+(STAGE.drop.active?" on":"")+'" id="o2sDropBtn" data-stg="dropopen" title="大屏互联（同账号传文件/遥控）" aria-label="大屏互联">🛰</button>'+
+      '<button type="button" class="opt2-ibtn" id="o2sPresetBtn" data-stg="presetopen" title="预设布局" aria-label="预设布局">▦</button>'+
       '<button type="button" class="opt2-ibtn off" id="o2sUndo" data-stg="undolayout" title="撤销布局调整" aria-label="撤销布局调整">↶</button>'+
       '<button type="button" class="opt2-ibtn opt2-modbtn" id="o2sModBtn" data-stg="modopen" title="模块（添加 / 移除）" aria-label="模块">＋</button>'+
       '<button type="button" class="opt2-ibtn" id="o2sFs" data-stg="fs" title="全屏（F）" aria-label="全屏">⛶</button>'+
@@ -17022,7 +17201,7 @@ function optSaveCanvas(c,o){
       }catch(e){}
       window.addEventListener("resize",stgOnResize);
       stgPptRefresh();stgVoteRefresh();
-      try{stgDropEnsure().then(function(ok){if(ok){stgDropStartPoll();stgRenderAll();}});}catch(e){}
+      try{stgDropEnsure().then(function(ok){if(ok){stgDropStartPoll();stgPresenceStart();stgRenderAll();}});}catch(e){}
       stgSyncPull();
       try{setTimeout(function(){try{ov.classList.add("opt2-in");}catch(e){}},20);}catch(e){}
     }catch(e){}
@@ -17030,6 +17209,7 @@ function optSaveCanvas(c,o){
   function opt2StageClose(){
     try{
       STAGE.open=false;stgStopTimers();
+      try{stgPresenceStop();}catch(e){}
       stgCleanupSession();
       var ov=el("opt2Stage");if(ov)ov.style.display="none";
       try{document.body.classList.remove("opt2-lock");}catch(e){}
@@ -17038,6 +17218,7 @@ function optSaveCanvas(c,o){
       window.removeEventListener("resize",stgOnResize);
       STAGE.fsWant=false;
       try{if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen();}catch(e){}
+      setTimeout(function(){try{opt2DropPresenceCheck();}catch(e){}},300);
     }catch(e){}
   }
   function opt2StageEntry(){
@@ -17054,14 +17235,48 @@ function optSaveCanvas(c,o){
         row.appendChild(b);b.addEventListener("click",opt2StageOpen);
       }
       var c=document.createElement("button");c.type="button";c.id="opt2DropBtn";c.className="btn ghost sm";c.textContent="大屏互联";
+      c.hidden=true; /* 2026-11-12：无设备开启大屏时不显示（presence 轮询） */
       row.appendChild(c);c.addEventListener("click",dropCtlOpen);
       if(all.parentNode)all.parentNode.insertBefore(row,all.nextSibling);
+      opt2DropPresenceCheck();
+      if(!window.__dropPresenceIv){
+        /* 只在「全部」页可见时轮询（避免其它工具页产生无意义请求） */
+        window.__dropPresenceIv=setInterval(function(){
+          try{
+            if(STAGE.open)return;
+            var all=el("s-all");
+            if(!all||!all.classList.contains("on"))return;
+            opt2DropPresenceCheck();
+          }catch(e){}
+        },15000);
+      }
     }catch(e){}
+  }
+  function opt2DropPresenceCheck(){
+    try{
+      if(STAGE.open){var cb=el("opt2DropBtn");if(cb)cb.hidden=true;return;}
+      stgPresenceGet().then(function(r){
+        var b=el("opt2DropBtn");if(!b)return;
+        var stage=!!(r&&r.stage);
+        b.hidden=!stage;
+        var row=el("opt2StageRow");
+        if(row){
+          var big=el("opt2StageBtn");
+          row.hidden=!stage&&!big;
+        }
+      });
+    }catch(e){}
+  }
+  function dropCtlOpenIfPresent(){
+    stgPresenceGet().then(function(r){
+      if(r&&r.stage)dropCtlOpen();
+      else toast("当前没有设备开启大屏 · 先在电脑上打开「大屏」","error");
+    });
   }
   function stgOpenHash(){
     try{
       var h=String(location.hash||"");
-      if(h==="#drop"&&typeof dropCtlOpen==="function")dropCtlOpen();
+      if(h==="#drop"&&typeof dropCtlOpenIfPresent==="function")dropCtlOpenIfPresent();
       else if(h==="#file"&&typeof gotoTab==="function")gotoTab("file");
     }catch(e){}
   }
@@ -17570,7 +17785,8 @@ function optSaveCanvas(c,o){
      ============================================================ */
   var B2FILE=(function(){
     var CHUNK=8388608, TTL=259200000;
-    var S={session:null,files:[],ups:[],cursor:0,pollT:0,busy:false,err:"",bound:false,loading:false};
+    var S={session:null,files:[],ups:[],cursor:0,pollT:0,busy:false,err:"",bound:false,loading:false,opened:{}};
+    var OPEN_KEY="zq_file_opened_v1";
     function el(id){return document.getElementById(id);}
     function base(){
       try{
@@ -17600,6 +17816,18 @@ function optSaveCanvas(c,o){
         .then(jhandled,function(){return {ok:false,reason:(navigator.onLine===false?"网络不可用":"上传中断")};});
     }
     function p2(n){return (n<10?"0":"")+n;}
+    function loadOpened(){
+      try{var o=JSON.parse(localStorage.getItem(OPEN_KEY)||"null");if(o&&typeof o==="object")S.opened=o;}catch(e){}
+    }
+    function saveOpened(){
+      try{
+        var keys=Object.keys(S.opened);
+        if(keys.length>500){var trimmed={};keys.slice(-500).forEach(function(k){trimmed[k]=S.opened[k];});S.opened=trimmed;}
+        localStorage.setItem(OPEN_KEY,JSON.stringify(S.opened));
+      }catch(e){}
+    }
+    function markOpened(id){if(!id)return;S.opened[String(id)]=Date.now();saveOpened();}
+    function isOpened(id){return !!S.opened[String(id)];}
     function fmtSize(n){
       n=Number(n)||0;
       if(n>=1048576)return (n/1048576).toFixed(n>=10485760?0:1)+" MB";
@@ -17643,7 +17871,7 @@ function optSaveCanvas(c,o){
         '<div style="flex:1;min-width:0"><div class="file-name">'+esc(String(f.name||"文件"))+'</div>'+
         '<div class="file-meta">'+esc(fmtSize(f.size))+' · '+esc(fmtWhen(f.at))+' · '+esc(ttlText(f.at))+'</div></div>'+
         '<div class="file-acts">'+
-          '<a class="file-dl" data-fid="'+id+'" href="'+url+'" target="_blank" rel="noopener">下载</a>'+
+          '<a class="file-dl'+(isOpened(id)?" opened":"")+'" data-fid="'+id+'" href="'+url+'" target="_blank" rel="noopener">'+(isOpened(id)?"打开":"下载")+'</a>'+
           '<button type="button" class="file-del" data-filedel="'+id+'">删除</button>'+
         '</div></div>';
     }
@@ -17681,8 +17909,10 @@ function optSaveCanvas(c,o){
     }
     function renderAll(){renderState();renderFiles();renderUps();}
     function addFile(p,at){
-      if(!p||!p.id)return;
-      var id=String(p.id);
+      /* /state 的 file 事件 payload 用 fileId（上传 finish 响应才用 id）——两者都兼容 */
+      if(!p)return;
+      var id=String(p.id||p.fileId||"");
+      if(!id)return;
       for(var i=0;i<S.files.length;i++){if(String(S.files[i].id)===id)return;}
       var expired=!!p.expired||!p.downloadUrl;
       S.files.push({id:id,name:p.name||"文件",size:Number(p.size)||0,mime:p.mime||"",
@@ -17731,7 +17961,7 @@ function optSaveCanvas(c,o){
         },function(){S.busy=false;S.loading=false;S.err="服务不可达";renderState();});
       },function(){S.busy=false;S.loading=false;S.err="服务不可达";renderState();});
     }
-    function enter(){bind();renderAll();ensureSpace();}
+    function enter(){loadOpened();bind();renderAll();ensureSpace();}
     function leave(){stopPoll();}
     function findName(id){
       for(var i=0;i<S.files.length;i++){if(String(S.files[i].id)===String(id))return S.files[i].name;}
@@ -17835,7 +18065,7 @@ function optSaveCanvas(c,o){
           for(var i=0;i<S.files.length;i++){if(String(S.files[i].id)===fid){f=S.files[i];break;}}
           if(!f||f.expired){toast("文件已过期（上传超过 72 小时，已自动删除）");return;}
           var href=f.downloadUrl||a.getAttribute("href");
-          if(href){try{window.open(href,"_blank","noopener");}catch(x2){try{location.href=href;}catch(y){}}}
+          if(href){markOpened(fid);renderFiles();try{window.open(href,"_blank","noopener");}catch(x2){try{location.href=href;}catch(y){}}}
           else toast("文件不存在或已过期");
         });
       });
@@ -18064,7 +18294,7 @@ function optSaveCanvas(c,o){
       var ready=false;try{ready=!!(typeof AUTH!=="undefined"&&AUTH&&AUTH.ready);}catch(e){}
       if(!ready){setTimeout(fileHashRoute,700);return;}
       if(h==="#file"){if(typeof gotoTab==="function")gotoTab("file");}
-      else if(typeof dropCtlOpen==="function")dropCtlOpen();
+      else if(typeof dropCtlOpenIfPresent==="function")dropCtlOpenIfPresent();
     }catch(e){}
   }
   try{window.addEventListener("hashchange",fileHashRoute);}catch(e){}

@@ -59,7 +59,7 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = "2.2"
+VERSION = "2.3"
 ROOT = os.path.abspath(os.environ.get("DROP_ROOT", "/opt/class-tools/drop"))
 PORT = int(os.environ.get("DROP_PORT", "8093"))
 DEFAULT_GATEWAY = ("https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com"
@@ -67,6 +67,7 @@ DEFAULT_GATEWAY = ("https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com"
 GATEWAY = os.environ.get("DROP_GATEWAY") or DEFAULT_GATEWAY
 if not GATEWAY.endswith("/"):
     GATEWAY += "/"
+PRESENCE_TTL_MS = 30 * 1000          # 大屏在线心跳 TTL（30s；网页大屏每 10s POST /presence）
 TTL_SEC = int(os.environ.get("DROP_TTL_SEC", "259200"))            # 72h
 MAX_FILE_BYTES = int(os.environ.get("DROP_MAX_FILE_BYTES", "0"))    # 0 = 不限
 MAX_SESSION_BYTES = int(os.environ.get("DROP_MAX_SESSION_BYTES", "0"))  # 0 = 不限
@@ -1031,6 +1032,12 @@ class Handler(BaseHTTPRequestHandler):
                 if method not in ("GET", "HEAD"):
                     raise HttpError(405, "方法不支持")
                 return self._route_mine()
+            if path == "/presence":
+                if method == "GET":
+                    return self._route_presence_get()
+                if method == "POST":
+                    return self._route_presence_post()
+                raise HttpError(405, "方法不支持")
             if path == "/state":
                 if method not in ("GET", "HEAD"):
                     raise HttpError(405, "方法不支持")
@@ -1146,6 +1153,34 @@ class Handler(BaseHTTPRequestHandler):
                 "cursor": cursor,
             }
         self._send_json(200, payload)
+
+    def _route_presence_get(self):
+        """大屏在线状态：同一班级账号（同 sid）任意设备可查。30s 内 heartbeat 视为在线。"""
+        auth = self._auth()
+        with _LOCK:
+            sess = _find_active_session_locked(auth["sid"])
+            now = _now_ms()
+            at = int(sess.get("stageAt") or 0) if sess is not None else 0
+            stage = bool(sess is not None and at > 0 and (now - at) <= PRESENCE_TTL_MS)
+        self._send_json(200, {"ok": True, "stage": stage, "at": at})
+
+    def _route_presence_post(self):
+        """大屏心跳：{stage:true} 标记在线（30s 有效），{stage:false} 立即下线。"""
+        auth = self._auth()
+        body = self._read_json()
+        want = bool(body.get("stage", True))
+        with _LOCK:
+            sess = _find_active_session_locked(auth["sid"])
+            now = _now_ms()
+            if sess is None:
+                self._send_json(200, {"ok": False, "stage": False,
+                                      "reason": "云空间会话不存在；请先打开大屏/文件传输"})
+                return
+            sess["stageAt"] = now if want else 0
+            sess["lastActivityAt"] = now
+            sess["updatedAt"] = now
+            _save_session(sess)
+        self._send_json(200, {"ok": True, "stage": want, "at": now})
 
     def _route_close(self):
         auth = self._auth()

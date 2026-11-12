@@ -455,6 +455,40 @@ def main():
         pick_range(p3, "7d")
         p3.screenshot(os.path.join(SHOTS, "1280_7d.png"))
         p3.close()
+
+        # ================= E. 充值折算趋势（2026-11-12 用户反馈） =================
+        print("\n== E 充值后趋势可读（已折算充值跳变） ==")
+        hist_rech = {}
+        for k, v in hist_rich.items():
+            hist_rech[k] = [dict(x) for x in v]
+        cut = now - 3 * 3600 * 1000
+        for pt in hist_rech[REAL_ROOM]:
+            ts = int(datetime.fromisoformat(pt["ts"]).timestamp() * 1000)
+            if ts >= cut:
+                pt["quantity"] = round(float(pt["quantity"]) + 30.0, 4)   # 模拟充值 +30 度
+        pr = new_page(b, port, hist_rech, rows, cache=ud_blob(), w=1280, h=900)
+        open_power(pr)
+        time.sleep(1.2)
+        extra = pr.evaluate("""(function(){
+          var q=function(s){return document.querySelector(s);};
+          var yl=[].map.call(document.querySelectorAll('#pwYAxis .pw-ylab'),function(x){return parseFloat(x.textContent);});
+          return {title:(q('#pwTrendTitle')||{}).textContent||'',
+            chipVisible:!!(q('#pwRecharge')&&!q('#pwRecharge').hidden),
+            chipText:(q('#pwRecharge')||{}).textContent||'',
+            legend:(q('#pwLegend')||{}).textContent||'',
+            rline:document.querySelectorAll('#pwTrend .pw-rline').length,
+            yl:yl, errs:(window.__errs||[]).slice(-3)};
+        })()""")
+        pr.screenshot(os.path.join(SHOTS, "1280_recharge_adjusted.png"))
+        T("E1 充值区间：标题标注「已折算充值」", "已折算充值" in (extra["title"] or ""), extra["title"])
+        T("E2 充值徽标可见且说明折算", extra["chipVisible"] and "充值" in (extra["chipText"] or ""), extra["chipText"])
+        T("E3 图例显示充值金额（约 +30 度，已折算）",
+          bool(re.search(r"充值 \+2[89]\.\d+ 度（已折算）", extra["legend"] or "")), extra["legend"][:120])
+        T("E4 图上标出充值位置竖线", int(extra["rline"]) >= 1, extra["rline"])
+        ys = [x for x in (extra["yl"] or []) if x == x]
+        T("E5 y 轴按折算后用电范围显示（不再被 +30 度撑满）", bool(ys) and (max(ys) - min(ys)) <= 10, extra["yl"])
+        T("E6 充值折算页 0 JS 报错", not extra["errs"], extra["errs"])
+        pr.close()
     finally:
         b.close()
         srv.shutdown()

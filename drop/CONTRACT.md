@@ -6,6 +6,8 @@
 > 会话改为**空闲滑动**回收（见下）。
 > **v2.2（2026-11-12）** 新增 `DELETE /file/<fileId>`（临时云空间单文件删除，仅本账号会话 owner、幂等）；
 > 413 拒收前有界读取请求体，避免客户端连接 RST。
+> **v2.3（2026-11-12）** 新增 `GET/POST /presence`：大屏在线心跳（30s TTL）；网页大屏每 10s 上报，
+> 同账号其它设备据此判断「是否有大屏在开」——无大屏时隐藏「大屏互联」入口，小程序动态显示该工具。
 >
 > - 用途：**同账号（同 sid）跨设备传文件**、发文字、遥控指令中转；服务是独立「文件传输」工具的后端
 >   （网页 `#s-file` 文件传输页 / 大屏互联面板共用同一服务），**不限于大屏**，手机 ↔ 电脑 ↔ 大屏均可。
@@ -154,6 +156,14 @@ body `{}`（可为空 body）。返回：
   `payload.downloadUrl`（30 分钟有效，见 §4）；文件已过期 → 该事件保留 `seq`，但 `payload.expired=true`
   且不再返回 `downloadUrl`（前端文件列表应过滤 `expired`，历史聊天记录可显示「文件已过期」）。
 - 跨账号访问别人的 sessionId → 403；sessionId 不存在/已回收 → 404。
+
+#### `GET /presence`、`POST /presence`（鉴权）
+
+- `POST /presence` body `{"stage":true}`：标记当前账号大屏在线（`stageAt=now`，30s 内有效）；`{"stage":false}` 立即下线。返回 `{"ok":true,"stage":true|false,"at":<ms>}`。
+- `GET /presence`：同账号任意设备可查，返回 `{"ok":true,"stage":bool,"at":<ms>}`；无会话时 stage=false（不创建会话）。
+- 用途：网页「全部页 → 大屏互联」与小程序「全部工具 → 大屏互联」仅在大屏在线时显示；
+  网页大屏打开后每 10s POST 心跳，关闭时 POST false。
+- 注意：区分于文件云空间会话——文件页自动开会话**不会**让 presence=true（未上报 stage）。
 
 #### `DELETE /file/<fileId>?sessionId=<sid>`（鉴权，临时云空间单文件删除）
 

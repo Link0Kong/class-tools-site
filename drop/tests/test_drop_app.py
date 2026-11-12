@@ -353,14 +353,14 @@ class TestCorsAndHealth(Base):
         self.assertEqual(app.MAX_FILE_BYTES, 0)      # 0 = 不限
         self.assertEqual(app.MAX_SESSION_BYTES, 0)   # 0 = 不限
         self.assertEqual(app.UPLOAD_TTL_SEC, 86400)
-        self.assertEqual(app.VERSION, "2.2")
+        self.assertEqual(app.VERSION, "2.3")
 
     def test_health_no_auth_and_shape(self):
         status, headers, data = self.get("/__health")
         self.assertEqual(status, 200)
         payload = self.client.json_of(status, data)
         self.assertTrue(payload.get("ok"))
-        self.assertEqual(payload["version"], "2.2")
+        self.assertEqual(payload["version"], "2.3")
         self.assertEqual(payload["sessions"], 0)
         self.assertEqual(payload["files"], 0)
         self.assertEqual(payload["bytes"], 0)
@@ -923,6 +923,56 @@ class TestFileDelete(Base):
         # 原文件仍在（未被他人删除）
         self.assertTrue(os.path.isfile(
             os.path.join(app.FILES_DIR, alice["id"], info["id"] + ".bin")))
+
+
+class TestPresence(Base):
+    """大屏在线状态（/presence，2026-11-12 v2.3）。"""
+
+    def test_requires_auth(self):
+        self.assertEqual(self.get("/presence")[0], 401)
+        self.assertEqual(self.post_json("/presence", {"stage": True})[0], 401)
+
+    def test_no_session_is_offline(self):
+        status, pay = self._get_json("/presence", "tok_alice")
+        self.assertEqual(status, 200)
+        self.assertTrue(pay.get("ok"))
+        self.assertFalse(pay.get("stage"))
+
+    def test_heartbeat_and_expiry_and_off(self):
+        session = self.open_session("tok_alice")
+        status, pay = self._get_json("/presence", "tok_alice")
+        self.assertFalse(pay.get("stage"))
+        status, _hd, data = self.post_json("/presence", {"stage": True}, token="tok_alice")
+        self.assertEqual(status, 200)
+        self.assertTrue(self.client.json_of(status, data).get("stage"))
+        status, pay = self._get_json("/presence", "tok_alice")
+        self.assertTrue(pay.get("stage"))
+        # 心跳过期（stageAt 回拨 >30s）
+        with app._LOCK:
+            sess = app._load_session(session["id"])
+            sess["stageAt"] = app._now_ms() - app.PRESENCE_TTL_MS - 1000
+            app._save_session(sess)
+        status, pay = self._get_json("/presence", "tok_alice")
+        self.assertFalse(pay.get("stage"))
+        # 立即下线
+        self.post_json("/presence", {"stage": True}, token="tok_alice")
+        status, _hd, data = self.post_json("/presence", {"stage": False}, token="tok_alice")
+        self.assertFalse(self.client.json_of(status, data).get("stage"))
+        status, pay = self._get_json("/presence", "tok_alice")
+        self.assertFalse(pay.get("stage"))
+
+    def test_same_sid_other_token_sees_online_other_account_not(self):
+        self.open_session("tok_alice")
+        self.post_json("/presence", {"stage": True}, token="tok_alice")
+        status, pay = self._get_json("/presence", "tok_alice2")
+        self.assertTrue(pay.get("stage"))
+        self.open_session("tok_bob")
+        status, pay = self._get_json("/presence", "tok_bob")
+        self.assertFalse(pay.get("stage"))
+
+    def _get_json(self, path, token):
+        status, _hd, data = self.get(path, token=token)
+        return status, self.client.json_of(status, data)
 
 
 class TestLimitsAndText(Base):

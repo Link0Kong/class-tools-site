@@ -466,13 +466,13 @@ def selftest():
                      "v=%s sessions=%s files=%s bytes=%s"
                      % (health.get("version"), health.get("sessions"),
                         health.get("files"), health.get("bytes")))
-        report.check("health v2.2：file_ttl=session_idle_ttl=259200 / max_file_bytes=0 / max_session_bytes=0",
+        report.check("health v2.3：file_ttl=session_idle_ttl=259200 / max_file_bytes=0 / max_session_bytes=0",
                      health.get("ttl") == 259200
                      and health.get("file_ttl") == 259200
                      and health.get("session_idle_ttl") == 259200
                      and health.get("max_file_bytes") == 0
                      and health.get("max_session_bytes") == 0
-                     and health.get("version") == "2.2",
+                     and health.get("version") == "2.3",
                      "version=%s file_ttl=%s session_idle_ttl=%s "
                      "max_file=%s max_session=%s"
                      % (health.get("version"), health.get("file_ttl"),
@@ -515,6 +515,25 @@ def selftest():
                      r["status"] == 200 and payload.get("ok") is True
                      and bool(boundary_upload_id),
                      "size=%d (>2GiB) chunks=%d" % (declared, declared_chunks))
+
+        print("\n=== 1c. v2.3：大屏在线状态（/presence） ===")
+        r = _http("GET", "%s/presence" % BASE_URL, headers={"X-Device-Id": token}, timeout=20)
+        p0 = _json_of(r)
+        report.check("初始 /presence stage=false", r["status"] == 200 and p0.get("stage") is False,
+                     "stage=%s" % p0.get("stage"))
+        r = _post_json("/presence", {"stage": True}, token=token)
+        report.check("POST /presence stage=true", r["status"] == 200 and _json_of(r).get("stage") is True,
+                     _json_of(r).get("stage"))
+        r = _http("GET", "%s/presence" % BASE_URL, headers={"X-Device-Id": token2}, timeout=20)
+        report.check("同 sid 第二 token 看到大屏在线", _json_of(r).get("stage") is True,
+                     "stage=%s" % _json_of(r).get("stage"))
+        r = _http("GET", "%s/presence" % BASE_URL, headers={"X-Device-Id": "drop_selftest_invalid_token"}, timeout=20)
+        report.check("无效 token /presence -> 401", r["status"] == 401, "HTTP %s" % r["status"])
+        r = _post_json("/presence", {"stage": False}, token=token)
+        report.check("POST /presence stage=false 立即下线", _json_of(r).get("stage") is False)
+        r = _http("GET", "%s/presence" % BASE_URL, headers={"X-Device-Id": token}, timeout=20)
+        report.check("下线后 /presence stage=false", _json_of(r).get("stage") is False,
+                     "stage=%s" % _json_of(r).get("stage"))
 
         print("\n=== 2. 小文件分片上传 + 事件 + 下载 ===")
         small = ("drop-selftest-%d\n" % int(time.time())).encode() + b"x" * 4096

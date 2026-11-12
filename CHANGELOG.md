@@ -2,6 +2,53 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-12 17:5x–18:3x · v2.0.0 增量 49：用户 10 项反馈（网页已上线 OSS+ECS / drop v2.3 已上线 / 小程序源码待上传）
+
+> 用户 10 项：①上传后列表看不到；②充值后趋势不明显；③域名停用期间小程序正常使用方案；④大屏拖动效果；⑤大屏增加「接收」模块；⑥保留预设布局按钮；⑦无大屏时隐藏大屏互联；⑧小程序可在大屏开启时使用大屏互联；⑨PPT 统一「打开文件」；⑩文件云空间下载后变「打开」。
+
+### ① 上传后列表看不到（P0 根因修复）
+- drop `/state` 的 `file` 事件 payload 字段是 **`fileId`**（不是 `id`），而网页 `addFile()` 只读 `p.id` → 真实上传成功但列表永远不渲染；单测 mock 同时给了 `id` 所以漏测。
+- 修复 `addFile` 兼容 `p.id || p.fileId`；测试 mock 改为**只给 `fileId`**（贴真实后端），防回归。
+
+### ② 电费充值后趋势可读（web）
+- 区间内检测到充值跳变（`Δq>0.5`）时，绘图值改为**扣除累计充值后的折算剩余**（曲线连续下降），并标出充值竖虚线；标题「已折算充值」、徽标/图例「充值 +N 度（已折算）」；y 轴按折算范围，真实剩余仍在图例/详情。
+- 新增 `v2_power_trend_compare_check.py` E1–E6（32/32）；回归 power_check 155、cadence 84、slow 45、detail 30、tip 21。
+
+### ③ 域名停用期间小程序使用方案
+- 说明：课表/作业/通知/投票/名单/水量等**不依赖 tool.furina.fun**（走 CloudBase HTTPS 网关）；仅文件云空间/大屏互联/部分静态加速依赖 ECS 域名。
+- 小程序默认：开发/体验版直连 ECS `http://121.196.47.2/drop`（DevTools 勾「不校验合法域名」）；正式版用 `https://tool.furina.fun/drop`，需 DNS 恢复 + HTTPS + 微信后台 request/downloadFile 合法域名。
+- 根治：恢复 DNS/备案并 `web_pause.py --off` + `ecs_site.py apply --https`；临时期可用已备案域名 CNAME 到 ECS；正式版不能走 http/IP。
+
+### ④ 大屏拖动重做（占位块）
+- 拖动改为**占位块 `.opt2-ph` + 拖动开始时固定几何命中**：源卡隐藏、占位块在网格里让位（FLIP），松手才提交 order（不再边拖边重排）；中心 ±8px 容差防整数坐标抖动；自动边缘滚动；表头 ⠿ + `title`。
+- `v2_stage_v5_check` 135/135（B2/C2 通过；移动端长按拖动通过）。
+
+### ⑤ 大屏「接收」模块
+- `STG_PANELS` 新增 `recv`（📥 接收，默认整行）：展示本次大屏期间收到的文件（下载）/文字（复制）+ 互联状态 +「打开互联」；由 `STG.drop.events` 合并渲染，轮询/开关即时刷新。
+
+### ⑥ 预设布局按钮
+- 顶栏恢复「▦ 预设布局」：默认 / 演示优先 / 投票优先 / 四等分 4 套；应用前入撤销栈；模块弹层「恢复默认」复用同一逻辑。
+
+### ⑦ 无大屏时隐藏大屏互联（drop v2.3）
+- drop 新增 `GET/POST /presence`（30s TTL）。网页大屏打开后每 10s 上报、关闭时下线；全部页「大屏互联」按钮默认隐藏，presence 在线才显示（只在「全部」页可见时轮询）；`#drop` 链接也先查 presence，无大屏提示「当前没有设备开启大屏」。
+- drop 单测 91/91、真实 ECS `selftest` **38/38 PASS**（v2.3）。
+
+### ⑧ 小程序「大屏互联」工具
+- 新增 `utils/screencast.js` + `pages/screencast`（4 文件）：presence 在线才可用；发文字、传文件（8MiB 分片）、遥控 11 项（聚焦 4/退出聚焦/计时 3/抽签/恢复全屏/关闭大屏）。
+- `pages/all` 只在 `presence.stage=true` 时动态显示「大屏互联」入口；不在线不显示。`app.json` 注册（28 页）。
+- `screencast_unit_tests.js`（16 项）挂入 `unit.js`：**478/0**；`staticcheck.py` 通过、`code_quality_check.js` 全规则通过。
+
+### ⑨ PPT 统一「打开文件」
+- 大屏 PPT 面板去掉 `ms-powerpoint` 直接放映与「开始放映」：主按钮统一「📂 打开文件」（浏览器下载/预览，手动用 PowerPoint 打开后 F5）；详情页「PowerPoint 打开」→「打开文件」；列表行「打开文件/详情」。遥控 `ppt action=open` → openfile。
+
+### ⑩ 文件云空间下载后变「打开」
+- 点击下载后记录 `zq_file_opened_v1`（本机偏好），按钮变「打开」；再点会重新取签名链接后打开；小程序 `pages/cloudspace` 同步（`zq_mp_file_opened_v1`，按钮「下载/打开」）。
+
+### 测试/上线/回滚
+- 网页：`v2_stage_v5 135/135`、`optim_v2 GREEN`、`v2_web_batch2_file_check 35/35`、`v2_power_trend_compare 32/32`、`v2_ui 27/27`、overflow 430=0、0 JS 报错。
+- 上线：备份 `tools/_backup/index_online_20261112_preBatch2.html`（1,146,207B/`9f680c0c…`）→ OSS+ECS **1,158,525 B / sha256 `41dcfefc…`**（OSS check MATCH / ECS verify MATCH）；drop v2.3（health version=2.3）。
+- 回滚：网页重传备份；drop 重装上一版；小程序回退源码。
+
 ## 2026-11-12 13:0x–13:1x · v2.0.0 增量 48：文件传输改「临时云空间」+ 大屏自定义体验优化 + drop v2.2（网页已上线 OSS+ECS；小程序源码待上传发布）
 
 > 用户要求：①删除开场指令文件；②文件传输「做成类似临时云空间的工具」；③大屏自定义体验继续优化；④「把微信小程序的功能也同步更新一下」。

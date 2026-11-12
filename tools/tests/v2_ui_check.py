@@ -74,6 +74,7 @@ window.fetch=function(u,o){
     return ok([]);
   }
   if(s.indexOf("tt.json")>=0)return ok(DATA.tt);
+  if(s.indexOf("/drop/presence")>=0)return ok({ok:true,stage:false,at:0});
   window.__external.push(s);
   return _f.apply(this,arguments);
 };
