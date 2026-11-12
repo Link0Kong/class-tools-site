@@ -38,6 +38,15 @@ python deploy\ecs_site.py apply --dry-run  # 只打印将要执行的远端脚�
 - `apply` 流程：备份 → 从 OSS 公开地址下载（`https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com`）→ 原子替换 → 写 `Caddyfile.new` + `Caddyfile.https.ready` → `caddy validate` 两个文件 → 替换并 `systemctl reload caddy` → 本机 `verify`。
 - 站点内容以 **OSS 为唯一真源**：先 `python deploy/sync_tools.py` 上传 OSS，再 `ecs_site.py apply` 同步 ECS（两步都成功才算上线）。
 
+### 3.5 临时公网域名 ko-link.cn（2026-11-12）
+
+- 背景：`tool.furina.fun` DNS/备案暂停，微信体验版需 HTTPS 已备案域名；临时使用阿里云同账号 `ko-link.cn`。
+- DNS：阿里云 DNS `@` / `www` A → `121.196.47.2`。
+- Caddy：`_caddy_https()` 站点块为 `tool.furina.fun, ko-link.cn, www.ko-link.cn`；`python deploy\ecs_site.py apply --https` 已启用，证书自动签发。
+- 校验：`SITE_URL=https://ko-link.cn python deploy\ecs_site.py verify`；`https://ko-link.cn/drop/__health` version=2.3。
+- 切回：小程序 `dropBase` 改回 `''`；Caddy 两个域名都保留，`tool.furina.fun` DNS 恢复后自动签发/续期。
+- 注意：微信后台 request/downloadFile 加 `https://ko-link.cn` 前，该域名须已完成 ICP 备案。
+
 ## 4. HTTPS 启用（ICP 备案通过、`tool` 解析恢复之后）
 
 前提：`tool.furina.fun` 的 A 记录已指向 `121.196.47.2`（备案落点），公网可解析。

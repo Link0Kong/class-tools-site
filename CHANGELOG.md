@@ -2,6 +2,17 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-12 20:4x–21:0x · 临时切换公网域名到 ko-link.cn（HTTPS 已启用；网页已上线；小程序源码已改，待上传）
+
+> 背景：`tool.furina.fun` 因备案/DNS 暂停不可解析，微信小程序体验版必须有 HTTPS + 已备案域名。用户提供阿里云同账号域名 `ko-link.cn`（注意实际是**连字符**，不是下划线）。
+
+- **DNS**：阿里云 DNS 新增 `@` / `www` A → `121.196.47.2`（TTL 600），公网已生效。
+- **ECS/Caddy**：HTTPS 站点块改为同时服务 `tool.furina.fun, ko-link.cn, www.ko-link.cn`（`deploy/ecs_site.py`）；`ecs_site.py apply --https` 已启用 Caddy HTTPS，证书已签发。
+- **实测**：`https://ko-link.cn/` 200（1,158,556B / `9fac5b58…`）、`https://www.ko-link.cn/` 200、`https://ko-link.cn/drop/__health` 200 version=2.3、`https://ko-link.cn/v1/rdb/rest/*` 同源反代 200、drop 签名下载 URL 为 `https://ko-link.cn/drop/file/...` 且真实下载 200（测试身份 probe，已清理）。
+- **网页**：`tools/index.html` 运行时同源判断增加 `ko-link.cn` 及其子域（走同源 `/v1/rdb/rest` / `/drop` / `/pptfiles`）；线上 index **1,158,556 B / sha256 `9fac5b58…`**（OSS+ECS MATCH）。备份 `tools/_backup/index_online_20261112_preKoLink.html`（1,158,525B/`41dcfefc…`）。
+- **小程序**：`utils/cloud-config.js` 临时 `dropBase: 'https://ko-link.cn/drop'`；体验版/正式版需在微信后台把 `https://ko-link.cn` 同时加入 **request 合法域名** 与 **downloadFile 合法域名**（域名需完成 ICP 备案），重新上传体验版。
+- **后续切回**：`tool.furina.fun` DNS/备案恢复后，把小程序 `dropBase` 改回 `''`、重新上传即可；Caddy 已同时保留该域名，DNS 恢复后自动续/签证书。
+- **待办**：小程序备案号展示（用户提供号码后加到「我的」页）。
 ## 2026-11-12 17:5x–18:3x · v2.0.0 增量 49：用户 10 项反馈（网页已上线 OSS+ECS / drop v2.3 已上线 / 小程序源码待上传）
 
 > 用户 10 项：①上传后列表看不到；②充值后趋势不明显；③域名停用期间小程序正常使用方案；④大屏拖动效果；⑤大屏增加「接收」模块；⑥保留预设布局按钮；⑦无大屏时隐藏大屏互联；⑧小程序可在大屏开启时使用大屏互联；⑨PPT 统一「打开文件」；⑩文件云空间下载后变「打开」。

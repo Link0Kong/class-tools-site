@@ -3341,7 +3341,7 @@ var CBK="eyJhbGciOiJSUzI1NiIsImtpZCI6IjkwMTNkMzBkLWY3NTEtNGE4Yi05OGNlLTlmNTFiMzk
    消除 CORS 与跨云一跳；其它来源（OSS 默认域名/本地文件）继续用 CloudBase 网关。
    注意：var CB 字面量必须保留（本机脚本用它解析网关地址），这里只做运行时覆盖。 */
 (function(){try{var h=String(location.hostname||"");
-  if(/^(?:[a-z0-9-]+\.)*tool\.furina\.fun$/i.test(h)||h==="121.196.47.2"){CB=location.origin+"/v1/rdb/rest/";}
+  if(/^(?:[a-z0-9-]+\.)*tool\.furina\.fun$/i.test(h)||h==="121.196.47.2"||/(^|\.)ko-link\.cn$/i.test(h)){CB=location.origin+"/v1/rdb/rest/";}
 }catch(e){}})();
 function cbH(pref,extra){var h={"Authorization":"Bearer "+CBK,"Content-Type":"application/json"};
   var a=authHdr();for(var k in a)h[k]=a[k];

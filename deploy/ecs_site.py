@@ -42,7 +42,7 @@ IID = "i-bp1ibr9hs7ewepmm1ugw"
 REGION = "cn-hangzhou"
 ECS_IP = "121.196.47.2"
 OSS_BASE = "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com"
-SITE = "https://tool.furina.fun"
+SITE = os.environ.get("SITE_URL") or "https://tool.furina.fun"
 LE_EMAIL = "3299207275@qq.com"
 
 # ---------------------------------------------------------------- 阿里云调用
@@ -158,7 +158,7 @@ def _caddy_https():
 	email __LE_EMAIL__
 }
 
-tool.furina.fun {
+tool.furina.fun, ko-link.cn, www.ko-link.cn {
 	encode zstd gzip
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8090

@@ -31,9 +31,10 @@
 7. **测试账号唯一化（2026-11-11 用户明确要求：「以后测试统一用测试账号，不要再用任何真实账号了」）**：
    - 所有测试 / 验收 / 自动化脚本**只允许使用测试账号**：① 官方测试身份 `3260799999 / 测试账号`（`private.class_ids.is_test=true`，公开凭据）；② 脚本自行创建、`finally` 删除的**临时 QA 测试身份**（`is_test=true`、学号 **9999 段**，如 `9999000001…`，仅测试期存在，绝不长期保留）。
    - **严禁**：登录任何真实同学/管理员账号（含 `3260707024`）；读取或注入真实账号 token（`C:\briefdesk\secrets\class-token.json`）；用真实身份冒名构造 `private.class_sessions`；测试中真实写业务数据。前端 mock 身份、测试夹具学号也必须用官方测试身份或 9999 段，不再使用真实学号。
-   - 生产运维（`deploy/`、PPT 转换机 `ppt/agent.py`、课表同步 `jwxt/` 等）**不属于测试**，其服务凭据按第 1 条管理；但不得把运维 token 注入测试/自动化浏览器。
    - 守卫：`tools/tests/_test_account.py`（`assert_test_identity` / `test_identity_snapshot` / `test_identity_token`）；每个新增测试/QA 脚本开头必须使用测试身份，运行前可用守卫校验。
    - 违反记录与整改：`_audit/real_account_test_audit_20261111.md`；测试脚本若需要管理员专属能力（管理员写 `site_assets` 心跳、管理员 token 刷新等），改为纯 mock 单测或列入运维步骤，**不得**用真实管理员账号跑。
+
+8. **临时公网域名（2026-11-12，备案/DNS 恢复前）**：`tool.furina.fun` 暂停期间，公网与小程序体验版临时使用阿里云同账号域名 **`https://ko-link.cn`**（注意是连字符，不是下划线）。ECS Caddy 同时服务 `tool.furina.fun, ko-link.cn, www.ko-link.cn`；小程序 `utils/cloud-config.js` 的 `dropBase` 临时为 `https://ko-link.cn/drop`，恢复后改回 `''` 并重新上传；微信后台需把 `https://ko-link.cn` 加入 request+downloadFile 合法域名（域名须完成 ICP 备案）。该域名只用于过渡，不改变测试账号红线（测试仍只用测试账号）。
 
 ---
 

@@ -3189,3 +3189,13 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 网页：stage 135、optim GREEN、file 35、power_trend_compare 32、v2_ui 27、overflow 0；mp unit 478/0、staticcheck/code_quality 通过。
 - 上线：网页备份 `index_online_20261112_preBatch2.html`（1,146,207B/`9f680c0c…`）→ OSS+ECS **1,158,525 B / sha256 `41dcfefc…`**；drop v2.3 已部署。
 
+## 2026-11-12 20:4x–21:0x · 增量 50：临时域名 ko-link.cn（HTTPS 已启用）
+
+- 用户提供阿里云同账号域名 `ko-link.cn`（注意是连字符）；`tool.furina.fun` DNS 仍暂停。
+- 阿里云 DNS：`@`/`www` A → `121.196.47.2`。
+- `deploy/ecs_site.py`：HTTPS Caddy 块改为 `tool.furina.fun, ko-link.cn, www.ko-link.cn`；`SITE` 支持 `SITE_URL` 环境变量覆盖，便于 `SITE_URL=https://ko-link.cn python deploy\ecs_site.py verify`。已 `apply --https`（证书签发成功）。
+- 网页：index 同源判断支持 `ko-link.cn`；线上 **1,158,556B/`9fac5b58…`**；备份 `index_online_20261112_preKoLink.html`（1,158,525B/`41dcfefc…`）。
+- 验证：ko-link 首页/www/drop health/同源 CloudBase 反代/签名下载 URL+真实下载全部 200；probe 使用测试身份并清理。
+- 小程序：`dropBase: 'https://ko-link.cn/drop'`（临时）；上传体验版前需在微信后台 request+downloadFile 加 `https://ko-link.cn`；备案号展示待用户提供号码。
+- 切回 furina：小程序 dropBase 改回 `''` 并重新上传；Caddy 两个域名都保留。
+
