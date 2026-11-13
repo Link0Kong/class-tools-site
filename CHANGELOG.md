@@ -2,6 +2,36 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-13 21:38–22:1x · 增量 55：网页端教务入口改「点卡片直接进入 + 浏览器自动填充」（取代增量 54 的中间入口页；**网页已上线 OSS+ECS**；小程序入口已按用户要求撤销；安卓 WebView 直进+自动填充另行交付）
+
+> 用户原话（2026-11-13 21:38）：「把网页端和app的教务系统入口改直接进入同时附带自动填充账号密码功能，取消微信小程序端的教务系统入口」。已确认口径（契约 §5.0）：网页端 = **直跳 + 浏览器自带密码保存/自动填充**（本站不接触、不保存教务密码）；安卓 = 本机 Keystore 加密保存 + 自动登录；小程序 = 取消入口。本增量只做网页端；安卓/小程序由并行会话按契约 §5.3/§5.4 负责。
+
+### ① 关键事实（契约 §5.1，实现不得假设相反）
+- 学校统一认证登录页**不支持 URL 预填账号**（`?username=` 不生效）；浏览器安全模型**禁止本站跨域读写 authserver 登录表单** → 网页端无法真正代填。
+- 因此网页端唯一可行形态 = **点「教务」卡片直接顶层打开教务系统 + 交给浏览器密码管理器**（首次登录手动输入并勾选「保存密码」，之后由浏览器自动填充）。
+
+### ② 网页实现（`tools/index.html`，APP_VER 仍 2.0.0）
+- **删除中间入口页**：`#s-jw` section（`__JW_ENTRY_V1_BEGIN__`/`_END__`）、其 CSS（`__JW_ENTRY_V1_CSS__`）、旧「复制链接」JS 全部移除；`TOOLS` 的 jw 条目改为链接型工具：加 `url:"http://210.34.74.77/sso.jsp"`。
+- 新 JS 块 `/* __JW_ENTRY_V1_JS__ */`（主 IIFE 内、UG 块之后）：`JW_URL`、`isLinkTool(k)`、`openJwDirect()`（创建真实 `<a target="_blank" rel="noopener noreferrer">` 并 `click`，兜底 `location.href`）、`firstPageTab(home)`、只读探针 `window.JW={url,open}`（`Object.freeze` + `writable:false`）；**无定时器 / 无轮询 / 无网络请求**。
+- **包装 `gotoTab`**：`isLinkTool(k)` → `openJwDirect()` 后 `return`（不切页、不改 `CURTAB` / history / POS）；「全部」页卡片点击与顶部工具栏 tab 点击都走这条路径；卡片按钮文案改为「进入」（`label:(t.url?"进入":"打开")`）。
+- **滑动引擎**：`targetFor("tool")` 与抽签 STEP 边界切工具统一走 `nextPageTabIdx()`，**跳过链接型工具**（jw），避免滑动/边界切页误开新窗口。
+- **恢复路径防护**（新增，防无手势自动打开外站）：`POS.begin` 中 `tool.url` 的位置恢复视为无效；`popstate` 遇到旧 history 里的 `jw` 直接跳过；`renderTabs` 默认落地页与非法 tab 归一都用 `firstPageTab(home)`（工具栏第一个非链接工具）。因此：刷新、返回键、旧 sessionStorage/history 数据都不会自动弹出教务站。
+- **卡片点击双触发修复**：`renderAllCards` 原先对「卡片容器」与「卡片内按钮」各绑一次 `gotoTab` 点击处理；普通工具页两次调用幂等无感，但链接型工具会**一次点击打开两个窗口**。改为只绑定卡片容器（按钮点击自然冒泡），jw 卡「进入」按钮现只打开 1 次。
+- 使用说明 `__UG_CARDS_V1__` jw 卡文案改为「点卡片直接打开教务系统 / 首次登录时勾选浏览器『保存密码』/ 之后打开即自动填充账号密码」+ tip「自动填充由浏览器完成；校外打不开时先连学校 VPN」。
+- 红线核对：页面加载/切页/点击阶段对 `210.34.74.77`、`authserver.fjtcm.edu.cn` **零请求**（全 HTML 仅 2 处教务 URL：`TOOLS.url` + `JW_URL`）；不嵌 iframe、不采集/不保存账号密码、单文件零依赖、APP_VER 仍 2.0.0。
+
+### ③ 测试（实跑）
+- 重写 `tools/tests/v2_jw_check.py` **55/55**（静态 14 + 运行时 41）：430/360/390/1280 四档 × **两条用户路径**（「全部」页点 jw 卡、顶部工具栏「教务」tab）→ mock anchor click 断言 `href/target/rel` 正确且**不切页**（`CURTAB` / `section.on` / history.length / history.state 不变）；程序化 `gotoTab("jw")` 与 `window.JW.open()` 同路径；`isLinkTool('jw')===true`；旧 `zq_pos_v1 tab=jw` 恢复不自动打开；**卡片内「进入」按钮只打开 1 次（防双开）**、**点拖动手柄不打开**；0 JS 报错 / 0 console.error / 0 外部请求（含 210.34.74.77 与 authserver，加载+全流程两阶段）/ 无横向溢出；截图 5 张 `tools/tests/_shots_jw/`（全部页 430/360/390/1280 + 430 工具栏含教务 tab）。
+- 回归：`overflow_check` 430/360/390 overflowCount=0、`v2_ui_check 27/27`、`v2_drag_check 69/69`、`v2_ug_check 56/56`、`optim_v1_check GREEN`、`optim_v2_check main 16 + admin 70 + hash 4 全 GREEN`；额外受影响面 `v2_pos_restore_check 12/12`。
+- 测试身份 `SID=9999000005 / 测试同学`（9999 段 mock，符合 AGENTS §0-7）；未使用真实账号/未读密钥/未真实写云端。
+
+### ④ 状态 / 回滚
+- 本次网页**已上线 OSS+ECS**：线上 **1,232,963 B / sha256 `b47c6bb7ec0934d7be2793cf921b80d3a1340c0ad34ed9aedf289e2aa521c236`**（`deploy/oss_object.py check index.html` = MATCH；`python deploy/ecs_site.py verify` = MATCH（ECS_IP 直连字节校验），gzip 382,777 B；ECS 直连实取同字节且含 `url:"http://210.34.74.77/sso.jsp"` / `isLinkTool`、**无**旧 `#s-jw` 页）。部署前线上备份 `tools/_backup/index_online_20261113-2205_preJwDirect.html`（1,233,447 B / `de932bfa…`）。
+- Lead 独立复跑（非仅 web-dev 自报）：`v2_jw_check 55/55`、`overflow_check 430`=0、`v2_ug_check 56/56`、`v2_drag_check 69/69`、`v2_ui_check 27/27`、`optim_v1_check` GREEN。
+- 回滚：重传上述部署前备份后 OSS+ECS apply；或 revert 本次 `tools/index.html` / `tools/tests/v2_jw_check.py` hunk（恢复增量 54 的中间入口页）。APP_VER 仍 2.0.0；无 DB / `userdata` v6 / 云函数变更。
+- 小程序：按用户 21:38 要求**取消教务入口**（删除 `utils/tools.js` 的 jw、`pages/jw/`、`images/tool-jw.png`、`app.json` 注册、`pages/ug/ug.js` 使用说明卡；`VERSION` 仍 2.0.0，unit 536/0、tool_sort 21/0、ug_cards 59/0、sync 34/0、staticcheck/code_quality exit 0），需用户重新上传发布。
+- 已知取舍（如实）：自动填充完全由浏览器密码管理器决定（首次需手动登录并勾选保存；不同浏览器策略/隐私模式可能不填充；本站无法检测、无法代填、不保存任何教务凭据）；教务系统为 HTTP，只能顶层导航；若用户曾在增量 54 把「教务」拖入工具栏，55 版工具栏仍可含「教务」tab（点击直接打开），但默认落地页/恢复路径会跳过它。
+
 ## 2026-11-13 18:4x–19:1x · 增量 54：三端新增「教务」入口——网页「教务」工具卡 + 统一身份认证直达页（网页已上线 OSS+ECS；小程序源码待用户上传发布；安卓 4.45.0 APK 已交付）
 
 > 需求（用户原话）：「帮我在班级工具站三端加个教务网站的入口」；已确认口径见唯一契约 `_audit/jw_entry_20261113/CONTRACT.md`：指向新版教务管理系统 `http://210.34.74.77/sso.jsp`（学校统一身份认证 SSO；教务系统只有 HTTP，**只能顶层导航**，不得 iframe 内嵌/子资源），形态 = 新增「教务」工具卡（全部页可拖入顶部工具栏）。

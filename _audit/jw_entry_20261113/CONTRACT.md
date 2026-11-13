@@ -103,3 +103,40 @@
 - [ ] 小程序 unit/staticcheck 全绿，改动文件清单可直接用于微信上传
 - [ ] 安卓单测全绿 + APK 产出（大小/SHA-256）
 - [ ] 无新增外部请求；无隐私字段；无对既有功能的行为改动
+
+---
+
+## 5. 变更（2026-11-13 21:38 用户新要求，增量 55）
+
+> 用户原话：「把网页端和app的教务系统入口改直接进入同时附带自动填充账号密码功能，取消微信小程序端的教务系统入口」
+
+### 5.0 已确认口径（用户 21:39 点选）
+- 网页端：**直接跳转 + 浏览器自动填充**（本站不接触、不保存教务密码；「直接进入」= 点「教务」卡片直接打开教务系统，删除中间入口页）。
+- 安卓端：**允许本机加密保存密码，自动登录**（仅存手机本机、Android Keystore 加密、可一键清除、绝不上传；学校若开验证码则回退手动）。
+- 小程序端：**取消入口**（删除卡片、页面、图标、使用说明卡；`VERSION` 仍 2.0.0）。
+
+### 5.1 关键技术事实（2026-11-13 实测，实现不得假设相反）
+- 学校统一认证登录页 `https://authserver.fjtcm.edu.cn/authserver/login?service=http%3A%2F%2F210.34.74.77%2Fsso.jsp`：
+  - **不支持 URL 预填账号**（`?username=` 不生效，`username` 输入框 value 恒空）→ 网页端无法经 URL 预填。
+  - 浏览器安全模型禁止 A 站（本站）跨域读写 B 站（authserver）表单 → **网页端无法真正代填**；只能「直跳 + 浏览器自带密码保存/自动填充」。本站不得保存教务密码（红线）。
+  - 账号密码登录表单：form `#pwdFromId`、账号 `#username`、可见密码 `#password`（name=passwordText）、隐藏密文 `#saltPassword`、每会话盐 `#pwdEncryptSalt`、提交按钮 `<a id="login_submit">`；页面自身有全局 `encryptPassword(pwd, salt)`（AES-CBC/Pkcs7，CryptoJS）与 `#pwdLoginDiv` 展示逻辑；点击 `#login_submit` 会走 `startLogin→checkForm`（自动加密+提交）。
+  - 登录页可能要求验证码（`#captchaDiv` / `#showErrorTip`），自动提交失败时必须回退人工。
+
+### 5.2 网页（tools/index.html）
+1. `TOOLS` 的 jw 条目增加 `url:"http://210.34.74.77/sso.jsp"`；**删除** `#s-jw` 页面（`<!-- __JW_ENTRY_V1_BEGIN__ -->` 区间）与其 CSS/复制页 JS；保留 UG 卡并改文案。
+2. 新 JS 块（主 IIFE 内）：`JW_URL` 常量、`isLinkTool(k)`、`openJwDirect()`（创建 `<a href target="_blank" rel="noopener noreferrer">` 并 click，兜底 `location.href`）、只读探针 `window.JW={url,open}`；**无定时器/网络请求**。
+3. 包装 `gotoTab`：`k==="jw"` → `openJwDirect()` 后 return（不切页、不改 CURTAB/history）；「全部」卡片点击与工具栏 tab 点击都走这条路径（卡片 label 用「进入」）。
+4. 滑动引擎 `targetFor("tool")` 跳过 link tools（jw），避免滑动误开新窗口（抽签 STEP 边界切工具同函数，自动生效）。
+5. UG jw 卡：sub「点卡片直接打开教务系统」；steps「点『教务』卡片直接打开教务系统 / 首次登录时勾选浏览器『保存密码』 / 之后打开即自动填充账号密码」；tip「自动填充由浏览器完成；校外打不开时先连学校 VPN」。
+6. 测试 `tools/tests/v2_jw_check.py` 重写（mock anchor click / window.open）：卡片与工具栏两条路径都直接触发打开、不切页；0 JS 报错/0 console.error/0 外部请求（不请求 210.34.74.77 / authserver）；`isLinkTool('jw')===true`；4 档无溢出；截图更新 `_shots_jw/`。回归 overflow/v2_ui/v2_drag/v2_ug/optim_v1/v2。
+
+### 5.3 安卓（android-class-tools）
+1. 由「入口页 + 打开按钮」改为：点「教务」卡 → 直接进入内置 WebView（`http://210.34.74.77/sso.jsp`），**自动填充账号密码并提交**；无已存凭据时先弹一次性密码输入（账号默认当前身份 sid；可「仅打开不保存」）。
+2. 密码仅本机保存：Android Keystore（AES/GCM）+ SharedPreferences 存 sid+密文+IV；**不写日志/不上报/不参与同步**；顶栏提供「清除登录（密码+Cookie）」；身份 sid 变化时不匹配旧凭据需重新输入。
+3. WebView 配置：JS/DOM storage/Cookies 开启、禁 file access、仅允许 http(s)；新增 `res/xml/network_security_config.xml` 仅对 `210.34.74.77` 放行 cleartext（manifest 引用，不能全局开 cleartext）。
+4. 注入时机：`onPageFinished` 且 URL 在 `authserver.fjtcm.edu.cn` 的 `/authserver/login` → 延迟 ~300ms：确保 `#pwdLoginDiv` 可见 → 填 `#username`/`#password`（派发 input 事件）→ 点 `#login_submit`（页面自身 encryptPassword+提交）；800ms 后复核：仍在 authserver 且 `#showErrorTip` 有文字或 `#captchaDiv` 可见 → 回退人工（提示「自动登录失败，可能需验证码，请手动完成」），成功后 URL 为非 authserver（210.34.74.77）即视为已进入。
+5. 版本 `4.46.1 / vc63`；ToolCatalog subtitle/features、GuideContent jw 卡文案同步；docs/CHANGELOG 记 v4.46.1；单测 + Release APK（`artifacts/classtools-4.46.1-release-signed.apk`）。
+6. 测试红线：**禁止用任何真实教务账号测试**（AGENTS §0-7）；模拟器冒烟只能用假账号/假密码验证「页面加载 + 注入触发 + 不崩溃」，或如实说明未做真机验证。
+
+### 5.4 小程序（mp-class-tools）
+删除 jw 入口/页面/图标/使用说明卡，测试恢复 19 卡基线；`VERSION` 2.0.0；用户需重新上传发布。

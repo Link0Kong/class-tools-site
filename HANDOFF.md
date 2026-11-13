@@ -3382,3 +3382,32 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - **小程序源码待用户上传发布**（mp-class-tools，VERSION 2.0.0）：`utils/tools.js` 末尾 `jw` + `pages/jw/jw.{js,json,wxml,wxss}` + `app.json` + `images/tool-jw.png`（1,643 B）+ `pages/ug/ug.js`「教务入口」卡；只做复制链接（个人主体无 web-view），`unit 537/0、tool_sort_unit 21/0、ug_cards_check 60/0、sync_contract_test 34/0、staticcheck/code_quality exit 0`。
 - **安卓 4.45.0 / vc61 APK**：`ToolCatalog` + `JwEntryScreen` + `MainNavHost` 路由 + 使用说明第 21 卡；`testDebugUnitTest 1112/0`（89 suites，Lead 复跑确认）；Release **3,108,633 B / SHA-256 `39458E83C0EEBF64187F29DA48051B2F832E7B204E061E95F972D5F3805CFA41`**（`artifacts/classtools-4.45.0-release-signed.apk`，v2 签名；dex 已核验含教务 URL/文案；以当前工作树构建、含并行会话未提交 WIP）。
 - 回滚：网页重传部署前备份后 OSS+ECS apply；小程序回退源码；安卓回退 4.44.0 源码/APK（`0F37DA73…`）；无 DB / `userdata` v6 / 云函数变更。
+---
+
+## 2026-11-13 21:38–22:1x · 增量 55：网页端教务入口改「点卡片直接进入 + 浏览器自动填充」（取代增量 54 的中间入口页；网页已上线 OSS+ECS；小程序入口已撤销；安卓 WebView 直进+自动填充另行交付）
+
+### 需求与契约
+- 用户原话（2026-11-13 21:38）：「把网页端和app的教务系统入口改直接进入同时附带自动填充账号密码功能，取消微信小程序端的教务系统入口」。已确认口径（契约 §5.0）：**网页 = 直跳 + 浏览器自带密码保存/自动填充**（本站不接触、不保存教务密码）；安卓 = 本机 Keystore 加密保存 + 自动登录；小程序 = 取消入口。本次只做网页端（安卓/小程序由并行会话按 §5.3/§5.4 负责）。
+- 关键事实（契约 §5.1）：学校 authserver 登录页**不支持 URL 预填账号**；浏览器安全模型**禁止本站跨域读写其登录表单** → 网页端无法真正代填，唯一可行形态 = 直跳 + 浏览器密码管理器。
+
+### Web（`tools/index.html`，APP_VER 仍 2.0.0，未部署）
+- **删除中间入口页**：`#s-jw` section（旧 3097–3116 行）、`__JW_ENTRY_V1_CSS__`（旧 2548–2564 行）、旧复制链接 JS 块全部移除；`TOOLS` jw 条目（约 5556 行）加 `url:"http://210.34.74.77/sso.jsp"`（链接型工具）。
+- 新 JS `__JW_ENTRY_V1_JS__`（约 19405 行起，**主 IIFE 内、UG 块之后**）：`JW_URL` / `isLinkTool(k)` / `openJwDirect()`（创建真实 `<a target="_blank" rel="noopener noreferrer">` 并 click，兜底 `location.href`）/ `firstPageTab(home)` / 只读探针 `window.JW={url,open}`（freeze + writable:false）；**无定时器/轮询/网络请求**。
+- **包装 `gotoTab`**（约 19449 行）：`isLinkTool(k)` → `openJwDirect()` 后 return（不切页、不改 CURTAB/history/POS）；「全部」卡片（`allCardDefs` label 改「进入」，约 5707 行）与顶部工具栏 tab 两条路径都直接打开。
+- **卡片点击双触发修复**（约 5732 行）：`renderAllCards` 原先对卡片容器与卡片内按钮各绑一次 `gotoTab`（普通工具页幂等无感，链接型工具会一次点击开两个窗口）→ 改为只绑定 `#allCards [data-card]` 容器（按钮点击冒泡），jw 卡「进入」按钮只打开 1 次。
+- **滑动引擎**（约 11672 行）：新增 `nextPageTabIdx()` 跳过链接型工具，`targetFor("tool")` 与抽签 STEP 边界切工具两处生效，防滑动/边界误开新窗口。
+- **恢复路径防护**（防无手势自动打开外站）：`POS.begin`（约 12033 行 `if(tool&&tool.url)valid=false;`）、`popstate`（约 11994 行 `if(isLinkTool(String(st.zqTab)))return;`）、`renderTabs`（约 5625 / 5656 行改用 `firstPageTab`）——刷新、返回键、旧 sessionStorage/history 数据都不会自动打开教务站。
+- 使用说明 `__UG_CARDS_V1__` jw 卡（约 19191 行）文案改为：sub「点卡片直接打开教务系统」、steps「点『教务』卡片直接打开教务系统 / 首次登录时勾选浏览器『保存密码』/ 之后打开即自动填充账号密码」、tip「自动填充由浏览器完成；校外打不开时先连学校 VPN」。
+- 红线核对：加载/切页/点击阶段对 `210.34.74.77`、`authserver.fjtcm.edu.cn` **零请求**（全 HTML 仅 2 处教务 URL：`TOOLS.url` + `JW_URL`）；不嵌 iframe；不采集/不保存账号密码；单文件零依赖；APP_VER 仍 2.0.0。
+
+### 测试与回归（实跑）
+- 重写 `tools/tests/v2_jw_check.py` **55/55**（静态 14 + 运行时 41）：430/360/390/1280 四档 × **两条用户路径**（「全部」页点 jw 卡、顶部工具栏「教务」tab）→ mock anchor click 断言 `href/target/rel` 正确且**不切页**（CURTAB / section.on / history.length / history.state 不变）；程序化 `gotoTab("jw")` 与 `window.JW.open()` 同路径；`isLinkTool('jw')===true`；旧 `zq_pos_v1 tab=jw` 恢复不自动打开外站；**卡片内「进入」按钮只打开 1 次（防双开）/ 点拖动手柄不打开**；0 JS 报错 / 0 console.error / 0 外部请求（含 210.34.74.77 与 authserver，加载+全流程两阶段）/ 无横向溢出；截图 `tools/tests/_shots_jw/` 5 张（全部页 430/360/390/1280 + 430 工具栏含教务 tab）。
+- 回归：`overflow_check` 430/360/390 = 0、`v2_ui_check` 27/27、`v2_drag_check` 69/69、`v2_ug_check` 56/56、`optim_v1_check` GREEN（首跑遇一次 Edge 环境抖动超时，复跑 GREEN）、`optim_v2_check` main 16 + admin 70 + hash 4 GREEN；额外受影响面 `v2_pos_restore_check` 12/12。
+- 测试身份 `SID=9999000005 / 测试同学`（9999 段 mock 身份，符合 AGENTS.md §0-7）；未使用真实账号/未读密钥/未真实写云端。
+- 状态：**网页已上线 OSS+ECS**——线上 **1,232,963 B / sha256 `b47c6bb7ec0934d7be2793cf921b80d3a1340c0ad34ed9aedf289e2aa521c236`**；`deploy/oss_object.py check index.html` = MATCH；`python deploy/ecs_site.py verify` = MATCH（ECS_IP 直连字节校验），gzip 382,777 B；ECS 直连实取同字节且含 `url:"http://210.34.74.77/sso.jsp"` / `isLinkTool`、无旧 `#s-jw` 页；部署前备份 `tools/_backup/index_online_20261113-2205_preJwDirect.html`（1,233,447 B / `de932bfa…`）。Lead 独立复跑 `v2_jw_check 55/55`、`overflow 430=0`、`v2_ug 56/56`、`v2_drag 69/69`、`v2_ui 27/27`、`optim_v1` GREEN。无 DB / `userdata` v6 / 云函数变更。
+- 小程序端（用户 21:38 要求「取消」）：已整体撤销 jw 入口（tools.js / pages/jw / 图标 / app.json / ug 卡），`VERSION` 仍 2.0.0；`unit 536/0、tool_sort 21/0、ug_cards 59/0、sync 34/0、staticcheck/code_quality exit 0`（Lead 复跑确认）；需用户重新微信上传发布。
+- 安卓端（用户要求「直接进入 + 自动填充」）：由 android-class-tools 交付（WebView 直进 + 本机 Keystore 加密保存自动登录），见 android 仓库记录与交付 APK。
+
+### 回滚 / 取舍
+- 回滚：重传增量 54 线上备份 `tools/_backup/index_online_20261113-1902_preJw.html`（1,233,447 B / `de932bfa…`）后 OSS+ECS apply；或 revert 本次 `tools/index.html` / `tools/tests/v2_jw_check.py` hunk（增量 54 的中间入口页随之恢复）。
+- 已知取舍（如实）：自动填充完全由浏览器密码管理器决定（首次需手动登录并勾选保存；隐私模式/企业策略可能不填充；本站无法检测、无法代填、不保存任何教务凭据）；教务系统为 HTTP，只能顶层导航；若用户曾在增量 54 把「教务」拖入工具栏，55 版工具栏仍可含「教务」tab（点击直接打开），但默认落地页/恢复路径会跳过它。
