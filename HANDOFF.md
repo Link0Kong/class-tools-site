@@ -3354,3 +3354,31 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 部署：`python deploy/sync_tools.py index.html` + `python deploy/ecs_site.py apply` → OSS/ECS **1,228,439 B / sha256 `89685d55858eac107ca284f8307e2127e396f1ba4eab3e14035fc22f05b08265`**；`deploy/oss_object.py check index.html` = MATCH；`SITE_URL=https://ko-link.cn python deploy/ecs_site.py verify` = MATCH；gzip 380,687 B。
 - 部署前线上备份：`tools/_backup/index_online_20261112_2238_prePowerCmpMobile.html`（1,227,464 B / `891a6389…`，含并行会话最近改动）；回滚=重传该备份后 OSS+ECS apply。
 - 无 DB / `userdata` v6 / 云函数变更；仅 `tools/index.html` + 测试文件。
+
+---
+
+## 2026-11-13 18:4x–19:1x · 增量 54：三端「教务」入口（网页端「教务」工具卡 + 统一身份认证直达页；网页已上线 OSS+ECS / 小程序源码待用户上传发布 / 安卓 4.45.0 APK 已交付）
+
+### 需求与契约
+- 用户原话：「帮我在班级工具站三端加个教务网站的入口」；已确认口径：指向新版教务管理系统 `http://210.34.74.77/sso.jsp`（学校统一身份认证 SSO；教务系统只有 HTTP，**只能顶层导航**，禁止 iframe 内嵌/子资源），形态 = 新增「教务」工具卡（全部页可拖入顶部工具栏）。
+- 唯一契约 `_audit/jw_entry_20261113/CONTRACT.md` §1/§2；本增量三端同做：网页（§2.1）、小程序（§2.2）、安卓（§2.3）。
+
+### Web（`tools/index.html`，APP_VER 仍 2.0.0，未部署）
+- `TOOLS` **末尾**追加 `{k:"jw",n:"教务",d:"成绩 · 选课 · 考试；统一身份认证直达教务系统"}`（约 5593 行）；`ALL_TONE.jw="blue"`（约 5699 行）；不插中间，工具栏补齐/滑动顺序不变。
+- `#s-jw`（约 3098–3116 行，`__JW_ENTRY_V1_BEGIN__`/`_END__` 包住；`#s-vote` 之后、`__WEB_B2_FILE_BEGIN__` 之前）：标题「教务管理系统」/ 短描述「成绩 · 选课 · 考试」/ 主按钮真实锚点 `#jwOpen`（href `http://210.34.74.77/sso.jsp`、`target="_blank"`、`rel="noopener noreferrer"`）/ `#jwCopy`「复制链接」/ URL 小字 / 提示行「统一身份认证登录 · 打不开时先连学校 VPN」。
+- CSS `__JW_ENTRY_V1_CSS__`（约 2548 行起，`</style>` 前）：少量 `.jw-*`；锚点按钮 inline-flex 居中 + 无下划线、点按高度 44px、≤380px 按钮整行；360/390/430 实测无横向溢出。
+- JS `__JW_ENTRY_V1_JS__`（约 19428 行起，**主 IIFE 内部**、UG 块之后、脚本收尾 `})();`（约 19468）之前）：`#jwCopy` → 优先 `navigator.clipboard.writeText`，回退隐藏 textarea + `execCommand`（与站内 `fb()` 同法）→ 复用闭包 `toast("链接已复制")`；暴露只读探针 `window.JW={url}`（freeze + writable:false）；无定时器/轮询/网络请求。**注意**：该块必须在主 IIFE 内（`toast()/copy()/fb()` 是闭包函数；`window.toast` 只是 id=toast 的 DOM 元素），`v2_jw_check` J34 已锁定，勿移到 IIFE 外；`v2_jw_check` S16 同时锁定「其后仅本块 IIFE + 主 IIFE 两个收尾」。
+- 使用说明 `__UG_CARDS_V1__` 的 `CARDS` 追加第 18 张 `jw` 卡（`cat:"study"`、标题「教务入口」、scene 复用 `list`、tone blue、3 步 + tip，不新增配图）；轮播/总览/页码随之 17→18。
+- 红线核对：页面加载与切页阶段对 `210.34.74.77` **零请求**（全 HTML 仅 3 处 URL：锚点 href、URL 文本、`JW_URL` 常量）；不嵌 iframe；不采集账号密码；单文件零依赖；APP_VER 仍 2.0.0。
+
+### 测试与回归（实跑）
+- 新增 `tools/tests/v2_jw_check.py` **64/64**（静态 16 + 运行时 48）：430×940 / 360×780 / 390×844 / 1280×900 四档 × 两条进入路径（`gotoTab("jw")` 与「全部」页点 `#allCards [data-card="jw"]`）→ `#s-jw` 可见；`#jwOpen` href/target/rel 逐字校验；`#jwCopy` 点击 → mock 剪贴板收到教务 URL 且 toast「链接已复制」；0 JS 报错、0 console.error、0 外部请求（含 210.34.74.77，页面加载+切页两阶段）、无横向溢出、点按 ≥40px；J34 作用域锁定；截图 `tools/tests/_shots_jw/`（430/360/390/1280 + 全部页 jw 卡共 5 张）。
+- 回归：`overflow_check` 430/360/390 overflowCount=0、`v2_ui_check` 27/27、`v2_drag_check` 69/69、`v2_ug_check` **56/56**（卡片数按新事实 17→18：S9/R1/R2/R5/R6/R7/R8/R10/R13/R14/R15/R16/R27 期望更新，未放宽断言）、`optim_v1_check` GREEN、`optim_v2_check` main 16 + admin 70 + hash 4 全 GREEN。
+- 测试身份 `SID=9999000005 / 测试同学`（9999 段 mock 身份，符合 AGENTS.md §0-7）；未使用真实账号/未读密钥/未真实写云端。
+
+### 三端落地 / 上线
+- **网页已上线 OSS+ECS**：线上 **1,233,447 B / sha256 `de932bfab059a908d2b8b0f49adf963730e970d7ee5e7519ab58f2e5c38af266`**；`deploy/oss_object.py check index.html` = **MATCH**；`python deploy/ecs_site.py verify` = **MATCH**（脚本既定口径：ECS_IP 直连字节校验；`http://121.196.47.2/` 实取 1,233,447 B / 同一 sha，含教务入口；gzip 382,493 B；board/课表/pptfiles 均 200）。部署前线上备份 `tools/_backup/index_online_20261113-1902_preJw.html`（1,228,439 B / `89685d55…`）。
+- Lead 独立复跑（非仅为 web-dev 自报）：`v2_jw_check 64/64`、`overflow_check 430=0`、`v2_ug_check 56/56`、`v2_drag_check 69/69`、`v2_ui_check 27/27`、`export_check draw` PASS；`selfcheck.py` 属身份门禁前旧脚本（引用已删除 `#aRoster`），HEAD 基线同样 FAIL，按既有文档口径不作门禁。
+- **小程序源码待用户上传发布**（mp-class-tools，VERSION 2.0.0）：`utils/tools.js` 末尾 `jw` + `pages/jw/jw.{js,json,wxml,wxss}` + `app.json` + `images/tool-jw.png`（1,643 B）+ `pages/ug/ug.js`「教务入口」卡；只做复制链接（个人主体无 web-view），`unit 537/0、tool_sort_unit 21/0、ug_cards_check 60/0、sync_contract_test 34/0、staticcheck/code_quality exit 0`。
+- **安卓 4.45.0 / vc61 APK**：`ToolCatalog` + `JwEntryScreen` + `MainNavHost` 路由 + 使用说明第 21 卡；`testDebugUnitTest 1112/0`（89 suites，Lead 复跑确认）；Release **3,108,633 B / SHA-256 `39458E83C0EEBF64187F29DA48051B2F832E7B204E061E95F972D5F3805CFA41`**（`artifacts/classtools-4.45.0-release-signed.apk`，v2 签名；dex 已核验含教务 URL/文案；以当前工作树构建、含并行会话未提交 WIP）。
+- 回滚：网页重传部署前备份后 OSS+ECS apply；小程序回退源码；安卓回退 4.44.0 源码/APK（`0F37DA73…`）；无 DB / `userdata` v6 / 云函数变更。

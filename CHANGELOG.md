@@ -2,6 +2,30 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-13 18:4x–19:1x · 增量 54：三端新增「教务」入口——网页「教务」工具卡 + 统一身份认证直达页（网页已上线 OSS+ECS；小程序源码待用户上传发布；安卓 4.45.0 APK 已交付）
+
+> 需求（用户原话）：「帮我在班级工具站三端加个教务网站的入口」；已确认口径见唯一契约 `_audit/jw_entry_20261113/CONTRACT.md`：指向新版教务管理系统 `http://210.34.74.77/sso.jsp`（学校统一身份认证 SSO；教务系统只有 HTTP，**只能顶层导航**，不得 iframe 内嵌/子资源），形态 = 新增「教务」工具卡（全部页可拖入顶部工具栏）。
+
+### ① 网页实现（`tools/index.html`，APP_VER 仍 2.0.0）
+- `TOOLS` **末尾**追加 `{k:"jw",n:"教务",d:"成绩 · 选课 · 考试；统一身份认证直达教务系统"}`（不插中间，工具栏补齐/滑动顺序不变）；`ALL_TONE.jw="blue"`。
+- 新增 `#s-jw` 页面（`<!-- __JW_ENTRY_V1_BEGIN__ -->`/`_END__` 包住；位于 `#s-vote` 之后、`<!-- __WEB_B2_FILE_BEGIN__ -->` 之前）：标题「教务管理系统」、短描述「成绩 · 选课 · 考试」、主按钮 `<a class="btn pri" id="jwOpen" href="http://210.34.74.77/sso.jsp" target="_blank" rel="noopener noreferrer">打开教务系统</a>`、`<button class="btn ghost" id="jwCopy" type="button">复制链接</button>`、URL 小字、提示行「统一身份认证登录 · 打不开时先连学校 VPN」。
+- CSS `/* __JW_ENTRY_V1_CSS__ */`（`</style>` 前）：少量 `.jw-*`；锚点按钮 inline-flex 居中、`text-decoration:none`；点按高度 44px；≤380px 按钮整行；360/390/430 实测无横向溢出。
+- JS `/* __JW_ENTRY_V1_JS__ */`（**主 IIFE 内部**、UG 块之后、脚本收尾 `})();` 之前）：`#jwCopy` → 优先 `navigator.clipboard.writeText`，回退隐藏 textarea + `execCommand`（与站内 `fb()` 同法）→ 复用闭包 `toast("链接已复制")`；暴露只读探针 `window.JW={url}`（`Object.freeze` + `writable:false`）；无定时器/轮询/网络请求。
+- 使用说明 `__UG_CARDS_V1__` 的 `CARDS` 追加第 18 张 `jw` 卡（`cat:"study"`、标题「教务入口」、scene 复用 `list`、tone blue、3 步 + tip），不新增配图；轮播/总览/页码随之 17→18。
+- 红线核对：页面加载与切页阶段对 `210.34.74.77` **零请求**（全 HTML 仅 3 处 URL：锚点 href、URL 文本、`JW_URL` 常量）；不嵌 iframe、不采集账号密码、单文件零依赖、APP_VER 仍 2.0.0。
+
+### ② 测试（实跑）
+- 新增 `tools/tests/v2_jw_check.py` **64/64**（静态 16 + 运行时 48）：430/360/390/1280 四档 × **两条进入路径**（`gotoTab("jw")` 与「全部」页点 `#allCards [data-card="jw"]`）→ `#s-jw` 可见；`#jwOpen` href/target/rel 逐字校验；`#jwCopy` 点击 → mock 剪贴板收到教务 URL 且 toast「链接已复制」；0 JS 报错、0 console.error、0 外部请求（含 210.34.74.77，页面加载+切页两阶段）、无横向溢出、点按 ≥40px、锚点无下划线；**J34 作用域锁定**（闭包 toast/copy 为函数、`window.toast` 只是 id=toast 的 DOM 元素，防 JS 块被移出主 IIFE）；截图 5 张落盘 `tools/tests/_shots_jw/`。
+- 回归：`overflow_check` 430/360/390 overflowCount=0、`v2_ui_check 27/27`、`v2_drag_check 69/69`、`v2_ug_check **56/56**`（卡片数按新事实 17→18：S9/R1/R2/R5/R6/R7/R8/R10/R13/R14/R15/R16/R27 期望更新，未放宽断言）、`optim_v1_check GREEN`、`optim_v2_check main 16 + admin 70 + hash 4 全 GREEN`。
+- 测试身份：`SID=9999000005 / 测试同学`（9999 段 mock 身份，符合 AGENTS §0-7）；未使用真实账号、未读密钥、未真实写云端。
+
+### ③ 三端同步落地（Lead 汇总）
+- **网页已上线 OSS+ECS**：线上 **1,233,447 B / sha256 `de932bfab059a908d2b8b0f49adf963730e970d7ee5e7519ab58f2e5c38af266`**（`deploy/oss_object.py check index.html` = MATCH；`python deploy/ecs_site.py verify` = MATCH（脚本按 ECS_IP 直连字节校验）；直连 `http://121.196.47.2/` 实取 1,233,447 B / 同一 sha 且含教务入口；gzip 382,493 B）；部署前线上备份 `tools/_backup/index_online_20261113-1902_preJw.html`（1,228,439 B / `89685d55…`）。
+- Lead 独立复跑：`v2_jw_check 64/64`、`run/overflow_check 430 overflowCount=0`、`v2_ug_check 56/56`、`v2_drag_check 69/69`、`v2_ui_check 27/27`、`export_check draw` PASS；`selfcheck.py` 为身份门禁前旧脚本（引用已删除 `#aRoster`），HEAD 基线同样 FAIL，按既有文档口径不作门禁。
+- **小程序源码已改、待用户微信上传发布**（`mp-class-tools`，VERSION 仍 2.0.0）：`utils/tools.js` TOOLS 末尾追加 `jw`、新增 `pages/jw/jw.{js,json,wxml,wxss}` + `app.json` 注册、`images/tool-jw.png`（96×96 透明底白色校舍 glyph，1,643 B）、`pages/ug/ug.js` 使用说明新增「教务入口」卡（19→20 卡）；页面只做「复制链接 → 手机浏览器打开」（个人主体无 web-view/外链能力），`wx.setClipboardData` + toast「链接已复制，请在手机浏览器打开」；实跑 `unit.js 537/0、tool_sort_unit 21/0、ug_cards_check 60/0、sync_contract_test 34/0、staticcheck/code_quality exit 0`（含 test-only 修复 5 个既有红用例：作业夹具日期腐烂 + tool_sort 缺 file 期望）。
+- **安卓 4.45.0 / vc61 APK 已交付**：`data/tool/ToolCatalog.kt` 追加 `jw`（School 图标 / BrandSlateBlue / 学习分类）、新增 `ui/screens/jw/JwEntryScreen.kt`（ACTION_VIEW 打开 + 剪贴板复制 + URL / 提示行）、`MainNavHost` 路由分支、使用说明第 21 卡；`testDebugUnitTest` **1112/0**（89 suites，+JwEntryTest 8），Release **3,108,633 B / SHA-256 `39458E83C0EEBF64187F29DA48051B2F832E7B204E061E95F972D5F3805CFA41`**（`android-class-tools/artifacts/classtools-4.45.0-release-signed.apk`，v2 签名验签通过、dex 内已核验含教务 URL/文案；APK 以当前工作树构建，含并行会话未提交 WIP）。
+- 回滚：网页重传上述部署前备份后 OSS+ECS apply；小程序回退源码；安卓回退上一版源码/APK 4.44.0（`0F37DA73…`）。本功能无 DB / `userdata` v6 / 云函数变更。
+
 ## 2026-11-12 22:2x–22:4x · 增量 53：手机比例修复（电费同期比较被裁切 / 团员人数首次不显示）+ 全站手机比例审计（网页已上线 OSS+ECS）
 
 > 用户反馈：「网页修复手机比例下电费对比无法正常显示的问题，同时检查各处是否有未适配手机比例的场景，修复团员人数初次点击不显示的问题」。

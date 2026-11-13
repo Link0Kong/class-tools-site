@@ -2545,6 +2545,23 @@ a.rec-link{color:var(--cy);word-break:break-all}
   .ug-ov.on,.ug-ov-sheet{animation:none}
   .ug-prog i{transition:none}
 }
+/* ========== __JW_ENTRY_V1_CSS__ 教务入口（2026-11-13） ==========
+   单卡片入口：主按钮是真实锚点（inline-flex 居中、无下划线），点按高度 ≥40px；
+   手机 360 / 390 / 430 不横向溢出；不引外部资源。 */
+#s-jw .jw-head{display:flex;align-items:center;gap:12px;min-width:0;margin-bottom:14px}
+#s-jw .jw-ico{flex:none;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:13px;background:#EDF2F7;font-size:22px;line-height:1}
+#s-jw .jw-head-t{flex:1;min-width:0}
+#s-jw .jw-head-t b{display:block;font-size:17px;font-weight:800;letter-spacing:.01em;color:var(--ink);line-height:1.35}
+#s-jw .jw-head-t span{display:block;margin-top:2px;font-size:11.5px;color:var(--ink3);line-height:1.5}
+#s-jw .jw-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#s-jw .jw-acts .btn{min-height:44px;padding:0 18px;text-decoration:none;box-sizing:border-box}
+#s-jw #jwOpen{display:inline-flex;align-items:center;justify-content:center}
+#s-jw .jw-url{margin-top:12px;padding:9px 11px;border:1px dashed var(--line);border-radius:10px;background:#FBFCFC;font-size:11.5px;line-height:1.5;letter-spacing:.01em;color:var(--ink3);word-break:break-all;overflow-wrap:anywhere;user-select:all;-webkit-user-select:all}
+#s-jw .jw-hint{margin-top:8px;font-size:11.5px;line-height:1.55;color:var(--ink3)}
+#s-jw .jw-acts .btn:focus-visible{outline:2px solid var(--cy);outline-offset:2px}
+@media (max-width:380px){
+  #s-jw .jw-acts .btn{flex:1 1 100%}
+}
 </style>
 </head>
 <body class="auth-pending">
@@ -3077,6 +3094,26 @@ a.rec-link{color:var(--cy);word-break:break-all}
       </div>
     </div>
   </section>
+  <!-- ==================== 教务（成绩 · 选课 · 考试；统一身份认证直达教务系统） ==================== -->
+  <!-- __JW_ENTRY_V1_BEGIN__ -->
+  <section id="s-jw">
+    <div class="card jw-card">
+      <div class="jw-head">
+        <span class="jw-ico" aria-hidden="true">🏫</span>
+        <div class="jw-head-t">
+          <b>教务管理系统</b>
+          <span>成绩 · 选课 · 考试</span>
+        </div>
+      </div>
+      <div class="jw-acts">
+        <a class="btn pri" id="jwOpen" href="http://210.34.74.77/sso.jsp" target="_blank" rel="noopener noreferrer">打开教务系统</a>
+        <button class="btn ghost" id="jwCopy" type="button">复制链接</button>
+      </div>
+      <div class="jw-url" id="jwUrl">http://210.34.74.77/sso.jsp</div>
+      <div class="jw-hint">统一身份认证登录 · 打不开时先连学校 VPN</div>
+    </div>
+  </section>
+  <!-- __JW_ENTRY_V1_END__ -->
 <!-- __WEB_B2_FILE_BEGIN__ -->
   <!-- ==================== 文件传输（临时云空间：同账号跨设备 · 分片上传不限大小 · 文件保留 3 天） ==================== -->
   <section id="s-file">
@@ -5552,7 +5589,8 @@ var TOOLS=[
  {k:"diag",n:"诊断",d:"依赖服务运行状态、设备诊断与 AI 修复建议，全班可见"},
  {k:"water",n:"水量",d:"每月手动抄表 · 自动对比上次 · 按校方规则算水费 · 水费折算扣电"},
  {k:"vote",n:"投票",d:"限时/长时投票 · 自定义标题选项与规则 · 实时结果"},
- {k:"ppt",n:"演示",d:"PPT 上传自动转换 · 分步 + 视频 · 任意设备流畅播放"}];
+ {k:"ppt",n:"演示",d:"PPT 上传自动转换 · 分步 + 视频 · 任意设备流畅播放"},
+ {k:"jw",n:"教务",d:"成绩 · 选课 · 考试；统一身份认证直达教务系统"}];
 var CURTAB="draw";
 var LANDING=true; /* 首次进入（身份通过后）落到工具栏第一格 */
 /* 横屏比例工具栏可放 5 个（4 工具 + 全部）；竖屏 4 个（3 工具 + 全部） */
@@ -5658,7 +5696,7 @@ function renderTabs(noScroll){
 }
 
 /* 全部栏卡片色调：课表雾蓝 · 作业/反馈睡莲青 · 抽签/体测暖沙 · 班委/点名/统计紫 · 通知灰粉 · 使用说明中性 */
-var ALL_TONE={draw:"sand",tt:"blue",committee:"violet",hw:"mint",nt:"rose",ft:"sand",roll:"violet",stats:"violet",water:"blue",vote:"teal"};
+var ALL_TONE={draw:"sand",tt:"blue",committee:"violet",hw:"mint",nt:"rose",ft:"sand",roll:"violet",stats:"violet",water:"blue",vote:"teal",jw:"blue"};
 /* ============================================================
    全部页卡片拖动 v2（2026-11-06；2026-11-11 定位基准 = 卡片本体）
    - 起点：卡片右上 handle（三条横线）；移动 >6px 才进入拖动
@@ -19172,7 +19210,10 @@ var UG=(function(){
      tip:"全班成员都可查看，详情已脱敏"},
     {id:"fb",cat:"more",title:"反馈建议",sub:"问题和建议直接发给管理员",scene:"list",tone:"sand",
      steps:["写下问题或建议并提交","可留联系方式便于回复","管理员会看到并标记已处理"],
-     tip:"反馈不会公开你的学号"}
+     tip:"反馈不会公开你的学号"},
+    {id:"jw",cat:"study",title:"教务入口",sub:"成绩 · 选课 · 考试一键直达",scene:"list",tone:"blue",
+     steps:["工具栏或「全部」页打开教务入口","点「打开教务系统」在新窗口打开","统一身份认证登录后进入教务系统"],
+     tip:"打不开时先连学校 VPN；链接可复制后在手机浏览器打开"}
   ];
   var N=CARDS.length, idx=0, built=false, track=null, catsEl=null, ovEl=null, ovList=null,
       prevB=null, nextB=null, countEl=null, progEl=null, ovBtn=null, ovClose=null, ovReturn=null,
@@ -19383,6 +19424,46 @@ var UG=(function(){
   try{build();}catch(e){try{if(window.console&&console.error)console.error("ug build",e);}catch(e2){}}
   return {cards:CARDS,cats:CATS,onShow:onShow,open:openOv,close:closeOv,go:go,
     idx:function(){return idx;},built:function(){return built;},count:function(){return N;}};
+})();
+/* ========== __JW_ENTRY_V1_JS__ 教务入口（2026-11-13） ==========
+   作用域说明：本块位于**主 IIFE 内部**（主 IIFE 自文件内 `(function(){` 开始，到脚本末尾的
+   收尾 `})()` 结束；中间的 `})()` 只关闭嵌套块）。因此可直接复用主 IIFE 内的
+   `toast()` / `copy()` / `fb()`（它们不是全局函数，不要假设 `window.toast` 存在）。
+   只做两件事：① 「复制链接」→ 复用站内 toast() 提示「链接已复制」；
+   ② 暴露只读探针 window.JW={url} 供自检/诊断（不暴露任何账号密码）。
+   约束：无定时器 / 无轮询 / 无任何网络请求；教务系统只在用户点主按钮时顶层导航。 */
+(function(){
+  var JW_URL="http://210.34.74.77/sso.jsp";
+  function okToast(){try{toast("链接已复制");}catch(e){}}
+  function failToast(){try{toast("复制失败","error");}catch(e){}}
+  /* 回退：隐藏 textarea + execCommand（与站内 fb() 同法；非安全上下文/无 clipboard API 时使用） */
+  function fallbackCopy(){
+    var ok=false,ta=null;
+    try{
+      ta=document.createElement("textarea");
+      ta.value=JW_URL;
+      ta.setAttribute("readonly","");
+      ta.style.cssText="position:fixed;top:-1000px;left:-1000px;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      ok=document.execCommand("copy");
+    }catch(e){ok=false;}
+    try{if(ta&&ta.parentNode)ta.parentNode.removeChild(ta);}catch(e){}
+    if(ok){okToast();return;}
+    failToast();
+  }
+  function copyLink(){
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      try{navigator.clipboard.writeText(JW_URL).then(function(){okToast();},function(){fallbackCopy();});return;}catch(e){}
+    }
+    fallbackCopy();
+  }
+  try{
+    var b=document.getElementById("jwCopy");
+    if(b)b.addEventListener("click",copyLink);
+    var probe=Object.freeze({url:JW_URL});
+    Object.defineProperty(window,"JW",{value:probe,writable:false,configurable:false,enumerable:true});
+  }catch(e){}
 })();
 })();
 </script>
