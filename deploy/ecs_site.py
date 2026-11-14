@@ -130,7 +130,7 @@ def _caddy_http():
 	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
-	# 当前访问域名的 Origin（IP / ko-link.cn 等）→ 网关 403，页面报「网络错误」。
+	# 当前访问域名的 Origin（如 ECS IP 调试入口）→ 网关 403，页面报「网络错误」。
 	# 同源请求不需要 CORS，故反代侧去掉 Origin（2026-11-12 修复 IP/临时域名登录失败）。
 	handle /v1/rdb/rest/* {
 		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
@@ -162,7 +162,7 @@ def _caddy_https():
 	email __LE_EMAIL__
 }
 
-tool.furina.fun, ko-link.cn, www.ko-link.cn {
+tool.furina.fun {
 	encode zstd gzip
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8090
@@ -183,7 +183,7 @@ tool.furina.fun, ko-link.cn, www.ko-link.cn {
 	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
-	# 当前访问域名的 Origin（IP / ko-link.cn 等）→ 网关 403，页面报「网络错误」。
+	# 当前访问域名的 Origin（如 ECS IP 调试入口）→ 网关 403，页面报「网络错误」。
 	# 同源请求不需要 CORS，故反代侧去掉 Origin（2026-11-12 修复 IP/临时域名登录失败）。
 	handle /v1/rdb/rest/* {
 		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
@@ -229,7 +229,7 @@ tool.furina.fun, ko-link.cn, www.ko-link.cn {
 	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
-	# 当前访问域名的 Origin（IP / ko-link.cn 等）→ 网关 403，页面报「网络错误」。
+	# 当前访问域名的 Origin（如 ECS IP 调试入口）→ 网关 403，页面报「网络错误」。
 	# 同源请求不需要 CORS，故反代侧去掉 Origin（2026-11-12 修复 IP/临时域名登录失败）。
 	handle /v1/rdb/rest/* {
 		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
@@ -397,7 +397,7 @@ def main(argv=None):
         script = PROBE_SCRIPT
         label = "probe"
     else:
-        # 2026-11-12 教训：ko-link.cn/tool.furina.fun 的 HTTPS 已启用后，并行会话误跑 apply（旧默认 HTTP-only）
+        # 2026-11-12 教训：tool.furina.fun 的 HTTPS 已启用后，并行会话误跑 apply（旧默认 HTTP-only）
         # 会把 443 写没（21:23、21:40 两次事故）。默认改为 HTTPS，只有显式 --http-only 才降级。
         script = build_apply_script(https=not ns.http_only)
         label = "apply"

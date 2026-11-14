@@ -3505,3 +3505,26 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 回滚：网页重传上述备份 + `python deploy/ecs_site.py apply`；数据回滚 `C:\briefdesk\data\_backup_notice_redesign_20261114\`（13:45 的 board/briefs/quality/triage/builder 快照）；AI 脚本回滚同目录 `ai_brief.*.py`/`ai_quality.*.py`/`detect_docs.*.py`（新脚本 `ai_memory.py`/`notice_threads.py` 可直接停用：detect_docs 有 exists 守卫）；`NOTICE_SKIP_THREADS` 仅为调度顺序保护，可去掉；小程序/安卓回退到用户上一版上传/安装。
 - 已知限制（如实）：① AI 摘要/描述在「记忆版本变化或线程重算」时可能有约 12–14 组重写，业务状态（合并/until/过期/分类）稳定，本轮多轮重建最终收敛为 95 组；② 军训活动期由 AI 从历史消息推断为 11-14~11-15，若与实际不符可在 `notice-feedback.json` 写规则/编辑 `notice-memory.json` 后重跑；③ 网页「最新发布」时间取自组内消息时间/updatedAt（父页未把云行 ts 传入 iframe，不改父页红线）；④ 安卓过期普通通知仍保留「标记已处理」入口（既有行为，web 对过期卡隐藏）；⑤ 小程序需用户上传发布、安卓需用户安装 APK；两端未做真机交互验证（小程序 devtools automator 已用真实云端数据验证，安卓仅编译期+单测）。
 
+## 2026-11-14 21:1x–21:3x · 增量 59：撤销 ko-link.cn 临时域名（三端源码 + ECS Caddy + DNS 全部回退，等 furina.fun 备案）
+
+> 用户 2026-11-14 决定：「撤销三端中用到 ko-link.cn 域名的所有改动，我决定老老实实等 furina.fun 备案完成。」
+
+### 撤销内容
+- **网页** `tools/index.html`：`(function(){... CB=location.origin+"/v1/rdb/rest/" ...})()` 的 host 判断去掉 `/(^|\.)ko-link\.cn$/i`（恢复 `tool.furina.fun` 子域 / `121.196.47.2`）；`drawVerifyUrl()` 的 host 判断同样去掉 ko-link（恢复后：`tool.furina.fun` 子域与 ECS IP 用 `location.origin`，其它 host 回退 `https://tool.furina.fun`）；测试预览副本 `tools/tests/_power_preview.html` 同步两处。**保留** `deploy/ecs_site.py` 三处 `header_up -Origin`（2026-11-12 修复的 IP 入口登录必需，与域名无关）。
+- **小程序源码** `mp-class-tools`：`utils/cloud-config.js` `webBase: 'https://tool.furina.fun'`（固定最终值）、`dropBase: ''`（恢复临时域名前状态）；`utils/drawproof.js` 注释、`README.md`、`CHANGELOG.md` 同步。**需用户重新上传体验版/正式版后生效**。
+- **安卓**：`android-class-tools` / `android-class-tools-notify` 全仓库无 ko-link.cn 引用 → 无需改动、无需重打包。
+- **ECS/Caddy**：`deploy/ecs_site.py::_caddy_https()` 站点块 `tool.furina.fun, ko-link.cn, www.ko-link.cn {` → `tool.furina.fun {`；`python deploy\ecs_site.py apply` 部署。实测活动 Caddyfile / `Caddyfile.https.ready` 均 0 处 ko-link，80/443 LISTEN、caddy active；ko-link.cn 的 LE 证书缓存目录已删除。
+- **DNS**：阿里云 DNS 删除 ko-link.cn `@`/`www` A → `121.196.47.2` 两条记录（DeleteDomainRecord），恢复 0 记录（原状）；`dns.alidns.com` DoH 复核：apex 无 A 记录、`www` NXDOMAIN。
+- **文档**：AGENTS §0-8 改为「公网域名暂停期只保留 IP 调试入口」；§38 小程序 webBase 固定 furina；`draw/CONTRACT.md` §4/§8 同步；`deploy/ECS_DEPLOY.md` §3.5 标记已撤销、§3.6 备注去 ko-link。
+
+### 验证 / 上线
+- 上线：部署前备份 `tools/_backup/index_online_20261114-2122_preKoLinkRevert.html`（1,257,999B/`fe5ca3da…`）→ OSS/ECS **1,257,937 B / sha256 `b84b3d57d8acace943a693c13645c84f14ab9f048cf51fcf04d7e87a45204e48`**；`oss_object.py check index.html` MATCH、ECS verify MATCH；`http://121.196.47.2/` 实取同字节、页面内 `ko-link.cn` 出现次数 0；gzip 391,140 B。
+- 功能：headless Edge + 测试身份 `3260799999/测试账号` 在 IP 入口登录成功（`auth-pending` 移除、`class_verify`/`class_members`/`class_league`/`fitrecs`/`marks`/`userdata` 全 200、0 console error；CDP 写白名单 blocked=1 仅访问统计）；`/drop/__health` 200、`/pptfiles/__health` 200；带 `Origin` 的 `/v1/rdb/rest/` 返回 401（反代去 Origin 仍生效，非 403）。
+- 小程序：`node unit.js` **540 pass / 5 fail**（5 项均为既有时间相关的通知期次用例，与 cloud-config 改动无关；本轮未改逻辑）。
+- 回滚：网页重传上述备份 + `apply`；恢复临时域名 = Caddy 站点块加回域名 + DNS 加回 `@`/`www` A + 三端源码反向修改；小程序回退源码。
+
+### 已知影响（如实）
+- `tool.furina.fun` 备案完成前，公网网页只能走 `http://121.196.47.2/`（HTTP，非域名）；小程序核验二维码（`webBase=https://tool.furina.fun`）与文件传输（`dropBase=''`，体验版/正式版需等域名恢复后再配微信合法域名）在 furina 恢复前不可用。
+- `CHANGELOG`/`HANDOFF` 旧条目、`_audit`、验收报告中的 ko-link.cn 记录为历史存档，未删除。
+- 备案通过 + DNS 恢复后：`python deploy\ecs_site.py apply`（默认 HTTPS）即可恢复 `https://tool.furina.fun`，小程序重新配置微信合法域名并上传。
+

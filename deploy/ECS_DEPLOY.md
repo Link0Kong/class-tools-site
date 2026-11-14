@@ -35,19 +35,18 @@ python deploy\ecs_site.py verify           # 本机校验 ECS 字节（sha、gzi
 python deploy\ecs_site.py apply --dry-run  # 只打印将要执行的远端脚本
 ```
 
-- **`apply` 默认启用 HTTPS 站点块**（2026-11-12 起；`--https` 仍兼容，等价）。已有 `tool.furina.fun/ko-link.cn` HTTPS 时**绝不要**再用 HTTP-only 配置覆盖：21:23 与 21:40 两次并行会话误跑旧默认，把 443 写没、线上 HTTPS 中断。若确实需要临时降级（域名/证书尚未启用），显式加 **`--http-only`**。
+- **`apply` 默认启用 HTTPS 站点块**（2026-11-12 起；`--https` 仍兼容，等价）。已有 `tool.furina.fun` HTTPS 时**绝不要**再用 HTTP-only 配置覆盖：21:23 与 21:40 两次并行会话误跑旧默认，把 443 写没、线上 HTTPS 中断。若确实需要临时降级（域名/证书尚未启用），显式加 **`--http-only`**。
 
 - `apply` 流程：备份 → 从 OSS 公开地址下载（`https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com`）→ 原子替换 → 写 `Caddyfile.new` + `Caddyfile.https.ready` → `caddy validate` 两个文件 → 替换并 `systemctl reload caddy` → 本机 `verify`。
 - 站点内容以 **OSS 为唯一真源**：先 `python deploy/sync_tools.py` 上传 OSS，再 `ecs_site.py apply` 同步 ECS（两步都成功才算上线）。
 
-### 3.5 临时公网域名 ko-link.cn（2026-11-12）
+### 3.5 临时公网域名 ko-link.cn（2026-11-12 启用；2026-11-14 已全部撤销）
 
-- 背景：`tool.furina.fun` DNS/备案暂停，微信体验版需 HTTPS 已备案域名；临时使用阿里云同账号 `ko-link.cn`。
-- DNS：阿里云 DNS `@` / `www` A → `121.196.47.2`。
-- Caddy：`_caddy_https()` 站点块为 `tool.furina.fun, ko-link.cn, www.ko-link.cn`；`python deploy\ecs_site.py apply --https` 已启用，证书自动签发。
-- 校验：`SITE_URL=https://ko-link.cn python deploy\ecs_site.py verify`；`https://ko-link.cn/drop/__health` version=2.3。
-- 切回：小程序 `dropBase` 改回 `''`；Caddy 两个域名都保留，`tool.furina.fun` DNS 恢复后自动签发/续期。
-- 注意：微信后台 request/downloadFile 加 `https://ko-link.cn` 前，该域名须已完成 ICP 备案。
+- **2026-11-14 用户决定**：等 `tool.furina.fun` 备案完成，不再使用临时域名。撤销范围：网页/小程序/安卓三端源码中的同源判断与 `webBase`/`dropBase`、ECS Caddy 站点块、阿里云 DNS 记录。
+- **当前状态**：Caddy HTTPS 站点块只有 `tool.furina.fun`；ko-link.cn 的 `@`/`www` A 记录已删除（0 记录）；公网仅保留 `http://121.196.47.2/` 调试入口。撤销记录见 `HANDOFF.md` 增量 59 / `CHANGELOG.md` 2026-11-14 条目。
+- **历史（备查）**：启用时 DNS `@`/`www` A→`121.196.47.2`、Caddy 三域名 + LE 自动签发；因 ko-link.cn 未完成 ICP 备案，大陆访问被阿里云阻断（HTTP 403 / HTTPS RST），实际只对境外可用。
+- **复核**：`grep -c ko-link /etc/caddy/Caddyfile` 应为 0；`curl http://121.196.47.2/` 与 OSS `index.html` 同字节。
+- **恢复域名**：`tool.furina.fun` 备案通过 + DNS 恢复后，`python deploy\ecs_site.py apply`（默认 HTTPS），Caddy 自动签发证书。
 
 ### 3.6 同源反代 Origin 修复（2026-11-12）
 
@@ -55,7 +54,7 @@ python deploy\ecs_site.py apply --dry-run  # 只打印将要执行的远端脚�
 - 根因：CloudBase 网关只放行白名单 Origin（`https://tool.furina.fun`、`http://127.0.0.1:*`）；浏览器对**同源** POST/PATCH/DELETE 也会带 `Origin: <当前访问域名>`，经 Caddy 同源反代 `/v1/rdb/rest/*` 原样透传后网关直接 403（`https://ko-link.cn`、`http://121.196.47.2`、OSS 默认域名、`null` 实测均 403），前端 catch 后显示「网络错误，请稍后重试」。
 - 修复：三处 `/v1/rdb/rest/*` 反代块（HTTP 配置、HTTPS 域名块、HTTPS 里的 `:80` 块）加 `header_up -Origin`。同源请求不需要 CORS，网关响应头对同源页面无影响；鉴权不变（Bearer anon key + `X-Device-Id` 班级 token）。
 - 部署/校验：`python deploy\ecs_site.py apply --https`；ECS 上 `grep -c 'header_up -Origin' /etc/caddy/Caddyfile` 应为 **2**；带 `Origin` 请求 `/v1/rdb/rest/` 应返回 **401**（需鉴权）而不是 403。
-- 备注：ko-link.cn 备案通过后走同一反代，**无需**再改 CloudBase 控制台；其他直连 CloudBase 网关的第三方页面仍受网关 Origin 白名单约束。
+- 备注：ECS IP 调试入口等非白名单来源走同一反代，**无需**改 CloudBase 控制台；其他直连 CloudBase 网关的第三方页面仍受网关 Origin 白名单约束。
 
 ## 4. HTTPS 启用（ICP 备案通过、`tool` 解析恢复之后）
 

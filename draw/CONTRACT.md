@@ -247,8 +247,8 @@ function seededInts(seedHex){
   `?id=<recordId>` 直接打开详情；不显示学号。
 - 同步：`utils/store.js` 默认 `draw.names:''`；`utils/privacy.js` DEFAULTS draw 加 `names:''`；
   `utils/cloud.js` `udSections().draw.names` 与 `udApply` 应用；`sync_contract_test.js` 夹具同步更新。
-- 小程序二维码 URL：优先 `utils/cloud-config.js` 新增 `webBase`（临时 `https://ko-link.cn`，恢复后改回
-  `https://tool.furina.fun`），`verifyUrl(id)=webBase+'/#verify='+id`。
+- 小程序二维码 URL：优先 `utils/cloud-config.js` 新增 `webBase`（`https://tool.furina.fun`，
+  `verifyUrl(id)=webBase+'/#verify='+id`；2026-11-14 起固定该值，不再使用临时域名）。
 - 导出命名/版式/水印/编号规则不变；图片里 No 学号。
 
 ---
@@ -313,5 +313,5 @@ QA（fresh context）另写报告 `验收报告/抽签存证与名称映射_独�
 1. 云端：`cd web/deploy/cloudbase && python apply_sql.py 2026-11-12_draw_proof.sql`（幂等）。
 2. 网页：`tools/_backup/index_online_<时间>_preDrawProof.html` 备份线上 → `python deploy/sync_tools.py` →
    `python deploy/oss_object.py check index.html` MATCH → `python deploy/ecs_site.py verify`（或等价）MATCH。
-3. 小程序：源码交付，**用户上传发布后生效**；发布前需确认 `webBase` 域名（当前 ko-link.cn → 微信后台合法域名）。
+3. 小程序：源码交付，**用户上传发布后生效**；`webBase` 固定 `https://tool.furina.fun`（仅二维码链接用，不必加入微信 request 合法域名；furina DNS/备案恢复前核验链接暂不可用）。
 4. 回滚：网页重传备份；SQL 见迁移文件头 `DROP FUNCTION ... / DROP TABLE draw_events / draw_records`；小程序回退源码。

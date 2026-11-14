@@ -2,6 +2,16 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-14 21:1x–21:3x · 撤销 ko-link.cn 临时域名（三端源码 + ECS Caddy + DNS 全部回退；等 furina.fun 备案）
+
+> 用户 2026-11-14 决定：老老实实等 `tool.furina.fun` 备案完成，撤销三端中所有用到 ko-link.cn 的改动。
+
+- **网页**：`tools/index.html` 同源反代判断（`var CB` 运行时覆盖）与抽签核验链接 host 判断去掉 `ko-link.cn`，恢复为 `tool.furina.fun` 子域 / `121.196.47.2`；测试预览副本 `tools/tests/_power_preview.html` 同步；`deploy/ecs_site.py` Caddy HTTPS 站点块恢复为仅 `tool.furina.fun`。**保留** `/v1/rdb/rest/*` 反代 `header_up -Origin`（IP/非白名单来源登录必需，2026-11-12 修复）。
+- **小程序**（源码，待用户重新上传）：`utils/cloud-config.js` `webBase` → `https://tool.furina.fun`、`dropBase` → `''`；`utils/drawproof.js`/README/CHANGELOG 注释同步。**安卓**：全仓库无 ko-link.cn 引用，无需改动。
+- **服务器/DNS**：`python deploy\ecs_site.py apply` 部署（Caddy 仅 `tool.furina.fun`、80/443 正常、`grep -c ko-link /etc/caddy/Caddyfile` = 0）；删除 ko-link.cn 的 LE 证书缓存；阿里云 DNS 删除 `@`/`www` A 记录（恢复 0 记录，`dns.alidns.com` DoH 实测无 A）。
+- **上线**：网页 OSS/ECS **1,257,937 B / sha256 `b84b3d57d8acace943a693c13645c84f14ab9f048cf51fcf04d7e87a45204e48`**（`oss_object.py check` MATCH、ECS verify MATCH、`http://121.196.47.2/` 实取同字节、页面内 `ko-link.cn` 出现次数 0）；headless Edge 测试身份在 `http://121.196.47.2/` 登录成功（class_verify/class_members/class_league/fitrecs/marks/userdata 全 200、0 console error）。
+- **回滚**：重传备份 `tools/_backup/index_online_20261114-2122_preKoLinkRevert.html`（1,257,999B/`fe5ca3da…`）+ `apply`；小程序回退源码；如需恢复临时域名 = Caddy 加回域名 + DNS 加回 `@`/`www` A → `121.196.47.2` + 三端源码反向修改。
+
 ## 2026-11-14 13:3x–14:4x · 增量 58：三端通知改造（长期安排按期次 + 5 张可点数据卡 + 资料·无时间栏 + 时间显示归一）+ AI 活动周期记忆/更新合并（网页已上线 OSS+ECS；小程序/安卓待用户上传/安装）
 
 > 用户 2026-11-14 要求：通知数据栏新增长期通知、全部数据卡可点展示、已过期卡换最新发布；长期通知不隐藏、按期次每次提前一天展示并可单独已处理；无时间不得进长期；请假只在军训期间；射击 11-14 通知应按已过期且要有时间；时间显示统一 `11月13日（本周五）`；11-13 晚自习/军训应合并为更新通知、摘要只留军训。契约 `通知三端_长期通知与时间显示_契约_20261114.md`。
