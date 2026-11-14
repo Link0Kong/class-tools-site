@@ -62,7 +62,9 @@ python pcap\pcap.py pc        # 2. 打印本机步骤（自动找到 WeChatAppEx
 python pcap\pcap.py run       # 3. 起抓包，记下端口
 ```
 
-4. Proxifier（官方试用 30 天）→ `Profile → Proxy Servers` → 添加 `127.0.0.1:8080`，协议选 **HTTPS**。
+4. Proxifier（官方试用 30 天）→ `Profile → Proxy Servers` → 添加 `127.0.0.1:8080`，
+   协议必须选 **HTTP**（不是 HTTPS——Proxifier 里的 HTTPS 表示「到代理之间再套一层 TLS」，
+   我们这个代理是普通 HTTP 代理，选错会连上就断、什么都抓不到）。
 5. `Profile → Proxification Rules` → 新增一条：
    - Applications：粘贴第 2 步打印的 `WeChatAppEx.exe` 完整路径
    - Action：选第 4 步那个代理
@@ -190,6 +192,8 @@ pcap/
 
 | 现象 | 处理 |
 |---|---|
+| `? 连接 127.0.0.1:xxxx 收到 TLS 握手` | Proxifier 的代理协议选成了 HTTPS：改成 **HTTP**（HTTPS 表示到代理之间再做 TLS） |
+| `? 连接 ... 连上就断开` | 一般是 Proxifier 的连通性探测；如果只有这种，说明规则没把 `WeChatAppEx.exe` 的流量导进来 |
 | `! TLS 失败 <IP>:443` | 看后面的 `SNI=`：图片/CDN 域名可以忽略；如果是学校接口域名，说明客户端不信任本机 CA 或做了证书固定 → 彻底退出微信（任务管理器确认没有 `WeChatAppEx`）再开；仍失败就换 iPhone |
 | `502 [upstream: TimeoutError]` | 本机走了 Clash/V2Ray 之类的系统代理，直连连不上。默认 `--upstream-proxy auto` 会自动用系统代理；如果系统代理被关过，手动加 `--upstream-proxy http://127.0.0.1:18081` |
 | 手机连不上（浏览器打不开 `pcap.local`） | 同一 Wi-Fi？Windows 防火墙是否拦了 Python（控制面板 → 防火墙 → 允许应用）；换 `--bind 0.0.0.0`；用 `IP:端口` 而不是域名 |

@@ -70,6 +70,8 @@ _print_lock = threading.Lock()
 _stats_lock = threading.Lock()
 _tlsinfo = threading.local()          # 每连接记录 SNI，握手失败时用
 _tls_fail_seen: set = set()           # 同一 host:port 的失败只打一次
+_diag_seen: dict = {}                 # 非 HTTP 首包诊断（每类只打几次）
+_diag_lock = threading.Lock()
 
 
 # --------------------------------------------------------------------------
@@ -475,13 +477,21 @@ class Conn:
 
 
 def recv_head_exact(sock, limit: int = 65536) -> bytes:
-    """逐字节读到 \\r\\n\\r\\n —— 只用于 CONNECT，保证不会吃掉后面的 TLS ClientHello。"""
+    """逐字节读到 \\r\\n\\r\\n —— 只用于 CONNECT，保证不会吃掉后面的 TLS ClientHello。
+
+    附带诊断：首字节像 TLS 就立刻返回；超时也把已读到的字节返回，交给上层判断。
+    """
     buf = bytearray()
     while len(buf) < limit:
-        d = sock.recv(1)
+        try:
+            d = sock.recv(1)
+        except (socket.timeout, TimeoutError):
+            return bytes(buf)
         if not d:
             return bytes(buf)
         buf += d
+        if len(buf) == 1 and buf[0] == 0x16:   # TLS ClientHello
+            return bytes(buf)
         if buf.endswith(HDR_END):
             return bytes(buf)
     return bytes(buf)
@@ -613,6 +623,28 @@ def log_line(rec: dict) -> None:
     line = (f"[{rec['id']}] {rec['ts'][11:19]}  {rec['method']:<6} "
             f"{rec['url'][:96]:<96} {rec['status']:>3} {size:>9} {ms:>7.0f}ms{note}")
     out(line)
+
+
+def note_bad_conn(peer, head: bytes) -> None:
+    """连接进来了但不是 HTTP：打印首包，帮用户判断代理链哪里配错。"""
+    if not head:
+        kind, msg = "empty", "连上就断开，没发任何数据"
+    elif head[:1] == b"\x16":
+        kind, msg = "tls", f"收到 TLS 握手（{head[:6].hex()}…）"
+    else:
+        kind, msg = "other", f"首包不是 HTTP：{head[:48]!r}"
+    with _diag_lock:
+        n = _diag_seen.get(kind, 0) + 1
+        _diag_seen[kind] = n
+    if n > 3:
+        return
+    host = peer[0] if peer else "?"
+    port = peer[1] if peer and len(peer) > 1 else 0
+    out(f"  ? 连接 {host}:{port} {msg}")
+    if kind == "tls":
+        out("    → 客户端把本代理当成 HTTPS 代理了：Proxifier 里协议要选 HTTP，不是 HTTPS")
+    elif kind == "empty":
+        out("    → 一般是上游工具的连通性探测，可忽略；若一直只有这种，说明规则没把流量导进来")
 
 
 def log_tls_failure(host: str, port: int, err) -> None:
@@ -1004,10 +1036,12 @@ def handle_client(client, addr, cfg, store: Store):
     try:
         head = recv_head_exact(client)
         if not head:
+            note_bad_conn(addr, b"")
             return
         first, headers = parse_head(head)
         parts = first.split()
         if len(parts) < 2:
+            note_bad_conn(addr, head)
             return
         method, target = parts[0].upper(), parts[1]
 
@@ -1554,7 +1588,7 @@ def cmd_pc(args) -> int:
     out("步骤：")
     out("  1. python pcap\\pcap.py trust        # 只装一次，装到当前用户根证书")
     out("  2. python pcap\\pcap.py run          # 看端口，默认 8080")
-    out("  3. Proxifier → Profile → Proxy Servers 添加 127.0.0.1:8080，协议 HTTPS")
+    out("  3. Proxifier → Profile → Proxy Servers 添加 127.0.0.1:8080，协议选 HTTP（不是 HTTPS）")
     out("  4. Proxifier → Proxification Rules 新增一条：")
     if exe:
         out(f"       Applications: {exe}")
