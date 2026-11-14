@@ -54,3 +54,8 @@ deploy/_shots_ppt_v12/
 deploy/_e2e_ppt_dl_web.py
 deploy/_qa_ppt_compat.py
 deploy/_shots_ppt_dl/
+
+# ==== 抓包工具（pcap/）：CA 私钥与抓包内容含 token，绝不入库 ====
+pcap/ca/
+pcap/captures/
+pcap/tests/_out/
