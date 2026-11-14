@@ -140,3 +140,33 @@
 
 ### 5.4 小程序（mp-class-tools）
 删除 jw 入口/页面/图标/使用说明卡，测试恢复 19 卡基线；`VERSION` 2.0.0；用户需重新上传发布。
+
+
+---
+
+## 6. 变更（2026-11-14 13:0x，增量 56，仅安卓）
+
+> 用户原话：「把教务系统点开后也展示和班级工具站的卡片一样展开，只调用官方各个工具的网页接口」。
+> 已确认（本次点选）：**只做安卓 App**；**卡片直接展示官方接口数据**（用户授权真实账号一次性接口勘察，仅用于发现官方 URL/参数/字段名）。
+
+### 6.1 授权与安全口径
+- 2026-11-14 用户选择「卡片直接展示官方接口数据（脆弱，需授权）」= 授权本次一次性接口勘察；Lead 复用本机 DPAPI 凭据 +
+  既有 `jwxt.sso_login_http` 生产链路完成，**只记录 URL/参数/JSON 字段名/表头**，原始页面只落盘 `%TEMP%\jw_probe\`（不入仓、不进对话正文）。
+  App 自动化测试仍**只用合成夹具/假账号**（AGENTS §0-7）。
+- App 红线：卡片数据只读（4 个官方 GET 接口）；选课/报名/缓考/评教等写操作只在官方页面内由用户完成，App 不调用任何写接口；
+  密码仍只本机 Keystore 加密保存；cookie 只在请求瞬间使用，不落盘/不打日志/不上传；数据只内存展示。
+
+### 6.2 官方接口（2026-11-14 实测，详见 `_audit/jw_entry_20261113/JW_CARDS_V1_SPEC.md` §2）
+- 成绩 `/jsxsd/kscj/cjcx_list`、考试 `/jsxsd/xsks/xsksap_list`、选课轮次 `/jsxsd/xsxk/xklc_list_data`、公告 `/jsxsd/ggly/ysgg_query?type=list`；
+  GET + `pageNum`/`pageSize`（layui qzTable 口径）；必要请求头 Cookie/UA/Referer/X-Requested-With/Accept；响应 `{msg,code,data,count}`。
+- 官方快捷菜单 8 项：学期理论课表/课程成绩查询/学生选课中心/考试安排查询/培养方案明细/已收公告/缓考申请/社会考试报名（路径见规格 §3）。
+- 实测态：本账号（大一第一学期）4 接口均 `count=0`，**空态为正常路径**；有数据行渲染未用真实有数据账号验证（合成夹具覆盖）。
+
+### 6.3 App 交付（android-class-tools v4.48.0 / vc66）
+- `data/jw/JwApiModels.kt` + `JwApiClient.kt` + `JwCardsRepository.kt`（宽松解析/并行拉取/单卡失败隔离/HTML→会话失效）；
+  `ui/screens/jw/JwCardModels.kt` + `JwCardsSection.kt`（4 数据卡 + 8 官方入口卡 + 完整官网）；`JwEntryScreen.kt` 改 LOGIN/CARDS/WEB 三模式
+  （复用自动登录/验证码回退/本机 Keystore 凭据/清除登录；登录成功取 CookieManager cookie → 拉接口；会话失效自动重登 1 次）。
+- 单测 **1177/0**（93 suites，新增 42：JwApiClientTest 20 / JwCardsRepositoryTest 8 / JwCardModelsTest 14）；Release
+  `artifacts/classtools-4.48.0-release-signed.apk` **3,141,837 B / SHA-256 `7543DAE44153ABF42525F2D62446058607E26B5FA0B7F8ED0B4BCE5D22E649B9`**（vc66，v2 签名；dex 已核验含 4 个官方接口路径与卡片文案）。
+- 已知限制：未真机/真实有数据账号验证；官方页面改版→卡片降级空态/失败态（不崩溃）；验证码沿用手动回退；APK 含并行会话未提交 WIP（无法仅由 HEAD 复现）。
+- 回滚：删除新增 jw 卡片文件 + `JwEntryScreen.kt` 回 HEAD（v4.46.1）+ 版本号回退；APK 回退 4.47.1 产物。

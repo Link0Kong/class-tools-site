@@ -3411,3 +3411,34 @@ sync-repos.cmd "feat: 说明本次改了什么"
 ### 回滚 / 取舍
 - 回滚：重传增量 54 线上备份 `tools/_backup/index_online_20261113-1902_preJw.html`（1,233,447 B / `de932bfa…`）后 OSS+ECS apply；或 revert 本次 `tools/index.html` / `tools/tests/v2_jw_check.py` hunk（增量 54 的中间入口页随之恢复）。
 - 已知取舍（如实）：自动填充完全由浏览器密码管理器决定（首次需手动登录并勾选保存；隐私模式/企业策略可能不填充；本站无法检测、无法代填、不保存任何教务凭据）；教务系统为 HTTP，只能顶层导航；若用户曾在增量 54 把「教务」拖入工具栏，55 版工具栏仍可含「教务」tab（点击直接打开），但默认落地页/恢复路径会跳过它。
+
+---
+
+## 2026-11-14 13:0x–13:2x · 增量 56：安卓「教务」工具页改「卡片速览 + 官方接口数据 + 官方工具入口」（仅安卓；网页/小程序无改动）
+
+### 需求与口径
+- 用户原话：「把教务系统点开后也展示和班级工具站的卡片一样展开，只调用官方各个工具的网页接口」。
+- 已确认：**只做安卓 App**；**卡片直接展示官方接口数据**（用户授权真实账号一次性接口勘察）。
+- 唯一规格：`_audit/jw_entry_20261113/JW_CARDS_V1_SPEC.md`；契约 `_audit/jw_entry_20261113/CONTRACT.md` §6。
+
+### 官方接口勘察（Lead，授权范围内，2026-11-14）
+- 脚本：`jwxt/_dev_probe_pages.py` ~ `_dev_probe_pages5.py`（均被 `jwxt/.gitignore` 的 `_dev_*` 忽略；原始响应落盘 `%TEMP%\jw_probe\`，不入仓）。
+- 登录复用本机 DPAPI + `jwxt.sso_login_http` 生产链路；只记录 URL/参数/JSON 字段名/表头，未在对话/日志输出账号、密码、cookie 或单元格内容。
+- 结论：4 个官方只读 JSON 接口 + 8 个官方快捷菜单路径（详见规格 §2/§3）；实测态 count 全 0（大一第一学期无数据），空态为正常路径。
+
+### App 实现（`android-class-tools`，版本 4.48.0 / vc66）
+- 新增：`app/src/main/kotlin/com/furina/classtools/data/jw/JwApiModels.kt`、`JwApiClient.kt`、`JwCardsRepository.kt`；
+  `ui/screens/jw/JwCardModels.kt`、`JwCardsSection.kt`；单测 `data/jw/JwApiClientTest.kt`（20）、`JwCardsRepositoryTest.kt`（8）、`ui/screens/jw/JwCardModelsTest.kt`（14）。
+- 改造：`ui/screens/jw/JwEntryScreen.kt` → LOGIN/CARDS/WEB 三模式（卡片页 = 4 数据卡 + 8 官方入口卡 + 完整官网；WebView 全屏打开官方页面；复用自动登录/验证码回退/本机 Keystore 凭据/清除登录；登录成功取 CookieManager cookie → 并行拉 4 接口；会话失效自动重登 1 次）。
+- 共享文件：`app/build.gradle.kts`（4.48.0/vc66）、`ToolCatalog.kt`（jw subtitle/features）、`GuideContent.kt`（VERSION 2026-11-14.1 + jw 卡文案）、`UserGuideContentTest.kt`、`docs/CHANGELOG.md`（v4.48.0）。
+- 并行冲突：新增文件独占；共享文件先落 `_audit/jw_entry_20261113/android_jw_cards_shared_edits_pending.md`，并行静默 ≥5 分钟后精确补回（保留并行「点名 roll」条目），构建期间无并行写盘。
+
+### 测试 / 产物 / 上线状态
+- 单测 **1177/0**（93 suites；新增 42）；Lead 独立复跑 `:app:testDebugUnitTest` BUILD SUCCESSFUL，聚合 1177/0/0/0。
+- Release `artifacts/classtools-4.48.0-release-signed.apk` **3,141,837 B / SHA-256 `7543DAE44153ABF42525F2D62446058607E26B5FA0B7F8ED0B4BCE5D22E649B9`**（vc66，v2 签名 Verifies；dex 已核验含 4 接口路径 + 卡片文案；`assembleRelease --no-build-cache --no-daemon` 2m14s）。
+- 安卓仓库 HEAD 仍是并行会话 `47d8f56 v4.47.1`：本次改动未提交（仓库无远端），APK 含并行未提交 WIP（点名/roster 等），无法仅由 HEAD 复现；若并行继续改需重新构建。
+- 网页/小程序：本轮无改动、无需部署。
+
+### 已知限制 / 回滚
+- 未真机/真实有数据账号验证；官方改版 → 卡片降级空态/失败态（不崩溃）+「打开官网」；验证码 → 手动回退；WebView 依赖系统内核；接口属站内非公开接口。
+- 回滚：删除新增 8 个 jw 卡片文件 + `JwEntryScreen.kt` 回 HEAD（v4.46.1）+ 共享文件按 pending 文档反向 edit + 版本号回退；APK 回退上一版 4.47.1 产物（3,141,833 B）。

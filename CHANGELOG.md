@@ -2,6 +2,33 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-14 13:0x–13:2x · 增量 56：安卓「教务」工具页改「卡片速览 + 官方接口数据 + 官方工具入口」（仅安卓 4.48.0 APK；网页/小程序无改动、无需部署）
+
+> 用户原话（2026-11-14）：「把教务系统点开后也展示和班级工具站的卡片一样展开，只调用官方各个工具的网页接口」。
+> 已确认（本次点选）：**只做安卓 App**；**卡片直接展示官方接口数据**（用户授权真实账号一次性接口勘察；Lead 复用本机 DPAPI + 既有 `jwxt.sso_login_http` 生产链路完成，只记录 URL/参数/字段名，原始页面只落盘 `%TEMP%\jw_probe\` 不入仓）。规格 `_audit/jw_entry_20261113/JW_CARDS_V1_SPEC.md`、契约 §6。
+
+### ① 官方接口勘察结论（2026-11-14）
+- **数据接口（只读 GET，layui `pageNum`/`pageSize` 分页）**：成绩 `/jsxsd/kscj/cjcx_list`、考试 `/jsxsd/xsks/xsksap_list`、选课轮次 `/jsxsd/xsxk/xklc_list_data`、公告 `/jsxsd/ggly/ysgg_query?type=list`；响应 `{msg,code,data,count}`，行字段名见规格 §2。
+- **官方快捷菜单 8 项**（实测自 `xsMainV_new` 的 `kjcdShow`）：学期理论课表 `/jsxsd/xskb/xskb_list.do`、课程成绩查询 `/jsxsd/kscj/cjcx_frm`、学生选课中心 `/jsxsd/xsxk/xklc_list`、考试安排查询 `/jsxsd/xsks/xsksap_query`、培养方案明细 `/jsxsd/pyfa/topyfamx`、已收公告 `/jsxsd/ggly/ysgg_query`、缓考申请 `/jsxsd/kscj/hksq_query`、社会考试报名 `/jsxsd/xsdjks/xsdjks_list`。
+- **实测态（如实）**：本账号大一第一学期，4 接口 `count` 全 0（成绩未公布/无考试/无选课轮次/无公告），空态是正常路径；**有数据行渲染未用真实有数据账号验证**（合成夹具覆盖）。
+
+### ② App 实现（android-class-tools v4.48.0 / vc66）
+- 点「教务」卡 → App 内**卡片页**：4 张数据卡（成绩/考试/选课/公告，官方 JSON 接口）+ 8 张官方工具入口卡 + 「打开完整教务官网」；点任意卡 → 内置 WebView 全屏打开官方页面，返回回卡片页；返回键 WEB→卡片页→退出。
+- 新增 `data/jw/JwApiModels.kt`（宽松信封 + 4 类行模型）、`JwApiClient.kt`（URL/参数/Cookie/UA/Referer/X-Requested-With/Accept；HTML→会话失效闸门；宽松 JSON 解析；复用既有 HttpTransport）、`JwCardsRepository.kt`（coroutine 并行 4 接口、单卡失败隔离、cookie 缺失短路）；`ui/screens/jw/JwCardModels.kt`（卡片视图模型/文案/映射）、`JwCardsSection.kt`（卡片页 UI：状态条/数据 2 列/官方工具 2 列/完整官网）。
+- 改造 `ui/screens/jw/JwEntryScreen.kt`（27734B）：LOGIN/CARDS/WEB 三模式；复用 v4.46.1 自动登录（sso.jsp→authserver 注入→回 210 成功）/验证码回退/本机 Keystore 凭据/一次性密码弹层/清除登录；登录成功取 `CookieManager` 同域 cookie 拉数据；会话失效自动重登 1 次；刷新/单卡重试。
+- 安全：写操作只在官方页面内；密码仍只本机 Keystore 加密保存；cookie 只在请求瞬间使用、不落盘/不打日志/不上传；卡片数据只内存；「清除登录」清密码+Cookie+WebStorage+缓存。
+- 共享文件：`build.gradle.kts` 4.48.0/vc66、`ToolCatalog` jw subtitle/features、`GuideContent` VERSION 2026-11-14.1 + jw 卡文案、`UserGuideContentTest`、`docs/CHANGELOG` v4.48.0 条目（android 仓库内）。
+- 并行冲突处置：新增文件先写；共享文件先落 `_audit/jw_entry_20261113/android_jw_cards_shared_edits_pending.md` patch，监控并行会话静默 ≥5 分钟后按当前内容精确补回（保留并行 13:09 的「点名 roll」条目），构建/测试期间无并行写盘。
+
+### ③ 测试 / 产物 / 状态
+- 单测 **1177/0**（93 suites；新增 JwApiClientTest 20 / JwCardsRepositoryTest 8 / JwCardModelsTest 14，全合成 JSON，无真实账号/数据）；Lead 独立复跑 `:app:testDebugUnitTest` BUILD SUCCESSFUL + 聚合 1177/0/0/0。
+- Release `artifacts/classtools-4.48.0-release-signed.apk` **3,141,837 B / SHA-256 `7543DAE44153ABF42525F2D62446058607E26B5FA0B7F8ED0B4BCE5D22E649B9`**（vc66，v2 签名 Verifies；dex 已核验含 4 个官方接口路径与「学期理论课表/打开完整教务官网/官方工具/卡片速览」文案）；`assembleRelease --no-build-cache --no-daemon` 2m14s。
+- Android 仓库 HEAD 仍为并行会话的 `47d8f56 v4.47.1`（本次改动未提交，仓库无远端；APK 含并行未提交 WIP，无法仅由 HEAD 复现）。
+
+### ④ 已知限制 / 回滚
+- 未真机/真实有数据账号验证；官方接口/页面改版 → 卡片降级空态/失败态（不崩溃）并保留「打开官网」；验证码→手动回退；WebView 依赖系统内核。
+- 回滚：删除新增 8 个 jw 卡片文件 + `JwEntryScreen.kt` 回 HEAD（v4.46.1）+ 共享文件按 pending 文档反向 edit + 版本号回退 4.47.1；APK 回退上一版 `classtools-4.47.1-*`（3,141,833 B）。
+
 ## 2026-11-13 21:38–22:1x · 增量 55：网页端教务入口改「点卡片直接进入 + 浏览器自动填充」（取代增量 54 的中间入口页；**网页已上线 OSS+ECS**；小程序入口已按用户要求撤销；安卓 WebView 直进+自动填充另行交付）
 
 > 用户原话（2026-11-13 21:38）：「把网页端和app的教务系统入口改直接进入同时附带自动填充账号密码功能，取消微信小程序端的教务系统入口」。已确认口径（契约 §5.0）：网页端 = **直跳 + 浏览器自带密码保存/自动填充**（本站不接触、不保存教务密码）；安卓 = 本机 Keystore 加密保存 + 自动登录；小程序 = 取消入口。本增量只做网页端；安卓/小程序由并行会话按契约 §5.3/§5.4 负责。
