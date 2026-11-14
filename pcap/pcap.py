@@ -37,7 +37,7 @@ import zlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 ROOT = Path(__file__).resolve().parent
 HOME = Path(os.environ.get("PCAP_HOME") or ROOT)
 CA_DIR = HOME / "ca"
@@ -703,29 +703,80 @@ def _proxy_connect(host: str, port: int, cfg) -> socket.socket:
     return sock
 
 
+def _tls_ctx(cfg, weak: bool = False) -> ssl.SSLContext:
+    ctx = ssl.create_default_context()
+    try:
+        ctx.set_alpn_protocols(["http/1.1"])
+    except Exception:
+        pass
+    if weak:
+        # 老学校服务器常见：512/1024 位 DH、TLS1.0、不支持安全重协商
+        try:
+            ctx.set_ciphers("DEFAULT@SECLEVEL=0")
+        except ssl.SSLError:
+            pass
+        try:
+            ctx.minimum_version = ssl.TLSVersion.TLSv1
+        except Exception:
+            pass
+        try:
+            ctx.options |= ssl.OP_LEGACY_SERVER_CONNECT
+        except Exception:
+            pass
+    if cfg.insecure_upstream:
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
+_WEAK_HINTS = ("dh_key_too_small", "dh key too small", "ee key too small",
+               "ca md too weak", "unsupported protocol", "no protocols available",
+               "unsafe legacy renegotiation", "wrong signature type")
+
+
+def _needs_weak_tls(err: Exception) -> bool:
+    s = str(err).lower()
+    return any(k in s for k in _WEAK_HINTS)
+
+
 class Upstream:
     def __init__(self, host, port, tls: bool, cfg):
-        up_proxy = getattr(cfg, "upstream_proxy", None)
-        if up_proxy and tls:
-            self.sock = _proxy_connect(host, port, cfg)
-        elif up_proxy:
-            phost, pport, _, _ = _proxy_url_parts(up_proxy)
-            self.sock = socket.create_connection((phost, pport), cfg.timeout)
-        else:
-            self.sock = socket.create_connection((host, port), cfg.timeout)
-        self.sock.settimeout(cfg.timeout)
+        self.note = ""
+        raw = self._connect_raw(host, port, tls, cfg)
         if tls:
-            ctx = ssl.create_default_context()
             try:
-                ctx.set_alpn_protocols(["http/1.1"])
-            except Exception:
-                pass
-            if cfg.insecure_upstream:
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
-            self.sock = ctx.wrap_socket(self.sock, server_hostname=host)
+                sock = _tls_ctx(cfg).wrap_socket(raw, server_hostname=host)
+            except ssl.SSLError as e:
+                try:
+                    raw.close()
+                except Exception:
+                    pass
+                if not _needs_weak_tls(e):
+                    raise
+                # 老服务器：降到 SECLEVEL=0 再试一次
+                raw = self._connect_raw(host, port, tls, cfg)
+                sock = _tls_ctx(cfg, weak=True).wrap_socket(raw, server_hostname=host)
+                self.note = "weak-tls"
+        else:
+            sock = raw
+        self.sock = sock
+        self.sock.settimeout(cfg.timeout)
         self.conn = Conn(self.sock)
         self.closed = False
+
+    @staticmethod
+    def _connect_raw(host, port, tls: bool, cfg) -> socket.socket:
+        up_proxy = getattr(cfg, "upstream_proxy", None)
+        if up_proxy and tls:
+            return _proxy_connect(host, port, cfg)
+        if up_proxy:
+            phost, pport, _, _ = _proxy_url_parts(up_proxy)
+            sock = socket.create_connection((phost, pport), cfg.timeout)
+            sock.settimeout(cfg.timeout)
+            return sock
+        sock = socket.create_connection((host, port), cfg.timeout)
+        sock.settimeout(cfg.timeout)
+        return sock
 
     def close(self):
         self.closed = True
@@ -804,7 +855,7 @@ def request_upstream(cfg, scheme, host, port, method, path, headers, body):
                 chunks.append(d)
             resp_body = b"".join(chunks)
         total_ms = (time.perf_counter() - t0) * 1000
-        return status, reason, resp_headers, resp_body, ttfb, total_ms, truncated, ""
+        return status, reason, resp_headers, resp_body, ttfb, total_ms, truncated, up.note
     finally:
         up.close()
 

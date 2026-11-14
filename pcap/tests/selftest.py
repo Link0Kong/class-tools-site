@@ -392,6 +392,12 @@ def main():
                              env=env, capture_output=True, text=True, encoding="utf-8", timeout=60)
         check("replay POST 未加 --send 时拒绝", rp2.returncode == 3, str(rp2.returncode))
 
+        # 12) 老服务器弱 TLS 判定
+        check("弱 DH 错误被识别",
+              pcap._needs_weak_tls(Exception("[SSL: DH_KEY_TOO_SMALL] dh key too small")))
+        check("普通错误不误判",
+              not pcap._needs_weak_tls(Exception("certificate verify failed")))
+
         # list
         lp = subprocess.run([sys.executable, str(ROOT / "pcap.py"), "list"],
                             env=env, capture_output=True, text=True, encoding="utf-8", timeout=60)

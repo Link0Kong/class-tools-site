@@ -197,6 +197,7 @@ pcap/
 | `? 连接 ... 连上就断开` | 一般是 Proxifier 的连通性探测；如果只有这种，说明规则没把 `WeChatAppEx.exe` 的流量导进来 |
 | `! TLS 失败 <IP>:443` | 看后面的 `SNI=`：图片/CDN 域名可以忽略；如果是学校接口域名，说明客户端不信任本机 CA 或做了证书固定 → 彻底退出微信（任务管理器确认没有 `WeChatAppEx`）再开；仍失败就换 iPhone |
 | `502 [upstream: TimeoutError]` | 本机走了 Clash/V2Ray 之类的系统代理，直连连不上。默认 `--upstream-proxy auto` 会自动用系统代理；如果系统代理被关过，手动加 `--upstream-proxy http://127.0.0.1:18081` |
+| `502 [upstream: SSLError ... DH_KEY_TOO_SMALL]` | 学校服务器用了一千位以下的 DH 参数，新版会自动降级重试并在记录里标 `[weak-tls]`；若仍失败，说明服务器更老（TLS1.0/RC4），把 `--insecure-upstream` 打开再试 |
 | 手机连不上（浏览器打不开 `pcap.local`） | 同一 Wi-Fi？Windows 防火墙是否拦了 Python（控制面板 → 防火墙 → 允许应用）；换 `--bind 0.0.0.0`；用 `IP:端口` 而不是域名 |
 | `Connection refused` | 代理没启动 / 端口写错 / 端口被占用（启动日志会提示换 `--port`） |
 | 浏览器提示证书不受信任 | iOS 没开「完全信任」；或证书没装成功（重下 `ca.crt`） |
@@ -218,9 +219,9 @@ python pcap\tests\selftest.py
 
 覆盖：CONNECT/TLS、keep-alive、GET/POST、gzip、chunked、明文 HTTP、CA 下载页、
 落盘、`show` 打码、HAR 脱敏、`replay`（GET 放行 / POST 未加 `--send` 拒绝）、
-链式上游代理（`--upstream-proxy` 经二级代理转发并落盘）。
+链式上游代理（`--upstream-proxy` 经二级代理转发并落盘）、弱 TLS 识别。
 
-期望输出 `RESULT: PASS  37/37`。
+期望输出 `RESULT: PASS  39/39`。
 
 ---
 
