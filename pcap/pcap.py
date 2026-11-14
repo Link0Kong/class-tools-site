@@ -642,7 +642,7 @@ def note_bad_conn(peer, head: bytes) -> None:
     port = peer[1] if peer and len(peer) > 1 else 0
     out(f"  ? 连接 {host}:{port} {msg}")
     if kind == "tls":
-        out("    → 客户端把本代理当成 HTTPS 代理了：Proxifier 里协议要选 HTTP，不是 HTTPS")
+        out("    → 有客户端对代理本身做了 TLS；本代理是明文 HTTP 代理，检查代理软件的「TLS/SSL 到代理」选项")
     elif kind == "empty":
         out("    → 一般是上游工具的连通性探测，可忽略；若一直只有这种，说明规则没把流量导进来")
 
@@ -1588,7 +1588,7 @@ def cmd_pc(args) -> int:
     out("步骤：")
     out("  1. python pcap\\pcap.py trust        # 只装一次，装到当前用户根证书")
     out("  2. python pcap\\pcap.py run          # 看端口，默认 8080")
-    out("  3. Proxifier → Profile → Proxy Servers 添加 127.0.0.1:8080，协议选 HTTP（不是 HTTPS）")
+    out("  3. Proxifier → Profile → Proxy Servers 添加 127.0.0.1:8080，协议选 HTTPS（CONNECT 代理）")
     out("  4. Proxifier → Proxification Rules 新增一条：")
     if exe:
         out(f"       Applications: {exe}")
@@ -1598,9 +1598,79 @@ def cmd_pc(args) -> int:
     out("  5. 完全退出微信（右下角托盘右键 → 退出），重开 → 进活动小程序")
     out("  6. 回来看：python pcap\\pcap.py list")
     out("")
-    out("说明：微信主程序 Weixin.exe 没流量是正常的，小程序请求由 WeChatAppEx.exe 发出，")
-    out("      它不读 Windows 系统代理，所以必须要 Proxifier 这类按进程转发的工具。")
+    out("说明：小程序请求一般由 WeChatAppEx.exe 发出；若 python pcap\\pcap.py watch 显示全是直连，")
+    out("      就把 weixin.exe 也加进 Applications，然后完全退出微信再开。")
     out("      没用微信时记得 trust --remove，或至少在 Proxifier 里停用规则。")
+    return 0
+
+
+def _ps_json(script: str):
+    try:
+        p = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                           capture_output=True, timeout=20)
+    except Exception:
+        return None
+    if p.returncode != 0:
+        return None
+    for enc in ("utf-8", "mbcs", "gbk"):
+        try:
+            return json.loads(p.stdout.decode(enc))
+        except Exception:
+            continue
+    return None
+
+
+def cmd_watch(args) -> int:
+    """看微信的连接到底走了代理还是直连 —— 判断 Proxifier 有没有接管。"""
+    if sys.platform != "win32":
+        out("watch 只用于 Windows。")
+        return 1
+    script = (
+        "$n=@('WeChatAppEx','Weixin');"
+        "$p=@(Get-Process $n -ErrorAction SilentlyContinue | Select-Object Id,ProcessName);"
+        "$c=@(Get-NetTCPConnection -State Established -ErrorAction SilentlyContinue | "
+        "Where-Object { $p.Id -contains $_.OwningProcess } | "
+        "Select-Object OwningProcess,RemoteAddress,RemotePort);"
+        "@{procs=$p;conns=$c} | ConvertTo-Json -Compress -Depth 4"
+    )
+    out("")
+    out(f"监听微信进程的连接 {args.seconds} 秒 —— 现在去打开活动小程序")
+    out("")
+    seen = set()
+    proxied = direct = 0
+    end = time.time() + args.seconds
+    while time.time() < end:
+        data = _ps_json(script)
+        if isinstance(data, dict):
+            procs = {p.get("Id"): p.get("ProcessName") for p in (data.get("procs") or [])}
+            conns = data.get("conns") or []
+            if isinstance(conns, dict):
+                conns = [conns]
+            for c in conns:
+                pid = c.get("OwningProcess")
+                ra = c.get("RemoteAddress") or ""
+                rp = c.get("RemotePort")
+                name = procs.get(pid) or str(pid)
+                key = (name, ra, rp)
+                if key in seen:
+                    continue
+                seen.add(key)
+                if ra in ("127.0.0.1", "::1") and rp == args.port:
+                    proxied += 1
+                    mark = "← 走代理 ✓"
+                else:
+                    direct += 1
+                    mark = "← 直连（Proxifier 没接管）"
+                out(f"  {name:<14} -> {ra}:{rp}   {mark}")
+        time.sleep(max(0.5, args.interval))
+    out("")
+    out(f"走代理 {proxied} 条 / 直连 {direct} 条")
+    if proxied == 0 and direct == 0:
+        out("一条都没有：小程序没联网，或进程名不是 WeChatAppEx/Weixin。")
+    elif proxied == 0:
+        out("全是直连 → Proxifier 规则没命中这个进程：把 weixin.exe 也加进 Applications，再完全退出微信重开。")
+    elif direct > 0:
+        out("有直连也有走代理：直连的多半是图片/视频；只要学校接口那条走代理就够了。")
     return 0
 
 
@@ -1671,6 +1741,12 @@ def build_parser():
 
     pc = sub.add_parser("pc", help="PC 微信抓包步骤（自动检测 WeChatAppEx.exe）")
     pc.set_defaults(func=cmd_pc)
+
+    w = sub.add_parser("watch", help="看微信连接是走代理还是直连（判断 Proxifier 有没有接管）")
+    w.add_argument("--seconds", type=int, default=60)
+    w.add_argument("--interval", type=float, default=1.5)
+    w.add_argument("--port", type=int, default=8080, help="本机抓包端口")
+    w.set_defaults(func=cmd_watch)
     return p
 
 
