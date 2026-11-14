@@ -145,6 +145,90 @@ def start_origin(tls_cert=None):
     return srv, srv.server_address[1]
 
 
+def start_mini_proxy():
+    """最小 HTTP 代理：CONNECT 隧道 + 绝对 URI 转发。用来测 --upstream-proxy 链式。"""
+    import socket as _s
+    from urllib.parse import urlsplit
+
+    srv = _s.socket(_s.AF_INET, _s.SOCK_STREAM)
+    srv.setsockopt(_s.SOL_SOCKET, _s.SO_REUSEADDR, 1)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(50)
+    port = srv.getsockname()[1]
+    seen = []
+
+    def relay(a, b, initial):
+        if initial:
+            b.sendall(initial)
+
+        def pump(src, dst):
+            try:
+                while True:
+                    d = src.recv(65536)
+                    if not d:
+                        break
+                    dst.sendall(d)
+            except OSError:
+                pass
+            finally:
+                try:
+                    dst.shutdown(_s.SHUT_WR)
+                except Exception:
+                    pass
+
+        t = threading.Thread(target=pump, args=(a, b), daemon=True)
+        t.start()
+        pump(b, a)
+        t.join(timeout=3)
+
+    def handle(c):
+        try:
+            buf = b""
+            while b"\r\n\r\n" not in buf:
+                d = c.recv(4096)
+                if not d:
+                    return
+                buf += d
+            head, leftover = buf.split(b"\r\n\r\n", 1)
+            head = head.decode("latin-1")
+            first = head.split("\r\n")[0]
+            method, target = first.split()[0], first.split()[1]
+            seen.append(target)
+            if method.upper() == "CONNECT":
+                h, p = target.rsplit(":", 1)
+                up = _s.create_connection((h, int(p)), 10)
+                c.sendall(b"HTTP/1.1 200 Connection established\r\n\r\n")
+                relay(c, up, leftover)
+                up.close()
+            else:
+                u = urlsplit(target)
+                up = _s.create_connection((u.hostname, u.port or 80), 10)
+                path = (u.path or "/") + (("?" + u.query) if u.query else "")
+                lines = head.split("\r\n")
+                lines[0] = f"{method} {path} HTTP/1.1"
+                up.sendall(("\r\n".join(lines) + "\r\n\r\n").encode("latin-1") + leftover)
+                relay(c, up, b"")
+                up.close()
+        except Exception:
+            pass
+        finally:
+            try:
+                c.close()
+            except Exception:
+                pass
+
+    def loop():
+        while True:
+            try:
+                c, _ = srv.accept()
+            except OSError:
+                return
+            threading.Thread(target=handle, args=(c,), daemon=True).start()
+
+    threading.Thread(target=loop, daemon=True).start()
+    return srv, port, seen
+
+
 # --------------------------------------------------------------------------
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="pcap_selftest_"))
@@ -158,7 +242,8 @@ def main():
     log = open(tmp / "proxy.log", "wb")
     proc = subprocess.Popen(
         [sys.executable, str(ROOT / "pcap.py"), "run", "--bind", "127.0.0.1",
-         "--port", str(proxy_port), "--insecure-upstream", "--timeout", "15"],
+         "--port", str(proxy_port), "--insecure-upstream", "--timeout", "15",
+         "--upstream-proxy", "off"],
         env=env, stdout=log, stderr=subprocess.STDOUT)
 
     try:
@@ -311,6 +396,42 @@ def main():
         lp = subprocess.run([sys.executable, str(ROOT / "pcap.py"), "list"],
                             env=env, capture_output=True, text=True, encoding="utf-8", timeout=60)
         check("list 正常", lp.returncode == 0 and "/api/list" in lp.stdout, lp.stdout[:300])
+
+        # 11) 链式上游代理：pcap -> mini http proxy -> 源站
+        mini_srv, mini_port, mini_seen = start_mini_proxy()
+        proxy2 = free_port()
+        out2 = tmp / "captures2"
+        log2 = open(tmp / "proxy2.log", "wb")
+        proc2 = subprocess.Popen(
+            [sys.executable, str(ROOT / "pcap.py"), "run", "--bind", "127.0.0.1",
+             "--port", str(proxy2), "--insecure-upstream", "--timeout", "15",
+             "--upstream-proxy", f"http://127.0.0.1:{mini_port}", "--out", str(out2)],
+            env=env, stdout=log2, stderr=subprocess.STDOUT)
+        try:
+            check("链式代理端口就绪", wait_port(proxy2), f"port={proxy2}")
+            c3 = http.client.HTTPSConnection("127.0.0.1", proxy2, context=ctx, timeout=15)
+            c3.set_tunnel("127.0.0.1", tls_port)
+            c3.request("GET", "/api/list", headers=dict(host_hdr))
+            r3 = c3.getresponse()
+            b3 = r3.read()
+            c3.close()
+            check("链式代理 GET 200", r3.status == 200 and "活动A".encode() in b3, str(r3.status))
+            check("上游代理确实被调用", any("127.0.0.1" in s for s in mini_seen), str(mini_seen[:3]))
+            time.sleep(0.5)
+            recs2 = [json.loads(p.read_text(encoding="utf-8"))
+                     for p in sorted(out2.glob("*.json")) if p.name != "meta.json"]
+            check("链式代理已落盘", any("/api/list" in x["url"] for x in recs2), f"got {len(recs2)}")
+        finally:
+            proc2.terminate()
+            try:
+                proc2.wait(timeout=5)
+            except Exception:
+                proc2.kill()
+            log2.close()
+            try:
+                mini_srv.close()
+            except Exception:
+                pass
 
     finally:
         proc.terminate()

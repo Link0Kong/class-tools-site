@@ -37,7 +37,7 @@ import zlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 ROOT = Path(__file__).resolve().parent
 HOME = Path(os.environ.get("PCAP_HOME") or ROOT)
 CA_DIR = HOME / "ca"
@@ -68,6 +68,8 @@ SENS_KEYS = re.compile(
 
 _print_lock = threading.Lock()
 _stats_lock = threading.Lock()
+_tlsinfo = threading.local()          # 每连接记录 SNI，握手失败时用
+_tls_fail_seen: set = set()           # 同一 host:port 的失败只打一次
 
 
 # --------------------------------------------------------------------------
@@ -410,6 +412,7 @@ def server_ctx_for(default_host: str) -> ssl.SSLContext:
     ctx.load_cert_chain(str(leaf_cert(default_host)), str(LEAF_KEY))
 
     def _sni(sslobj, server_name, _ctx):
+        _tlsinfo.sni = server_name or ""
         if not server_name or server_name == default_host:
             return
         try:
@@ -612,12 +615,72 @@ def log_line(rec: dict) -> None:
     out(line)
 
 
+def log_tls_failure(host: str, port: int, err) -> None:
+    """只在第一次遇到时打印；带 SNI，方便判断是哪家域名。"""
+    key = f"{host}:{port}"
+    sni = getattr(_tlsinfo, "sni", "") or ""
+    if key in _tls_fail_seen:
+        return
+    _tls_fail_seen.add(key)
+    who = f"SNI={sni}" if sni else "无 SNI（客户端用 IP 直连）"
+    out(f"  ! TLS 失败 {host}:{port}  {who}  {type(err).__name__}")
+    if len(_tls_fail_seen) == 1:
+        out("    客户端在证书校验阶段断开：要么不信任本机 CA，要么做了证书固定。")
+        out("    只是图片/CDN 域名可以忽略；学校接口域名失败才需要处理。")
+
+
 # --------------------------------------------------------------------------
 # 上游
 # --------------------------------------------------------------------------
+def _proxy_url_parts(url: str):
+    from urllib.parse import urlsplit, unquote
+    u = urlsplit(url if "://" in url else "http://" + url)
+    return (u.hostname or "127.0.0.1", u.port or 8080,
+            unquote(u.username or ""), unquote(u.password or ""))
+
+
+def _proxy_connect(host: str, port: int, cfg) -> socket.socket:
+    """通过上游 HTTP 代理建 CONNECT 隧道，返回原始 socket。"""
+    phost, pport, user, pwd = _proxy_url_parts(cfg.upstream_proxy)
+    sock = socket.create_connection((phost, pport), cfg.timeout)
+    sock.settimeout(cfg.timeout)
+    req = f"CONNECT {host}:{port} HTTP/1.1\r\nHost: {host}:{port}\r\n"
+    if user:
+        cred = base64.b64encode(f"{user}:{pwd}".encode()).decode()
+        req += f"Proxy-Authorization: Basic {cred}\r\n"
+    sock.sendall((req + "\r\n").encode("latin-1"))
+    buf = b""
+    while b"\r\n\r\n" not in buf:
+        d = sock.recv(4096)
+        if not d:
+            sock.close()
+            raise OSError("上游代理提前断开")
+        buf += d
+        if len(buf) > 65536:
+            sock.close()
+            raise OSError("上游代理响应头过长")
+    parts = buf.split(b"\r\n", 1)[0].split(b" ")
+    try:
+        code = int(parts[1])
+    except Exception:
+        sock.close()
+        raise OSError(f"上游代理返回异常：{buf[:80]!r}")
+    if code != 200:
+        sock.close()
+        raise OSError(f"上游代理 CONNECT 失败 {code}")
+    return sock
+
+
 class Upstream:
     def __init__(self, host, port, tls: bool, cfg):
-        self.sock = socket.create_connection((host, port), cfg.timeout)
+        up_proxy = getattr(cfg, "upstream_proxy", None)
+        if up_proxy and tls:
+            self.sock = _proxy_connect(host, port, cfg)
+        elif up_proxy:
+            phost, pport, _, _ = _proxy_url_parts(up_proxy)
+            self.sock = socket.create_connection((phost, pport), cfg.timeout)
+        else:
+            self.sock = socket.create_connection((host, port), cfg.timeout)
         self.sock.settimeout(cfg.timeout)
         if tls:
             ctx = ssl.create_default_context()
@@ -654,7 +717,10 @@ def request_upstream(cfg, scheme, host, port, method, path, headers, body):
                 continue
             hdrs.append((k, v))
         host_hdr = hget(headers, "host") or (host if port in (80, 443) else f"{host}:{port}")
-        head_lines = [f"{method} {path} HTTP/1.1", f"Host: {host_hdr}"]
+        target = path
+        if getattr(cfg, "upstream_proxy", None) and scheme == "http":
+            target = f"http://{host_hdr}{path}"
+        head_lines = [f"{method} {target} HTTP/1.1", f"Host: {host_hdr}"]
         head_lines += [f"{k}: {v}" for k, v in hdrs]
         if body or method in ("POST", "PUT", "PATCH"):
             head_lines.append(f"Content-Length: {len(body)}")
@@ -828,12 +894,13 @@ def handle_tunnel(tls, host_hint: str, port_hint: int, cfg, store: Store):
                 return
             continue
 
+        t_req = time.perf_counter()
         try:
             status, reason, rh, rb, ttfb, total_ms, rtrunc, note = request_upstream(
                 cfg, "https", host, port, method, path, headers, body)
         except Exception as e:
             rec["status"] = 502
-            rec["ms"] = 0.0
+            rec["ms"] = round((time.perf_counter() - t_req) * 1000, 1)
             rec["note"] = f"upstream: {type(e).__name__}: {e}"[:160]
             if rec["stored"]:
                 store.add(rec)
@@ -967,8 +1034,7 @@ def handle_client(client, addr, cfg, store: Store):
                 ctx = server_ctx_for(host)
                 tls = ctx.wrap_socket(client, server_side=True)
             except (ssl.SSLError, OSError) as e:
-                out(f"  ! TLS 握手失败 {host}:{port}  {type(e).__name__}: {e}")
-                out("    （可能该客户端做了证书固定；换 iPhone / PC 微信再试）")
+                log_tls_failure(host, port, e)
                 return
             handle_tunnel(tls, host, port, cfg, store)
             return
@@ -987,11 +1053,13 @@ def handle_client(client, addr, cfg, store: Store):
         conn = Conn(client)
         body = read_body(conn, headers, 64 * 1024 * 1024)
         rec = make_record(cfg, store, scheme, host, port, method, path, headers, body, False)
+        t_req = time.perf_counter()
         try:
             status, reason, rh, rb, ttfb, total_ms, rtrunc, note = request_upstream(
                 cfg, scheme, host, port, method, path, headers, body)
         except Exception as e:
             rec["status"] = 502
+            rec["ms"] = round((time.perf_counter() - t_req) * 1000, 1)
             rec["note"] = f"upstream: {type(e).__name__}: {e}"[:160]
             if rec["stored"]:
                 store.add(rec)
@@ -1043,8 +1111,56 @@ def _blind_tunnel(client, host, port, cfg):
         pass
 
 
+def detect_system_proxy():
+    """读 Windows「Internet 选项」里的代理；没有就返回 None。"""
+    if sys.platform != "win32":
+        return None
+    try:
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                             r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
+        enabled = winreg.QueryValueEx(key, "ProxyEnable")[0]
+        server = winreg.QueryValueEx(key, "ProxyServer")[0]
+    except Exception:
+        return None
+    if not enabled or not server:
+        return None
+    server = str(server).strip()
+    if "=" in server:  # http=127.0.0.1:7890;https=...
+        parts = {}
+        for item in server.split(";"):
+            if "=" in item:
+                k, v = item.split("=", 1)
+                parts[k.strip().lower()] = v.strip()
+        server = parts.get("https") or parts.get("http") or ""
+    if not server:
+        return None
+    if "://" not in server:
+        server = "http://" + server
+    return server
+
+
+def resolve_upstream(value: str):
+    """'auto' -> 系统代理；'' -> 不用；其它按原样。返回 (url|None, 说明)。"""
+    if value in (None, "", "off", "none"):
+        return None, ""
+    if value == "auto":
+        found = detect_system_proxy()
+        if not found:
+            return None, "auto：没检测到系统代理，走直连"
+        return found, f"auto：{found}"
+    return (value if "://" in value else "http://" + value), ""
+
+
 def cmd_run(args) -> int:
     ensure_ca()
+    up_proxy, up_note = resolve_upstream(args.upstream_proxy)
+    if up_proxy:
+        from urllib.parse import urlsplit
+        u = urlsplit(up_proxy)
+        if u.port and u.port == args.port and (u.hostname or "") in ("127.0.0.1", "localhost", args.bind):
+            out(f"上游代理和本机监听端口相同（{args.port}），会自己连自己，已忽略。")
+            up_proxy, up_note = None, ""
     cfg = argparse.Namespace(
         timeout=args.timeout,
         max_body=int(args.max_body),
@@ -1052,6 +1168,7 @@ def cmd_run(args) -> int:
         exclude=[] if args.keep_wechat else list(DEFAULT_EXCLUDE),
         no_images=not args.save_images,
         insecure_upstream=args.insecure_upstream,
+        upstream_proxy=up_proxy,
         max_len=64 * 1024 * 1024,
     )
     if args.exclude:
@@ -1063,6 +1180,7 @@ def cmd_run(args) -> int:
     (outdir / "meta.json").write_text(json.dumps({
         "started": iso(now_local()), "version": VERSION,
         "bind": args.bind, "port": args.port, "only": cfg.only, "exclude": cfg.exclude,
+        "upstream_proxy": cfg.upstream_proxy,
     }, ensure_ascii=False, indent=1), encoding="utf-8")
 
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1088,6 +1206,8 @@ def cmd_run(args) -> int:
     out(f"  只看        {', '.join(cfg.only) if cfg.only else '全部域名'}"
         f"{'（已排除微信/系统噪音域名，--keep-wechat 可关）' if not args.keep_wechat else ''}")
     out(f"  输出        {outdir}")
+    if up_proxy:
+        out(f"  上游代理    {up_proxy}{('  ' + up_note) if up_note else ''}")
     out("")
     out("手机步骤：1) Wi-Fi 代理 → 上面的 IP:端口   2) 浏览器开证书页装 CA")
     out("          iOS 还要：设置→通用→关于本机→证书信任设置→完全信任")
@@ -1297,7 +1417,8 @@ def cmd_replay(args) -> int:
     path = (u.path or "/") + (("?" + u.query) if u.query else "")
     body = base64.b64decode(r["req_body_b64"]) if r.get("req_body_b64") else b""
     cfg = argparse.Namespace(timeout=args.timeout, max_body=2_000_000,
-                             insecure_upstream=args.insecure)
+                             insecure_upstream=args.insecure,
+                             upstream_proxy=resolve_upstream(args.upstream_proxy)[0])
     repeat = max(1, args.repeat)
     for i in range(repeat):
         try:
@@ -1474,6 +1595,8 @@ def build_parser():
     r.add_argument("--timeout", type=float, default=30.0)
     r.add_argument("--insecure-upstream", action="store_true",
                    help="不校验上游证书（自签测试用）")
+    r.add_argument("--upstream-proxy", default="auto",
+                   help="上游代理：auto=读 Windows 系统代理（默认），off=直连，或 http://127.0.0.1:7890")
     r.set_defaults(func=cmd_run)
 
     l = sub.add_parser("list", help="列出抓到的请求")
@@ -1499,6 +1622,7 @@ def build_parser():
     rp.add_argument("--repeat", type=int, default=1)
     rp.add_argument("--timeout", type=float, default=20.0)
     rp.add_argument("--insecure", action="store_true")
+    rp.add_argument("--upstream-proxy", default="off")
     rp.add_argument("--show-body", action="store_true")
     add_session(rp)
     rp.set_defaults(func=cmd_replay)

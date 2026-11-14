@@ -72,6 +72,10 @@ python pcap\pcap.py run       # 3. 起抓包，记下端口
 几个实测要点：
 
 - 微信主程序 `Weixin.exe` 没有流量是**正常**的，小程序请求全由 `WeChatAppEx.exe` 发出。
+- Proxifier 的 `Default` 规则建议设成 **Direct**，只留 `WeChatAppEx.exe` 这一条走代理；
+  否则浏览器、其它软件也会被塞进抓包，既吵又会拖慢上网。
+- **不要把 Windows 系统代理改成 8080**：那会让浏览器/所有程序都进代理，而且 `--upstream-proxy auto`
+  检测到端口相同会主动放弃链式转发。系统代理保持原样（如有 Clash 就还是它自己的端口）即可。
 - Proxifier 提示「connection loop」时，按提示关掉 loop detection 即可。
 - 装的是**系统级根证书**，比手机装描述文件更「重」，不用了请 `python pcap\pcap.py trust --remove`。
 - 备选：本来就用 Clash 的话，可以用 TUN 模式 + 进程规则把 `WeChatAppEx.exe` 转进来，省掉 Proxifier。
@@ -117,6 +121,8 @@ python pcap\pcap.py run --only "*.fjtcm.edu.cn,*.xxx.com"
 | `python pcap\pcap.py run` | 启动抓包（默认 `0.0.0.0:8080`） |
 | `... run --port 8081` | 换端口 |
 | `... run --only "*.fjtcm.edu.cn"` | 只抓指定域名（逗号分隔，支持 `*`） |
+| `... run --upstream-proxy off` | 上游直连（默认 `auto`：自动用 Windows 系统代理） |
+| `... run --upstream-proxy http://127.0.0.1:7890` | 指定上游代理（本机有 Clash/V2Ray 时用） |
 | `... run --keep-wechat` | 不过滤微信/系统噪音域名 |
 | `... run --save-images` | 连图片响应体一起存（默认只存头，省空间） |
 | `python pcap\pcap.py list` | 列出本次抓到的请求 |
@@ -184,6 +190,8 @@ pcap/
 
 | 现象 | 处理 |
 |---|---|
+| `! TLS 失败 <IP>:443` | 看后面的 `SNI=`：图片/CDN 域名可以忽略；如果是学校接口域名，说明客户端不信任本机 CA 或做了证书固定 → 彻底退出微信（任务管理器确认没有 `WeChatAppEx`）再开；仍失败就换 iPhone |
+| `502 [upstream: TimeoutError]` | 本机走了 Clash/V2Ray 之类的系统代理，直连连不上。默认 `--upstream-proxy auto` 会自动用系统代理；如果系统代理被关过，手动加 `--upstream-proxy http://127.0.0.1:18081` |
 | 手机连不上（浏览器打不开 `pcap.local`） | 同一 Wi-Fi？Windows 防火墙是否拦了 Python（控制面板 → 防火墙 → 允许应用）；换 `--bind 0.0.0.0`；用 `IP:端口` 而不是域名 |
 | `Connection refused` | 代理没启动 / 端口写错 / 端口被占用（启动日志会提示换 `--port`） |
 | 浏览器提示证书不受信任 | iOS 没开「完全信任」；或证书没装成功（重下 `ca.crt`） |
@@ -204,9 +212,10 @@ python pcap\tests\selftest.py
 ```
 
 覆盖：CONNECT/TLS、keep-alive、GET/POST、gzip、chunked、明文 HTTP、CA 下载页、
-落盘、`show` 打码、HAR 脱敏、`replay`（GET 放行 / POST 未加 `--send` 拒绝）。
+落盘、`show` 打码、HAR 脱敏、`replay`（GET 放行 / POST 未加 `--send` 拒绝）、
+链式上游代理（`--upstream-proxy` 经二级代理转发并落盘）。
 
-期望输出 `RESULT: PASS  33/33`。
+期望输出 `RESULT: PASS  37/37`。
 
 ---
 
