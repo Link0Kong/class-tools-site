@@ -5541,19 +5541,19 @@ function bodyLockAudit(){
 }
 /* ---------------- 标签栏 · 首页三栏 + 全部 ---------------- */
 var TOOLS=[
- {k:"draw",n:"抽签",d:"抽签 · 分组 · 结果单，可剔除重抽，一键导出规范图片"},
- {k:"tt",n:"课表",d:"班级课表与下一节课；教务自动同步，全员查看"},
+ {k:"draw",n:"抽签",d:"抽签、分组与结果导出"},
+ {k:"tt",n:"课表",d:"班级课表与下一节课"},
  {k:"committee",n:"名单",d:"班委、团员与全班名单"},
- {k:"hw",n:"作业",d:"作业清单与截止倒计时；进入班级后可发布"},
- {k:"nt",n:"通知",d:"班级通知板；AI 拆分要点，附件可预览"},
- {k:"ft",n:"体测",d:"大学体测七项算分、附加分与等级，实时出分"},
- {k:"roll",n:"点名",d:"线下点名核对：叫到一个勾一个，可到/请假，已处理自动沉底"},
- {k:"stats",n:"统计",d:"按姓名统计访问（不显示学号），仅管理员可见",admin:true},
- {k:"diag",n:"诊断",d:"依赖服务运行状态、设备诊断与 AI 修复建议，全班可见"},
- {k:"water",n:"水量",d:"每月手动抄表 · 自动对比上次 · 按校方规则算水费 · 水费折算扣电"},
- {k:"vote",n:"投票",d:"限时/长时投票 · 自定义标题选项与规则 · 实时结果"},
- {k:"ppt",n:"演示",d:"PPT 上传自动转换 · 分步 + 视频 · 任意设备流畅播放"},
- {k:"jw",n:"教务",d:"成绩 · 选课 · 考试；统一身份认证直达教务系统",url:"http://210.34.74.77/sso.jsp"}];
+ {k:"hw",n:"作业",d:"作业发布与完成进度"},
+ {k:"nt",n:"通知",d:"班级通知与附件"},
+ {k:"ft",n:"体测",d:"体测算分与等级"},
+ {k:"roll",n:"点名",d:"点名记录到勤、请假"},
+ {k:"stats",n:"统计",d:"成员访问统计",admin:true},
+ {k:"diag",n:"诊断",d:"服务与设备诊断"},
+ {k:"water",n:"水量",d:"抄表与水费计算"},
+ {k:"vote",n:"投票",d:"发起投票与查看结果"},
+ {k:"ppt",n:"演示",d:"PPT 上传、下载与播放"},
+ {k:"jw",n:"教务",d:"成绩、选课与考试",url:"http://210.34.74.77/sso.jsp"}];
 var CURTAB="draw";
 var LANDING=true; /* 首次进入（身份通过后）落到工具栏第一格 */
 /* 横屏比例工具栏可放 5 个（4 工具 + 全部）；竖屏 4 个（3 工具 + 全部） */
@@ -5706,8 +5706,8 @@ function allCardDefs(){
     /* 链接型工具（有 url、无页面，如教务）卡片按钮显示「进入」（增量 55） */
     defs.push({k:t.k,n:t.n,d:t.d,tone:ALL_TONE[t.k]||"plain",admin:!!t.admin,label:(t.url?"进入":"打开")});
   });
-  defs.push({k:"power",n:"宿舍电费",d:"关注宿舍 · 电量环 · 近 24h 趋势",tone:"blue",admin:false,label:"查看电费"});
-  defs.push({k:"fb",n:"反馈建议",d:"把建议或问题发给管理员",tone:"mint",admin:false,label:(canManage()?"查看反馈":"写反馈")});
+  defs.push({k:"power",n:"宿舍电费",d:"剩余电量与用电趋势",tone:"blue",admin:false,label:"查看电费"});
+  defs.push({k:"fb",n:"反馈建议",d:"提交建议或问题",tone:"mint",admin:false,label:(canManage()?"查看反馈":"写反馈")});
   defs.push({k:"ug",n:"使用说明",d:"各功能用法速览",tone:"plain",admin:false,label:"打开"});
   var ord=allOrderRead(),pos={},i;
   for(i=0;i<ord.length;i++){if(pos[ord[i]]===undefined)pos[ord[i]]=i;}
@@ -19113,7 +19113,7 @@ function optSaveCanvas(c,o){
     var hasFile=false;
     if(typeof TOOLS!=="undefined"&&TOOLS){
       TOOLS.forEach(function(t){if(t&&t.k==="file")hasFile=true;});
-      if(!hasFile)TOOLS.push({k:"file",n:"文件传输",d:"临时云空间 · 同账号跨设备 · 分片上传不限大小 · 文件自上传起保留 3 天"});
+      if(!hasFile)TOOLS.push({k:"file",n:"文件传输",d:"同账号设备间传文件"});
     }
     if(typeof ALL_TONE!=="undefined"&&ALL_TONE)ALL_TONE.file="mint";
   }catch(e){}
