@@ -59,3 +59,7 @@ deploy/_shots_ppt_dl/
 pcap/ca/
 pcap/captures/
 pcap/tests/_out/
+
+# ==== 第二课堂本地助手（activity/）：token 绝不入库 ====
+activity/token.json
+activity/config.json
