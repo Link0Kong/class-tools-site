@@ -4,9 +4,11 @@
 对象：`web/tools/notice-board-live-demo.html`（data-dev 生成的模板+内嵌 board 数据）
 做法：复制到临时目录，在 </body> 前追加断言脚本（不改源文件），headless Edge 跑完用同步 XHR 回传报告。
 覆盖：
-  - 通知组数量（40 组生效）；
-  - g_dorm「宿舍卫生检查安排」：recurrence=monthly_weeks / actionable=false / 卡片显示「长期安排」「下次…」；
-  - 药膳答题活动 c0：deadline/eventAt/expireAt=11-07、timeLabel 含 11-07、含「补充通知」条、updatedAt；
+  - 通知组数量（动态数据，≥55）；
+  - g_dorm「宿舍卫生检查安排」：recurrence=monthly_weeks / actionable=false /
+    2026-11-14 契约后不再在主列表、改在「长期通知」清单显示「周期 + 下次 M月D日（周X）HH:MM」；
+  - 2026-11-14 契约 §1.4：从当前 GROUPS 动态取「补充通知」合并卡，断言 supplement/updatedAt|threadReason/
+    原始消息+补充条目/已更新徽标/时间字段合法 +08:00 ISO/线程 reason ≤40 字/id 唯一且标题非空；
   - 接龙类消息已排除（卡片标题无「接龙」）；
   - QQ 文件：≥3 个已内嵌 url、≥5 个「待获取」，页面出现「待获取」提示与复制群名；
   - AI 要点：每组 ≤6 条、单条 ≤12 字（需求 8 契约）；
@@ -49,7 +51,7 @@ function T(k,ok,note){R.steps.push({k:k,ok:!!ok,note:note==null?"":String(note)}
 function bodyText(){return (document.body?document.body.textContent:"").replace(/\s+/g," ");}
 try{
   var gs=(typeof GROUPS!=="undefined"&&GROUPS)?GROUPS:[];
-  T("D1 通知组数量（40 组生效）", gs.length>=39, gs.length);
+  T("D1 通知组数量（动态数据，≥55）", gs.length>=55, gs.length);
   var cats={};gs.forEach(function(g){cats[g.cat||"其他"]=1;});
   T("D2 分类覆盖", Object.keys(cats).length>=3, Object.keys(cats).join(","));
 
@@ -61,21 +63,54 @@ try{
     JSON.stringify(rec||null).slice(0,200));
   T("D5 g_dorm 长期安排 label 合理", !!(rec&&/每月/.test(String(rec.label||""))&&/17:30/.test(String(rec.label||""))), rec?String(rec.label):"");
   T("D6 g_dorm actionable=false（不计入待处理）", !!(dorm&&dorm.actionable===false), dorm?String(dorm.actionable):"");
-  var dormCard=dorm?document.querySelector('.gcard[data-gid="'+dorm.id+'"]'):null;
-  T("D7 g_dorm 卡片显示「长期安排」", !!dormCard&&/长期安排/.test(dormCard.textContent), dormCard?dormCard.textContent.replace(/\s+/g," ").slice(0,160):"");
-  T("D8 g_dorm 卡片显示「下次」时间", !!dormCard&&/下次/.test(dormCard.textContent), "");
+  /* 2026-11-14 契约 §2：长期安排定义卡移入「长期通知」筛选清单（主列表不再出现）。 */
+  var dormMainCard=document.querySelector('#list .gcard[data-gid="'+dorm.id+'"]');
+  T("D7 g_dorm 不再出现在「全部」主列表（长期定义移入长期通知筛选）", !dormMainCard,
+    dormMainCard?dormMainCard.textContent.replace(/\s+/g," ").slice(0,160):"");
+  var ltBtn=document.querySelector('#dataBar [data-card="longterm"]');
+  var dormRow=null;
+  if(ltBtn){
+    ltBtn.click();
+    Array.prototype.slice.call(document.querySelectorAll('#list .ltrow')).forEach(function(r){
+      if(r.getAttribute('data-gid')===dorm.id)dormRow=r;
+    });
+    ltBtn.click();
+  }
+  T("D8 g_dorm 在「长期通知」清单显示周期 label + 下次时间",
+    !!dormRow&&/每月/.test(dormRow.textContent)&&/下次/.test(dormRow.textContent)&&/\d{1,2}月\d{1,2}日（/.test(dormRow.textContent),
+    dormRow?dormRow.textContent.replace(/\s+/g," ").slice(0,160):"");
 
-  var med=null;gs.forEach(function(g){if(String(g.id||"").indexOf("g_qqm_7704134971497063025_c0")>=0)med=g;});
-  T("D9 药膳答题活动 c0 存在", !!med, med?med.title:"");
-  T("D10 药膳 deadline=2026-11-07 18:00", !!(med&&String(med.deadline||"").indexOf("2026-11-07T18:00")>=0), med?String(med.deadline):"");
-  T("D11 药膳 eventAt=2026-11-07 12:00", !!(med&&String(med.eventAt||"").indexOf("2026-11-07T12:00")>=0), med?String(med.eventAt):"");
-  T("D12 药膳 expireAt=2026-11-07 18:00", !!(med&&String(med.expireAt||"").indexOf("2026-11-07T18:00")>=0), med?String(med.expireAt):"");
-  T("D13 药膳 timeLabel 含 11-07", !!(med&&/11-07/.test(String(med.timeLabel||""))), med?String(med.timeLabel):"");
-  var hasSupp=!!(med&&(med.items||[]).some(function(it){return String(it.label||"")==="补充通知";}));
-  T("D14 药膳含「补充通知」条目", hasSupp, med?JSON.stringify((med.items||[]).map(function(it){return it.label;})):"");
-  T("D15 药膳 updatedAt 已写入", !!(med&&med.updatedAt), med?String(med.updatedAt):"");
-  var medCard=med?document.querySelector('.gcard[data-gid="'+med.id+'"]'):null;
-  T("D16 药膳卡片显示「已更新」标记", !!medCard&&/已更新/.test(medCard.textContent), "");
+  /* 2026-11-14 契约 §1.4：更新/更正线程合并（keep 覆盖最终状态 + merge 组 items 追加补充通知）。
+     旧版固定药膳 c0 数据的断言改为从当前 GROUPS 动态取合并卡（数据每次重建会变化）。 */
+  var supp=[];
+  gs.forEach(function(g){
+    if((g.items||[]).some(function(it){return String(it.label||"")==="补充通知";}))supp.push(g);
+  });
+  T("D9 存在「补充通知」合并卡（动态数据）", supp.length>0, "n="+supp.length);
+  var mg=supp[0]||null;
+  T("D10 合并卡标 supplement=true", !!(mg&&mg.supplement===true), mg?String(mg.supplement):"missing");
+  T("D11 合并卡已写入 updatedAt 或 threadReason", !!(mg&&(mg.updatedAt||mg.threadReason)),
+    mg?String(mg.updatedAt||mg.threadReason):"missing");
+  var mgItems=(mg&&mg.items)||[];
+  T("D12 合并卡保留原始消息并追加 ≥1 条补充通知", mgItems.length>=2
+    && mgItems.some(function(it){return it.kind==="text"||it.kind==="follow";})
+    && mgItems.some(function(it){return String(it.label||"")==="补充通知";}), "items="+mgItems.length);
+  T("D13 页面渲染「已更新」徽标", document.querySelectorAll('.badge.upd').length>=1,
+    document.querySelectorAll('.badge.upd').length);
+  var isoRe=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+08:00$/;
+  var badIso=[];
+  gs.forEach(function(g){
+    ["deadline","eventAt","signupStart","signupEnd","expireAt"].forEach(function(k){
+      var v=g[k];
+      if(v&&!isoRe.test(String(v)))badIso.push(g.id+"."+k+"="+v);
+    });
+  });
+  T("D14 时间字段均为合法 +08:00 ISO（AI/线程/补丁写入）", badIso.length===0, badIso.slice(0,8).join(","));
+  var badReason=[];gs.forEach(function(g){var r=String(g.threadReason||"");if(r.length>40)badReason.push(g.id);});
+  T("D15 线程合并 reason ≤40 字（契约 §1.4，便于人工复核）", badReason.length===0, badReason.join(","));
+  var idSet={},dup=[],emptyTitle=[];
+  gs.forEach(function(g){if(idSet[g.id])dup.push(g.id);idSet[g.id]=1;if(!String(g.title||"").trim())emptyTitle.push(g.id);});
+  T("D16 通知组 id 唯一且标题非空", dup.length===0&&emptyTitle.length===0, "dup="+dup.join(",")+" empty="+emptyTitle.join(","));
 
   var jl=[];gs.forEach(function(g){if(/接龙/.test(String(g.title||"")))jl.push(g.id);});
   T("D17 接龙类消息已排除", jl.length===0, jl.join(","));

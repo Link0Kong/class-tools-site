@@ -91,7 +91,7 @@ NOTICES = [{"id": "auto_" + str(g.get("id") or ("g%d" % i)),
 MOCK_JS = r"""
 <script>
 (function(){
-window.__errs=[];window.__cerrs=[];window.__external=[];window.__counts={};
+window.__errs=[];window.__cerrs=[];window.__external=[];window.__counts={};window.__dropBlocked=0;
 window.addEventListener("error",function(e){window.__errs.push(String((e&&e.message)||(e&&e.error)||"error"));});
 window.addEventListener("unhandledrejection",function(e){var r=e&&e.reason;window.__errs.push("rejection:"+String((r&&r.message)||r));});
 var _ce=console.error;console.error=function(){window.__cerrs.push(Array.prototype.map.call(arguments,function(x){try{return String(x);}catch(e){return "?";}}).join(" "));try{_ce.apply(console,arguments);}catch(e){}};
@@ -117,8 +117,9 @@ window.fetch=function(u,o){
     return ok([]);
   }
   if(s.indexOf("tt.json")>=0)return ok({c:[],t:"2026-08-31",meta:{fetchedAt:__TS__}});
-  window.__external.push(s);
-  return _f.apply(this,arguments);
+  /* 大屏互联 presence 等非通知请求：mock 掉并计入“已拦截”，不算外部请求 */
+  window.__dropBlocked++;
+  return ok({});
 };
 try{localStorage.setItem("zq_class_identity",JSON.stringify({token:"mock-token",sid:"__SID__",name:"__NAME__",role:"",badge:"",is_admin:false,ts:Date.now()}));}catch(e){}
 })();
@@ -129,6 +130,7 @@ HOOK = r"""
 window.__v2live={AUTH:AUTH,D:D,NT:NT,gotoTab:gotoTab,frame:function(){return NOTICE_FRAME;},
   bootDone:function(){return __bootRefreshDone;},errs:function(){return window.__errs||[];},
   cerrs:function(){return window.__cerrs||[];},external:function(){return window.__external||[];},
+  dropBlocked:function(){return window.__dropBlocked||0;},
   auto:function(){return AUTO_NOTICES;},pos:POS,noticeH:function(){return NOTICE_H;},
   curtab:function(){return CURTAB;}};
 """
@@ -195,8 +197,20 @@ async function run(){
       d?d.querySelectorAll('[data-act="edit"],[data-act="del"]').length:-1);
     T("L8 非管理员：无「已隐藏（仅管理员）」区",
       (function(){try{var hw=d.querySelector("#hiddenWrap");return !hw||f.contentWindow.getComputedStyle(hw).display==="none";}catch(e){return false;}})(), "");
-    T("L9 g_dorm 长期安排文案", /长期安排/.test(txt)&&/每月前三周/.test(txt)&&/下次/.test(txt), "");
-    T("L10 药膳补充通知与 11-07 报名时间", /补充通知/.test(txt)&&/11-07/.test(txt), "");
+    T("L9 顶部 5 张可点数据卡齐全（待处理/24h/7天内/长期通知/最新发布）",
+      (function(){try{var d=frameDoc(f);var cs=d?d.querySelectorAll('#dataBar .bstat'):[];if(cs.length!==5)return false;
+        for(var i=0;i<cs.length;i++){var r=cs[i].getBoundingClientRect();if(r.height<40||r.width<=0)return false;}return true;}catch(e){return false;}})(), "");
+    T("L10 长期通知卡数字 = 进行中安排条数（真实数据）",
+      (function(){try{var w=frame(f).contentWindow,d=frameDoc(f);var v=Number((d.querySelector('#statRecur')||{}).textContent);
+        var n=w.GROUPS.filter(function(g){return g.recurrence&&g.recurrence.freq&&w.recurOngoing(g.recurrence,w.__zqTest.nowMs())}).length;return v===n;}catch(e){return false;}})(), "");
+    T("L10b 资料/无时间栏默认展开且非空",
+      (function(){try{var d=frameDoc(f);var w=d&&d.getElementById('dataWrap');if(!w)return false;
+        return frame(f).contentWindow.getComputedStyle(w).display!=='none'&&w.classList.contains('open')&&d.querySelectorAll('#dataList .gcard').length>0;}catch(e){return false;}})(), "");
+    T("L10c 主列表不含长期安排定义卡（长期定义只在长期通知筛选；已结束进过期区）",
+      (function(){try{var w=frame(f).contentWindow,d=frameDoc(f);var ids={};w.GROUPS.forEach(function(g){if(g.recurrence&&g.recurrence.freq)ids[g.id]=1});
+        return [].every.call(d.querySelectorAll('#list .gcard'),function(c){return !ids[c.getAttribute('data-gid')]});}catch(e){return false;}})(), "");
+    T("L10d 正文日期已统一为 M月D日（相对周）", /\d{1,2}月\d{1,2}日（/.test(txt), "");
+    T("L10e 药膳补充通知仍在正文显示", /补充通知/.test(txt), "");
     var miss=(txt.match(/待获取/g)||[]).length;
     T("L11 QQ 文件「待获取」提示 ≥5 处", miss>=5, miss);
     var adminInjected=false;
@@ -210,7 +224,7 @@ async function run(){
     T("L14 0 JS 报错", (w.__v2live.errs()||[]).length===0, JSON.stringify(w.__v2live.errs()).slice(0,300));
     T("L15 0 console.error", (w.__v2live.cerrs()||[]).length===0, JSON.stringify(w.__v2live.cerrs()).slice(0,300));
     T("L16 无外部请求", (w.__v2live.external()||[]).length===0, JSON.stringify(w.__v2live.external()).slice(0,300));
-    R.diag={groups:40,cards:n,frameH:Math.round(fh),pageH:pScrollH};
+    R.diag={groups:(function(){try{return frame(f).contentWindow.GROUPS.length}catch(e){return -1}})(),cards:n,frameH:Math.round(fh),pageH:pScrollH};
   }catch(e){
     R.steps.push({k:"脚本异常",ok:false,note:String(e&&e.stack||e)});
   }

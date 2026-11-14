@@ -1,0 +1,74 @@
+package com.hfut.schedule.ui.component.button
+
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.res.painterResource
+import com.hfut.schedule.ui.component.container.CARD_NORMAL_DP
+import com.xah.common.ui.component.text.ScrollText
+import com.xah.common.ui.style.APP_HORIZONTAL_DP
+import com.xah.common.ui.style.align.ColumnVertical
+
+@Composable
+fun LargeButton(
+    modifier : Modifier = Modifier,
+    iconModifier : Modifier = Modifier,
+    onClick : () -> Unit,
+    enabled: Boolean = true,
+    containerColor: Color =  Color.Unspecified,
+    contentColor : Color =  Color.Unspecified,
+    icon : Int,
+    text : String,
+    shape : Shape = MaterialTheme.shapes.medium
+) {
+    LargeButton(
+        modifier = modifier,
+        onClick = onClick,
+        enabled = enabled,
+        contentColor = contentColor,
+        containerColor = containerColor,
+        icon = {
+            Icon(painterResource(icon),null,modifier = iconModifier)
+        },
+        text = text,
+        shape = shape
+    )
+}
+
+@Composable
+fun LargeButton(
+    modifier : Modifier = Modifier,
+    onClick : () -> Unit,
+    enabled: Boolean = true,
+    containerColor: Color =  Color.Unspecified,
+    contentColor : Color =  Color.Unspecified,
+    icon : @Composable () -> Unit,
+    text : String,
+    shape : Shape = MaterialTheme.shapes.medium
+) {
+    Button(
+        enabled = enabled,
+        modifier = modifier,
+        shape = shape,
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(containerColor = containerColor, contentColor = contentColor)
+    ) {
+        ColumnVertical {
+            icon()
+            Spacer(Modifier.height(CARD_NORMAL_DP))
+            ScrollText(text)
+        }
+    }
+}
+
+
+
+val LARGE_BUTTON_PADDING = APP_HORIZONTAL_DP/2

@@ -2,6 +2,31 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-14 13:3x–14:4x · 增量 58：三端通知改造（长期安排按期次 + 5 张可点数据卡 + 资料·无时间栏 + 时间显示归一）+ AI 活动周期记忆/更新合并（网页已上线 OSS+ECS；小程序/安卓待用户上传/安装）
+
+> 用户 2026-11-14 要求：通知数据栏新增长期通知、全部数据卡可点展示、已过期卡换最新发布；长期通知不隐藏、按期次每次提前一天展示并可单独已处理；无时间不得进长期；请假只在军训期间；射击 11-14 通知应按已过期且要有时间；时间显示统一 `11月13日（本周五）`；11-13 晚自习/军训应合并为更新通知、摘要只留军训。契约 `通知三端_长期通知与时间显示_契约_20261114.md`。
+
+### 网页（`tools/index.html` 内嵌模板，APP_VER 仍 2.0.0）
+- 顶部 5 张可点数据卡：待处理 / 24h 截止 / 7 天内 / **长期通知** / **最新发布**（点=筛选、再点取消、与 chips 互斥）；已过期数量只在下方过期区标题，不再占卡。
+- 分区：「全部」= 主列表（含**期次卡**）→「资料 / 无时间」栏（默认展开）→ 已过期区；「长期通知」=长期安排清单（周期/下次/进行中）；「最新发布」=发布倒序；分类 chips 全视图生效。
+- 期次：窗口 `[next-24h,next)`、key `<gid>@occ:<YYYYMMDD>`、「本次已处理」走既有 `marks ntdone`（ref=期次 key，跨端同步）；`recurrence.until` 到期归「长期安排已结束」；长期定义卡不再出现在主列表/不可 done。
+- 时间显示统一 `M月D日（相对周）`（渲染时计算，跨年带年份、已带括号不重复）。
+- 数据侧 builder：`apply_quality` 时间保护、`apply_threads`（更新/取消合并）、`sanitize_recurrence`（until 校验）。
+
+### AI 管线（本机 briefdesk，不入 git）
+- 新增 `ai_memory.py`（活动周期/用户反馈记忆 → `notice-memory.json`，prompt 注入；`memory_version` 只含 activities+rules 防全量抖动）、`notice_threads.py`（更新/取消线程 → `notice-threads.json`，相似度守卫 + 空结果保留上一版）。
+- `ai_brief.py` CACHE_VER 9（原文相对日期预换算/记忆注入/recurrence until/取消内容不进摘要）；`ai_quality.py` CACHE_VER 2（系统时间保护/记忆 until/无时间不得 recurrence）；`detect_docs.py` 接入两阶段 + `NOTICE_SKIP_THREADS` 中间构建跳过线程；`notice-feedback.json` 用户反馈持久化（当前 9 条）。
+- 最终数据：95 组、长期 2（g_dorm / 每日请假 until=2026-11-15）、资料·无时间 9、11-13 链合并为「11-14至11-15军训安排」摘要只含军训、射击 eventAt=2026-11-14T08:00 已过期独立卡。
+
+### 小程序 / 安卓（源码交付）
+- 小程序：`utils/notice.js` + `pages/nt/*` + `pages/index/index.js` 同构实现（VERSION 2.0.0、UD v6 不变）；unit 545/0、notice_time 20/0、longterm 13/0、occ 9/0、sync 34/0、v3 65/0、staticcheck/code_quality 0、automator 28/0（真实云端数据）。**待用户上传发布**。
+- 安卓：v4.50.0/vc68，APK **3,174,605 B / SHA-256 `0F6F5141…B2FF1`**；全量单测 1213/1213、通知范围 260/260；仓库未 commit（HEAD 仍是并行会话的 c17142a，含并行 WIP）。**待用户安装**。
+
+### 验证 / 上线 / 回滚
+- 数据验收 20/20；网页 5 套 145/145；独立验收报告 `验收报告/通知长期期次与时间显示_独立验收_20261114.md`（无 P0；P1 已修；P2 如 AI 摘要少量重写/内存压力/最新发布时间来源）。
+- 上线：备份 `tools/_backup/index_online_20261114-141130_preNoticeV2.html`（1,232,339B/`6da2b338…`）→ OSS/ECS **1,257,999 B / sha256 `fe5ca3da…`**（HTTPS 443 与 ko-link.cn/www/121.196.47.2 同字节）；云端通知 95/95。
+- 回滚：网页重传备份 + `deploy/ecs_site.py apply`；数据/AI 脚本备份在 `C:\briefdesk\data\_backup_notice_redesign_20261114\`；小程序/安卓回退用户上一版。
+
 ## 2026-11-14 13:0x–13:2x · 增量 56：安卓「教务」工具页改「卡片速览 + 官方接口数据 + 官方工具入口」（仅安卓 4.48.0 APK；网页/小程序无改动、无需部署）
 
 > 用户原话（2026-11-14）：「把教务系统点开后也展示和班级工具站的卡片一样展开，只调用官方各个工具的网页接口」。

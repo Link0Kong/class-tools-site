@@ -1,0 +1,807 @@
+﻿{
+  "source": "geometry.json",
+  "coordinate_system": {
+    "input": "source pixel x-right y-down",
+    "model": "x-right, y-toward-image-top, z-up",
+    "glTF": "Y-up after coordinate rotation",
+    "scale": "1 source pixel = 1 provisional model unit; scale not calibrated; do not use as measured meters"
+  },
+  "assumptions": {
+    "building_floor_height_model_units": 3.05,
+    "special_height_assumptions_model_units": {
+      "B50": 18.0
+    },
+    "unreadable_floors_default": {
+      "residential": 5,
+      "academic": 4,
+      "civic": 3,
+      "sports": 2
+    },
+    "upper_right_hill_height_model_units": 20,
+    "lower_right_garden_relief_model_units": "3-4",
+    "individual_tree_positions": "procedural roadside samples; not surveyed",
+    "entrance_circle": "schematic approximation of visible circular node at source pixel 326,383",
+    "road_widths": "source-pixel visual estimates; not measured"
+  },
+  "buildings": [
+    {
+      "id": "B01",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B02",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B03",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B04",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B05",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B06",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B07",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B08",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B09",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B10",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B11",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B12",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B13",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B14",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B15",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B16",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B17",
+      "category": "building",
+      "group": "residential",
+      "height_model_units": 15.25,
+      "source_floors": null,
+      "assumed_floors": 5
+    },
+    {
+      "id": "B20",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B21",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B22",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B23",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B24",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B25",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B26",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B27",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B28",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B29",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B30",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B31",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B32",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B33",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B34",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B35",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B36",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B37",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B38",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B39",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B40",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B41",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B42",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B43",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B44",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B45",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B46",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B47",
+      "category": "building",
+      "group": "academic",
+      "height_model_units": 12.2,
+      "source_floors": null,
+      "assumed_floors": 4
+    },
+    {
+      "id": "B50",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 18.0,
+      "source_floors": null,
+      "assumed_floors": null
+    },
+    {
+      "id": "B51",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B52",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 6.1,
+      "source_floors": 2.0,
+      "assumed_floors": null
+    },
+    {
+      "id": "B53",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 9.149999999999999,
+      "source_floors": 3.0,
+      "assumed_floors": null
+    },
+    {
+      "id": "B54",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 9.149999999999999,
+      "source_floors": 3.0,
+      "assumed_floors": null
+    },
+    {
+      "id": "B55",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B56",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B57",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 9.149999999999999,
+      "source_floors": 3.0,
+      "assumed_floors": null
+    },
+    {
+      "id": "B58",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B59",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B60",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 18.299999999999997,
+      "source_floors": 6.0,
+      "assumed_floors": null
+    },
+    {
+      "id": "B61",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 18.299999999999997,
+      "source_floors": 6.0,
+      "assumed_floors": null
+    },
+    {
+      "id": "B62",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 18.299999999999997,
+      "source_floors": 6.0,
+      "assumed_floors": null
+    },
+    {
+      "id": "B63",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B64",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B65",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B66",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B67",
+      "category": "building",
+      "group": "civic",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B70",
+      "category": "building",
+      "group": "sports",
+      "height_model_units": 6.1,
+      "source_floors": 2.0,
+      "assumed_floors": null
+    },
+    {
+      "id": "B71",
+      "category": "building",
+      "group": "sports",
+      "height_model_units": 6.1,
+      "source_floors": null,
+      "assumed_floors": 2
+    },
+    {
+      "id": "B72",
+      "category": "building",
+      "group": "sports",
+      "height_model_units": 6.1,
+      "source_floors": null,
+      "assumed_floors": 2
+    },
+    {
+      "id": "B81",
+      "category": "building",
+      "group": "landscape",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B82",
+      "category": "building",
+      "group": "landscape",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B83",
+      "category": "building",
+      "group": "landscape",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B84",
+      "category": "building",
+      "group": "landscape",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B85",
+      "category": "building",
+      "group": "landscape",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B86",
+      "category": "building",
+      "group": "landscape",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "B87",
+      "category": "building",
+      "group": "landscape",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "X01",
+      "category": "context_building",
+      "group": "context",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "X02",
+      "category": "context_building",
+      "group": "context",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "X03",
+      "category": "context_building",
+      "group": "context",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "X04",
+      "category": "context_building",
+      "group": "context",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "X05",
+      "category": "context_building",
+      "group": "context",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    },
+    {
+      "id": "X06",
+      "category": "context_building",
+      "group": "context",
+      "height_model_units": 9.149999999999999,
+      "source_floors": null,
+      "assumed_floors": 3
+    }
+  ],
+  "counts": {
+    "buildings": 79,
+    "procedural_trees": 463,
+    "mesh_parts": 1209
+  },
+  "cameras": {
+    "A": {
+      "direction": [
+        0.08,
+        -1,
+        0.93
+      ],
+      "description": "From image-bottom main entrance toward image-top; full-campus oblique",
+      "projection": "orthographic",
+      "pixel_size": [
+        2800,
+        1900
+      ],
+      "basis": [
+        [
+          0.9968152785361251,
+          0.07974522228289001,
+          -0.0
+        ],
+        [
+          -0.054214556912487034,
+          0.6776819614060879,
+          0.7333538988807387
+        ],
+        [
+          0.05848146967826853,
+          -0.7310183709783566,
+          0.6798470850098717
+        ]
+      ],
+      "center_camera_xy": [
+        -42.843120671482666,
+        -1.8164907917252435
+      ],
+      "pixels_per_model_unit": 3.049087647143397
+    },
+    "B": {
+      "direction": [
+        1,
+        1,
+        1.05
+      ],
+      "description": "From image-upper-right toward image-lower-left; reverse oblique",
+      "projection": "orthographic",
+      "pixel_size": [
+        2800,
+        1900
+      ],
+      "basis": [
+        [
+          -0.7071067811865476,
+          0.7071067811865476,
+          0.0
+        ],
+        [
+          -0.4215202140994427,
+          -0.4215202140994427,
+          0.8028956459037002
+        ],
+        [
+          0.5677329558036595,
+          0.5677329558036595,
+          0.5961196035938425
+        ]
+      ],
+      "center_camera_xy": [
+        -66.99316369738256,
+        57.1260252060483
+      ],
+      "pixels_per_model_unit": 3.557126064995556
+    },
+    "C": {
+      "direction": [
+        -1,
+        0.1,
+        0.84
+      ],
+      "description": "From image-left toward image-right; lateral oblique",
+      "projection": "orthographic",
+      "pixel_size": [
+        2800,
+        1900
+      ],
+      "basis": [
+        [
+          -0.09950371902099893,
+          -0.9950371902099892,
+          0.0
+        ],
+        [
+          0.6381320836489688,
+          -0.06381320836489689,
+          0.7672778624826886
+        ],
+        [
+          -0.7634700083951009,
+          0.0763470008395101,
+          0.6413148070518848
+        ]
+      ],
+      "center_camera_xy": [
+        24.32865930063423,
+        -12.05872121023043
+      ],
+      "pixels_per_model_unit": 3.227537993534687
+    },
+    "D": {
+      "direction": [
+        0.08,
+        -1,
+        0.46
+      ],
+      "description": "From image-bottom toward central lake; lower-angle full campus",
+      "projection": "orthographic",
+      "pixel_size": [
+        2800,
+        1900
+      ],
+      "basis": [
+        [
+          0.9968152785361251,
+          0.07974522228289,
+          -0.0
+        ],
+        [
+          -0.03323830437318291,
+          0.4154788046647864,
+          0.9089953674231328
+        ],
+        [
+          0.07248803762927498,
+          -0.9061004703659373,
+          0.41680621636833115
+        ]
+      ],
+      "center_camera_xy": [
+        -42.843120671482666,
+        -2.2345678486990366
+      ],
+      "pixels_per_model_unit": 3.049087647143397
+    }
+  }
+}

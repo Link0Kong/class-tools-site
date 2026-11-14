@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>校内地图工具 · 概念草图（桌面）</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#F7F8F8;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Source Han Sans SC",sans-serif;-webkit-font-smoothing:antialiased;color:#23302E;font-size:15px;line-height:1.7}
+  .page{max-width:1160px;margin:0 auto;padding:0 24px 30px}
+  .brand{display:flex;align-items:center;gap:9px;padding:18px 0 12px}
+  .idchip{display:inline-flex;align-items:center;gap:5px;border:1px solid #E6E9E8;background:#fff;border-radius:999px;padding:4px 9px;color:#5A6A67;font-size:11px;font-weight:700}
+  .brand .dots{display:flex;gap:6px}
+  .brand .dots i{width:8px;height:8px;border-radius:50%}
+  .brand .dots i:nth-child(1){background:#4E9082}.brand .dots i:nth-child(2){background:#6E8CA8}.brand .dots i:nth-child(3){background:#B98F63}
+  .brand b{font-size:15.5px;letter-spacing:.02em}
+  .brand .dom{font-size:11.5px;color:#8C9A97;margin-left:auto;letter-spacing:.08em}
+  .tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;background:#EDF0EF;border-radius:12px;padding:5px;margin-bottom:16px}
+  .tabs button{border:0;background:transparent;padding:9px 4px;border-radius:9px;font-size:14px;font-weight:600;color:#5A6A67;font-family:inherit}
+  .tabs button.on{background:#fff;color:#4E9082;box-shadow:0 1px 3px rgba(35,48,46,.10)}
+  .layout{display:grid;grid-template-columns:minmax(0,1.62fr) minmax(330px,.78fr);gap:16px;align-items:start}
+  .card{background:#fff;border:1px solid #E6E9E8;border-radius:16px;padding:16px;box-shadow:0 1px 2px rgba(35,48,46,.03)}
+  .card+.card{margin-top:12px}
+  .maphd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .lgico{width:38px;height:38px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:12px;background:#E9F3F0;color:#4E9082}
+  .maphd .t{flex:1;min-width:0}
+  .maphd .t b{display:block;font-size:16px;line-height:1.3}
+  .maphd .t span{display:block;font-size:11px;color:#8C9A97;line-height:1.4;margin-top:1px}
+  .mapbtn{height:34px;border:1px solid #E6E9E8;background:#fff;border-radius:10px;color:#5A6A67;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;padding:0 11px;gap:5px}
+  .search{display:flex;align-items:center;gap:8px;background:#F5F7F6;border:1px solid #E9ECEA;border-radius:11px;padding:9px 12px;color:#8C9A97;font-size:13px;margin-bottom:10px}
+  .search .ph{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .search .k{font-size:10px;border:1px solid #E0E5E3;background:#fff;border-radius:5px;padding:1px 5px;color:#8C9A97;font-weight:700}
+  .chips{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+  .chips span{font-size:11.5px;font-weight:700;border:1px solid #E6E9E8;background:#fff;color:#5A6A67;border-radius:999px;padding:4px 10px}
+  .chips span.on{background:#E9F3F0;border-color:#BFDCD4;color:#4E9082}
+  .mapbox{position:relative;background:#FBFCFB;border:1px solid #ECEFEE;border-radius:13px;overflow:hidden}
+  .mapbox svg{display:block;width:100%;height:auto}
+  .north{position:absolute;left:9px;top:9px;font-size:9.5px;font-weight:700;color:#8C9A97;background:rgba(255,255,255,.85);border:1px solid #E9ECEA;border-radius:6px;padding:1px 5px;letter-spacing:.08em}
+  .zoombar{position:absolute;right:9px;bottom:9px;display:flex;flex-direction:column;background:#fff;border:1px solid #E6E9E8;border-radius:9px;overflow:hidden;box-shadow:0 2px 6px rgba(35,48,46,.08)}
+  .zoombar span{width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#5A6A67}
+  .zoombar span+span{border-top:1px solid #EFF2F1}
+  .mapfoot{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:10.5px;color:#8C9A97;flex-wrap:wrap}
+  .mapfoot i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:3px}
+  .mapfoot .sc{margin-left:auto;letter-spacing:.04em}
+  /* sidebar */
+  .sect{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .sect b{font-size:13.5px}
+  .sect span{font-size:10.5px;color:#8C9A97;margin-left:auto}
+  .next{display:flex;align-items:center;gap:11px}
+  .next .ic{width:40px;height:40px;border-radius:12px;background:#F6F1EA;color:#B98F63;display:flex;align-items:center;justify-content:center;flex:none}
+  .next .b{flex:1;min-width:0}
+  .next .tag{font-size:10px;font-weight:800;color:#B98F63;letter-spacing:.08em}
+  .next b{display:block;font-size:13.5px;line-height:1.35;margin-top:1px}
+  .next span{display:block;font-size:10.5px;color:#8C9A97;line-height:1.4}
+  .next .walk{font-size:10px;color:#4E9082;background:#E9F3F0;border-radius:6px;padding:2px 7px;font-weight:700;flex:none}
+  .prow{display:flex;align-items:center;gap:9px;padding:8px 8px;border-radius:10px;font-size:12.5px;color:#5A6A67}
+  .prow.on{background:#F1F8F5;color:#23302E;font-weight:700}
+  .prow i{width:8px;height:8px;border-radius:50%;flex:none}
+  .prow .cnt{margin-left:auto;font-size:10.5px;color:#8C9A97;font-weight:600}
+  .prow.on .cnt{color:#4E9082}
+  .grp{font-size:10px;font-weight:800;color:#A0AEAB;letter-spacing:.1em;margin:10px 0 2px;padding:0 8px}
+  .grp:first-child{margin-top:0}
+  .rchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .rchips span{font-size:11px;font-weight:700;border:1px solid #E6E9E8;background:#FBFCFC;color:#5A6A67;border-radius:7px;padding:3px 8px;font-variant-numeric:tabular-nums}
+  .rchips span.hot{background:#DDEEE9;border-color:#BFDCD4;color:#2E6B5E}
+  .hint{font-size:10.5px;color:#8C9A97;line-height:1.6;margin-top:10px;border-top:1px dashed #E9ECEA;padding-top:9px}
+  .hint b{color:#B98F63;font-weight:800}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="brand">
+    <span class="idchip">测试账号</span>
+    <span class="dots"><i></i><i></i><i></i></span>
+    <b>班级工具</b>
+    <span class="dom">tool.furina.fun</span>
+  </div>
+  <div class="tabs">
+    <button>抽签</button><button>课表</button><button class="on">地图</button><button>名单</button><button>全部</button>
+  </div>
+
+  <div class="layout">
+    <!-- 左：地图主区 -->
+    <div>
+      <div class="card">
+        <div class="maphd">
+          <span class="lgico">
+            <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 4 6.5v13L9 17l6 3 5-2.5v-13L15 7z"/><path d="M9 4v13M15 7v13"/></svg>
+          </span>
+          <div class="t"><b>校内地图</b><span>找楼 · 找教室 · 下一节课在哪</span></div>
+          <button class="mapbtn">◎ 定位到下一节</button>
+        </div>
+
+        <div class="search">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 4.5 4.5"/></svg>
+          <span class="ph">输入楼名或教室号，如 自强楼、01104、02101…</span>
+          <span class="k">回车</span>
+        </div>
+        <div class="chips"><span class="on">全部</span><span>教学楼</span><span>宿舍</span><span>运动</span><span>生活服务</span></div>
+
+        <div class="mapbox">
+          <div id="deskMap"></div>          <div class="north">N ↑</div>
+          <div class="zoombar"><span>＋</span><span>－</span></div>
+        </div>
+
+        <div class="mapfoot">
+          <span><i style="background:#5FBF9F"></i>教学楼</span>
+          <span><i style="background:#D8B98A"></i>宿舍 / 生活</span>
+          <span><i style="background:#8EAAC4"></i>运动 / 场馆</span>
+          <span class="sc">示意 · 非比例尺 · 不加载任何在线地图</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右：侧栏 -->
+    <div>
+      <div class="card">
+        <div class="sect"><b>下一节课</b><span>来自课表</span></div>
+        <div class="next">
+          <span class="ic">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v5l3.2 1.8"/><circle cx="12" cy="12" r="8.4"/></svg>
+          </span>
+          <div class="b">
+            <div class="tag">08:45 · 高等数学</div>
+            <b>自强楼 01217</b>
+            <span>2 层东侧 · 步行约 4 分钟</span>
+          </div>
+          <span class="walk">去看看</span>
+        </div>
+        <div class="hint">点「下一节」会高亮对应楼栋；重点教学楼可继续切到楼层平面。</div>
+      </div>
+
+      <div class="card">
+        <div class="sect"><b>楼栋 / 地点</b><span>共 8 组</span></div>
+        <div class="grp">教学楼 · 图书馆</div>
+        <div class="prow on"><i style="background:#5FBF9F"></i>自强楼 · 01 号楼<span class="cnt">10 间教室</span></div>
+        <div class="prow"><i style="background:#5FBF9F"></i>厚德楼 · 02 号楼<span class="cnt">5 间教室</span></div>
+        <div class="prow"><i style="background:#5FBF9F"></i>教学综合楼 · 至善楼 · 五行楼<span class="cnt">待补</span></div>
+        <div class="prow"><i style="background:#8EAAC4"></i>图书馆<span class="cnt">自习 / 借阅</span></div>
+        <div class="grp">生活 · 运动</div>
+        <div class="prow"><i style="background:#D8B98A"></i>食堂综合楼<span class="cnt">就餐</span></div>
+        <div class="prow"><i style="background:#D8B98A"></i>培训中心 · 双创基地<span class="cnt">2 处</span></div>
+        <div class="prow"><i style="background:#8EAAC4"></i>体育馆 · 田径场 · 球场<span class="cnt">3 处</span></div>
+        <div class="grp">宿舍</div>
+        <div class="prow"><i style="background:#D8B98A"></i>学生公寓 13#A / 13#B<span class="cnt">已上图</span></div>
+        <div class="prow"><i style="background:#D8B98A"></i>16# / 23A / 23B<span class="cnt">位置待确认</span></div>
+      </div>
+
+      <div class="card">
+        <div class="sect"><b>自强楼</b><span>教室索引</span></div>
+        <div class="rchips">
+          <span>01101</span><span>01104</span><span>01105</span><span>01202</span><span>01203</span><span>01204</span>
+          <span class="hot">01217</span><span>01506 语音室</span><span>01509 语音室</span><span>01514 机房</span>
+        </div>
+        <div class="hint">教室号与名称直接来自 <b>课表</b> 数据；没有对应课表的房间不显示。</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="map_draft.js"></script>
+<script>
+  document.getElementById("deskMap").innerHTML = campusSVG({ highlight: "zq", pin: true });
+</script>
+</body>
+</html>

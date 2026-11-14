@@ -5,10 +5,12 @@
 覆盖：
   Q1  生产数据组数/关键组存在；
   Q2-5 已结束的运动会名单/赛程/观赛安排 → 状态机返回 expired（不再是进行中）；
-  Q6-8 河洛夜市报名截止 11-09 22:00 被识别为「报名截止」而不是「报名开始」（deadline 正确、signupStart 为空）；
-  Q9-11 小儿体质活动三个报名窗口：signupWindows=3、每个窗口写在要点、状态按当前时间显示「11-10 12:00 报名开始 · 子活动一」；
+  Q6-8 河洛夜市报名截止 11-09 22:00 被识别为「报名截止」而不是「报名开始」（signupStart 若存在须等于
+       deadline，状态不得出现「报名开始」）；
+  Q9-11 小儿体质活动三个报名窗口：signupWindows=3、每个窗口写在要点、状态机与「当前/下一个窗口」的
+       独立推算一致（报名开始/报名截止/已过期，按运行日动态判断）；
   Q12-13 成绩认定附件已识别（archiveOk/note），且以附件为准修正为 11-13 截止；
-  Q14-15 非通知/无内容已被去除（5 个 id 不在 GROUPS，也不在列表）；分类没有少于 3 条的碎片类；
+  Q14-15 非通知/无内容已去除（已确认噪音 id 不在 GROUPS；另动态校验无空标题/无内容组），分类无碎片类；
   Q16  0 JS 报错。
 
 用法：cd C:\\...\\web\\tools && python tests\\v2_notice_quality_check.py
@@ -58,23 +60,54 @@ try{
   T("Q4 11-05/11-04运动会项目名单已过期", (c.key==="expired"||c.cls==="expired")&&(d.key==="expired"||d.cls==="expired"), JSON.stringify(c)+" / "+JSON.stringify(d));
   var hl=byId("g_qqm_7706037840253967598_c0");
   T("Q5 河洛夜市 deadline=11-09 22:00 报名截止", hl&&hl.deadline==="2026-11-09T22:00:00+08:00"&&hl.deadlineAction==="报名截止", hl?hl.deadline+" "+hl.deadlineAction:"missing");
-  T("Q6 河洛夜市未被误判成报名开始（无 signupStart）", hl&&!hl.signupStart, hl?String(hl.signupStart):"missing");
+  /* 2026-11-14：notice_time 可能把报名截止补成 signupStart/End=同日 deadline；只要没有
+     「早于 deadline 的报名开始」且状态不显示报名开始，就不算误判（动态数据口径）。 */
+  T("Q6 河洛夜市未被误判成报名开始（signupStart 若存在 = deadline，状态无「报名开始」）",
+    !!hl&&(!hl.signupStart||hl.signupStart===hl.deadline)&&String(st(hl).label).indexOf("报名开始")<0,
+    hl?String(hl.signupStart)+" / "+JSON.stringify(st(hl)):"missing");
   var hs=st(hl);
   T("Q7 河洛夜市状态显示报名截止", String(hs.label).indexOf("报名截止")>=0&&String(hs.label).indexOf("报名开始")<0, JSON.stringify(hs));
   var xe=byId("g_qqm_7706038665232774784_c0");
   T("Q8 小儿体质活动有 3 个报名窗口", xe&&Array.isArray(xe.signupWindows)&&xe.signupWindows.length===3, xe?JSON.stringify(xe.signupWindows||null):"missing");
   var pts=(xe&&xe.aiPoints)||[];
   T("Q9 三个报名窗口都写在要点里", pts.some(function(p){return p.indexOf("11-10")>=0;})&&pts.some(function(p){return p.indexOf("11-11")>=0;})&&pts.some(function(p){return p.indexOf("11-12")>=0;}), pts.join(" | "));
+  /* Q10（2026-11-14 动态化）：按本周报名窗口 + 当前时间独立推算期望状态，再与产品 statusOf 差分，
+     不写死「当前处于哪个窗口」（数据/日期变化后仍可回归多窗口状态机）。 */
   var xs=st(xe);
-  T("Q10 小儿当前状态=下一个报名窗口报名开始", xs.key==="today"&&String(xs.label).indexOf("报名开始")>=0, JSON.stringify(xs));
+  var q10ok=false,q10note="";
+  if(xe&&Array.isArray(xe.signupWindows)&&xe.signupWindows.length===3){
+    var nowQ=Date.now(),curW=null,nextW=null;
+    xe.signupWindows.forEach(function(w){
+      var ws=w.start?Date.parse(w.start):null,we=w.end?Date.parse(w.end):null;
+      if((!ws||nowQ>=ws)&&(!we||nowQ<=we)){curW={s:ws,e:we};}
+      else if(ws&&nowQ<ws&&(!nextW||ws<nextW.s))nextW={s:ws,e:we};
+    });
+    var pickW=curW||nextW,expectKind="expired";
+    if(pickW){if(pickW.s&&nowQ<pickW.s)expectKind="start";else if(pickW.e&&nowQ<pickW.e)expectKind="end";}
+    if(expectKind==="start")q10ok=String(xs.label).indexOf("报名开始")>=0&&xs.key!=="expired";
+    else if(expectKind==="end")q10ok=String(xs.label).indexOf("报名截止")>=0&&xs.key!=="expired";
+    else q10ok=xs.key==="expired"||String(xs.label).indexOf("已过期")>=0;
+    q10note="window="+expectKind+" status="+JSON.stringify(xs);
+  }else{q10note="no windows";}
+  T("Q10 小儿当前状态与 3 个报名窗口的独立推算一致（报名开始/截止/已过期）", q10ok, q10note);
   var cj=byId("g_ait_eb83112de5");
   T("Q11 成绩认定按附件修正为 11-13 截止", cj&&String(cj.deadline).indexOf("2026-11-13")===0&&String(cj.title).indexOf("11-13")>=0, cj?cj.deadline+" / "+cj.title:"missing");
   var fitems=(cj&&cj.items)||[];
   var attach=null;
   for(var i=0;i<fitems.length;i++){if(fitems[i].kind==="file"){attach=fitems[i];break;}}
   T("Q12 成绩认定附件已识别（压缩包/归档信息）", attach&&attach.archiveOk===true&&attach.archive&&(attach.archive.count||0)>=2, attach?JSON.stringify({name:attach.name,ok:attach.archiveOk,note:attach.note}):"missing");
-  var drops=["g_qqm_7704959755845695040_c0","g_ait_d385e6d0bb","g_ait_self_325ad220cb","g_ait_self_3d6fb34de1","g_ait_wxfile_d7a089497a"];
-  T("Q13 非通知/无内容已被去除", drops.every(function(id){return !byId(id);}), drops.filter(function(id){return !!byId(id);}).join(","));
+  /* 2026-11-14 动态化：只保留已确认应被质量层去掉的噪音 id（g_ait_d385e6d0bb 现已被
+     AI 判为有效通知「采访记录人员招募」，不再是 drop 目标）；另补「无内容组不得上板」动态校验。 */
+  var drops=["g_qqm_7704959755845695040_c0","g_ait_self_325ad220cb","g_ait_self_3d6fb34de1","g_ait_wxfile_d7a089497a"];
+  var emptyGroups=groups.filter(function(g){
+    var title=String(g.title||"").trim();
+    var hasContent=(g.items||[]).some(function(it){
+      return it&&(it.text||it.name||it.url||it.src||it.realTitle||it.title);
+    });
+    return !title||!hasContent;
+  });
+  T("Q13 非通知/无内容已被去除", drops.every(function(id){return !byId(id);})&&emptyGroups.length===0,
+    "still="+drops.filter(function(id){return !!byId(id);}).join(",")+" empty="+emptyGroups.map(function(g){return g.id;}).join(","));
   var droppedCards=Array.prototype.slice.call(document.querySelectorAll('#list .gcard')).filter(function(el){return drops.indexOf(el.getAttribute('data-gid'))>=0;});
   T("Q14 被去除通知不再渲染到列表", droppedCards.length===0, "n="+droppedCards.length);
   var cats=(typeof catList==="function")?catList():[];

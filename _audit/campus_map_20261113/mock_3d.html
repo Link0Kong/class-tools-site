@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>校内地图 · 2.5D 概念</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#EEF1EA;overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Source Han Sans SC",sans-serif;
+    color:#23302E;-webkit-font-smoothing:antialiased}
+  #stage{position:relative;width:100vw;height:100vh;overflow:hidden;background:
+    radial-gradient(120% 90% at 50% 8%,#FAF9F2 0%,#F0F2E6 46%,#E6EBDD 100%)}
+  #scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+  /* ---------- top bar ---------- */
+  .topbar{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;gap:12px;
+    padding:12px 22px;z-index:5;pointer-events:none}
+  .brand{display:flex;align-items:center;gap:10px;min-width:0;pointer-events:auto}
+  .brand .mark{width:36px;height:36px;border-radius:11px;background:#fff;border:1px solid #E1E7DF;
+    display:flex;align-items:center;justify-content:center;color:#4E9082;box-shadow:0 2px 8px rgba(35,48,46,.06)}
+  .brand .t{line-height:1.25;min-width:0}
+  .brand b{display:block;font-size:14.5px;letter-spacing:.01em;white-space:nowrap}
+  .brand span{display:block;font-size:10.5px;color:#8C9A97;white-space:nowrap;letter-spacing:.03em}
+  .toolbar{margin-left:auto;display:flex;align-items:center;gap:6px;pointer-events:auto;
+    background:rgba(255,255,255,.82);border:1px solid #E1E7DF;border-radius:13px;padding:5px;
+    box-shadow:0 6px 20px rgba(35,48,46,.07);backdrop-filter:blur(8px)}
+  .toolbar button{border:0;background:transparent;border-radius:9px;font:inherit;font-size:12.5px;
+    font-weight:700;color:#5A6A67;padding:7px 11px;display:flex;align-items:center;gap:5px;cursor:pointer;
+    transition:background .15s,color .15s}
+  .toolbar button:hover{background:#F2F5F1;color:#23302E}
+  .toolbar button.on{background:#23302E;color:#fff}
+  .toolbar i{display:inline-flex;width:13px;height:13px;opacity:.9}
+  .toolbar .sep{width:1px;height:18px;background:#E3E8E1;margin:0 2px}
+  /* ---------- info card ---------- */
+  .infocard{position:absolute;right:22px;top:86px;width:326px;z-index:5;
+    background:rgba(255,255,255,.92);border:1px solid #E1E7DF;border-radius:18px;padding:16px 16px 14px;
+    box-shadow:0 18px 44px rgba(35,48,46,.13);backdrop-filter:blur(10px)}
+  .infocard .eyebrow{font-size:9.5px;font-weight:800;letter-spacing:.16em;color:#B98F63}
+  .infocard h3{margin:3px 0 0;font-size:19px;letter-spacing:.01em}
+  .infocard .sub{font-size:11.5px;color:#8C9A97;margin-top:2px}
+  .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .meta span{font-size:10.5px;font-weight:700;border:1px solid #E4E9E2;background:#F7F9F5;color:#5A6A67;
+    border-radius:7px;padding:3px 8px}
+  .meta span.hot{background:#E7F3EE;border-color:#C8E2D9;color:#2E6B5E}
+  .nextrow{margin-top:12px;border-top:1px dashed #E6EAE3;padding-top:11px;display:flex;align-items:center;gap:10px}
+  .nextrow .ic{width:34px;height:34px;border-radius:10px;background:#F6F1EA;color:#B98F63;flex:none;
+    display:flex;align-items:center;justify-content:center}
+  .nextrow .b{flex:1;min-width:0}
+  .nextrow .tag{font-size:9.5px;font-weight:800;letter-spacing:.08em;color:#B98F63}
+  .nextrow b{display:block;font-size:13px;line-height:1.35;margin-top:1px}
+  .nextrow span{display:block;font-size:10.5px;color:#8C9A97}
+  .btns{display:flex;gap:8px;margin-top:13px}
+  .btns button{flex:1;border-radius:10px;padding:9px 10px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;
+    border:1px solid #E4E9E2;background:#fff;color:#23302E}
+  .btns button.pri{background:#4E9082;border-color:#4E9082;color:#fff}
+  .hint{font-size:10px;color:#9AA7A4;margin-top:10px;line-height:1.5}
+  /* ---------- legend + minimap ---------- */
+  .legend{position:absolute;left:22px;bottom:62px;z-index:5;display:flex;gap:12px;flex-wrap:wrap;
+    background:rgba(255,255,255,.82);border:1px solid #E1E7DF;border-radius:12px;padding:8px 12px;
+    box-shadow:0 6px 20px rgba(35,48,46,.07);backdrop-filter:blur(8px)}
+  .legend span{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;color:#5A6A67}
+  .legend i{display:inline-block;width:14px;height:9px;border-radius:3px;border:1px solid rgba(35,48,46,.12)}
+  .minimap{position:absolute;left:22px;bottom:118px;width:196px;z-index:5;pointer-events:none}
+  .minimap .mmcard{background:rgba(255,255,255,.88);border:1px solid #E1E7DF;border-radius:13px;padding:8px;
+    box-shadow:0 10px 26px rgba(35,48,46,.10);backdrop-filter:blur(8px)}
+  .minimap .mmhd{display:flex;align-items:center;justify-content:space-between;font-size:9px;font-weight:800;
+    letter-spacing:.12em;color:#8C9A97;margin:0 2px 5px}
+  .minimap canvas{display:block;width:100%;height:auto;border-radius:8px}
+  /* ---------- footer ---------- */
+  .footer{position:absolute;left:0;right:0;bottom:0;height:46px;display:flex;align-items:center;
+    gap:12px;padding:0 22px;z-index:5;pointer-events:none}
+  .footer .hintbar{pointer-events:auto;display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.82);
+    border:1px solid #E1E7DF;border-radius:999px;padding:6px 13px;font-size:11px;color:#6E7C78;
+    box-shadow:0 6px 18px rgba(35,48,46,.07);backdrop-filter:blur(8px)}
+  .footer .note{margin-left:auto;font-size:10px;color:#9AA7A4;letter-spacing:.02em}
+  .footer .note b{color:#B98F63;font-weight:800}
+  @media (max-width:760px){
+    .topbar{height:54px;padding:8px 12px;gap:8px}
+    .brand .t{display:none}
+    .brand .mark{width:34px;height:34px}
+    .toolbar{margin-left:0;padding:4px}
+    .toolbar button{font-size:0;padding:8px 9px}
+    .toolbar .sep{display:none}
+    .infocard{right:10px;left:10px;top:auto;bottom:12px;width:auto;padding:14px 15px 13px;border-radius:16px}
+    .infocard h3{font-size:18px}
+    .infocard .hint{display:none}
+    .minimap{display:none}
+    .legend{display:none}
+    .footer{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="scene"></canvas>
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="mark">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 4 6.5v13L9 17l6 3 5-2.5v-13L15 7z"/><path d="M9 4v13M15 7v13"/></svg>
+      </span>
+      <span class="t"><b>校内地图 · 空间视图</b><span>福建中医药大学旗山校区 · 依据总平面图重绘</span></span>
+    </div>
+    <div class="toolbar">
+      <button type="button" aria-label="平面视图"><i><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 12h16M12 4v16"/></svg></i>平面</button>
+      <button type="button" class="on"><i><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 8 5-8 5-8-5 8-5Z"/><path d="m4 13 8 5 8-5"/></svg></i>2.5D</button>
+      <span class="sep"></span>
+      <button type="button"><i><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19.5 7.5A8.5 8.5 0 1 0 21 12"/><path d="M20 3v5h-5"/></svg></i>视角</button>
+      <button type="button"><i><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6.5 10v9h11v-9"/></svg></i>重置</button>
+    </div>
+  </div>
+
+  <aside class="infocard">
+    <div class="eyebrow">SELECTED / 已选建筑</div>
+    <h3 id="selName">自强楼 · 01 号楼</h3>
+    <div class="sub" id="selSub">教学楼 · 5F · 课表 10 间教室</div>
+    <div class="meta">
+      <span class="hot">下一节在此</span><span>01 号楼</span><span>2 层 17 教室</span><span>语音室 / 机房</span>
+    </div>
+    <div class="nextrow">
+      <span class="ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v5l3.2 1.8"/><circle cx="12" cy="12" r="8.4"/></svg></span>
+      <div class="b"><div class="tag">下一节 · 08:45</div><b>高等数学 · 01217</b><span>从南门步行约 4 分钟</span></div>
+    </div>
+    <div class="btns"><button class="pri" type="button">进入楼层视图</button><button type="button">去课表</button></div>
+    <div class="hint">拖动旋转 · 滚轮缩放 · 右键平移 · 点击楼栋切换选中</div>
+  </aside>
+
+  <div class="minimap">
+    <div class="mmcard">
+      <div class="mmhd"><span>总平面 · 相机位置</span><span>N ↑</span></div>
+      <canvas id="mini" width="360" height="220"></canvas>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#DCEBE3"></i>教学楼</span>
+    <span><i style="background:#F3E7D3"></i>宿舍</span>
+    <span><i style="background:#DCE6F2"></i>图书馆 / 公共</span>
+    <span><i style="background:#E7E3EE"></i>科研</span>
+    <span><i style="background:#E3E9F3"></i>运动</span>
+    <span><i style="background:#BBD8E8"></i>水系</span>
+  </div>
+
+  <div class="footer">
+    <div class="hintbar">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m5 3 14 9-7 1-3 7-4-17Z"/></svg>
+      拖拽旋转 · 滚轮缩放 · 右键平移 · 点击楼栋查看
+    </div>
+    <div class="note">示意体块 · 高度为建模假设 · <b>非比例尺</b> · 不加载任何在线地图</div>
+  </div>
+</div>
+
+<script src="map_draft.js"></script>
+<script>
+/* ============================================================
+   2.5D 概念渲染（原生 Canvas 2D，无 WebGL / 无第三方库）
+   - 正交斜视投影 + 体块挤出 + 画家算法
+   - 交互：拖拽旋转 / 滚轮缩放 / 右键平移（本概念图仅静态展示第一帧）
+   ============================================================ */
+var WATER = [[[396.5, 134.2], [392.5, 136.2], [394.8, 140.5], [391.5, 140.2], [391.5, 136.2], [388.8, 140.5], [387.0, 137.8], [378.0, 139.8], [361.2, 154.0], [359.2, 152.0], [359.2, 156.0], [350.0, 159.8], [345.2, 158.0], [346.8, 162.5], [342.0, 167.8], [330.5, 174.2], [314.5, 188.2], [315.0, 190.2], [320.5, 188.8], [323.2, 191.0], [312.2, 191.0], [281.8, 224.5], [268.8, 248.5], [260.8, 257.5], [260.2, 263.0], [251.0, 277.8], [259.0, 279.2], [259.2, 286.0], [247.5, 285.2], [242.5, 295.2], [238.2, 312.0], [238.2, 318.0], [241.5, 322.8], [252.0, 323.2], [260.5, 328.8], [274.2, 325.5], [295.2, 279.5], [327.5, 248.8], [337.0, 243.2], [357.0, 237.2], [388.2, 250.0], [394.0, 250.2], [369.8, 237.0], [373.8, 231.0], [374.0, 225.2], [377.8, 224.0], [381.0, 211.2], [384.2, 211.5], [383.0, 209.2], [385.2, 210.5], [386.2, 208.5], [370.8, 190.0], [365.8, 172.0], [378.8, 153.0], [401.8, 139.0]], [[552.5, 94.8], [498.0, 103.2], [467.5, 104.8], [462.8, 108.0], [465.0, 110.8], [468.0, 107.8], [467.2, 113.5], [473.5, 114.2], [483.8, 122.0], [505.8, 150.0], [539.0, 167.8], [556.5, 186.2], [562.5, 187.2], [569.5, 192.2], [581.5, 189.2], [595.8, 192.5], [613.5, 181.2], [608.8, 180.5], [607.0, 177.2], [610.0, 171.8], [623.8, 172.5], [627.2, 168.0], [617.0, 170.2], [611.5, 167.8], [607.8, 161.5], [607.5, 150.8], [604.8, 152.5], [600.2, 148.0], [590.5, 158.8], [579.8, 156.5], [576.2, 151.0], [576.2, 145.0], [579.5, 139.8], [562.8, 133.5], [555.5, 125.8], [557.5, 107.2], [565.2, 104.0], [566.2, 100.0]], [[10.0, 263.2], [8.0, 265.2], [-0.2, 264.0], [-0.2, 288.0], [9.5, 304.2], [35.8, 337.0], [38.8, 347.0], [34.2, 387.5], [21.2, 411.5], [19.0, 427.8], [41.0, 413.8], [44.2, 414.0], [42.8, 412.5], [54.8, 402.5], [62.5, 391.2], [65.0, 391.8], [67.2, 383.0], [69.2, 385.0], [70.8, 372.5], [74.8, 367.5], [76.8, 348.5], [74.2, 334.0], [51.0, 281.2], [46.5, 282.8], [42.2, 280.0], [41.5, 275.8], [38.2, 277.0], [34.8, 272.5], [28.8, 272.5], [28.8, 270.5]], [[645.0, 165.8], [630.2, 176.0], [629.0, 180.8], [618.8, 181.5], [598.5, 199.2], [599.8, 211.5], [594.8, 221.5], [597.8, 223.0], [610.5, 213.8], [615.2, 215.0], [626.8, 230.5], [630.8, 230.5], [642.0, 245.2], [650.2, 250.0], [663.2, 268.0], [661.5, 271.8], [675.8, 289.5], [675.8, 294.5], [681.5, 299.8], [683.8, 298.0], [681.8, 291.0], [688.8, 274.0], [692.2, 236.5], [662.0, 193.8], [663.0, 191.8], [657.2, 185.5], [655.0, 178.8], [647.2, 172.5]], [[744.0, 136.2], [739.5, 151.8], [735.5, 156.8], [729.0, 158.2], [722.8, 167.0], [705.8, 169.0], [708.2, 179.5], [714.5, 187.2], [730.5, 187.2], [733.5, 190.2], [738.0, 184.8], [747.2, 182.0], [748.0, 176.8], [751.8, 178.0], [752.0, 181.8], [772.2, 181.0], [753.5, 179.8], [740.5, 152.8]]];
+var ROADS = [
+  { pts: [[0,452],[800,452]], w: 9 },
+  { pts: [[352,446],[352,398]], w: 7 },
+  { pts: [[296,392],[288,330],[288,240],[298,190]], w: 5 },
+  { pts: [[300,142],[380,130],[460,144],[540,166],[620,204]], w: 5.5 },
+  { pts: [[620,204],[642,252],[655,320],[650,404]], w: 5.5 },
+  { pts: [[420,404],[420,444]], w: 5 }
+];
+var HEIGHTS = { lib: 18, b50: 18, b52: 10, zq: 15.3, hd: 15.3, jc: 12.2, zs: 15.3, jxz: 15.3, wx: 15.3,
+  b59: 12.2, b60: 12.2, b58: 12.2, canteen: 12.2, b70: 13, b72: 3.5, d13a: 15.3, d13b: 15.3 };
+function H(b){ if(HEIGHTS[b.id]!=null) return HEIGHTS[b.id];
+  if(b.cat==="dorm") return 15.3; if(b.cat==="teach") return 12.2;
+  if(b.cat==="lib") return 15; if(b.cat==="sport") return b.stadium?3:8;
+  if(b.cat==="food") return 10.5; if(b.cat==="res") return 10; return 9; }
+
+/* 楼栋底面多边形 */
+function footprint(b){
+  if(b.ellipse){ var e=b.ellipse, cx=e[0], cy=e[1], rx=e[2], ry=e[3], pts=[];
+    for(var i=0;i<10;i++){ var a=i/10*Math.PI*2; pts.push([cx+Math.cos(a)*rx, cy+Math.sin(a)*ry]); } return pts; }
+  if(b.shape){ /* 图书馆扇形：手写近似 */
+    return [[342,304],[412,304],[418,332],[404,368],[384,392],[362,370],[346,334]];
+  }
+  return [[b.x,b.y],[b.x+b.w,b.y],[b.x+b.w,b.y+b.h],[b.x,b.y+b.h]];
+}
+var TOP = { teach:"#DCEBE3", lib:"#DCE6F2", dorm:"#F3E7D3", sport:"#E3E9F3", food:"#F0E3D0", res:"#E7E3EE" };
+var WALL_A = "#FBF7ED", WALL_B = "#DED5C3";
+var SEL = "zq";
+
+/* 视角 */
+var YAW = -0.52, PITCH = 0.78, ZOOM = 1, PANX = 0, PANY = 0, HEIGHT_EXAG = 1.4;
+var canvas = document.getElementById("scene"), ctx = canvas.getContext("2d");
+var mini = document.getElementById("mini"), mctx = mini.getContext("2d");
+var VW = 800, VH = 465, SCALE = 1, OX = 0, OY = 0;
+
+function project(p, z){
+  var dx=p[0]-VW/2, dy=p[1]-VH/2;
+  var X=dx*Math.cos(YAW)-dy*Math.sin(YAW);
+  var Y=dx*Math.sin(YAW)+dy*Math.cos(YAW);
+  var sx = OX + X*SCALE;
+  var zz = (z||0)*HEIGHT_EXAG;
+  var sy = OY + Y*SCALE*Math.sin(PITCH) - zz*SCALE*Math.cos(PITCH);
+  var depth = Y*Math.cos(PITCH) + zz*Math.sin(PITCH);
+  return [sx, sy, depth];
+}
+function poly(pts){ ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+  for(var i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]); ctx.closePath(); }
+function fillPoly(pts, fill, stroke, lw){ poly(pts); if(fill){ctx.fillStyle=fill;ctx.fill();}
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke();} }
+
+/* 伪随机树 */
+function rnd(seed){ var s=seed; return function(){ s=(s*1664525+1013904223)%4294967296; return s/4294967296; }; }
+function inPoly(x,y,pts){ var c=false;
+  for(var i=0,j=pts.length-1;i<pts.length;j=i++){
+    var xi=pts[i][0],yi=pts[i][1],xj=pts[j][0],yj=pts[j][1];
+    if(((yi>y)!=(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c; }
+  return c; }
+function buildTrees(){
+  var r=rnd(20261113), out=[], i, j;
+  for(var gy=18; gy<452; gy+=13){
+    for(var gx=14; gx<790; gx+=13){
+      var x=gx+(r()-.5)*10, y=gy+(r()-.5)*10;
+      if(r()<.58) continue;
+      var hit=false;
+      for(i=0;i<WATER.length;i++) if(inPoly(x,y,WATER[i])){hit=true;break;}
+      if(!hit) for(i=0;i<CAMPUS.buildings.length;i++){
+        var b=CAMPUS.buildings[i], pad=7;
+        if(b.ellipse){ var e=b.ellipse; if(Math.abs(x-e[0])<e[2]+pad && Math.abs(y-e[1])<e[3]+pad){hit=true;break;} }
+        else if(b.shape){ if(x>336&&x<424&&y>298&&y<398){hit=true;break;} }
+        else if(x>b.x-pad && x<b.x+b.w+pad && y>b.y-pad && y<b.y+b.h+pad){hit=true;break;}
+      }
+      if(hit) continue;
+      if(x>340 && x<520 && y>330 && y<420) continue; /* 广场留白 */
+      out.push([x,y,0.72+r()*0.5]);
+    }
+  }
+  return out;
+}
+var TREES = buildTrees();
+
+function fitScale(w,h){
+  /* 用地面角点 + 最高体块估算投影范围 */
+  var maxH = 18*1.4, xs=[], ys=[];
+  var pts = [[0,0],[VW,0],[VW,VH],[0,VH]];
+  for(var i=0;i<pts.length;i++){ for(var z=0; z<=maxH; z+=maxH){
+    var q=project(pts[i], z); xs.push(q[0]); ys.push(q[1]); } }
+  var minX=Math.min.apply(null,xs), maxX=Math.max.apply(null,xs);
+  var minY=Math.min.apply(null,ys), maxY=Math.max.apply(null,ys);
+  var s = Math.min((w*0.94)/(maxX-minX), (h*0.94)/(maxY-minY));
+  SCALE = s;
+  /* 重新投影后用画布中心对中 */
+  xs=[]; ys=[];
+  for(var j=0;j<pts.length;j++){ for(var z2=0; z2<=maxH; z2+=maxH){ var q2=project(pts[j],z2); xs.push(q2[0]); ys.push(q2[1]); } }
+  OX += w/2 - (Math.min.apply(null,xs)+Math.max.apply(null,xs))/2;
+  OY += h/2 - (Math.min.apply(null,ys)+Math.max.apply(null,ys))/2;
+}
+function resize(){
+  var dpr = Math.min(2, window.devicePixelRatio||1);
+  var w=canvas.clientWidth, h=canvas.clientHeight;
+  canvas.width=Math.round(w*dpr); canvas.height=Math.round(h*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  SCALE=1; OX=w/2; OY=h*(w<760?0.40:0.5); fitScale(w,h);
+  if(w<760){ /* 手机：放大并聚焦教学区，避免竖屏上下大片空白 */
+    SCALE*=1.32;
+    var f=project([461,343],0);
+    OX += w*0.5-f[0]; OY += h*0.36-f[1];
+  }
+  draw(); drawMini();
+}
+
+function drawGround(){
+  var w=canvas.clientWidth,h=canvas.clientHeight;
+  /* 地面铺满视口，避免出现硬边 */
+  var g=[[-1600,-1600],[2400,-1600],[2400,2200],[-1600,2200]].map(function(p){return project(p,0);});
+  fillPoly(g,"#F0F3E6");
+  /* 相机朝向的柔和明暗 */
+  var grd=ctx.createRadialGradient(w*0.5,h*0.30,80,w*0.5,h*0.42,w*0.75);
+  grd.addColorStop(0,"rgba(255,255,255,.35)"); grd.addColorStop(1,"rgba(255,255,255,0)");
+  ctx.fillStyle=grd; ctx.fillRect(0,0,w,h);
+}
+
+function drawFlat(){
+  /* 水系 */
+  for(var i=0;i<WATER.length;i++){
+    var p=WATER[i].map(function(pt){return project(pt,0.3);});
+    fillPoly(p,"#BBD8E8","#A8C9DC",1);
+  }
+  /* 道路 */
+  for(var j=0;j<ROADS.length;j++){
+    var r=ROADS[j], pts=r.pts.map(function(pt){return project(pt,0.15);});
+    ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+    for(var k=1;k<pts.length;k++) ctx.lineTo(pts[k][0],pts[k][1]);
+    ctx.strokeStyle="#E4E4D4"; ctx.lineWidth=Math.max(2,r.w*SCALE); ctx.lineCap="round"; ctx.lineJoin="round"; ctx.stroke();
+    ctx.strokeStyle="rgba(255,255,255,.45)"; ctx.lineWidth=Math.max(1,r.w*SCALE*0.32); ctx.stroke();
+  }
+  /* 董奉广场 */
+  var plaza=[]; for(var a=0;a<24;a++){ var an=a/24*Math.PI*2; plaza.push(project([420+Math.cos(an)*64,388+Math.sin(an)*26],0.25)); }
+  fillPoly(plaza,"#EFE6D3","#E2D5BD",1);
+}
+
+function buildingFaces(b, selected){
+  var base=footprint(b), h=H(b);
+  var topFill = TOP[b.cat]||"#EFE9DC";
+  if(selected){ topFill = "#CFE6DD"; }
+  var faces=[], i;
+  var n=base.length;
+  for(i=0;i<n;i++){
+    var p0=base[i], p1=base[(i+1)%n];
+    var q=[project(p0,0),project(p1,0),project(p1,h),project(p0,h)];
+    var depth=(q[0][2]+q[1][2]+q[2][2]+q[3][2])/4;
+    /* 侧面明暗：按屏幕方向 */
+    var shade=((q[1][0]-q[0][0])*Math.cos(YAW)+(q[1][1]-q[0][1])*Math.sin(YAW))>=0?WALL_A:WALL_B;
+    if(selected) shade = (shade===WALL_A)?"#EAF3EE":"#D8E7E0";
+    faces.push({ pts:q, fill:shade, depth:depth, stroke:"rgba(60,72,64,.14)", lw:.6, kind:"wall" });
+  }
+  var tp=base.map(function(pt){return project(pt,h);});
+  var td=0; for(i=0;i<tp.length;i++) td+=tp[i][2]; td/=tp.length;
+  faces.push({ pts:tp, fill:topFill, depth:td+0.01, stroke:"rgba(45,60,52,.28)", lw:.9, kind:"top" });
+  return faces;
+}
+
+function drawShadow(b){
+  var base=footprint(b);
+  var off=[[9,13]].map(function(d){return project([b_center(base)[0]+d[0],b_center(base)[1]+d[1]],0);});
+  var pts=base.map(function(pt){ var p=project([pt[0]+9,pt[1]+13],0.02); return p; });
+  fillPoly(pts,"rgba(58,74,62,.10)");
+}
+function b_center(base){ var x=0,y=0; for(var i=0;i<base.length;i++){x+=base[i][0];y+=base[i][1];} return [x/base.length,y/base.length]; }
+
+
+function drawRoute(){
+  var pts=[[352,452],[372,436],[398,420],[424,402],[444,384],[456,366],[461,352]];
+  var sp=pts.map(function(q){return project(q,0.45);});
+  ctx.save();
+  ctx.setLineDash([7,7]); ctx.lineDashOffset=0;
+  ctx.strokeStyle="rgba(78,144,130,.85)"; ctx.lineWidth=2.2; ctx.lineCap="round";
+  ctx.beginPath(); ctx.moveTo(sp[0][0],sp[0][1]);
+  for(var i=1;i<sp.length;i++) ctx.lineTo(sp[i][0],sp[i][1]);
+  ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.arc(sp[0][0],sp[0][1],4,0,Math.PI*2); ctx.fillStyle="#4E9082"; ctx.fill();
+  ctx.beginPath(); ctx.arc(sp[sp.length-1][0],sp[sp.length-1][1],4,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.strokeStyle="#4E9082"; ctx.lineWidth=2; ctx.fill(); ctx.stroke();
+  if(canvas.clientWidth<760){ ctx.restore(); return; }
+  var lp=project([404,414],3);
+  ctx.font='700 10.5px "Microsoft YaHei", sans-serif'; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.lineWidth=3.5; ctx.strokeStyle="rgba(250,250,242,.92)"; ctx.strokeText("南门 → 自强楼 · 步行约 4 分钟",lp[0],lp[1]);
+  ctx.fillStyle="#3E7E70"; ctx.fillText("南门 → 自强楼 · 步行约 4 分钟",lp[0],lp[1]);
+  ctx.restore();
+}
+
+function drawLabels(){
+  var names = { zq:"自强楼", hd:"厚德楼", jc:"精诚楼", zs:"至善楼", jxz:"教学综合楼", wx:"五行楼",
+    lib:"图书馆", b52:"椭圆建筑", b58:"培训中心", canteen:"食堂综合楼", b70:"体育馆", d13a:"13#A", d13b:"13#B",
+    b59:"明德楼", b60:"求真楼", museum:"博物馆", b66:"中医实训楼", act:"活动中心", b54:"双创" };
+  var narrow = canvas.clientWidth<760;
+  var keep = { hd:1, lib:1, wx:1, canteen:1, b70:1, d13a:1, b58:1, b59:1, act:1, b60:1 };
+  for(var i=0;i<CAMPUS.buildings.length;i++){
+    var b=CAMPUS.buildings[i]; if(b.cat==="sport" && !b.label) continue;
+    var nm=names[b.id]; if(!nm || b.id==="b72" || b.id===SEL) continue;
+    if(narrow && !keep[b.id]) continue;
+    var c=b_center(footprint(b)), h=H(b);
+    var p=project(c,h+2.5);
+    ctx.font = (b.id===SEL?"700 12.5px":"600 11px")+' "Microsoft YaHei", "PingFang SC", sans-serif';
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.lineWidth=3; ctx.strokeStyle="rgba(250,250,242,.9)";
+    ctx.strokeText(nm,p[0],p[1]);
+    ctx.fillStyle = (b.id===SEL)?"#2E6B5E":"#4A5A55";
+    ctx.fillText(nm,p[0],p[1]);
+  }
+  /* 区域标注 */
+  var areas = narrow
+    ? [["宋慈湖",540,152,"#5F86A3"],["学生公寓区",180,152,"#8A7358"],["田径场",468,30,"#5D7389"],["南门 · 主入口",340,452,"#7C8B86"]]
+    : [["宋慈湖",350,232,"#5F86A3"],["宋慈湖",540,152,"#5F86A3"],["学生公寓区",180,152,"#8A7358"],
+       ["田径场",468,30,"#5D7389"],["董奉广场",420,388,"#A08A64"],["南门 · 主入口",340,452,"#7C8B86"]];
+  for(var j=0;j<areas.length;j++){
+    var a=areas[j], pp=project([a[1],a[2]],2);
+    ctx.font='600 10.5px "Microsoft YaHei", sans-serif';
+    ctx.lineWidth=3; ctx.strokeStyle="rgba(250,250,242,.86)";
+    ctx.strokeText(a[0],pp[0],pp[1]); ctx.fillStyle=a[3]; ctx.fillText(a[0],pp[0],pp[1]);
+  }
+}
+
+function draw(){
+  var w=canvas.clientWidth,h=canvas.clientHeight;
+  ctx.clearRect(0,0,w,h);
+  drawGround();
+  drawFlat();
+  drawRoute();
+  /* 阴影 */
+  for(var s=0;s<CAMPUS.buildings.length;s++) drawShadow(CAMPUS.buildings[s]);
+  /* 树 + 建筑体块：按深度从远到近 */
+  var items=[];
+  for(var i=0;i<CAMPUS.buildings.length;i++){
+    var b=CAMPUS.buildings[i];
+    var cc=b_center(footprint(b));
+    items.push({kind:"b", b:b, depth:project(cc,0)[2]});
+  }
+  for(var t=0;t<TREES.length;t++){
+    var tr=TREES[t], pp=project([tr[0],tr[1]],2);
+    items.push({kind:"t", x:pp[0], y:pp[1], r:3.1*tr[2]*Math.max(0.8,SCALE/1.6), depth:project([tr[0],tr[1]],0)[2]});
+  }
+  items.sort(function(a,b){ return a.depth-b.depth; });
+  for(var it=0;it<items.length;it++){
+    var o=items[it];
+    if(o.kind==="t"){
+      ctx.beginPath(); ctx.ellipse(o.x,o.y+o.r*0.9,o.r*0.9,o.r*0.38,0,0,Math.PI*2); ctx.fillStyle="rgba(58,74,62,.10)"; ctx.fill();
+      ctx.beginPath(); ctx.arc(o.x,o.y,o.r,0,Math.PI*2); ctx.fillStyle="#94B37F"; ctx.fill();
+      ctx.beginPath(); ctx.arc(o.x-o.r*0.28,o.y-o.r*0.3,o.r*0.62,0,Math.PI*2); ctx.fillStyle="#A6C28F"; ctx.fill();
+    } else {
+      var faces=buildingFaces(o.b, o.b.id===SEL);
+      faces.sort(function(a,b2){ return a.depth-b2.depth; });
+      for(var f=0;f<faces.length;f++) fillPoly(faces[f].pts, faces[f].fill, faces[f].stroke, faces[f].lw);
+    }
+  }
+  drawLabels();
+  drawSelBadge();
+}
+
+function drawSelBadge(){
+  var b=null; for(var i=0;i<CAMPUS.buildings.length;i++) if(CAMPUS.buildings[i].id===SEL) b=CAMPUS.buildings[i];
+  if(!b) return;
+  var c=b_center(footprint(b)), h=H(b);
+  var narrow = canvas.clientWidth<760;
+  var p=project(c,h+(narrow?15:9));
+  var bw=narrow?104:118, bh=narrow?23:26;
+  var x=p[0]-bw/2, y=p[1]-bh/2;
+  ctx.save();
+  ctx.shadowColor="rgba(35,48,46,.18)"; ctx.shadowBlur=10; ctx.shadowOffsetY=3;
+  ctx.beginPath();
+  var r=8;
+  ctx.moveTo(x+r,y); ctx.arcTo(x+bw,y,x+bw,y+bh,r); ctx.arcTo(x+bw,y+bh,x,y+bh,r);
+  ctx.arcTo(x,y+bh,x,y,r); ctx.arcTo(x,y,x+bw,y,r); ctx.closePath();
+  ctx.fillStyle="#23302E"; ctx.fill();
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(x+13,y+bh/2,3.4,0,Math.PI*2); ctx.fillStyle="#6ED0B4"; ctx.fill();
+  ctx.font='700 '+(narrow?10.5:11)+'px "Microsoft YaHei", sans-serif'; ctx.textAlign="left"; ctx.textBaseline="middle";
+  ctx.fillStyle="#fff"; ctx.fillText("自强楼 · 01 号楼", x+19, y+bh/2+.5);
+  /* 底部小三角 */
+  ctx.beginPath(); ctx.moveTo(p[0]-5,p[1]+bh/2-1); ctx.lineTo(p[0]+5,p[1]+bh/2-1); ctx.lineTo(p[0],p[1]+bh/2+7); ctx.closePath();
+  ctx.fillStyle="#23302E"; ctx.fill();
+  /* 高亮 pin 环 */
+  var base=project(c,h);
+  ctx.beginPath(); ctx.arc(base[0],base[1],4,0,Math.PI*2); ctx.fillStyle="#4E9082"; ctx.fill();
+  ctx.beginPath(); ctx.arc(base[0],base[1],8,0,Math.PI*2); ctx.strokeStyle="rgba(78,144,130,.5)"; ctx.lineWidth=2; ctx.stroke();
+}
+
+/* ---------- 小地图 ---------- */
+function drawMini(){
+  var w=mini.width, h=mini.height, sx=w/VW, sy=h/VH, s=Math.min(sx,sy);
+  mctx.clearRect(0,0,w,h);
+  mctx.save(); mctx.translate((w-VW*s)/2,(h-VH*s)/2); mctx.scale(s,s);
+  mctx.fillStyle="#F4F5EA"; mctx.fillRect(0,0,VW,VH);
+  for(var i=0;i<WATER.length;i++){ var p=WATER[i]; mctx.beginPath(); mctx.moveTo(p[0][0],p[0][1]);
+    for(var j=1;j<p.length;j++)mctx.lineTo(p[j][0],p[j][1]); mctx.closePath(); mctx.fillStyle="#BBD8E8"; mctx.fill(); }
+  for(var r2=0;r2<ROADS.length;r2++){
+    var rr=ROADS[r2], rp=rr.pts; mctx.beginPath(); mctx.moveTo(rp[0][0],rp[0][1]);
+    for(var r3=1;r3<rp.length;r3++)mctx.lineTo(rp[r3][0],rp[r3][1]);
+    mctx.strokeStyle="#E4E4D4"; mctx.lineWidth=Math.max(1.2,rr.w*1.6); mctx.lineCap="round"; mctx.lineJoin="round"; mctx.stroke();
+  }
+  for(var b=0;b<CAMPUS.buildings.length;b++){
+    var bd=CAMPUS.buildings[b];
+    if(bd.id===SEL) mctx.fillStyle="#4E9082";
+    else mctx.fillStyle = bd.cat==="dorm"?"#DCC9A8":(bd.cat==="teach"?"#9CC0B3":(bd.cat==="lib"?"#9FB6CE":"#C9CFC2"));
+    var fp=footprint(bd); mctx.beginPath(); mctx.moveTo(fp[0][0],fp[0][1]);
+    for(var k=1;k<fp.length;k++)mctx.lineTo(fp[k][0],fp[k][1]); mctx.closePath(); mctx.fill();
+  }
+  mctx.restore();
+  /* 当前视角标记 */
+  mctx.strokeStyle="rgba(35,48,46,.30)"; mctx.lineWidth=1; mctx.setLineDash([3,3]);
+  mctx.strokeRect(4,4,w-8,h-8); mctx.setLineDash([]);
+  var mx=(w-VW*s)/2 + 400*s, my=(h-VH*s)/2 + 232*s;
+  mctx.beginPath(); mctx.arc(mx,my,3.2,0,Math.PI*2); mctx.fillStyle="#4E9082"; mctx.fill();
+  mctx.beginPath(); mctx.arc(mx,my,7,0,Math.PI*2); mctx.strokeStyle="rgba(78,144,130,.45)"; mctx.lineWidth=1.5; mctx.stroke();
+}
+
+window.addEventListener("resize", resize);
+resize();
+</script>
+</body>
+</html>

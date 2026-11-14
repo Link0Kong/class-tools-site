@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>校内地图工具 · 概念草图（手机）</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#E7EBE9;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Source Han Sans SC",sans-serif;-webkit-font-smoothing:antialiased;color:#23302E}
+  .board{display:flex;gap:34px;justify-content:center;align-items:flex-start;padding:26px 30px 30px}
+  .col{display:flex;flex-direction:column;gap:10px;align-items:center}
+  .colhd{font-size:12.5px;font-weight:700;color:#5A6A67;letter-spacing:.02em;background:#F2F5F4;border:1px solid #DDE3E1;border-radius:999px;padding:4px 14px}
+  .colhd b{color:#4E9082}
+  .phone{width:390px;height:844px;background:#F7F8F8;border-radius:30px;overflow:hidden;position:relative;
+    box-shadow:0 18px 48px rgba(35,48,46,.20),0 3px 8px rgba(35,48,46,.10);border:1px solid #DCE2E0}
+  /* ---- phone chrome ---- */
+  .sbar{height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:11px;font-weight:700;color:#23302E}
+  .sbar .r{display:flex;gap:5px;align-items:center}
+  .sbar i{display:inline-block;background:#23302E;border-radius:1px}
+  .sig{width:13px;height:8px;background:linear-gradient(90deg,#23302E 0 2px,transparent 2px 3.5px,#23302E 3.5px 5.5px,transparent 5.5px 7px,#23302E 7px 9px,transparent 9px 10.5px,#23302E 10.5px 13px);opacity:.85}
+  .bat{width:18px;height:9px;border:1px solid #23302E;border-radius:2px;position:relative;opacity:.85}
+  .bat:after{content:"";position:absolute;right:-3px;top:2px;width:2px;height:5px;background:#23302E;border-radius:0 1px 1px 0}
+  .bat i{position:absolute;left:1px;top:1px;bottom:1px;width:12px;background:#23302E;border-radius:1px}
+  /* ---- site shell ---- */
+  .wrap{padding:8px 14px 24px}
+  .brand{display:flex;align-items:center;gap:9px;padding:6px 0 10px}
+  .idchip{display:inline-flex;align-items:center;gap:5px;border:1px solid #E6E9E8;background:#fff;border-radius:999px;padding:4px 9px;color:#5A6A67;font-size:11px;font-weight:700}
+  .brand .dots{display:flex;gap:5px}
+  .brand .dots i{width:7px;height:7px;border-radius:50%}
+  .brand .dots i:nth-child(1){background:#4E9082}.brand .dots i:nth-child(2){background:#6E8CA8}.brand .dots i:nth-child(3){background:#B98F63}
+  .brand b{font-size:14.5px;letter-spacing:.02em}
+  .brand .dom{font-size:10.5px;color:#8C9A97;margin-left:auto;letter-spacing:.06em}
+  .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:#EDF0EF;border-radius:12px;padding:5px;margin-bottom:14px}
+  .tabs button{border:0;background:transparent;padding:9px 4px;border-radius:9px;font-size:14px;font-weight:600;color:#5A6A67;font-family:inherit;position:relative}
+  .tabs button.on{background:#fff;color:#4E9082;box-shadow:0 1px 3px rgba(35,48,46,.10)}
+  .card{background:#fff;border:1px solid #E6E9E8;border-radius:16px;padding:16px;box-shadow:0 1px 2px rgba(35,48,46,.03)}
+  /* ---- map page ---- */
+  .maphd{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+  .lgico{width:38px;height:38px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:12px;background:#E9F3F0;color:#4E9082}
+  .maphd .t{flex:1;min-width:0}
+  .maphd .t b{display:block;font-size:16px;line-height:1.3}
+  .maphd .t span{display:block;font-size:11px;color:#8C9A97;line-height:1.4;margin-top:1px}
+  .mapbtn{width:34px;height:34px;border:1px solid #E6E9E8;background:#fff;border-radius:10px;color:#5A6A67;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex:none}
+  .search{display:flex;align-items:center;gap:8px;background:#F5F7F6;border:1px solid #E9ECEA;border-radius:11px;padding:9px 12px;color:#8C9A97;font-size:13px;margin-bottom:10px}
+  .search svg{flex:none}
+  .search .ph{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .search .k{font-size:10px;border:1px solid #E0E5E3;background:#fff;border-radius:5px;padding:1px 5px;color:#8C9A97;font-weight:700}
+  .chips{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+  .chips span{font-size:11.5px;font-weight:700;border:1px solid #E6E9E8;background:#fff;color:#5A6A67;border-radius:999px;padding:4px 10px}
+  .chips span.on{background:#E9F3F0;border-color:#BFDCD4;color:#4E9082}
+  .mapbox{position:relative;background:#FBFCFB;border:1px solid #ECEFEE;border-radius:13px;overflow:hidden}
+  .mapbox svg{display:block;width:100%;height:auto}
+  .mapfoot{display:flex;align-items:center;gap:9px;margin-top:9px;font-size:10.5px;color:#8C9A97;flex-wrap:wrap}
+  .mapfoot i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:3px;vertical-align:0}
+  .mapfoot .sc{margin-left:auto;letter-spacing:.04em}
+  .zoombar{position:absolute;right:8px;bottom:8px;display:flex;flex-direction:column;background:#fff;border:1px solid #E6E9E8;border-radius:9px;overflow:hidden;box-shadow:0 2px 6px rgba(35,48,46,.08)}
+  .zoombar span{width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#5A6A67}
+  .zoombar span+span{border-top:1px solid #EFF2F1}
+  .mapzone{position:absolute;right:8px;top:8px;font-size:9.5px;font-weight:700;color:#4E9082;background:rgba(255,255,255,.88);border:1px solid #CFE3DD;border-radius:6px;padding:1px 6px;letter-spacing:.04em}.north{position:absolute;left:8px;top:8px;font-size:9.5px;font-weight:700;color:#8C9A97;background:rgba(255,255,255,.82);border:1px solid #E9ECEA;border-radius:6px;padding:1px 5px;letter-spacing:.08em}
+  .pinlabel{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
+  .mapinfo{position:absolute;left:8px;right:8px;bottom:8px;background:rgba(255,255,255,.94);border:1px solid #E6E9E8;border-radius:11px;padding:8px 10px;display:flex;align-items:center;gap:9px;box-shadow:0 4px 12px rgba(35,48,46,.08)}
+  .mapinfo .b{flex:1;min-width:0}
+  .mapinfo b{display:block;font-size:12.5px;line-height:1.4}
+  .mapinfo span{display:block;font-size:10.5px;color:#8C9A97;line-height:1.4}
+  .mapinfo .go{flex:none;font-size:11px;font-weight:700;color:#fff;background:#4E9082;border-radius:8px;padding:6px 10px}
+  /* ---- next class card ---- */
+  .nextcard{margin-top:11px;display:flex;align-items:center;gap:11px;background:#fff;border:1px solid #E6E9E8;border-radius:16px;padding:12px 14px;box-shadow:0 1px 2px rgba(35,48,46,.03)}
+  .nextcard .ic{width:38px;height:38px;border-radius:12px;background:#F6F1EA;color:#B98F63;display:flex;align-items:center;justify-content:center;flex:none}
+  .nextcard .b{flex:1;min-width:0}
+  .nextcard .tag{font-size:10px;font-weight:800;color:#B98F63;letter-spacing:.08em}
+  .nextcard b{display:block;font-size:13.5px;line-height:1.35;margin-top:1px}
+  .nextcard span{display:block;font-size:10.5px;color:#8C9A97;line-height:1.4}
+  .nextcard .walk{font-size:10px;color:#4E9082;background:#E9F3F0;border-radius:6px;padding:2px 6px;font-weight:700;flex:none}
+  /* ---- floor page ---- */
+  .crumb{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#8C9A97;margin-bottom:9px}
+  .crumb b{color:#23302E;font-size:12.5px}
+  .floors{display:flex;gap:6px;margin-bottom:10px}
+  .floors span{flex:1;text-align:center;font-size:12px;font-weight:700;border:1px solid #E6E9E8;background:#fff;color:#5A6A67;border-radius:9px;padding:6px 0}
+  .floors span.on{background:#4E9082;border-color:#4E9082;color:#fff}
+  .floorbox{position:relative;background:#FBFCFB;border:1px solid #ECEFEE;border-radius:13px;overflow:hidden}
+  .floorbox svg{display:block;width:100%;height:auto}
+  .room{fill:#F4F7F6;stroke:#E3E8E6;stroke-width:1.5}
+  .room.on{fill:#DDEEE9;stroke:#4E9082;stroke-width:2.5}
+  .rmlab{font-size:11px;font-weight:700;fill:#5A6A67}
+  .rmlab.on{fill:#2E6B5E}
+  .core{fill:#EDF0EF;stroke:#E3E8E6;stroke-width:1.5}
+  .corelab{font-size:9px;font-weight:700;fill:#8C9A97;letter-spacing:.06em}
+  .badge{display:flex;align-items:center;gap:8px;margin-top:10px;background:#F1F8F5;border:1px solid #CFE3DD;border-radius:11px;padding:9px 11px}
+  .badge .dot{width:8px;height:8px;border-radius:50%;background:#4E9082;flex:none;box-shadow:0 0 0 4px rgba(78,144,130,.12)}
+  .badge b{font-size:12.5px}
+  .badge span{font-size:10.5px;color:#5A6A67}
+  .badge .lnk{margin-left:auto;font-size:11px;font-weight:700;color:#4E9082}
+  .footnote{margin-top:11px;font-size:10.5px;color:#8C9A97;display:flex;gap:6px;align-items:center}
+  .footnote .warn{color:#B98F63}
+</style>
+</head>
+<body>
+<div class="board">
+
+  <!-- ================= v1：校园总览 ================= -->
+  <div class="col">
+    <div class="colhd">方案 A · <b>v1 校区地图</b>（默认教学区视角 + 搜索 + 课表联动）</div>
+    <div class="phone">
+      <div class="sbar"><span>12:36</span><span class="r"><span class="sig"></span><span class="bat"><i></i></span></span></div>
+      <div class="wrap">
+        <div class="brand">
+          <span class="idchip">测试账号</span>
+          <span class="dots"><i></i><i></i><i></i></span>
+          <b>班级工具</b>
+          <span class="dom">tool.furina.fun</span>
+        </div>
+        <div class="tabs">
+          <button>抽签</button><button>课表</button><button class="on">地图</button><button>全部</button>
+        </div>
+
+        <div class="card">
+          <div class="maphd">
+            <span class="lgico">
+              <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 4 6.5v13L9 17l6 3 5-2.5v-13L15 7z"/><path d="M9 4v13M15 7v13"/></svg>
+            </span>
+            <div class="t"><b>校内地图</b><span>找楼 · 找教室 · 下一节课在哪</span></div>
+            <button class="mapbtn" style="width:auto;padding:0 9px;font-size:11.5px;font-weight:700" aria-label="全图">全图</button><button class="mapbtn" aria-label="定位">◎</button>
+          </div>
+
+          <div class="search">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 4.5 4.5"/></svg>
+            <span class="ph">楼栋 / 教室号，如 自强楼 或 01104</span>
+            <span class="k">搜索</span>
+          </div>
+          <div class="chips"><span class="on">全部</span><span>教学楼</span><span>宿舍</span><span>运动</span><span>生活服务</span></div>
+
+          <div class="mapbox">
+            <div id="phoneMap"></div>
+            <span class="mapzone">教学区</span>            <div class="north">N ↑</div>
+            <div class="zoombar"><span>＋</span><span>－</span></div>
+          </div>
+
+          <div class="mapfoot">
+            <span><i style="background:#5FBF9F"></i>教学楼</span>
+            <span><i style="background:#D8B98A"></i>宿舍 / 生活</span>
+            <span><i style="background:#8EAAC4"></i>运动 / 场馆</span>
+            <span class="sc">示意 · 非比例尺</span>
+          </div>
+        </div>
+
+        <div class="nextcard">
+          <span class="ic">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v5l3.2 1.8"/><circle cx="12" cy="12" r="8.4"/></svg>
+          </span>
+          <div class="b">
+            <div class="tag">下一节 · 08:45</div>
+            <b>自强楼 01217</b>
+            <span>高等数学 · 教室在 2 层东侧</span>
+          </div>
+          <span class="walk">步行 4 分</span>
+        </div>
+
+        <div class="footnote"><span class="warn">●</span>课表联动：点「下一节」直接跳到对应楼层平面</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= v2：楼层内找教室 ================= -->
+  <div class="col">
+    <div class="colhd">方案 A · <b>v2 楼内找教室</b>（可选阶段：重点教学楼室内平面）</div>
+    <div class="phone">
+      <div class="sbar"><span>12:36</span><span class="r"><span class="sig"></span><span class="bat"><i></i></span></span></div>
+      <div class="wrap">
+        <div class="brand">
+          <span class="idchip">测试账号</span>
+          <span class="dots"><i></i><i></i><i></i></span>
+          <b>班级工具</b>
+          <span class="dom">tool.furina.fun</span>
+        </div>
+        <div class="tabs">
+          <button>抽签</button><button>课表</button><button class="on">地图</button><button>全部</button>
+        </div>
+
+        <div class="card">
+          <div class="crumb">
+            <span>全图</span><span>›</span><b>自强楼</b><span>· 2 层</span>
+            <span style="margin-left:auto;color:#4E9082;font-weight:700">返回全图</span>
+          </div>
+          <div class="floors"><span>1F</span><span class="on">2F</span><span>3F</span><span>4F</span><span>5F</span></div>
+
+          <div class="floorbox">
+            <svg viewBox="0 0 620 420" role="img" aria-label="自强楼楼层平面示意">
+              <rect x="0" y="0" width="620" height="420" fill="#FBFCFB"/>
+              <rect x="30" y="34" width="560" height="352" rx="14" fill="#FFFFFF" stroke="#E6E9E8" stroke-width="2"/>
+              <!-- 走廊 -->
+              <rect x="30" y="182" width="560" height="58" fill="#F3F6F5"/>
+              <text x="310" y="216" text-anchor="middle" font-size="10" font-weight="700" fill="#A0AEAB" letter-spacing="6">走廊</text>
+              <!-- 上排教室 -->
+              <rect class="room" x="52" y="56" width="100" height="60" rx="8"/><text class="rmlab" x="102" y="92" text-anchor="middle">01201</text>
+              <rect class="room" x="164" y="56" width="100" height="60" rx="8"/><text class="rmlab" x="214" y="92" text-anchor="middle">01202</text>
+              <rect class="room" x="276" y="56" width="100" height="60" rx="8"/><text class="rmlab" x="326" y="92" text-anchor="middle">01203</text>
+              <rect class="room" x="388" y="56" width="100" height="60" rx="8"/><text class="rmlab" x="438" y="92" text-anchor="middle">01204</text>
+              <rect class="core" x="500" y="56" width="72" height="60" rx="8"/><text class="corelab" x="536" y="82" text-anchor="middle">卫生间</text><text class="corelab" x="536" y="98" text-anchor="middle">W.C.</text>
+              <!-- 下排教室 -->
+              <rect class="room on" x="52" y="256" width="100" height="64" rx="8"/>
+              <text class="rmlab on" x="102" y="284" text-anchor="middle">01217</text>
+              <text class="rmlab on" x="102" y="302" text-anchor="middle" font-size="9" fill="#4E9082">下一节</text>
+              <rect class="room" x="164" y="256" width="100" height="64" rx="8"/><text class="rmlab" x="214" y="294" text-anchor="middle">01205</text>
+              <rect class="room" x="276" y="256" width="100" height="64" rx="8"/><text class="rmlab" x="326" y="294" text-anchor="middle">01206</text>
+              <rect class="core" x="388" y="256" width="88" height="64" rx="8"/><text class="corelab" x="432" y="282" text-anchor="middle">楼梯 / 电梯</text><text class="corelab" x="432" y="298" text-anchor="middle">STAIR</text>
+              <rect class="core" x="500" y="256" width="72" height="64" rx="8"/><text class="corelab" x="536" y="286" text-anchor="middle">教师</text><text class="corelab" x="536" y="302" text-anchor="middle">办公室</text>
+              <!-- 上下门 -->
+              <rect x="300" y="34" width="54" height="6" rx="3" fill="#DDEEE9" stroke="#4E9082" stroke-width="1.5"/>
+              <rect x="0" y="0" width="0" height="0"/>
+              <text x="327" y="26" text-anchor="middle" font-size="9.5" font-weight="700" fill="#4E9082">↑ 主入口</text>
+              <!-- 北向 -->
+              <text x="578" y="32" font-size="9.5" font-weight="700" fill="#A0AEAB">N ↑</text>
+            </svg>
+          </div>
+
+          <div class="badge">
+            <span class="dot"></span>
+            <b>01217 · 高等数学</b>
+            <span>08:45–10:20</span>
+            <span class="lnk">去课表 ›</span>
+          </div>
+        </div>
+
+        <div class="card" style="padding:12px 14px;margin-top:11px">
+          <div style="display:flex;align-items:center;gap:9px">
+            <span style="width:34px;height:34px;border-radius:10px;background:#F1F8F5;color:#4E9082;display:flex;align-items:center;justify-content:center;flex:none">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6.5 10v9h11v-9"/></svg>
+            </span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:11px;font-weight:800;color:#B98F63;letter-spacing:.06em">常用教室</div>
+              <div style="font-size:12px;color:#5A6A67;line-height:1.5">01217 · 01204 · 01514 语音室</div>
+            </div>
+            <span style="font-size:11px;font-weight:700;color:#4E9082">管理 ›</span>
+          </div>
+        </div>
+
+        <div class="footnote"><span style="color:#8C9A97">教室号来自教务课表；楼层分布以实际为准</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script src="map_draft.js"></script>
+<script>
+  /* 概念草图：默认视角 = 教学区；正式版支持拖动/缩放 */
+  document.getElementById("phoneMap").innerHTML = campusSVG({ viewBox: [338,148,322,290], highlight: "zq", pin: true });
+</script>
+</body>
+</html>

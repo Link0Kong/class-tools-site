@@ -3465,3 +3465,43 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 部署前线上备份：`tools/_backup/index_online_20261114-1336_preCardCopy.html`（1,232,963 B / `b47c6bb7…`）。
 - `python deploy/sync_tools.py index.html` + `python deploy/ecs_site.py apply` → OSS/ECS **1,232,339 B / sha256 `6da2b3389caa400c7134c5086f3e616d5c961071787fd3b5a819fd90ec4e8290`**（`oss_object.py check` MATCH、ECS verify MATCH、gzip 382,418 B；`http://121.196.47.2/` 实取同字节）。
 - 回滚：把备份重传到 OSS `index.html` 后 `python deploy/ecs_site.py apply`。
+
+## 2026-11-14 13:3x–14:4x · 增量 58：三端通知改造（长期安排按期次 / 5 张可点数据卡 / 资料·无时间栏 / 时间显示归一）+ AI 活动周期记忆与更新合并（网页已上线 OSS+ECS；小程序/安卓待用户上传/安装）
+
+> 用户原话（2026-11-14 13:31）：「对三端的通知都进行修改，在最上方的通知数据栏新增长期通知，并将全部通知数据卡片设计成可点击后展示的形式，把已过期的数据卡片替换成最新发布。」「不要把长期通知隐藏起来，把长期通知按内容在每次的通知前一天展示，允许每次的都单独点已处理。」「每日07:30前私发导员请假指的是军训期间，而ai应能做到处理和记忆以前消息内容而智能知道各种活动的时间，射击人员11-14雨天集合安排应按已过期处理并且不应放在长期通知，而且也不应该没识别到时间，11-13 11-14 不上晚自习中的时间替换应该替换成几月几日的形式，并在后面跟括号说明相对时间，例如11月13日（本周五）；11-13通知：11-14至11-15晚应该为11-13晚自习与11-14起军训安排的更新通知，像这种情况应该把摘要只放要军训而晚自习消息取消，无时间的不应被放入长期通知。」
+> 本轮用户点选确认：① 长期安排**按期次提前 24h 出现 + 每期单独已处理**（不再折叠隐藏）；② 顶部 **5 张可点数据卡**（待处理/24h/7天内/长期通知/最新发布，点=筛选、再点取消，已过期区仍在下方保留）；③ 时间**全部统一 `M月D日（相对周）`**（数据仍存 MM-DD）；④ 无时间通知单独「资料 / 无时间」栏；⑤ 军训截止由 **AI 按历史消息自动判断**（不写死）。
+> 唯一契约：`通知三端_长期通知与时间显示_契约_20261114.md`；独立验收报告：`验收报告/通知长期期次与时间显示_独立验收_20261114.md`。
+
+### ① 数据 / AI 管线（本机 `C:\briefdesk`，不入 web git）
+- **新增 `scripts/ai_memory.py`**：近 30 天通知 + `data/notice-feedback.json` + 旧 `data/notice-memory.json` → AI 提取活动周期（activities: name/start/end/evidence）、跨通知 facts；feedback `scope=rule` 并入 rules；输出 `data/notice-memory.json`（当前 12 activities / 23 facts / 7 rules）；内容 hash + 日期缓存、`--force`；`memory_block()` 供 prompt 注入；**`memory_version()` 只含 activities+rules**（facts 微调不触发摘要/质检全量重算，止血 2026-11-14 实测的 99 组级缓存抖动）。
+- **新增 `scripts/notice_threads.py`**：近 5 天通知 → AI 识别「更新/更正/取消」线程 → `data/notice-threads.json`（keep/merge/title/summary/points/segments/时间字段/recurrence/reason；keep 确定性纠正为最早、发布日跨度 ≤3 天、**同话题相似度守卫 SIM_MIN=0.22** 防「同一活动的另一条独立安排」被误并；**AI/校验返回 0 线程时保留上一版非空线程**，防已合并组被拆回）。
+- **改 `scripts/ai_brief.py`（CACHE_VER 9）**：给 AI 的原文先经 `notice_time.replace_relative_dates` 换算（周五=11-13、周六=11-14 这类不再靠模型心算）；prompt 注入记忆；recurrence 必须显式周期+HH:MM time、支持 `until`（非法/早于 startAt 丢弃）；摘要/要点不写被取消内容；`_protect_recurrence` 防丢长期安排。
+- **改 `scripts/ai_quality.py`（CACHE_VER 2）**：prompt 注入记忆 + 「系统已解析时间（须核对，不要默认清空）」；输出 `recurrence`（缺省=保持/null=删除/对象=替换含 until）；新增确定性 `protect_times()`：AI 明确写「误判/原文无此时间」才允许清空，否则系统解析与现值一致就保留；现有 recurrence 有周期表述/关联活动时 AI null 不删除，并按记忆活动结束日补 `until`（军训期间每日请假 → until=2026-11-15）、活动未结束不判过期。
+- **改 `scripts/detect_docs.py`**：早期 build 后跑 ai_memory；quality build 后跑 notice_threads 再 build；`NOTICE_SKIP_THREADS=1` 让**线程生成前的中间构建不应用上轮线程**（否则 merge 组在中间态被删、线程阶段看不到候选；修复独立验收 P1-1 的根因之一）。
+- 反馈闭环：用户反馈 → Lead 写入 `data/notice-feedback.json`（规则级，当前 9 条：长期只周期/期次展示/时间格式/取消不写摘要/请假限军训/必须记忆活动期/三条具体修正）；精确到某条通知的修正仍走 `data/notice-manual-patches.json`（最后应用）。重跑顺序：`ai_memory → ai_brief → ai_quality → build → notice_threads → build → ai_categories → build → sync_notices_cloud`。
+- 数据样例（最终稳定快照）：`board-data.json` **95 组 / generatedAt 2026-11-14T14:34:36+08:00**；长期安排 **2 条**（`g_dorm` 每月前三周周三 17:30、下次 11-18；`g_ait_10b5b8f56a` 每日 07:30、`startAt=11-10`、`until=2026-11-15`）；资料/无时间 **9 条**（无 recurrence）；更新链合并为 `g_ait_a2a82e52b1`（「11-14至11-15军训安排」summary=「11月14日至11月15日进行军训。」、items 含补充通知、threadReason；d3b7baeb20/000c41c075 由既有跨源去重+线程合并处理，献血链亦合并）；`g_ait_3c6b69a3a1` 射击 eventAt=**2026-11-14T08:00:00+08:00**（保留、客户端按当前时间已过期、独立卡、非长期）；全量 recurrence 均带 time。
+
+### ② 网页通知板（`briefdesk-plan/build_notice_board.py` 模板源 → `tools/build_notice_embed.py` → `tools/index.html`）
+- 顶部 **5 张可点数据卡**（待处理/24h 截止/7 天内/长期通知/最新发布；点击筛选、再点取消、激活态、与筛选 chips 互斥；360px 3+2 两行、点按 64px）。
+- 「全部」分区：主列表（普通时间明确通知 + **期次卡**）→「资料 / 无时间 · N 条」栏（默认展开可折叠）→ 已过期区（默认折叠，含「长期安排已结束」）；「长期通知」筛选=长期安排清单（周期/下次 `M月D日（周X）HH:MM`/进行中，无 done）；「最新发布」=按发布时间倒序全部未隐藏通知（含已过期）。
+- **期次**：`next` 严格 > now、窗口 `[next-24h, next)`、key=`<gid>@occ:<YYYYMMDD>`、`until` 含当天；卡片「长期安排」徽标 + `本次 M月D日（周X）HH:MM` +「本次已处理」（写既有 `marks ntdone` ref=期次 key，跨端同步；done 后该期消失、下一期不受影响）；长期定义卡无 done。
+- **时间显示**：`fmtDateText/disp` 把 MM-DD/M月D日/ISO 统一为 `M月D日（相对周）`（今天/明天/昨天/本周X/上周X/下周X/周X；跨年 YYYY年；已带括号不重复；倒计时相对文案不动），覆盖 title/摘要/points/segments/items/原始消息/状态绝对日期；`__zqTest.setNow()` 可注入测试时钟。iframe 固定视口 + 内部滚动架构未变、APP_VER 2.0.0、零外部请求。
+- 数据侧 builder：`apply_quality` 时间保护、`apply_threads`（keep 覆盖字段 + merge items 追加「补充通知」+ 删除 merge 组、幂等）、`sanitize_recurrence`（freq+time 才保留、`until` 合法性校验）。
+
+### ③ 小程序（源码 `mp-class-tools`，**待用户上传发布**；VERSION 仍 2.0.0）
+- `utils/notice.js`（until/isRecurEnded/nextOf 上限/occKeyOf/occOf/occLabelOf/时间格式化/统计/latestOf/期次排序）、`pages/nt/*`（5 卡、资料栏、期次卡、长期清单、最新发布、分类筛选）、`pages/index/index.js`（工作台新口径）；UD v6 顶层键未变、零新增网络请求/依赖/外链。
+- 测试：`node unit.js` **545/0**、notice_time **20/0**、notice_longterm **13/0**、notice_occ **9/0**、sync_contract **34/0**、v3_power **65/0**、staticcheck exit 0、code_quality exit 0；devtools automator `nt_preview.js` **28/0、0 console error**（真实云端新数据：长期 2、期次「本次 11月15日（明天）07:30」、射击已归过期）。
+
+### ④ 安卓（`android-class-tools`，**待用户安装 APK**；未 commit）
+- 数据层 `NoticeModels/NoticeStatusMachine`（until 日期含当天/ISO 按瞬时、期次窗口/key/doneRef、§2.4 统计、§3 时间格式）；UI `NoticesBoardModel`（新）+ `NoticesScreen`（5 卡 3+2/资料栏/期次卡/长期清单/最新发布/分类 chips）+ `NoticeDetailSheet` + `HomeModels`；marks ref=期次 key；未新增依赖。
+- 测试：`:app:testDebugUnitTest` **1213/1213 PASS（95 suites）**，通知范围 **260/260**（新增 NoticeOccurrenceTest 22、NoticesBoardModelTest 14）；Release **v4.50.0 / vc68**，APK `app/build/outputs/apk/release/app-release.apk` **3,174,605 B / SHA-256 `0F6F51415DF7715C909A86E803D87E06B980DFBB726FCD2886DA299CC81B2FF1`**（aapt2 复核、apksigner v2 有效）。
+- 仓库边界：HEAD 仍为并行会话提交的 `c17142a v4.49.0`（非本轮提交）；通知相关 13 文件在本轮工作区（含并行会话分页 WIP；其 `NoticesRepository.kt` 曾有一处换行语法损坏，已仅修语法保留逻辑）。
+
+### ⑤ 验证 / 上线 / 回滚
+- 数据验收：`_tmp_validate_data.py`（临时脚本，20 项）**20/20 PASS**；独立验收脚本 19/19 PASS；云端 14:35 同步 **95/95**，样例组 `auto_*` body 与 board 逐字段一致（可见 81/95，其余为人群限定）。
+- 网页测试：`v2_notice_period_check` **51/51**、`v2_notice_longterm_check` **27/27**、`v2_notice_live_check` **20/20**、`v2_notice_data_check` **27/27**、`v2_notice_quality_check` **20/20**（合计 145/145；live/quality 的旧 Edge virtual-time harness 偶发首跑无报告，重试即全绿）；截图 `tools/tests/_v2_notice_reports/`（5 卡/期次/资料栏/长期清单/最新发布/360 宽）。
+- 独立验收：`验收报告/通知长期期次与时间显示_独立验收_20261114.md` —— 无 P0；三端实现/测试全绿；P1「中间态线程为 0 导致 7 分钟未合并」已按要求修复（保留上一版非空线程 + 中间构建跳过线程），P2 为 AI 摘要少量非确定重写、内存压力、最新发布时间无云端独立 ts 字段等。
+- 上线：部署前线上备份 `tools/_backup/index_online_20261114-141130_preNoticeV2.html`（1,232,339 B / `6da2b338…`）；compose-online 只替换 `NOTICE_TPL_B64` 部署 → OSS/ECS **1,257,999 B / sha256 `fe5ca3dab2b256988b2762916bf6b24d99b3139430cb382bb2bb60868b969143`**（OSS/ECS/HTTPS `ko-link.cn`、`www.ko-link.cn`、`http://121.196.47.2/` 同字节；443 LISTEN、drop/pptfiles health 200；模板 `_check_template_embed_match` TEMPLATE MATCH YES）。
+- 回滚：网页重传上述备份 + `python deploy/ecs_site.py apply`；数据回滚 `C:\briefdesk\data\_backup_notice_redesign_20261114\`（13:45 的 board/briefs/quality/triage/builder 快照）；AI 脚本回滚同目录 `ai_brief.*.py`/`ai_quality.*.py`/`detect_docs.*.py`（新脚本 `ai_memory.py`/`notice_threads.py` 可直接停用：detect_docs 有 exists 守卫）；`NOTICE_SKIP_THREADS` 仅为调度顺序保护，可去掉；小程序/安卓回退到用户上一版上传/安装。
+- 已知限制（如实）：① AI 摘要/描述在「记忆版本变化或线程重算」时可能有约 12–14 组重写，业务状态（合并/until/过期/分类）稳定，本轮多轮重建最终收敛为 95 组；② 军训活动期由 AI 从历史消息推断为 11-14~11-15，若与实际不符可在 `notice-feedback.json` 写规则/编辑 `notice-memory.json` 后重跑；③ 网页「最新发布」时间取自组内消息时间/updatedAt（父页未把云行 ts 传入 iframe，不改父页红线）；④ 安卓过期普通通知仍保留「标记已处理」入口（既有行为，web 对过期卡隐藏）；⑤ 小程序需用户上传发布、安卓需用户安装 APK；两端未做真机交互验证（小程序 devtools automator 已用真实云端数据验证，安卓仅编译期+单测）。
+
