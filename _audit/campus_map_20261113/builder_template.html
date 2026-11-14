@@ -94,7 +94,7 @@ kbd{font:11px ui-monospace,Consolas,monospace;background:#F1F4EF;border:1px soli
 <body>
 <div id="app">
   <header>
-    <div class="brand">校内地图 · 手拼工作台<span>AMap 底图 · 自己描路/摆楼</span></div>
+    <div class="brand">校内地图 · 手拼工作台<span>校方总平面图 · 自己描路/摆楼</span></div>
     <div class="tb">
       <button id="toolSel" class="on">选择</button>
       <button id="toolPan">移动</button>
@@ -106,6 +106,7 @@ kbd{font:11px ui-monospace,Consolas,monospace;background:#F1F4EF;border:1px soli
       <button id="toolBld">建筑</button>
       <button id="toolCustom">自定义建筑</button>
       <span class="sep"></span>
+      <button id="btnBgCal">底图校准</button>
       <button id="btnGuides">参考路网</button>
       <button id="btnTidy">一键整理路网</button>
       <button id="btnCleanB">轮廓编辑</button>
@@ -119,7 +120,7 @@ kbd{font:11px ui-monospace,Consolas,monospace;background:#F1F4EF;border:1px soli
       <button id="btnImport">导入</button>
       <button id="btnClear" class="danger">清空</button>
       <span class="sep"></span>
-      <span class="meta">底图</span><input id="bgOp" type="range" min="0" max="100" value="85"><span class="meta" id="bgPct">85%</span>
+      <span class="meta">底图</span><input id="bgOp" type="range" min="0" max="100" value="75"><span class="meta" id="bgPct">75%</span>
     </div>
     <input id="fileIn" type="file" accept=".json" hidden>
   </header>
@@ -129,6 +130,8 @@ kbd{font:11px ui-monospace,Consolas,monospace;background:#F1F4EF;border:1px soli
         <button id="maTools" type="button">工具</button>
         <button id="maSave" type="button">保存</button>
         <button id="maUndo" type="button">↶</button>
+        <button id="maBg" type="button">底图</button>
+        <button id="maCal" type="button">对齐</button>
       </div>
       <div id="hud"><span>坐标 <b id="hxy">-</b></span><span>缩放 <b id="hz">-</b></span><span id="hTool">选择</span><span id="hSel">未选中</span></div>
       <div id="toast"></div>
@@ -153,7 +156,8 @@ var tool = "select", PLACE = null, GHOST = null;
 var DRAW = null;            // { type, pts, cur }
 var SEL = null;             // {type,id,vi}
 var DRAG = null, PAN = null, RAF = null, POINTERS = {}, PINCH = null;
-var bgOp = 0.85, GUIDE_ON = false, SHAPE = false, ADDV = false;
+var bgOp = 0.75, GUIDE_ON = false, SHAPE = false, ADDV = false;
+var BGT = {x:0,y:0,s:1,rot:0}, BGPAN = null, BGCAL = false;
 var DKEY = DATA.seed ? "campus_builder_loaded_v2" : "campus_builder_v1";
 var DRAWKEY = DKEY + "_draw";
 var CLOUD_ON = location.protocol === "http:" || location.protocol === "https:";
@@ -165,7 +169,7 @@ function cloudPull(force){
     if(!d||!d.state)return;
     if(d.rev>CLOUD_REV || force){
       if(!force && (DRAG||DRAW||PLACE)){cloudTag("远端有更新",false);return}
-      state=d.state; normalizeState();
+      state=d.state; normalizeState(); loadBGT();
       CLOUD_REV=d.rev; renderPanel(); draw(); cloudTag("已同步");
       if(force) toast("已从云端载入");
     }
@@ -182,11 +186,13 @@ function cloudPush(force){
 }
 function scheduleCloud(){if(!CLOUD_ON)return;clearTimeout(CLOUD_TM);CLOUD_TM=setTimeout(function(){cloudPush(false)},700)}
 var SAVE_TM = null;
+function loadBGT(){BGT=Object.assign({x:0,y:0,s:1,rot:0},(state&&state.bgTransform)||{})}
+function saveBGT(){state.bgTransform={x:BGT.x,y:BGT.y,s:BGT.s,rot:BGT.rot}}
 function normalizeState(){
   ["buildings","roads","water","islands","green","plaza"].forEach(function(k){if(!Array.isArray(state[k]))state[k]=[]});
 }
 function saveDraft(){try{localStorage.setItem(DKEY,JSON.stringify(state));localStorage.setItem(DRAWKEY,DRAW?JSON.stringify(DRAW):"")}catch(e){}}
-function scheduleSave(){clearTimeout(SAVE_TM);SAVE_TM=setTimeout(function(){saveDraft();scheduleCloud()},300)}
+function scheduleSave(){saveBGT();clearTimeout(SAVE_TM);SAVE_TM=setTimeout(function(){saveDraft();scheduleCloud()},300)}
 var cv = document.getElementById("cv"), ctx = cv.getContext("2d"), wrap = document.getElementById("wrap");
 var W = 0, H = 0, DPR = Math.max(1, devicePixelRatio || 1);
 var HIST = [], HP = -1;
@@ -208,7 +214,15 @@ function inPoly(x,y,pts){var inside=false,n=pts.length,j=n-1;for(var i=0;i<n;i++
 function segD(px,py,ax,ay,bx,by){var dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy;var t=L2<1e-9?0:Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/L2));return {d:Math.hypot(px-(ax+t*dx),py-(ay+t*dy)),t:t}}
 function polyPath(pts){ctx.beginPath();ctx.moveTo(sx(pts[0][0]),sy(pts[0][1]));for(var i=1;i<pts.length;i++)ctx.lineTo(sx(pts[i][0]),sy(pts[i][1]));ctx.closePath()}
 function draw(){ctx.clearRect(0,0,W,H);ctx.fillStyle="#EDF1E6";ctx.fillRect(0,0,W,H);
-  if(bgImg.complete&&bgOp>0){ctx.globalAlpha=bgOp;ctx.drawImage(bgImg, view.ox, view.oy, CW * view.s, CH * view.s);ctx.globalAlpha=1}
+  if(bgImg.complete&&bgOp>0){
+    ctx.save();
+    ctx.translate(view.ox + (CW/2 + BGT.x) * view.s, view.oy + (CH/2 + BGT.y) * view.s);
+    ctx.rotate(BGT.rot * Math.PI/180);
+    ctx.scale(BGT.s, BGT.s);
+    ctx.globalAlpha=bgOp;
+    ctx.drawImage(bgImg, -CW*view.s/2, -CH*view.s/2, CW*view.s, CH*view.s);
+    ctx.globalAlpha=1; ctx.restore();
+  }
   /* AMap 参考路网（淡） */
   if(GUIDE_ON && DATA.guides){DATA.guides.forEach(function(g){if(!g.p||g.p.length<2)return;ctx.beginPath();ctx.moveTo(sx(g.p[0][0]),sy(g.p[0][1]));for(var i=1;i<g.p.length;i++)ctx.lineTo(sx(g.p[i][0]),sy(g.p[i][1]));ctx.strokeStyle="rgba(90,150,200,.32)";ctx.lineWidth=Math.max(1,2.2*view.s);ctx.setLineDash([4,5]);ctx.stroke();ctx.setLineDash([])})}
   /* water */
@@ -249,6 +263,24 @@ function renderPanel(){
   var p=document.getElementById("panel"),title=document.getElementById("ptitle");
   document.getElementById("hSel").textContent=SEL?SEL.type:"未选中";
   p.innerHTML="";title.textContent={select:"选择/修改",pan:"移动画布",road:"画道路",water:"画水域",island:"画岛屿",green:"画绿地",plaza:"画广场",bld:"放建筑",custombld:"自定义建筑"}[tool]||"工具";
+  if(BGCAL){
+    title.textContent="底图校准";
+    p.innerHTML='<div class="hint">拖动地图 = 移动底图；下方滑杆微调。标注不会跟着动。</div>'+
+      '<div class="grp"><label>水平偏移 <b id="bgxv">'+Math.round(BGT.x)+'</b></label><input id="bgx" type="range" min="-1500" max="1500" step="1" value="'+BGT.x+'"></div>'+
+      '<div class="grp"><label>垂直偏移 <b id="bgyv">'+Math.round(BGT.y)+'</b></label><input id="bgy" type="range" min="-1500" max="1500" step="1" value="'+BGT.y+'"></div>'+
+      '<div class="grp"><label>缩放 <b id="bgsv">'+BGT.s.toFixed(2)+'</b></label><input id="bgs" type="range" min="0.5" max="2" step="0.005" value="'+BGT.s+'"></div>'+
+      '<div class="grp"><label>旋转 <b id="bgrv">'+BGT.rot.toFixed(1)+'°</b></label><input id="bgr" type="range" min="-180" max="180" step="0.25" value="'+BGT.rot+'"></div>'+
+      '<div class="btns"><button id="bgminus">缩小</button><button id="bgplus">放大</button><button id="bgrotL">↺1°</button><button id="bgrotR">↻1°</button><button id="bgreset">重置</button><button id="bgdone">完成</button></div>';
+    function bgBind(id,key,disp,fmt){var el=document.getElementById(id);el.oninput=function(){BGT[key]=parseFloat(this.value);if(disp)document.getElementById(disp).textContent=fmt?fmt(BGT[key]):BGT[key];scheduleSave();draw()}}
+    bgBind("bgx","x","bgxv");bgBind("bgy","y","bgyv");bgBind("bgs","s","bgsv",function(v){return v.toFixed(2)});bgBind("bgr","rot","bgrv",function(v){return v.toFixed(1)+"°"});
+    document.getElementById("bgminus").onclick=function(){BGT.s=Math.max(0.5,BGT.s-0.02);renderPanel();draw();scheduleSave()};
+    document.getElementById("bgplus").onclick=function(){BGT.s=Math.min(2,BGT.s+0.02);renderPanel();draw();scheduleSave()};
+    document.getElementById("bgrotL").onclick=function(){BGT.rot-=1;renderPanel();draw();scheduleSave()};
+    document.getElementById("bgrotR").onclick=function(){BGT.rot+=1;renderPanel();draw();scheduleSave()};
+    document.getElementById("bgreset").onclick=function(){BGT={x:0,y:0,s:1,rot:0};renderPanel();draw();scheduleSave()};
+    document.getElementById("bgdone").onclick=function(){BGCAL=false;var a=document.querySelector("aside");if(a)a.classList.remove("open");renderPanel();draw();toast("底图校准已保存")};
+    return;
+  }
   if(tool==="bld"){
     title.textContent="建筑模型库";
     p.innerHTML='<div class="grp"><input id="catSearch" type="text" placeholder="搜索楼名/编号"></div><div class="cat" id="catBox"></div><div class="meta" style="margin-top:8px">点一个模型 → 在地图上单击放置；放置后切回「选择」拖动。当前底图 '+Math.round(bgOp*100)+'%。</div>';
@@ -383,6 +415,7 @@ function tidyBuildings(){
   toast("建筑整理完成：修平 "+fixed+" 个（小凹坑/文字缺口）");
 }
 function startTool(t){
+  if(BGCAL){BGCAL=false;var bb=document.getElementById("btnBgCal");if(bb)bb.classList.remove("on")}
   tool=t;PLACE=null;GHOST=null;DRAW=null;hideDrawBar();SEL=null;wrap.classList.remove("pan");
   ["toolSel","toolPan","toolRoad","toolWater","toolIsland","toolGreen","toolPlaza","toolBld","toolCustom"].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove("on")});
   var map={select:"toolSel",pan:"toolPan",road:"toolRoad",water:"toolWater",island:"toolIsland",green:"toolGreen",plaza:"toolPlaza",bld:"toolBld",custombld:"toolCustom"};
@@ -442,6 +475,7 @@ function beginPinch(){
 wrap.addEventListener("pointerdown",function(e){
   POINTERS[e.pointerId]={x:e.clientX,y:e.clientY};
   if(Object.keys(POINTERS).length>=2){beginPinch();return}if(e.target.closest&&e.target.closest("#drawBar"))return;wrap.setPointerCapture(e.pointerId);var r=cv.getBoundingClientRect();var px=e.clientX-r.left,py=e.clientY-r.top,x=mx(px),y=my(py);var drawing=(tool==="road"||tool==="water"||tool==="island"||tool==="green"||tool==="plaza"||tool==="custombld");
+  if(BGCAL){BGPAN={sx:px,sy:py,x:BGT.x,y:BGT.y};wrap.classList.add("pan");return}
   if(tool==="bld"){if(PLACE){placeBuilding(x,y);return}return}
   if(drawing){if(!DRAW)DRAW={type:tool,pts:[],cur:null,name:"",w:10};
     DRAW.pts.push([snap(x),snap(y)]);showDrawBar();scheduleSave();sched();return}
@@ -484,6 +518,10 @@ wrap.addEventListener("pointermove",function(e){
   }
   var r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,x=mx(px),y=my(py);document.getElementById("hxy").textContent=Math.round(x)+", "+Math.round(y);
   if(tool==="bld"){if(PLACE){GHOST=clone(PLACE);GHOST.p=PLACE.p.map(function(p){return [p[0]-PLACE.cx+x,p[1]-PLACE.cy+y]});GHOST.x=x;GHOST.y=y;sched()}return}
+  if(BGPAN){
+    BGT.x=BGPAN.x+(px-BGPAN.sx)/view.s; BGT.y=BGPAN.y+(py-BGPAN.sy)/view.s;
+    scheduleSave(); sched(); return;
+  }
   if(DRAW){DRAW.cur=[snap(x),snap(y)];sched();return}
   if(PAN){if(!PAN.moved&&Math.hypot(px-PAN.sx,py-PAN.sy)<3)return;PAN.moved=true;wrap.classList.add("pan");view.ox=PAN.ox+(px-PAN.sx);view.oy=PAN.oy+(py-PAN.sy);sched();return}
   if(DRAG){if(!DRAG.moved&&Math.hypot(px-DRAG.sx,py-DRAG.sy)<3)return;if(!DRAG.moved){DRAG.moved=true;pushHist()}var dx=x-DRAG.start[0],dy=y-DRAG.start[1];var hit=DRAG.hit;
@@ -502,6 +540,7 @@ wrap.addEventListener("pointermove",function(e){
 });
 wrap.addEventListener("pointerup",function(e){
   delete POINTERS[e.pointerId];
+  if(BGPAN){BGPAN=null;wrap.classList.remove("pan");scheduleSave();draw();return}
   if(PINCH&&Object.keys(POINTERS).length<2){PINCH=null;PAN=null;DRAG=null;scheduleSave();draw();return}
   wrap.classList.remove("pan");
   if(PAN){PAN=null;return}
@@ -528,6 +567,7 @@ document.getElementById("toolGreen").onclick=function(){startTool("green")};
 document.getElementById("toolPlaza").onclick=function(){startTool("plaza")};
 document.getElementById("toolBld").onclick=function(){startTool("bld")};
 document.getElementById("toolCustom").onclick=function(){startTool("custombld")};
+document.getElementById("btnBgCal").onclick=function(){BGCAL=!BGCAL;this.classList.toggle("on",BGCAL);SEL=null;var a=document.querySelector("aside");if(a)a.classList.add("open");renderPanel();draw();toast(BGCAL?"拖动地图移动底图，右侧/底部滑杆微调":"已退出底图校准")};
 document.getElementById("btnGuides").onclick=function(){GUIDE_ON=!GUIDE_ON;this.classList.toggle("on",GUIDE_ON);draw()};
 document.getElementById("btnTidy").onclick=tidyRoads;
 document.getElementById("btnCleanB").onclick=function(){
@@ -538,25 +578,36 @@ document.getElementById("btnPanel").onclick=function(){var a=document.querySelec
 document.getElementById("maTools").onclick=function(){document.body.classList.toggle("dock-hidden");this.textContent=document.body.classList.contains("dock-hidden")?"工具":"收起"};
 document.getElementById("maSave").onclick=function(){pushHist();scheduleCloud();toast("已保存（本地+云端）")};
 document.getElementById("maUndo").onclick=function(){undo()};
+document.getElementById("maCal").onclick=function(){
+  BGCAL=!BGCAL; var b=document.getElementById("btnBgCal"); if(b)b.classList.toggle("on",BGCAL);
+  SEL=null; var a=document.querySelector("aside"); if(a)a.classList.add("open"); renderPanel(); draw();
+  toast(BGCAL?"拖动地图移动底图，滑杆微调":"已退出底图校准")
+};
+document.getElementById("maBg").onclick=function(){
+  bgOp = bgOp>0.6 ? 0.35 : (bgOp>0.1 ? 0 : 0.75);
+  var r=document.getElementById("bgOp"); if(r)r.value=Math.round(bgOp*100);
+  var t=document.getElementById("bgPct"); if(t)t.textContent=Math.round(bgOp*100)+"%";
+  draw();toast("底图透明度 "+Math.round(bgOp*100)+"%")
+};
 document.getElementById("panelClose").onclick=function(){var a=document.querySelector("aside");if(a)a.classList.remove("open")};
 document.getElementById("btnUndo").onclick=undo;document.getElementById("btnRedo").onclick=redo;
 document.getElementById("btnFit").onclick=fit;
 document.getElementById("btnSave").onclick=function(){pushHist();toast("已保存本机草稿")};
-document.getElementById("btnExport").onclick=function(){var out={buildings:state.buildings.map(function(b){return {id:b.id,n:b.n,no:b.no,h:b.h,fl:b.fl,k:b.k,g:b.g,x:b.x,y:b.y,p:b.p}}),roads:state.roads,water:state.water,islands:state.islands,green:state.green,plaza:state.plaza};var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:"application/json"}));a.download="campus-manual-"+new Date().toISOString().slice(0,16).replace(/[-:T]/g,"")+".json";a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},3000);toast("已导出 JSON")};
+document.getElementById("btnExport").onclick=function(){var out={buildings:state.buildings.map(function(b){return {id:b.id,n:b.n,no:b.no,h:b.h,fl:b.fl,k:b.k,g:b.g,x:b.x,y:b.y,p:b.p}}),roads:state.roads,water:state.water,islands:state.islands,green:state.green,plaza:state.plaza,bgTransform:BGT};var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:"application/json"}));a.download="campus-manual-"+new Date().toISOString().slice(0,16).replace(/[-:T]/g,"")+".json";a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},3000);toast("已导出 JSON")};
 document.getElementById("btnImport").onclick=function(){document.getElementById("fileIn").click()};
-document.getElementById("fileIn").onchange=function(){var f=this.files[0];if(!f)return;var fr=new FileReader();fr.onload=function(){try{var o=JSON.parse(fr.result);state={buildings:o.buildings||[],roads:o.roads||[],water:o.water||[],islands:o.islands||[],green:o.green||[],plaza:o.plaza||[]};normalizeState();pushHist();SEL=null;renderPanel();fit();toast("已导入")}catch(err){toast("导入失败："+err.message)}};fr.readAsText(f);this.value=""};
+document.getElementById("fileIn").onchange=function(){var f=this.files[0];if(!f)return;var fr=new FileReader();fr.onload=function(){try{var o=JSON.parse(fr.result);state={buildings:o.buildings||[],roads:o.roads||[],water:o.water||[],islands:o.islands||[],green:o.green||[],plaza:o.plaza||[],bgTransform:o.bgTransform||{x:0,y:0,s:1,rot:0}};normalizeState();loadBGT();pushHist();SEL=null;renderPanel();fit();toast("已导入")}catch(err){toast("导入失败："+err.message)}};fr.readAsText(f);this.value=""};
 document.getElementById("dbFinish").onclick=function(){finishDraw()};
 document.getElementById("dbUndo").onclick=function(){if(DRAW&&DRAW.pts.length){DRAW.pts.pop();showDrawBar();scheduleSave();draw()}};
 document.getElementById("dbCancel").onclick=function(){DRAW=null;hideDrawBar();scheduleSave();draw()};
-document.getElementById("btnClear").onclick=function(){if(!confirm("清空所有手拼内容？底图保留。"))return;state={buildings:[],roads:[],water:[],islands:[],green:[],plaza:[]};SEL=null;pushHist();renderPanel();draw()};
+document.getElementById("btnClear").onclick=function(){if(!confirm("清空所有手拼内容？底图保留。"))return;state={buildings:[],roads:[],water:[],islands:[],green:[],plaza:[],bgTransform:{x:0,y:0,s:1,rot:0}};BGT={x:0,y:0,s:1,rot:0};SEL=null;pushHist();renderPanel();draw()};
 document.getElementById("bgOp").oninput=function(){bgOp=parseInt(this.value,10)/100;document.getElementById("bgPct").textContent=this.value+"%";draw()};
 window.addEventListener("resize",resize);window.addEventListener("beforeunload",saveDraft);
 (function init(){
   var hadDraft=false;
   try{var raw=localStorage.getItem(DKEY);if(raw){var o=JSON.parse(raw);if(o&&o.buildings){state=o;hadDraft=true;normalizeState();toast("已恢复本机草稿")}}}catch(e){}
-  if(!hadDraft&&DATA.seed){state=JSON.parse(JSON.stringify(DATA.seed));normalizeState();toast("已载入整理后的布局")}resize();fit();renderPanel();
+  if(!hadDraft&&DATA.seed){state=JSON.parse(JSON.stringify(DATA.seed));normalizeState();toast("已载入整理后的布局")}loadBGT();resize();fit();renderPanel();
   try{var rawD=localStorage.getItem(DRAWKEY);if(rawD){var dr=JSON.parse(rawD);if(dr&&dr.pts&&dr.pts.length){DRAW=dr;showDrawBar();draw()}}}catch(e){}
-  document.getElementById("bgPct").textContent="85%";
+  document.getElementById("bgPct").textContent=Math.round(bgOp*100)+"%";
   if(CLOUD_ON){cloudTag("同步中");cloudPull(true);setInterval(function(){cloudPull(false)},5000)}
 })();
 </script>

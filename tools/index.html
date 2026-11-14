@@ -2561,6 +2561,17 @@ a.rec-link{color:var(--cy);word-break:break-all}
 .ac-off code{background:#e8efed;padding:1px 5px;border-radius:5px}
 .ac-btns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 .ac-item .btn.sm{padding:6px 12px;font-size:13px}
+
+/* 校内地图 */
+#s-map .maphead{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+#s-map .maphead b{font-size:18px;color:var(--ink)}
+#s-map .maphead span{font-size:12px;color:var(--muted)}
+#s-map .maphead a{margin-left:auto;font-size:12px;color:var(--primary);text-decoration:none}
+#s-map .mapframe{position:relative;width:100%;height:calc(100vh - 190px);min-height:420px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#F3F5EC}
+#s-map iframe{width:100%;height:100%;border:0;display:block}
+.nextbox .nmap{display:block;margin-top:8px;border:1px solid var(--line);background:#fff;color:var(--primary);border-radius:9px;padding:6px 10px;font:inherit;font-size:12px;cursor:pointer}
+.nextbox .nmap:active{transform:scale(.98)}
+@media (max-width:760px){#s-map .mapframe{height:calc(100vh - 156px);min-height:420px;border-radius:12px}#s-map .maphead b{font-size:16px}}
 </style>
 </head>
 <body class="auth-pending">
@@ -2718,6 +2729,7 @@ a.rec-link{color:var(--cy);word-break:break-all}
           <div class="nextbox" id="tNext" style="display:none">
             <div class="nwhen"><div class="k" id="tNextK">下一节</div><div class="nclock" id="tNextC">—</div></div>
             <div class="nmain"><div class="v" id="tNextV">—</div><div class="t" id="tNextT"></div></div>
+            <button type="button" class="nmap" id="tNextMap" onclick="openMapFromNext()">在地图看这栋楼</button>
           </div>
           <button class="ttlisttol" id="tListToggle" style="display:none">全部课程<b id="tListN"></b><span id="tListArrow">⌄</span></button>
           <div id="tList"></div>
@@ -3153,6 +3165,11 @@ a.rec-link{color:var(--cy);word-break:break-all}
     </div>
   </section>
   <!-- ==================== 全部 ==================== -->
+  <section id="s-map">
+    <div class="maphead"><b>校内地图</b><span>2.5D · 按道路导航</span><a id="mapFull" href="/map/campus_final_25d.html" target="_blank" rel="noopener">全屏打开</a></div>
+    <div class="mapframe"><iframe id="mapFrame" title="福建中医药大学旗山校区地图" loading="lazy"></iframe></div>
+  </section>
+
   <section id="s-all">
     <div class="groups" id="allCards"></div>
   </section>
@@ -4328,6 +4345,8 @@ $("#ntModal").addEventListener("click",function(e){
 document.addEventListener("keydown",function(e){
   if(e.key==="Escape"){var m=$("#ntModal");if(m&&m.classList.contains("on"))closeNoticeModal();}
 });
+function openMapFromNext(){try{if(window.MAP)MAP.setRoom((TT&&TT._nextRoom)||"自强楼");gotoTab("map");}catch(e){}}
+window.openMapFromNext=openMapFromNext;
 window.addEventListener("message",function(e){
   if(!e.data||!e.data.type)return;
   var type=String(e.data.type);
@@ -5588,7 +5607,36 @@ var TOOLS=[
  {k:"vote",n:"投票",d:"发起投票与查看结果"},
  {k:"activity",n:"活动",d:"第二课堂活动与报名"},
  {k:"ppt",n:"演示",d:"PPT 上传、下载与播放"},
+ {k:"map",n:"地图",d:"校园 2.5D 地图与道路导航"},
  {k:"jw",n:"教务",d:"成绩、选课与考试",url:"http://210.34.74.77/sso.jsp"}];
+
+/* ---------------- 校内地图：iframe 宿主 + 与课表联动 ---------------- */
+var MAP={frame:null,room:"",ready:false,
+  ensure:function(){
+    if(this.frame)return this.frame;
+    this.frame=document.getElementById("mapFrame");
+    if(!this.frame)return null;
+    var base="/map/campus_final_25d.html?embed=1";
+    if(this.room)base+="&room="+encodeURIComponent(this.room);
+    this.frame.src=base;
+    var self=this;
+    this.frame.addEventListener("load",function(){ self.ready=true; self.push(); });
+    return this.frame;
+  },
+  setRoom:function(r){this.room=String(r||"");this.push();},
+  enter:function(){this.ensure();this.push();},
+  push:function(){
+    if(!this.frame||!this.frame.contentWindow)return;
+    try{this.frame.contentWindow.postMessage({type:"zq-map-target",room:this.room},"*");}catch(e){}
+  }
+};
+window.MAP=MAP;
+window.addEventListener("message",function(e){
+  var d=e.data||{};
+  if(d.type==="zq-map-open"&&d.tab==="tt"){gotoTab("tt");}
+  if(d.type==="zq-map-ready"){MAP.push();}
+});
+
 var CURTAB="draw";
 var LANDING=true; /* 首次进入（身份通过后）落到工具栏第一格 */
 /* 横屏比例工具栏可放 5 个（4 工具 + 全部）；竖屏 4 个（3 工具 + 全部） */
@@ -5635,6 +5683,7 @@ function gotoTab(k,noScroll){
   if(k==="ppt"){try{if(typeof PPT!=="undefined"&&PPT&&PPT.enter)PPT.enter();}catch(e){}}
   if(k==="vote"){try{if(typeof VOTE!=="undefined"&&VOTE&&VOTE.enter)VOTE.enter();}catch(e){}}
   if(k==="activity"){try{if(typeof ACTIVITY!=="undefined"&&ACTIVITY&&ACTIVITY.enter)ACTIVITY.enter();}catch(e){}}
+  if(k==="map"){try{if(window.MAP)MAP.enter();}catch(e){}}
   if(k==="fb"){
     if(canManage()){
       var fs=$("#s-fb"), fc=$("#fbListCard");
@@ -5695,7 +5744,7 @@ function renderTabs(noScroll){
 }
 
 /* 全部栏卡片色调：课表雾蓝 · 作业/反馈睡莲青 · 抽签/体测暖沙 · 班委/点名/统计紫 · 通知灰粉 · 使用说明中性 */
-var ALL_TONE={draw:"sand",tt:"blue",committee:"violet",hw:"mint",nt:"rose",ft:"sand",roll:"violet",stats:"violet",water:"blue",vote:"teal",jw:"blue"};
+var ALL_TONE={draw:"sand",tt:"blue",committee:"violet",hw:"mint",nt:"rose",ft:"sand",roll:"violet",stats:"violet",water:"blue",vote:"teal",map:"teal",jw:"blue"};
 /* ============================================================
    全部页卡片拖动 v2（2026-11-06；2026-11-11 定位基准 = 卡片本体）
    - 起点：卡片右上 handle（三条横线）；移动 >6px 才进入拖动

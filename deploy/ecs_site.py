@@ -128,6 +128,11 @@ def _caddy_http():
 		uri strip_prefix /drop
 		reverse_proxy 127.0.0.1:8093
 	}
+	# 校园地图共享状态（deploy/ecs_map.py）
+	handle /map/api/* {
+		uri strip_prefix /map/api
+		reverse_proxy 127.0.0.1:8095
+	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
 	# 当前访问域名的 Origin（如 ECS IP 调试入口）→ 网关 403，页面报「网络错误」。
@@ -181,6 +186,11 @@ tool.furina.fun {
 		uri strip_prefix /drop
 		reverse_proxy 127.0.0.1:8093
 	}
+	# 校园地图共享状态（deploy/ecs_map.py）
+	handle /map/api/* {
+		uri strip_prefix /map/api
+		reverse_proxy 127.0.0.1:8095
+	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
 	# 当前访问域名的 Origin（如 ECS IP 调试入口）→ 网关 403，页面报「网络错误」。
@@ -226,6 +236,11 @@ tool.furina.fun {
 	handle /drop/* {
 		uri strip_prefix /drop
 		reverse_proxy 127.0.0.1:8093
+	}
+	# 校园地图共享状态（deploy/ecs_map.py）
+	handle /map/api/* {
+		uri strip_prefix /map/api
+		reverse_proxy 127.0.0.1:8095
 	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
