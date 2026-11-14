@@ -23,11 +23,13 @@ import argparse
 import base64
 import fnmatch
 import gzip
+import hashlib
 import json
 import os
 import re
 import socket
 import ssl
+import subprocess
 import sys
 import threading
 import time
@@ -1089,7 +1091,8 @@ def cmd_run(args) -> int:
     out("")
     out("手机步骤：1) Wi-Fi 代理 → 上面的 IP:端口   2) 浏览器开证书页装 CA")
     out("          iOS 还要：设置→通用→关于本机→证书信任设置→完全信任")
-    out("          PC 微信小程序不走系统代理，需要 Proxifier 把 WeChatAppEx.exe 转进来")
+    if sys.platform == "win32":
+        out("PC 微信：先 python pcap\\pcap.py trust，再按 python pcap\\pcap.py pc 配 Proxifier")
     out("")
     out("Ctrl+C 停止")
     out("")
@@ -1330,6 +1333,123 @@ def cmd_ca(args) -> int:
 
 
 # --------------------------------------------------------------------------
+# Windows 根证书 / PC 微信引导
+# --------------------------------------------------------------------------
+def cert_sha1() -> str:
+    """证书 DER 的 SHA1（certutil 用它定位/删除证书）。"""
+    from cryptography import x509
+    from cryptography.hazmat.primitives import serialization
+    cert = x509.load_pem_x509_certificate(CA_CRT.read_bytes())
+    der = cert.public_bytes(serialization.Encoding.DER)
+    return hashlib.sha1(der).hexdigest().upper()
+
+
+def _run(cmd) -> tuple[int, str]:
+    try:
+        p = subprocess.run(cmd, capture_output=True, timeout=60)
+    except FileNotFoundError:
+        return 127, "找不到命令：" + cmd[0]
+    except subprocess.TimeoutExpired:
+        return 124, "命令超时（可能弹了确认框没点）"
+    raw = (p.stdout or b"") + (p.stderr or b"")
+    for enc in ("mbcs", "utf-8", "gbk"):
+        try:
+            return p.returncode, raw.decode(enc)
+        except Exception:
+            continue
+    return p.returncode, raw.decode("utf-8", "replace")
+
+
+def ca_trusted() -> bool:
+    if sys.platform != "win32":
+        return False
+    rc, txt = _run(["certutil", "-store", "-user", "Root", cert_sha1()])
+    if rc != 0:
+        return False
+    return cert_sha1().replace(" ", "") in txt.upper().replace(" ", "")
+
+
+def cmd_trust(args) -> int:
+    if sys.platform != "win32":
+        out("这条命令只用于 Windows。手机请按 README 第 1 节装描述文件/证书。")
+        return 1
+    if not CA_CRT.exists():
+        ensure_ca()
+    sha1 = cert_sha1()
+    if args.remove:
+        rc, txt = _run(["certutil", "-delstore", "-user", "Root", sha1])
+        ok = rc == 0
+        out(("已从「当前用户 → 受信任的根证书颁发机构」移除。" if ok
+             else f"移除失败（rc={rc}）：\n{txt.strip()[:600]}"))
+        return 0 if ok else 1
+    if ca_trusted():
+        out("这个 CA 已经在「当前用户 → 受信任的根证书颁发机构」里了，不用重复安装。")
+        return 0
+    rc, txt = _run(["certutil", "-addstore", "-user", "Root", str(CA_CRT)])
+    if rc != 0:
+        out(f"安装失败（rc={rc}）：\n{txt.strip()[:600]}")
+        return 1
+    if not ca_trusted():
+        out("certutil 返回成功，但没在证书库里查到，请手动检查 certmgr.msc。")
+        return 1
+    out("已装进「当前用户 → 受信任的根证书颁发机构」（只影响当前 Windows 账号）。")
+    out("浏览器 / Chromium 内核的程序（含 PC 微信小程序容器）会信任它。")
+    out("不用了记得：python pcap\\pcap.py trust --remove")
+    return 0
+
+
+def find_wechatappex() -> Path | None:
+    bases = []
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        bases.append(Path(appdata) / "Tencent")
+    bases += [Path(r"C:\Program Files\Tencent"), Path(r"C:\Program Files (x86)\Tencent")]
+    hits = []
+    for base in bases:
+        if not base.exists():
+            continue
+        for pat in ("xwechat/xplugin/plugins/*/WeChatAppEx.exe",
+                    "WeChat/*/WeChatAppEx.exe",
+                    "*/WeChatAppEx.exe"):
+            try:
+                hits += list(base.glob(pat))
+            except OSError:
+                pass
+    hits = [h for h in hits if h.exists()]
+    if not hits:
+        return None
+    hits.sort(key=lambda p: ("Radium" not in str(p), len(str(p))))
+    return hits[0]
+
+
+def cmd_pc(args) -> int:
+    exe = find_wechatappex()
+    trusted = ca_trusted() if sys.platform == "win32" else False
+    out("")
+    out("PC 微信小程序抓包 —— 本机情况")
+    out(f"  证书信任   {'已装（当前用户根证书）' if trusted else '未装 → 先运行  python pcap\\pcap.py trust'}")
+    out(f"  小程序进程 {exe if exe else '没找到（打开任意小程序后：任务管理器 → WeChatAppEx.exe → 右键「打开文件所在位置」）'}")
+    out("")
+    out("步骤：")
+    out("  1. python pcap\\pcap.py trust        # 只装一次，装到当前用户根证书")
+    out("  2. python pcap\\pcap.py run          # 看端口，默认 8080")
+    out("  3. Proxifier → Profile → Proxy Servers 添加 127.0.0.1:8080，协议 HTTPS")
+    out("  4. Proxifier → Proxification Rules 新增一条：")
+    if exe:
+        out(f"       Applications: {exe}")
+    else:
+        out("       Applications: WeChatAppEx.exe（先按上面方法找到路径）")
+    out("       Action: 第 3 步那个代理；这条规则必须排在 Default 之上")
+    out("  5. 完全退出微信（右下角托盘右键 → 退出），重开 → 进活动小程序")
+    out("  6. 回来看：python pcap\\pcap.py list")
+    out("")
+    out("说明：微信主程序 Weixin.exe 没流量是正常的，小程序请求由 WeChatAppEx.exe 发出，")
+    out("      它不读 Windows 系统代理，所以必须要 Proxifier 这类按进程转发的工具。")
+    out("      没用微信时记得 trust --remove，或至少在 Proxifier 里停用规则。")
+    return 0
+
+
+# --------------------------------------------------------------------------
 # 入口
 # --------------------------------------------------------------------------
 def build_parser():
@@ -1386,6 +1506,13 @@ def build_parser():
     c = sub.add_parser("ca", help="查看/重新生成 CA")
     c.add_argument("--regen", action="store_true", help="重新生成（旧证书立即失效）")
     c.set_defaults(func=cmd_ca)
+
+    t = sub.add_parser("trust", help="把 CA 装进 Windows 当前用户根证书（PC 微信/浏览器用）")
+    t.add_argument("--remove", action="store_true", help="卸载")
+    t.set_defaults(func=cmd_trust)
+
+    pc = sub.add_parser("pc", help="PC 微信抓包步骤（自动检测 WeChatAppEx.exe）")
+    pc.set_defaults(func=cmd_pc)
     return p
 
 

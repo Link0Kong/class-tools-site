@@ -50,17 +50,34 @@ python pcap\pcap.py run
 3. ⚠️ Android 7 以上很多 App 不信任「用户证书」，微信大概率抓不到（控制台会提示 TLS 握手失败）。
    优先用 iPhone；安卓需要 root 把证书装进系统区，成本高，不推荐。
 
-### PC 微信小程序（不想用手机时）
+### PC 微信小程序（可以，但比手机多两步）
 
-PC 微信的小程序跑在 `WeChatAppEx.exe` 里，**不走系统代理**，要额外用 Proxifier：
+**能抓**，只是要额外做两件事：把 CA 装进 Windows 根证书 + 用 Proxifier 按进程转发。
+PC 微信 4.x 的小程序跑在 `WeChatAppEx.exe`（`xwechat\XPlugin\Plugins\RadiumWMPF\` 下），
+**不读系统代理**，所以在 Windows 设置里填代理对它没用。
 
-1. Proxifier → Profile → Proxy Servers → 添加 `127.0.0.1:8080`，类型 HTTPS。
-2. Proxification Rules → 新增规则，Applications 填 `WeChatAppEx.exe`，Action 选上面那个代理。
-3. 规则里把 HTTPS 协议处理打开（Proxifier 会用自己的证书，这里仍然由 pcap 负责真正的解密，
-   所以 Proxifier 只当转发器即可）。
-4. 重开小程序。
+```powershell
+python pcap\pcap.py trust     # 1. 把 CA 装进「当前用户 → 受信任的根证书颁发机构」
+python pcap\pcap.py pc        # 2. 打印本机步骤（自动找到 WeChatAppEx.exe 的真实路径）
+python pcap\pcap.py run       # 3. 起抓包，记下端口
+```
 
-> 顺序建议：**iPhone 优先**，PC 微信是备选。
+4. Proxifier（官方试用 30 天）→ `Profile → Proxy Servers` → 添加 `127.0.0.1:8080`，协议选 **HTTPS**。
+5. `Profile → Proxification Rules` → 新增一条：
+   - Applications：粘贴第 2 步打印的 `WeChatAppEx.exe` 完整路径
+   - Action：选第 4 步那个代理
+   - **这条规则必须排在 `Default` 之上**，否则不生效
+6. 完全退出微信（右下角托盘 → 退出），重新打开 → 进活动小程序 → `python pcap\pcap.py list`。
+
+几个实测要点：
+
+- 微信主程序 `Weixin.exe` 没有流量是**正常**的，小程序请求全由 `WeChatAppEx.exe` 发出。
+- Proxifier 提示「connection loop」时，按提示关掉 loop detection 即可。
+- 装的是**系统级根证书**，比手机装描述文件更「重」，不用了请 `python pcap\pcap.py trust --remove`。
+- 备选：本来就用 Clash 的话，可以用 TUN 模式 + 进程规则把 `WeChatAppEx.exe` 转进来，省掉 Proxifier。
+- 如果 Proxifier 配好后 `list` 仍然空、控制台却出现 `TLS 握手失败`，说明这个版本做了证书校验，回手机。
+
+> 优先顺序：**iPhone > PC 微信 > 安卓**。
 
 ---
 
@@ -111,6 +128,9 @@ python pcap\pcap.py run --only "*.fjtcm.edu.cn,*.xxx.com"
 | `... replay 12 --repeat 3` | 连发 3 次，看耗时稳定性 |
 | `python pcap\pcap.py ca` | 看 CA 路径、指纹、有效期 |
 | `python pcap\pcap.py ca --regen` | 重新生成 CA（旧证书全部失效，手机要重装） |
+| `python pcap\pcap.py trust` | 把 CA 装进 Windows 当前用户根证书（PC 微信/浏览器用） |
+| `... trust --remove` | 从 Windows 根证书里卸载 |
+| `python pcap\pcap.py pc` | 打印 PC 微信步骤，自动找 `WeChatAppEx.exe` |
 
 退出：`Ctrl+C`，会打印本次共抓了多少条。
 
@@ -154,6 +174,7 @@ pcap/
 
 - 只在本机和**可信 Wi-Fi** 用；代理是明文中间人，同一网络里别人也可能连上来。
 - 用完：手机里关掉 Wi-Fi 代理 → 删除描述文件/证书 → `Ctrl+C` 停掉代理。
+- PC 端用完：`python pcap\pcap.py trust --remove`，并在 Proxifier 里停用那条规则。
 - 想清空抓包：直接删 `pcap/captures/`。
 - 这些目录已进 `.gitignore`，不会被 `sync-repos.cmd` 提交。
 
@@ -168,7 +189,7 @@ pcap/
 | 浏览器提示证书不受信任 | iOS 没开「完全信任」；或证书没装成功（重下 `ca.crt`） |
 | 小程序白屏、一直转圈 | 证书没信任；或该小程序做了证书固定（pinning）——控制台会出现 `TLS 握手失败`，换 iPhone / PC 微信试 |
 | 列表里没有活动接口 | 小程序可能用了 WebSocket 或本地缓存；杀掉小程序重进、多滑两下再抓 |
-| PC 微信抓不到 | 小程序不走系统代理，按 §1 配 Proxifier；规则要指到 `WeChatAppEx.exe` |
+| PC 微信抓不到 | 小程序请求由 `WeChatAppEx.exe` 发出（不是 `Weixin.exe`），且不走系统代理：装 `trust` + Proxifier 规则指到它，规则要在 `Default` 之上，改完完全退出微信再开 |
 | 用 curl 测试报 `schannel: revocation status is unknown` | Windows curl 的特性，加 `--ssl-no-revoke`（不影响手机） |
 | 抓到一堆 `*.qpic.cn` / `*.gtimg.com` | 默认已排除；若还多，用 `--only` 限定学校域名 |
 
