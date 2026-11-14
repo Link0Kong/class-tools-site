@@ -36,6 +36,7 @@ import re
 import socket
 import ssl
 import string
+import subprocess
 import sys
 import threading
 import time
@@ -43,6 +44,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit, parse_qs
+import urllib.request
 
 ROOT = Path(__file__).resolve().parent
 TOKEN_PATH = ROOT / "token.json"
@@ -414,6 +416,110 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"ok": False, "error": f"{type(e).__name__}: {e}"}, 500)
 
 
+# --------------------------------------------------------------------------
+# 浏览器辅助登录：打开官方网页 → 用户自己登录 → 从 localStorage 读 token
+# （不接触密码，token 只落到本机）
+# --------------------------------------------------------------------------
+SPA_URL = "https://rcm.fjtcm.edu.cn/wechat/"
+
+
+def find_edge() -> str:
+    for p in (r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+              r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+              r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+              r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"):
+        if os.path.exists(p):
+            return p
+    return "msedge"
+
+
+def _http_json(url: str, timeout=3.0):
+    with urllib.request.urlopen(url, timeout=timeout) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def cmd_login(args) -> int:
+    try:
+        import websocket  # websocket-client
+    except ImportError:
+        out("缺少依赖：pip install websocket-client")
+        return 1
+    port = args.port or 9224
+    profile = ROOT / "profile"
+    profile.mkdir(exist_ok=True)
+    edge = find_edge()
+    out(f"启动浏览器：{edge}")
+    try:
+        subprocess.Popen([edge, f"--remote-debugging-port={port}",
+                          f"--user-data-dir={profile}", "--no-first-run",
+                          "--no-default-browser-check", SPA_URL],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except FileNotFoundError:
+        out("找不到 Edge/Chrome，请手动打开 https://rcm.fjtcm.edu.cn/wechat/ 登录")
+        return 1
+
+    ws_url = None
+    for _ in range(40):
+        try:
+            for t in _http_json(f"http://127.0.0.1:{port}/json/list"):
+                if t.get("type") == "page" and "rcm.fjtcm" in (t.get("url") or ""):
+                    ws_url = t.get("webSocketDebuggerUrl")
+                    break
+        except Exception:
+            pass
+        if ws_url:
+            break
+        time.sleep(0.5)
+    if not ws_url:
+        out("连不上浏览器调试端口，可能被安全软件拦了。手动登录后改用 import-token。")
+        return 1
+
+    out("")
+    out("浏览器已打开。请在页面里点「统一身份认证」，用学号+密码登录；")
+    out("登录成功后会自动继续（最多等 %d 秒）。" % args.timeout)
+    out("")
+    ws = websocket.create_connection(ws_url, timeout=10)
+    expr = "(()=>{try{return localStorage.getItem('lgInfo')||''}catch(e){return ''}})()"
+    info = None
+    deadline = time.time() + args.timeout
+    try:
+        while time.time() < deadline:
+            try:
+                ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate",
+                                    "params": {"expression": expr, "returnByValue": True}}))
+                msg = json.loads(ws.recv())
+                val = ((msg.get("result") or {}).get("result") or {}).get("value") or ""
+            except Exception:
+                val = ""
+            if val:
+                try:
+                    info = json.loads(val)
+                except Exception:
+                    info = None
+                if info and info.get("token"):
+                    break
+            time.sleep(1.5)
+    finally:
+        try:
+            ws.close()
+        except Exception:
+            pass
+
+    if not info or not info.get("token"):
+        out("没等到登录信息。浏览器窗口别关，重新运行 login 即可（会复用登录状态）。")
+        return 1
+    state = {"token": info["token"], "userId": info.get("userId"),
+             "classId": info.get("classId"),
+             "savedAt": datetime.now().astimezone().isoformat(timespec="seconds"),
+             "from": "browser-login"}
+    save_state(state)
+    out("登录成功，token 已保存到本机。")
+    out(f"  userId   {state.get('userId')}")
+    out(f"  classId  {state.get('classId')}")
+    out("浏览器可以关掉了。")
+    return 0
+
+
 def cmd_serve(args) -> int:
     cfg = load_config()
     port = args.port or cfg.get("port", 8790)
@@ -442,6 +548,11 @@ def main(argv=None) -> int:
 
     s = sub.add_parser("import-token", help="从最新 pcap 抓包导入 token")
     s.set_defaults(func=cmd_import_token)
+
+    s = sub.add_parser("login", help="打开官方网页登录，自动取回 token（不接触密码）")
+    s.add_argument("--timeout", type=int, default=240)
+    s.add_argument("--port", type=int, default=0, help="浏览器调试端口，默认 9224")
+    s.set_defaults(func=cmd_login)
 
     s = sub.add_parser("list", help="活动列表")
     s.add_argument("--page", type=int, default=1)
