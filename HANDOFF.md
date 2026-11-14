@@ -3452,7 +3452,7 @@ sync-repos.cmd "feat: 说明本次改了什么"
 
 ### 改动（`tools/index.html`，APP_VER 仍 2.0.0）
 - `TOOLS` 13 条 + 特殊卡片（宿舍电费/反馈建议/使用说明）+ `__WEB_B2_JS__` 动态追加的「文件传输」共 **17 条描述**，统一改为 ≤12 字的功能短语（去营销词、去参数细节、去重复名称）。
-- 示例：抽签「抽签 · 分组 · 结果单，可剔除重抽，一键导出规范图片」→「抽签、分组与结果导出」；点名 28 字 →「点名记录到勤、请假」；水量 28 字 →「抄表与水费计算」；演示 26 字 →「PPT 上传、下载与播放」；文件传输 34 字 →「同账号设备间传文件」。
+- 示例：抽签「抽签 · 分组 · 结果单，可剔除重抽，一键导出规范图片」→「抽签、分组与结果导出」；点名 28 字 →「点名记录到课、请假」；水量 28 字 →「抄表与水费计算」；演示 26 字 →「PPT 上传、下载与播放」；文件传输 34 字 →「同账号设备间传文件」。
 - 其余：课表「班级课表与下一节课」、名单「班委、团员与全班名单」、作业「作业发布与完成进度」、通知「班级通知与附件」、体测「体测算分与等级」、统计「成员访问统计」、诊断「服务与设备诊断」、投票「发起投票与查看结果」、教务「成绩、选课与考试」、电费「剩余电量与用电趋势」、反馈「提交建议或问题」、说明「各功能用法速览」。
 - 未改：卡片网格/色调/拖动逻辑、按钮文案、`homeTools` 与 UD v6 契约、任何数据与接口。
 
@@ -3463,5 +3463,5 @@ sync-repos.cmd "feat: 说明本次改了什么"
 
 ### 上线 / 回滚
 - 部署前线上备份：`tools/_backup/index_online_20261114-1336_preCardCopy.html`（1,232,963 B / `b47c6bb7…`）。
-- `python deploy/sync_tools.py index.html` + `python deploy/ecs_site.py apply` → OSS/ECS **1,232,339 B / sha256 `7f007b58db2c0fcd9948b8a3d8f1090630ca5ffff4fab036a854c96c76f8eb88`**（`oss_object.py check` MATCH、ECS verify MATCH、gzip 382,419 B；`http://121.196.47.2/` 实取同字节）。
+- `python deploy/sync_tools.py index.html` + `python deploy/ecs_site.py apply` → OSS/ECS **1,232,339 B / sha256 `6da2b3389caa400c7134c5086f3e616d5c961071787fd3b5a819fd90ec4e8290`**（`oss_object.py check` MATCH、ECS verify MATCH、gzip 382,418 B；`http://121.196.47.2/` 实取同字节）。
 - 回滚：把备份重传到 OSS `index.html` 后 `python deploy/ecs_site.py apply`。
