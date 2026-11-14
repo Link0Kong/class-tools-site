@@ -2,6 +2,18 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-14 21:1x–21:4x · 增量 60：OPPO 官方推送 SDK 接入（安卓客户端 + 云端 push_tokens + 本机服务端推送；网页无需部署；待用户开通 OPPO 推送/密钥后真机验证）
+
+> 用户 2026-11-14 晚要求「尝试将通知接入 oppo 官方 sdk」；已确认目标=App 未运行也能收系统通知栏推送，允许新增设备 token 表，先用测试权限验证。官方 SDK V4.0.0。
+
+- 安卓：OPPO PUSH SDK V4.0.0 AAR（`app/libs/com.heytap.msp_V4.0.0.aar`，sha256 `8A542A78…1C41`）+ `app/oppo.properties`(不入库)/`.example` + Manifest 回调 Service + Channel `class_notice` + 注册状态机/设置页状态 + token 上传云端 + 点击（冷启动/onNewIntent）打开对应通知；全量单测 **1246/1246**（新增 OPPO 33 项）；Release **v4.51.0/vc69**，APK **3,252,045 B / SHA-256 `5BD44F09…EDA1A5`**（aapt2/apksigner 复核）。**未真机验证（无密钥）**。
+- 云端：迁移 `deploy/cloudbase/2026-11-14_push_tokens.sql` 已应用（本人读写自己行、管理员读全量）；测试身份实测插入/upsert 去重/权限/清理通过。
+- 本机：新增 `C:\briefdesk\scripts\oppo_push.py`（OPPO auth/单推/批量/水位去重/`--test/--notice/--dry-run/--tokens`）+ 14/14 单测；`detect_docs.py` 在云端通知同步后自动调用（`secrets/oppo-push.json` 存在才跑，失败不阻断）。
+- 文档：`web/通知OPPO推送_接入说明_20261114.md`、`android-class-tools/docs/OPPO_PUSH.md`。
+- 用户下一步：OPPO 开放平台开通推送（测试权限）拿三密钥 → 安卓填 `oppo.properties` 重打包真机安装 → 本机填 `C:\briefdesk\secrets\oppo-push.json` → `oppo_push.py --tokens/--test <regId>` 验证。
+- 回滚：清空/删除 `oppo-push.json` 即停推；`DROP TABLE public.push_tokens`；安卓回退上一版 APK；已知限制：仅 ColorOS 系、正式通知栏权限需上架 OPPO 商店/特殊申请。
+
+
 ## 2026-11-14 21:1x–21:3x · 撤销 ko-link.cn 临时域名（三端源码 + ECS Caddy + DNS 全部回退；等 furina.fun 备案）
 
 > 用户 2026-11-14 决定：老老实实等 `tool.furina.fun` 备案完成，撤销三端中所有用到 ko-link.cn 的改动。

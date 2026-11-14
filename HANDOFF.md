@@ -3528,3 +3528,32 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - `CHANGELOG`/`HANDOFF` 旧条目、`_audit`、验收报告中的 ko-link.cn 记录为历史存档，未删除。
 - 备案通过 + DNS 恢复后：`python deploy\ecs_site.py apply`（默认 HTTPS）即可恢复 `https://tool.furina.fun`，小程序重新配置微信合法域名并上传。
 
+
+## 2026-11-14 21:1x–21:4x · 增量 60：OPPO 官方推送 SDK 接入（安卓客户端 + 云端 token 表 + 本机服务端推送；待用户开通 OPPO 推送服务/密钥后真机验证）
+
+> 用户 2026-11-14 晚原话：「尝试将通知接入 oppo 官方 sdk」。
+> 已与用户确认：① 目标是 **App 未运行也能收到系统通知栏推送**（OPPO PUSH）；② OPPO 账号已有但**推送服务未开通/应用未上架**；③ **允许新增云端表存设备 token + 本机管线推送**；④ 有 OPPO/一加/realme 真机，**先按测试权限验证**。
+> 官方依据：[OPPO PUSH 快速接入指南](https://open.oppomobile.com/documentation/page/info?id=11221)、[版本更新说明](https://open.oppomobile.com/documentation/page/info?id=11219)（SDK V4.0.0）、[单点推送 API](https://open.oppomobile.com/documentation/page/info?id=11238)。
+
+### 实现（客户端 / 云端 / 服务端）
+- **安卓客户端**（`android-class-tools`，未 commit；仓库无远端）：官方 SDK **V4.0.0 AAR**（`app/libs/com.heytap.msp_V4.0.0.aar`，164,111B / sha256 `8A542A78…1C41`，来源 OPPO 官方 openfs 2026-11-10 发布）→ `implementation(files(...))`；`app/oppo.properties`（不入库，.gitignore）+ `app/oppo.properties.example` 模板 → BuildConfig `OPPO_PUSH_APP_KEY/APP_SECRET`（空则安全跳过）；Manifest 声明 `DataMessageCallbackService`/`CompatibleDataMessageCallbackService`（aapt2 核验合并进 APK）；`ClassToolsApp.onCreate` 创建 Channel `class_notice`「班级通知」→ 已配置才 `HeytapPushManager.init/isSupportPush/register`；注册状态机/缓存/设置页「OPPO 推送」行（未配置/不支持/注册中/已注册掩码/失败+重试）；`data/push/PushTokenUploader` 上传 `POST push_tokens?on_conflict=provider,token`（Bearer publishable + X-Class-Token + Prefer merge-duplicates，body provider/token/device/app_version，登录补传/切号重传/幂等/失败不阻塞）；`MainActivity` 冷启动+onNewIntent 解析 `noticeId`/`actionParameters` → 打开通知工具页并展开对应通知。
+- **云端**：迁移 `deploy/cloudbase/2026-11-14_push_tokens.sql` **已应用**：`public.push_tokens(sid default auth_sid(), provider, token, device, app_version, created_at/updated_at, unique(provider,token))`；RLS 本人读写自己的行、管理员读取/删除全量；`GRANT` 表+sequence。已用官方测试身份实测：插入/重复 upsert 去重/本人读取/管理员读取/管理员删除清理全通过（测试行已删）。
+- **本机服务端**：新增 `C:\briefdesk\scripts\oppo_push.py`：从 `push_tokens` 读全部设备（复用生产 admin 班级 token 链路）→ OPPO `/server/v1/auth`（app_key + sha256(app_key+timestamp+master_secret)）→ `/server/v1/message/notification/unicast(_batch)`；watermark 去重（首轮只记录历史不推送）、`--dry-run/--test <regId>/--notice <gid>/--tokens`；标题+摘要（50/200 字）、`clickActionType=4`+`clickActionActivity`+`actionParameters {"noticeId"}`+`channel_id=class_notice`+离线 24h；日志打码；无密钥安全跳过 exit 0；`detect_docs.py` 在 `sync_notices_cloud` 成功后自动调用（secrets 文件存在才跑，失败不阻断）。
+- **文档**：`web/通知OPPO推送_接入说明_20261114.md`（链路/OPPO 后台开通步骤/密钥填写/验证/限制/回滚）、`android-class-tools/docs/OPPO_PUSH.md`（客户端细节/错误码/真机验证）。
+
+### 验证 / 产物
+- 安卓：全量 `:app:testDebugUnitTest` **1246/1246 PASS（98 suites）**，其中 OPPO 纯逻辑单测 **33 项**；Release **v4.51.0 / vc69**，APK `android-class-tools/app/build/outputs/apk/release/app-release.apk` **3,252,045 B / SHA-256 `5BD44F09B9FBADC0C06CEFDD646267462E236ED35F50E6E0DD71881628EDA1A5`**；aapt2 核验 `versionCode=69/versionName=4.51.0` + 两个 OPPO Service 在 APK 内；apksigner v2 签名有效（证书 SHA-1 `aa6d41754e38b9ad9aaaf65a98f189e1b368946b`，OPPO 后台登记签名用）。Lead 独立复跑上述单测/APK 校验通过。
+- 服务端：`tests/test_oppo_push.py` **14/14 PASS**（mock：签名/auth 缓存/单推/批量 1000 分片/水位首轮/新通知/过期跳过/dry-run/test/notice 模式）。
+- 未验证（如实）：真实 AppKey 注册、OPPO 真实下发到达、点击跳转、ColorOS 真机行为——**当前没有 AppKey/AppSecret/MasterSecret（推送服务未开通），不能声称真机通过**。
+
+### 用户下一步（拿到测试权限后）
+1. OPPO 开放平台：企业实名 → 创建应用（包名 `com.furina.classtools`）→ 推送服务申请开通（先用测试权限；正式权限需上架 OPPO 软件商店/不上架特殊申请）→ 配置管理拿三密钥；测试设备在推送运营平台登记。
+2. 安卓：`app/oppo.properties` 填 `oppo.appKey/oppo.appSecret` → 重新 `assembleRelease` → 安装到 OPPO 真机登录 → 设置页看到「OPPO 推送 已注册」。
+3. 本机：`C:\briefdesk\secrets\oppo-push.json` 填 app_key/app_secret/master_secret（channel_id/click_activity 默认即可）→ `python oppo_push.py --tokens` 应看到设备 → `--test <regId>` 验证通知栏 → 再验证后台新通知自动推送。
+4. 详细步骤/排查见 `web/通知OPPO推送_接入说明_20261114.md` §2–§5。
+
+### 回滚
+- 客户端：回退本轮安卓工作区改动/安装上一版 APK（v4.50.0）；`app/libs` AAR 与 `_oppo_sdk_tmp` 可删（后者已 .gitignore，仅本机参考）。
+- 云端：`DROP TABLE IF EXISTS public.push_tokens;`（不影响现有通知）。
+- 服务端：删除/清空 `C:\briefdesk\secrets\oppo-push.json` 即自动跳过；删除 `detect_docs.py` 调用块可彻底停用。
+- 已知限制：仅 ColorOS/OPPO 系设备支持；正式权限受上架限制；用户关通知/ROM 清理后台可能收不到；未真机验证前不承诺到达率。
