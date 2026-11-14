@@ -384,7 +384,15 @@ class Handler(BaseHTTPRequestHandler):
             if u.path.startswith("/sign/"):
                 aid = u.path.split("/")[-1]
                 d = fetch_detail(st, aid)
-                role = pick_role(d, "")
+                want = (body or {}).get("roleId") or ""
+                role = None
+                if want:
+                    for r in (d.get("activityRoleConfigs") or []):
+                        if r.get("supRoleId") == want:
+                            role = r
+                            break
+                if not role:
+                    role = pick_role(d, "")
                 path = f"/organizations/sign_up/activity/{aid}/role/{role.get('supRoleId')}/user/{st['userId']}"
                 if not body.get("apply"):
                     return self._json({"ok": True, "dryRun": True, "path": path})
