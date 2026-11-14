@@ -159,6 +159,9 @@ def host_match(host: str, patterns) -> bool:
             continue
         if fnmatch.fnmatch(host, p):
             return True
+        # 写 *.a.com 时也匹配裸域名 a.com
+        if p.startswith("*.") and (host == p[2:] or host.endswith(p[1:])):
+            return True
     return False
 
 
@@ -529,11 +532,6 @@ class Store:
         self.count = 0
         self.saved = 0
 
-    def next_id(self) -> int:
-        with self.lock:
-            self.seq += 1
-            return self.seq
-
     def should_store(self, host: str) -> bool:
         if self.cfg.only and not host_match(host, self.cfg.only):
             return False
@@ -544,24 +542,25 @@ class Store:
     def add(self, rec: dict) -> None:
         with self.lock:
             self.count += 1
-            if rec.get("stored"):
-                self.seq_file = rec["id"]
-                path = self.dir / f"{rec['id']}.json"
-                path.write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
-                with open(self.index_path, "a", encoding="utf-8") as f:
-                    f.write(json.dumps({
-                        "id": rec["id"], "ts": rec["ts"], "method": rec["method"],
-                        "url": rec["url"], "status": rec["status"],
-                        "ms": rec["ms"], "bytes": rec["resp_len"],
-                    }, ensure_ascii=False) + "\n")
-                self.saved += 1
+            if not rec.get("stored"):
+                return
+            self.seq += 1
+            rec["id"] = f"{self.seq:04d}"
+            path = self.dir / f"{rec['id']}.json"
+            path.write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
+            with open(self.index_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "id": rec["id"], "ts": rec["ts"], "method": rec["method"],
+                    "url": rec["url"], "status": rec["status"],
+                    "ms": rec["ms"], "bytes": rec["resp_len"],
+                }, ensure_ascii=False) + "\n")
+            self.saved += 1
 
 
 def make_record(cfg, store, scheme, host, port, method, path, req_headers,
                 req_body, req_truncated) -> dict:
-    rid = f"{store.next_id():04d}"
     rec = {
-        "id": rid,
+        "id": None,
         "ts": iso(now_local()),
         "scheme": scheme, "host": host, "port": port,
         "method": method,
@@ -683,7 +682,7 @@ def request_upstream(cfg, scheme, host, port, method, path, headers, body):
             resp_body = b""
         elif "chunked" in hget(resp_headers, "transfer-encoding").lower():
             resp_body = read_chunked(up.conn, limit)
-        elif hget(resp_headers, "transfer-length") or hget(resp_headers, "content-length"):
+        elif hget(resp_headers, "content-length"):
             cl = int(hget(resp_headers, "content-length") or 0)
             if cl > limit:
                 resp_body = up.conn.read_exact(limit)
@@ -775,10 +774,6 @@ def serve_local_http(sock, method, path, headers) -> bool:
 # --------------------------------------------------------------------------
 # 主流程
 # --------------------------------------------------------------------------
-def next_id_for(store) -> str:
-    return f"{store.next_id():04d}"
-
-
 def handle_tunnel(tls, host_hint: str, port_hint: int, cfg, store: Store):
     conn = Conn(tls)
     tls.settimeout(cfg.timeout)
