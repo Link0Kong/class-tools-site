@@ -12,7 +12,7 @@
     color:#23302E;-webkit-font-smoothing:antialiased}
   #app{position:relative;width:100vw;height:100vh;overflow:hidden;background:
     radial-gradient(120% 90% at 50% 6%,#FBFAF3 0%,#F1F3E7 46%,#E7ECDF 100%)}
-  #scene{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+  #scene{position:fixed;left:0;top:0;width:100vw;height:100vh;display:block;touch-action:none;cursor:grab}
   #scene.dragging{cursor:grabbing}
   /* ---------------- topbar ---------------- */
   .topbar{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:12px;
@@ -456,8 +456,11 @@ var DATA = {"vb":[848,493],"features":[{"id":"B378392","k":"bld","t":"polygon","
     // restore saved pan? reset camera on resize is fine
   }
   function resize() {
-    DPR = Math.min(2, window.devicePixelRatio || 1);
-    W = canvas.clientWidth; H = canvas.clientHeight;
+    DPR = Math.min((/Android|wv\)/i.test(navigator.userAgent) ? 1.25 : 2), window.devicePixelRatio || 1);
+    W = canvas.clientWidth || window.innerWidth || document.documentElement.clientWidth || 0;
+    H = canvas.clientHeight || window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!W || !H) return; /* WebView 初次布局可能尚未完成，由下方定时重试 */
+    canvas.style.width = W + "px"; canvas.style.height = H + "px";
     canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     fit();
@@ -1815,6 +1818,11 @@ var DATA = {"vb":[848,493],"features":[{"id":"B378392","k":"bld","t":"polygon","
   updateCard();
   resize();
   setTimeout(function () { drawMini(); }, 60);
+  /* WebView/移动端：脚本执行时可能还未完成布局，canvas.clientHeight=0；多帧重试直到可用。 */
+  window.addEventListener("resize", function () { try { resize(); } catch (e) {} });
+  [40, 120, 300, 700].forEach(function (ms) {
+    setTimeout(function () { try { if (!canvas.height) resize(); } catch (e) {} }, ms);
+  });
   /* 调试/截图锚点（正常使用无影响） */
   if (location.hash === "#flat") setMode("flat");
   if (location.hash === "#floor") openFloor("B40");
