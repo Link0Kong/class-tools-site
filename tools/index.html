@@ -2545,23 +2545,6 @@ a.rec-link{color:var(--cy);word-break:break-all}
   .ug-ov.on,.ug-ov-sheet{animation:none}
   .ug-prog i{transition:none}
 }
-/* ---------------- 活动（第二课堂 · 本机助手） ---------------- */
-.ac-hd{display:flex;align-items:center;gap:10px;justify-content:space-between}
-.ac-state{font-size:12px;color:#6b7280}
-.ac-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-.ac-item{border:1px solid #e6e9e8;border-radius:12px;padding:10px 12px;background:#fff}
-.ac-item .t{font-weight:600;font-size:15px;line-height:1.35;margin-bottom:4px}
-.ac-sub{font-size:12px;color:#6b7280;display:flex;gap:12px;flex-wrap:wrap}
-.ac-left{color:#4e9082;font-weight:600}
-.ac-full{color:#b98f63;font-weight:600}
-.ac-roles{margin-top:8px;font-size:13px}
-.ac-roles .r{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px dashed #eef1f0}
-.ac-roles .r span{flex:1;min-width:0}
-.ac-off{padding:14px;border-radius:12px;background:#f4f7f6;font-size:13px;line-height:1.9}
-.ac-off code{background:#e8efed;padding:1px 5px;border-radius:5px}
-.ac-btns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
-.ac-item .btn.sm{padding:6px 12px;font-size:13px}
-
 /* 校内地图 */
 #s-map .maphead{display:flex;align-items:center;gap:10px;margin:0 0 10px}
 #s-map .maphead b{font-size:18px;color:var(--ink)}
@@ -3146,24 +3129,6 @@ a.rec-link{color:var(--cy);word-break:break-all}
     </div>
   </section>
 <!-- __WEB_B2_FILE_END__ -->
-  <!-- ==================== 活动（第二课堂 · 本机助手） ==================== -->
-  <section id="s-activity">
-    <div class="card">
-      <div class="ac-hd">
-        <b>活动</b>
-        <div class="row">
-          <span class="ac-state" id="acState">连接中…</span>
-          <button class="btn ghost sm" id="acRefresh" type="button">刷新</button>
-        </div>
-      </div>
-      <div class="ac-list" id="acList"></div>
-      <div class="ac-off" id="acOff" hidden>
-        <b>本机助手未运行</b><br>
-        启动：<code>python activity\agent.py serve</code><br>
-        首次：<code>python activity\agent.py import-token</code>
-      </div>
-    </div>
-  </section>
   <!-- ==================== 全部 ==================== -->
   <section id="s-map">
     <div class="maphead"><b>校内地图</b><span>2.5D · 按道路导航</span><a id="mapFull" href="/map/campus_final_25d.html" target="_blank" rel="noopener">全屏打开</a></div>
@@ -5605,7 +5570,6 @@ var TOOLS=[
  {k:"diag",n:"诊断",d:"服务与设备诊断"},
  {k:"water",n:"水量",d:"抄表与水费计算"},
  {k:"vote",n:"投票",d:"发起投票与查看结果"},
- {k:"activity",n:"活动",d:"第二课堂活动与报名"},
  {k:"ppt",n:"演示",d:"PPT 上传、下载与播放"},
  {k:"map",n:"地图",d:"校园 2.5D 地图与道路导航"},
  {k:"jw",n:"教务",d:"成绩、选课与考试",url:"http://210.34.74.77/sso.jsp"}];
@@ -5616,7 +5580,7 @@ var MAP={frame:null,room:"",ready:false,
     if(this.frame)return this.frame;
     this.frame=document.getElementById("mapFrame");
     if(!this.frame)return null;
-    var base="/map/campus_final_25d.html?embed=1";
+    var base="/map/campus_final_25d.html?embed=1&v=20261115";
     if(this.room)base+="&room="+encodeURIComponent(this.room);
     this.frame.src=base;
     var self=this;
@@ -5682,7 +5646,6 @@ function gotoTab(k,noScroll){
   if(k==="water") WATER.enter();
   if(k==="ppt"){try{if(typeof PPT!=="undefined"&&PPT&&PPT.enter)PPT.enter();}catch(e){}}
   if(k==="vote"){try{if(typeof VOTE!=="undefined"&&VOTE&&VOTE.enter)VOTE.enter();}catch(e){}}
-  if(k==="activity"){try{if(typeof ACTIVITY!=="undefined"&&ACTIVITY&&ACTIVITY.enter)ACTIVITY.enter();}catch(e){}}
   if(k==="map"){try{if(window.MAP)MAP.enter();}catch(e){}}
   if(k==="fb"){
     if(canManage()){
@@ -19542,95 +19505,6 @@ try{
     writable:false,configurable:false,enumerable:true});
 }catch(e){}
 })();
-/* ==================== 活动（第二课堂 · 本机助手） ====================
-   页面只负责展示/确认；真正调学校接口的是本机 activity\agent.py（127.0.0.1:8790）。
-   助手没启动时页面给启动提示，不发任何失败重试。 */
-var ACTIVITY=(function(){
-  var BASE="http://127.0.0.1:8790";
-  var items=[], bound=false;
-  function pad(n){return n<10?"0"+n:""+n;}
-  function fmt(ms){if(!ms)return "—";var d=new Date(ms);return pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes());}
-  function api(path,opt){return fetch(BASE+path,opt||{}).then(function(r){return r.json();});}
-  function setState(t){var e=$("#acState");if(e)e.textContent=t;}
-  function showOff(on){var o=$("#acOff");if(o)o.hidden=!on;}
-  function render(){
-    var box=$("#acList");if(!box)return;
-    if(!items.length){box.innerHTML='<div class="ac-off">没有可报名的活动</div>';return;}
-    var h="";
-    items.forEach(function(a){
-      h+='<div class="ac-item" data-id="'+esc(a.id)+'">'+
-         '<div class="t">'+esc(a.name)+'</div>'+
-         '<div class="ac-sub"><span>报名 '+esc(fmt(a.supBeginTime))+' ~ '+esc(fmt(a.supEndTime))+
-         '</span><span>活动 '+esc(fmt(a.actBeginTime))+'</span></div>'+
-         '<div class="ac-btns"><button class="btn ghost sm" type="button" data-act="detail">查看名额</button></div>'+
-         '</div>';
-    });
-    box.innerHTML=h;
-  }
-  function load(){
-    showOff(false);setState("加载中…");
-    return api("/list?rows=30").then(function(d){
-      if(!d||!d.ok)throw new Error((d&&d.error)||"加载失败");
-      items=d.items||[];setState("共 "+(d.total||items.length)+" 条");render();
-    }).catch(function(){showOff(true);setState("未连接");});
-  }
-  function detail(id,item){
-    api("/detail/"+encodeURIComponent(id)).then(function(d){
-      if(!d||!d.ok){toast("详情加载失败");return;}
-      var h='<div class="ac-roles">';
-      (d.roles||[]).forEach(function(r){
-        var left=(r.numLimit==null)?null:(r.numLimit-(r.signUpNum||0));
-        var q=(r.numLimit==null)?("已报 "+(r.signUpNum||0)):((r.signUpNum||0)+"/"+r.numLimit);
-        var cls=(left!=null&&left<=0)?"ac-full":"ac-left";
-        h+='<div class="r"><span><b>'+esc(r.name||"角色")+'</b> · <i class="'+cls+'" style="font-style:normal">'+
-           esc(q+(left!=null?("，剩 "+Math.max(0,left)):""))+'</i></span>'+
-           '<button class="btn ghost sm" type="button" data-act="sign" data-role="'+esc(r.supRoleId||"")+'">报名</button></div>';
-      });
-      h+='</div><div class="ac-btns"><button class="btn ghost sm" type="button" data-act="cancel">取消报名</button></div>';
-      item.innerHTML='<div class="t">'+esc(d.name||"")+'</div>'+h;
-    }).catch(function(){toast("详情加载失败");});
-  }
-  function sign(id,roleId,btn){
-    if(!window.confirm("确认报名这个活动？"))return;
-    btn.disabled=true;
-    api("/sign/"+encodeURIComponent(id),{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({apply:true,roleId:roleId||""})})
-      .then(function(d){btn.disabled=false;toast(d&&d.ok?"报名成功":"报名失败");})
-      .catch(function(){btn.disabled=false;toast("报名失败");});
-  }
-  function cancel(id,btn){
-    if(!window.confirm("确认取消报名？"))return;
-    btn.disabled=true;
-    api("/cancel/"+encodeURIComponent(id),{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({apply:true})})
-      .then(function(d){btn.disabled=false;toast(d&&d.ok?"已取消":"取消失败");})
-      .catch(function(){btn.disabled=false;toast("取消失败");});
-  }
-  function bind(){
-    if(bound)return;bound=true;
-    var box=$("#acList");if(!box)return;
-    box.addEventListener("click",function(e){
-      var b=e.target&&e.target.closest?e.target.closest("[data-act]"):null;
-      if(!b)return;
-      var item=b.closest(".ac-item");if(!item)return;
-      var id=item.getAttribute("data-id"),act=b.getAttribute("data-act");
-      if(act==="detail"){b.textContent="刷新名额";detail(id,item);}
-      else if(act==="sign")sign(id,b.getAttribute("data-role"),b);
-      else if(act==="cancel")cancel(id,b);
-    });
-    var rf=$("#acRefresh");if(rf)rf.addEventListener("click",function(){load();});
-  }
-  function enter(){
-    bind();showOff(false);setState("连接中…");
-    api("/health").then(function(d){
-      if(!d||!d.ok)throw new Error("bad");
-      if(!d.hasToken){showOff(true);setState("未导入 token");return;}
-      load();
-    }).catch(function(){showOff(true);setState("未连接");});
-  }
-  return {enter:enter,load:load,_list:function(){return items;}};
-})();
-try{Object.defineProperty(window,"ACTIVITY",{value:ACTIVITY,writable:false,configurable:false,enumerable:true});}catch(e){}
 </script>
 </body>
 </html>
