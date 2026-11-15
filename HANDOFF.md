@@ -3298,7 +3298,7 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 用户原话：「对三端使用说明进行重构，从文字堆叠改为卡片展示，左右滑动切换卡片，且加入一键总览等按钮的形式，可加入一定配图对功能说明，重写使用说明，使其更清晰易懂」。
 - 唯一共享契约 **`使用说明_卡片化重构契约_20261112.md`**：一屏一张卡 + 左右滑动 + 一键总览 + 分类快捷标签 + 上一张/下一张 + 11 种配图 scene（picks/steps/grid/list/chart/people/transfer/ballot/droplet/shield/slides）+ 文案硬规则（标题≤8 / 作用≤20 / 步骤≤24 / 提示≤30）；三端按本端真实功能实现，不写别端入口、不写实现细节。
 
-### Web（`tools/index.html`）
+### Web（`tools/index.html`，APP_VER 仍 2.0.0，已上线 OSS+ECS）
 - 新块 `__UG_CARDS_V1__`（CSS 在 `</style>` 前、HTML 替换 `#s-ug`、JS 在主 IIFE 末尾）：`#s-ug` = `.ug-shell`（标题行 + 总览按钮 + 分类 chips + `.ug-track` 横向 scroll-snap 轮播 + 上/下一张 + 页码 + 进度条 + `.ugver`）+ `#ugOv` 总览弹层 + 隐藏 `<svg class="ug-sprite">`（11 个 symbol 配图，固定 cy/bl/sd/白 + 低透明阴影）。
 - 数据单一真源 `UG.CARDS`（17 张）→ 卡片 DOM 与总览清单都由它渲染；`UG` 返回 `{cards,cats,onShow,open,close,go,idx,built,count}` 只读探针。
 - 轮播：原生 overflow-x + `scroll-snap-type:x mandatory`（跟手/惯性交给浏览器；另实现鼠标 pointer 拖动 + 拖后 snap）、`go()` 用 `scrollTo({behavior:"smooth"})`、`onScroll` rAF 同步页码/分类高亮/首尾 disabled；`MutationObserver` 监听 `#s-ug` class，切回 tab 时把 `scrollLeft` 复位到当前卡（避免 display:none 重置）。
@@ -3557,3 +3557,31 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 云端：`DROP TABLE IF EXISTS public.push_tokens;`（不影响现有通知）。
 - 服务端：删除/清空 `C:\briefdesk\secrets\oppo-push.json` 即自动跳过；删除 `detect_docs.py` 调用块可彻底停用。
 - 已知限制：仅 ColorOS/OPPO 系设备支持；正式权限受上架限制；用户关通知/ROM 清理后台可能收不到；未真机验证前不承诺到达率。
+
+---
+
+## 2026-11-15 13:50–15:0x · 增量 61：网页 + 安卓新增「学信网」入口——网页官方工具卡片页（手机优先 2/3/4 列；已上线 OSS+ECS）+ 安卓卡片页/数据卡（4.53.0 APK 已交付）；小程序不动
+
+### 需求与规格
+- 用户原话（2026-11-15 13:50）：「以相同方式引入学信网入口，同样将内部常用工具做成卡片，整体页面要适配手机」。
+- 唯一规格 `_audit/chsi_entry_20261115/CHSI_ENTRY_SPEC.md`（§1 = 10 个 2026-11-15 实测官方 URL）；口径：网页 = 站内「学信网」官方工具入口卡片页（不抓数据、不内嵌、不保存账号）；安卓 = 数据卡 + 手动登录（另一任务）；小程序不动。任务单原写「增量 57」，因 57–60 已被 11-14 其它增量占用，按编号顺延为 **61**。
+
+### Web（`tools/index.html`，APP_VER 仍 2.0.0，未部署）
+- `TOOLS` 末尾追加（约 5615 行）：`{k:"chsi",n:"学信网",d:"学籍 · 学历 · 学位；官方入口卡"}`；`ALL_TONE.chsi="blue"`（约 5750 行）。
+- `#s-chsi`（`__CHSI_ENTRY_V1_BEGIN__` 约 3109 行 / `END__` 约 3129 行；`#s-vote` 之后、`__WEB_B2_FILE_BEGIN__`(3130) 之前）：头部卡片「学信网」「中国高等教育学生信息网 · 官方入口」「学信档案/照片校对需登录学信网账号」+ 10 张官方工具卡（规格 §1 顺序与 URL 逐字：学信档案 / 学籍/学历查询 / 学位查询 / 在线验证报告 / 报告在线验证 / 学历认证报告 / 照片校对 / 研招网 / 学职平台 / 帮助中心）；每卡 `<a class="chsi-card" href target="_blank" rel="noopener noreferrer">`，短名 + 说明 + 徽标（规格「是」3 张=需登录；「部分」2 张=部分需登录）。
+- CSS `__CHSI_ENTRY_V1_CSS__`（约 2558 行起，`</style>` 前）：`grid-template-columns:repeat(auto-fill,minmax(140px,1fr))`；`@media (min-width:640px)`→3 列、`(min-width:960px)`→4 列；卡片 `min-height:88px`（点按 ≥44px）、`overflow-wrap:anywhere`；无固定宽度/横向滚动；360/390/430=2 列无溢出，1280=4 列。
+- 红线：加载/切页对学信网零请求（全 HTML 仅 10 处 `chsi.com.cn`，全部是 href，点击才跳转）；不 iframe 内嵌、不采集账号密码；单文件零依赖。UG CARDS 追加第 19 张 `chsi` 卡（约 19282 行起，cat study / scene grid / 3 步 + tip）。AGENTS §4b 按 Lead 要求本增量不动。
+
+### 测试与回归（实跑）
+- 新增 `tools/tests/v2_chsi_check.py` **54/54**（静态 15 + 运行时 39）：430/360/390/1280 四档 × 两条进入路径（`gotoTab("chsi")`、「全部」页点 `#allCards [data-card="chsi"]`）；10 卡 href 顺序=规格 §1 + target/rel；头部文案逐字；徽标 3+2；网格列数 430/360/390=2、1280=4；卡片点按 88px≥44；无横向溢出；0 JS 报错 / 0 console.error / 0 外部请求（performance resource 不含 chsi.com.cn）；截图 5 张 `tools/tests/_shots_chsi/`。
+- 截图 harness 修正（本测试内）：headless Edge `--window-size` 最小窗宽导致外页视口恒 ~492，旧 `margin:0 auto` 会让 iframe 左偏 31–66px、PNG 右侧被裁；本测试改 iframe 左对齐 → 手机截图完整（其它旧测试 harness 未改，不影响其断言）。
+- 回归：overflow 430/360/390=0、v2_ui 27/27、v2_drag 69/69、v2_ug 56/56（18→19 计数期望更新，未放宽断言）、optim_v1 GREEN、optim_v2 main 16 + admin 70 + hash 4 GREEN；额外 v2_jw 55/55。
+- `v2_drag_check` 适配（如实）：全部页 +1 张卡使高度 +130px，M 边缘自动滚动用例固定 `scrollTo(35%)` 后 handle 落进 sticky 工具栏（y≈18px，按下落空）→ 增加「handle 若贴近顶栏/视口外则先滚到卡片居中再取安全落点」兜底（M1/M3/M4 断言不变；HEAD 基线 69/69、修改后 69/69）。
+- `v2_jw_check` 过期断言修正（如实）：S2 原要求 jw 为 TOOLS 最后一项（本增量 chsi 在其后 → 改为「jw 逐字存在且其后为 chsi」）；S9 UG 卡数 18→19；J5 说明文案在 11-14 增量 57 已精简（**S2/J5 改前 HEAD 基线即已红，非本任务引入**）。实跑 55/55。
+- 测试身份 `SID=9999000005 / 测试同学`（9999 段 mock）；未使用真实学号/真实学信网账号/真实写云端。
+
+### 状态 / 回滚 / 取舍
+
+- **网页已上线 OSS+ECS**：线上 **1,245,831 B / sha256 `9f93306be176892ce5aff187e19979336fb5462e36f2e3c5766ab0327d56ba72`**（`oss_object check` MATCH；`ecs_site verify` MATCH，gzip 391,472 B；ECS 直连实取同字节且含 `#s-chsi`/10 卡/`chsi-grid`/`APP_VER 2.0.0`）；部署前备份 `tools/_backup/index_online_20261115-1414_preChsi.html`（1,241,167 B/`000f0787…`）。Lead 独立复跑 v2_chsi 54/54、overflow 430/360/390=0、v2_ui 27/27、v2_drag 69/69、v2_ug 56/56、v2_jw 55/55。APP_VER 2.0.0；无 DB / `userdata` v6 / 云函数变更。
+- **安卓端同批交付**：v4.53.0/vc71 APK `artifacts/classtools-4.53.0-release-signed.apk` **3,284,845 B / SHA-256 `DA22AC202FFC77B0C54803E94CADACC43BDD80FFA17314217C27DE6F6F9E14BC`**（手动登录学信网 + 学籍/学历/学位/在线验证报告数据卡 + 10 官方入口卡 + 桌面版/手机版 UA 切换；窄屏 2 列/≥600dp 3 列；数据仅内存、证件号/手机号掩码、不保存学信网密码；单测 1276/0（100 suites，新增 26）；未真机/真实账号验证——红线）。
+- 本次改动 hunk：CSS `+2558`、`#s-chsi` `+3108`、TOOLS `+5614`、ALL_TONE `+5750`、UG `+19281`；git diff 另含并行地图会话 1 行 WIP（`...&v=202611152305`，未触碰，随本文件一并提交/部署；路径不变仅缓存版本号）。

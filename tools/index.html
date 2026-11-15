@@ -2555,6 +2555,23 @@ a.rec-link{color:var(--cy);word-break:break-all}
 .nextbox .nmap{display:block;margin-top:8px;border:1px solid var(--line);background:#fff;color:var(--primary);border-radius:9px;padding:6px 10px;font:inherit;font-size:12px;cursor:pointer}
 .nextbox .nmap:active{transform:scale(.98)}
 @media (max-width:760px){#s-map .mapframe{height:calc(100vh - 156px);min-height:420px;border-radius:12px}#s-map .maphead b{font-size:16px}}
+/* ========== __CHSI_ENTRY_V1_CSS__ 学信网入口（2026-11-15） ==========
+   纯静态官方工具入口卡（不抓数据、不内嵌、加载不请求外网）。
+   手机 360/390/430 → 2 列；≥640 → 3 列；≥960 → 4 列；文字任意处换行，页面无横向溢出。 */
+#s-chsi .chsi-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 10px;margin:0 0 12px}
+#s-chsi .chsi-head b{font-size:18px;font-weight:800;letter-spacing:.01em;color:var(--ink);line-height:1.3}
+#s-chsi .chsi-head span{font-size:11.5px;color:var(--ink3);line-height:1.5}
+#s-chsi .chsi-tip{flex-basis:100%;font-size:11.5px;color:var(--ink3);line-height:1.5}
+#s-chsi .chsi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+#s-chsi .chsi-card{position:relative;display:flex;flex-direction:column;gap:3px;min-width:0;min-height:88px;padding:12px 13px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);text-decoration:none;overflow-wrap:anywhere;word-break:break-word;transition:border-color var(--ui-dur-fast) var(--ui-ease),background-color var(--ui-dur-fast) var(--ui-ease)}
+#s-chsi .chsi-card b{font-size:14px;font-weight:800;line-height:1.35;overflow-wrap:anywhere}
+#s-chsi .chsi-card>span{font-size:11.5px;line-height:1.5;color:var(--ink3);overflow-wrap:anywhere}
+#s-chsi .chsi-card em{align-self:flex-start;margin-top:auto;padding:1px 7px;border-radius:999px;background:#EDF2F7;color:#4C6B85;font-style:normal;font-size:10.5px;font-weight:700;line-height:1.6;white-space:nowrap}
+#s-chsi .chsi-card:hover{border-color:var(--bl);background:#F7FAFC}
+#s-chsi .chsi-card:active{background:#EEF4F8}
+#s-chsi .chsi-card:focus-visible{outline:2px solid var(--cy);outline-offset:2px}
+@media (min-width:640px){#s-chsi .chsi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:960px){#s-chsi .chsi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 </style>
 </head>
 <body class="auth-pending">
@@ -3088,6 +3105,28 @@ a.rec-link{color:var(--cy);word-break:break-all}
       </div>
     </div>
   </section>
+  <!-- ==================== 学信网（官方工具入口卡 · 手机优先网格） ==================== -->
+  <!-- __CHSI_ENTRY_V1_BEGIN__ -->
+  <section id="s-chsi">
+    <div class="card chsi-head">
+      <b>学信网</b>
+      <span>中国高等教育学生信息网 · 官方入口</span>
+      <div class="chsi-tip">学信档案/照片校对需登录学信网账号</div>
+    </div>
+    <div class="chsi-grid">
+      <a class="chsi-card" href="https://my.chsi.com.cn/archive/index.jsp" target="_blank" rel="noopener noreferrer"><b>学信档案</b><span>学籍 · 学历 · 学位</span><em>需登录</em></a>
+      <a class="chsi-card" href="https://www.chsi.com.cn/xlcx/lscx.jsp" target="_blank" rel="noopener noreferrer"><b>学籍/学历查询</b><span>公开查询</span></a>
+      <a class="chsi-card" href="https://www.chsi.com.cn/xwcx/index.jsp" target="_blank" rel="noopener noreferrer"><b>学位查询</b><span>公开查询</span></a>
+      <a class="chsi-card" href="https://my.chsi.com.cn/archive/bab/index.jsp" target="_blank" rel="noopener noreferrer"><b>在线验证报告</b><span>申请 / 查看报告</span><em>需登录</em></a>
+      <a class="chsi-card" href="https://www.chsi.com.cn/xlcx/bgcx.jsp" target="_blank" rel="noopener noreferrer"><b>报告在线验证</b><span>用人单位核验</span></a>
+      <a class="chsi-card" href="https://www.chsi.com.cn/xlrz/index.jsp" target="_blank" rel="noopener noreferrer"><b>学历认证报告</b><span>认证服务</span></a>
+      <a class="chsi-card" href="https://my.chsi.com.cn/archive/xlzp/index.jsp" target="_blank" rel="noopener noreferrer"><b>照片校对</b><span>校对学历照片</span><em>需登录</em></a>
+      <a class="chsi-card" href="https://yz.chsi.com.cn/" target="_blank" rel="noopener noreferrer"><b>研招网</b><span>考研报名 / 成绩</span><em>部分需登录</em></a>
+      <a class="chsi-card" href="https://xz.chsi.com.cn/" target="_blank" rel="noopener noreferrer"><b>学职平台</b><span>就业 / 职业发展</span><em>部分需登录</em></a>
+      <a class="chsi-card" href="https://www.chsi.com.cn/help/" target="_blank" rel="noopener noreferrer"><b>帮助中心</b><span>常见问题</span></a>
+    </div>
+  </section>
+  <!-- __CHSI_ENTRY_V1_END__ -->
 <!-- __WEB_B2_FILE_BEGIN__ -->
   <!-- ==================== 文件传输（临时云空间：同账号跨设备 · 分片上传不限大小 · 文件保留 3 天） ==================== -->
   <section id="s-file">
@@ -5572,7 +5611,8 @@ var TOOLS=[
  {k:"vote",n:"投票",d:"发起投票与查看结果"},
  {k:"ppt",n:"演示",d:"PPT 上传、下载与播放"},
  {k:"map",n:"地图",d:"校园 2.5D 地图与道路导航"},
- {k:"jw",n:"教务",d:"成绩、选课与考试",url:"http://210.34.74.77/sso.jsp"}];
+ {k:"jw",n:"教务",d:"成绩、选课与考试",url:"http://210.34.74.77/sso.jsp"},
+ {k:"chsi",n:"学信网",d:"学籍 · 学历 · 学位；官方入口卡"}];
 
 /* ---------------- 校内地图：iframe 宿主 + 与课表联动 ---------------- */
 var MAP={frame:null,room:"",ready:false,
@@ -5580,7 +5620,7 @@ var MAP={frame:null,room:"",ready:false,
     if(this.frame)return this.frame;
     this.frame=document.getElementById("mapFrame");
     if(!this.frame)return null;
-    var base="/map/campus_final_25d.html?embed=1&v=20261115";
+    var base="/map/campus_final_25d.html?embed=1&v=202611152305";
     if(this.room)base+="&room="+encodeURIComponent(this.room);
     this.frame.src=base;
     var self=this;
@@ -5707,7 +5747,7 @@ function renderTabs(noScroll){
 }
 
 /* 全部栏卡片色调：课表雾蓝 · 作业/反馈睡莲青 · 抽签/体测暖沙 · 班委/点名/统计紫 · 通知灰粉 · 使用说明中性 */
-var ALL_TONE={draw:"sand",tt:"blue",committee:"violet",hw:"mint",nt:"rose",ft:"sand",roll:"violet",stats:"violet",water:"blue",vote:"teal",map:"teal",jw:"blue"};
+var ALL_TONE={draw:"sand",tt:"blue",committee:"violet",hw:"mint",nt:"rose",ft:"sand",roll:"violet",stats:"violet",water:"blue",vote:"teal",map:"teal",jw:"blue",chsi:"blue"};
 /* ============================================================
    全部页卡片拖动 v2（2026-11-06；2026-11-11 定位基准 = 卡片本体）
    - 起点：卡片右上 handle（三条横线）；移动 >6px 才进入拖动
@@ -19238,7 +19278,10 @@ var UG=(function(){
      tip:"反馈不会公开你的学号"},
     {id:"jw",cat:"study",title:"教务入口",sub:"点卡片直接打开教务系统",scene:"list",tone:"blue",
      steps:["点『教务』卡片直接打开教务系统","首次登录时勾选浏览器『保存密码』","之后打开即自动填充账号密码"],
-     tip:"自动填充由浏览器完成；校外打不开时先连学校 VPN"}
+     tip:"自动填充由浏览器完成；校外打不开时先连学校 VPN"},
+    {id:"chsi",cat:"study",title:"学信网入口",sub:"学信档案、学历学位查询官方入口",scene:"grid",tone:"blue",
+     steps:["工具栏或「全部」页打开学信网","点工具卡在新窗口打开官方页面","学信档案/照片校对需先登录学信网账号"],
+     tip:"本站不保存学信网账号；查询与报告以官方页面为准"}
   ];
   var N=CARDS.length, idx=0, built=false, track=null, catsEl=null, ovEl=null, ovList=null,
       prevB=null, nextB=null, countEl=null, progEl=null, ovBtn=null, ovClose=null, ovReturn=null,

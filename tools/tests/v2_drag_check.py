@@ -659,6 +659,15 @@ def run(cdp):
         cdp.eval("window.scrollTo(0,%d)" % int(cdp.eval("Math.round(document.documentElement.scrollHeight*0.35)")))
         time.sleep(0.35)
         minfo = handle_rect(cdp, "roll")
+        if minfo:
+            # 全部页高度会随工具卡数量/说明文案变化：固定 35% 位置可能把 handle 压进 sticky 工具栏
+            # 下方或移出视口（按下落空 → 自动滚动不触发）。此时滚到卡片居中再取安全落点，
+            # 仍保持「页面中段可向上/向下自动滚动」的测试意图（断言不变）。
+            ihM = int(cdp.eval("window.innerHeight"))
+            if minfo["y"] < 72 or minfo["y"] > ihM - 60:
+                cdp.eval("(function(){var c=document.querySelector('#allCards [data-card=\"roll\"]');if(c&&c.scrollIntoView)c.scrollIntoView({block:'center'});return 1;})()")
+                time.sleep(0.4)
+                minfo = handle_rect(cdp, "roll")
         if not minfo:
             T("M0b 起始卡片定位（roll2）", False, "missing")
         else:

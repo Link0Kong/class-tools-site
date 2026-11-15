@@ -2,7 +2,7 @@
 """v2.0.0 使用说明卡片化重构专项自检（__UG_CARDS_V1__）
 覆盖：
   静态：卡片轮播结构 / 一键总览 / 上下一张 / 分类 chips / 11 个配图 symbol / 无 <p> / 零外部资源 /
-        18 张卡片数据 / 滑动引擎排除 / .ugver 版本位 / APP_VER 不变；
+        19 张卡片数据 / 滑动引擎排除 / .ugver 版本位 / APP_VER 不变；
   运行时（430×940 / 360×780 / 390×844 / 1280×900）：卡片数、页码、上一张/下一张、分类跳转、
         总览开关与跳转、键盘、Esc、无横向溢出、0 JS 报错、0 console.error、0 外部请求、不误切工具；
   截图：430 初始卡 / 430 总览 / 1280 桌面卡，落盘 tools/tests/_shots_ug/。
@@ -133,42 +133,42 @@ async function run(){
     w.__ugtest.gotoTab("ug");
     await sleep(500);
     var cards=qa(f,"#s-ug .ug-card");
-    T("R1 430 下渲染 18 张卡片", cards.length===18, cards.length);
-    T("R2 初始页码 1 / 18", txt(f,"#ugCount")==="1 / 18", txt(f,"#ugCount"));
+    T("R1 430 下渲染 19 张卡片", cards.length===19, cards.length);
+    T("R2 初始页码 1 / 19", txt(f,"#ugCount")==="1 / 19", txt(f,"#ugCount"));
     T("R3 初始「上一张」禁用、「下一张」可用", q(f,"#ugPrev").disabled===true && q(f,"#ugNext").disabled===false, "");
     T("R4 轮播容器可横滑（scrollWidth>clientWidth）", q(f,"#ugTrack").scrollWidth>q(f,"#ugTrack").clientWidth+10, "");
-    T("R5 每张卡都有配图（svg use → #ugIco*）", qa(f,"#s-ug .ug-card .ug-hero svg use").length===18 &&
+    T("R5 每张卡都有配图（svg use → #ugIco*）", qa(f,"#s-ug .ug-card .ug-hero svg use").length===19 &&
         qa(f,"#s-ug .ug-card .ug-hero svg use").every(function(u){return String(u.getAttribute("href")||"").indexOf("#ugIco")===0;}), 
         qa(f,"#s-ug .ug-card .ug-hero svg use").length);
-    T("R6 每张卡有分类胶囊 + 3 条步骤 + 提示", qa(f,"#s-ug .ug-card .ug-pill").length===18 &&
-        qa(f,"#s-ug .ug-card .ug-steps li").length===54 && qa(f,"#s-ug .ug-card .ug-tip").length===18, 
+    T("R6 每张卡有分类胶囊 + 3 条步骤 + 提示", qa(f,"#s-ug .ug-card .ug-pill").length===19 &&
+        qa(f,"#s-ug .ug-card .ug-steps li").length===57 && qa(f,"#s-ug .ug-card .ug-tip").length===19, 
         qa(f,"#s-ug .ug-card .ug-steps li").length);
 
     click(f,"#ugNext"); await sleep(120);
-    T("R7 点「下一张」→ 2 / 18", txt(f,"#ugCount")==="2 / 18", txt(f,"#ugCount"));
+    T("R7 点「下一张」→ 2 / 19", txt(f,"#ugCount")==="2 / 19", txt(f,"#ugCount"));
     click(f,"#ugPrev"); await sleep(120);
-    T("R8 点「上一张」→ 1 / 18 且上一张再次禁用", txt(f,"#ugCount")==="1 / 18" && q(f,"#ugPrev").disabled===true, txt(f,"#ugCount"));
+    T("R8 点「上一张」→ 1 / 19 且上一张再次禁用", txt(f,"#ugCount")==="1 / 19" && q(f,"#ugPrev").disabled===true, txt(f,"#ugCount"));
 
     var chips=qa(f,"#s-ug .ug-cat");
     T("R9 分类 chips 5 个且存在 on 态", chips.length===5 && qa(f,"#s-ug .ug-cat.on").length===1, chips.length);
     click(f,'#s-ug .ug-cat[data-cat="life"]'); await sleep(160);
-    T("R10 点「生活」→ 跳到第 11 张（宿舍电费）", txt(f,"#ugCount")==="11 / 18", txt(f,"#ugCount"));
+    T("R10 点「生活」→ 跳到第 11 张（宿舍电费）", txt(f,"#ugCount")==="11 / 19", txt(f,"#ugCount"));
     T("R11 当前分类高亮跟随（生活 on）", q(f,'#s-ug .ug-cat[data-cat="life"]').classList.contains("on"), "");
 
     click(f,"#ugOvBtn"); await sleep(160);
     T("R12 一键总览打开", q(f,"#ugOv").classList.contains("on"), "");
-    T("R13 总览含 18 个条目 / 5 个分组", qa(f,"#ugOv .ug-ov-row").length===18 && qa(f,"#ugOv .ug-ov-grp").length===5,
+    T("R13 总览含 19 个条目 / 5 个分组", qa(f,"#ugOv .ug-ov-row").length===19 && qa(f,"#ugOv .ug-ov-grp").length===5,
         qa(f,"#ugOv .ug-ov-row").length+"/"+qa(f,"#ugOv .ug-ov-grp").length);
     click(f,'#ugOv .ug-ov-row[data-i="3"]'); await sleep(260);
-    T("R14 点总览条目 → 关闭并跳到第 4 张", !q(f,"#ugOv").classList.contains("on") && txt(f,"#ugCount")==="4 / 18",
+    T("R14 点总览条目 → 关闭并跳到第 4 张", !q(f,"#ugOv").classList.contains("on") && txt(f,"#ugCount")==="4 / 19",
         txt(f,"#ugCount"));
 
     var kd=f.contentDocument; 
     function key(k){var e=new w.KeyboardEvent("keydown",{key:k,bubbles:true,cancelable:true});kd.dispatchEvent(e);}
     key("ArrowRight"); await sleep(160);
-    T("R15 → 键切到下一张（5 / 18）", txt(f,"#ugCount")==="5 / 18", txt(f,"#ugCount"));
+    T("R15 → 键切到下一张（5 / 19）", txt(f,"#ugCount")==="5 / 19", txt(f,"#ugCount"));
     key("ArrowLeft"); await sleep(160);
-    T("R16 ← 键切回上一张（4 / 18）", txt(f,"#ugCount")==="4 / 18", txt(f,"#ugCount"));
+    T("R16 ← 键切回上一张（4 / 19）", txt(f,"#ugCount")==="4 / 19", txt(f,"#ugCount"));
     click(f,"#ugOvBtn"); await sleep(120); key("Escape"); await sleep(160);
     T("R17 Esc 关闭总览", !q(f,"#ugOv").classList.contains("on"), "");
 
@@ -214,7 +214,7 @@ async function run(){
     T("R25 1280 宽无横向溢出", deD.scrollWidth<=fd.contentWindow.innerWidth+1, deD.scrollWidth+"/"+fd.contentWindow.innerWidth);
     T("R26 1280 下内容限宽 ≤ 900px", q(fd,"#s-ug .ug-shell").getBoundingClientRect().width<=900.5, q(fd,"#s-ug .ug-shell").getBoundingClientRect().width);
     click(fd,"#ugOvBtn"); await sleep(200);
-    T("R27 1280 下总览可开且条目 18", q(fd,"#ugOv").classList.contains("on") && qa(fd,"#ugOv .ug-ov-row").length===18, "");
+    T("R27 1280 下总览可开且条目 19", q(fd,"#ugOv").classList.contains("on") && qa(fd,"#ugOv .ug-ov-row").length===19, "");
     click(fd,"#ugOvClose"); await sleep(160);
     T("R28 1280 下总览可关", !q(fd,"#ugOv").classList.contains("on"), "");
     fd.parentNode.removeChild(fd);
@@ -262,7 +262,7 @@ def static_checks(html):
     m = re.search(r"var UG=\(function\(\)\{(.*?)\}\)\(\);", html, re.S)
     if m:
         ug_block = m.group(1)
-    add("S9 卡片数据 18 张（UG CARDS）", ug_block.count('{id:"') == 18, ug_block.count('{id:"'))
+    add("S9 卡片数据 19 张（UG CARDS）", ug_block.count('{id:"') == 19, ug_block.count('{id:"'))
     add("S10 分类 5 个（入门/学习/生活/协作/更多）",
         all(('k:"%s"' % k) in ug_block for k in ("start", "study", "life", "team", "more")))
     add("S11 场景 11 种映射齐全",

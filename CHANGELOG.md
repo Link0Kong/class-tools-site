@@ -2,6 +2,31 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-15 13:50–15:0x · 增量 61：三端中的网页 + 安卓新增「学信网」入口——网页官方工具卡片页（手机优先 2/3/4 列，**已上线 OSS+ECS**）+ 安卓卡片页/数据卡（4.53.0 APK 已交付）；小程序不动
+
+> 用户原话（2026-11-15 13:50）：「以相同方式引入学信网入口，同样将内部常用工具做成卡片，整体页面要适配手机」。规格唯一来源 `_audit/chsi_entry_20261115/CHSI_ENTRY_SPEC.md`；口径：网页 = 站内「学信网」卡片页（仅官方工具入口，不抓数据、不内嵌、不保存账号）；安卓 = 数据卡 + 手动登录（另一任务）；小程序不动。任务单原写「增量 57」，因 57–60 已被 2026-11-14 其他增量占用，按编号顺延为本增量 61。
+
+### ① 网页实现（`tools/index.html`，APP_VER 仍 2.0.0）
+- `TOOLS` **末尾**追加 `{k:"chsi",n:"学信网",d:"学籍 · 学历 · 学位；官方入口卡"}`（jw 之后，不改既有工具顺序）；`ALL_TONE.chsi="blue"`。
+- 新增 `#s-chsi`（`__CHSI_ENTRY_V1_BEGIN__`/`_END__` 包住；位于 `#s-vote` 之后、`__WEB_B2_FILE_BEGIN__` 之前）：头部卡片「学信网 + 中国高等教育学生信息网 · 官方入口 + 学信档案/照片校对需登录学信网账号」；10 张官方工具卡（严格规格 §1 实测 URL、顺序一致）：学信档案 / 学籍/学历查询 / 学位查询 / 在线验证报告 / 报告在线验证 / 学历认证报告 / 照片校对 / 研招网 / 学职平台 / 帮助中心；每卡 `<a class="chsi-card" href target="_blank" rel="noopener noreferrer">`，含短名 + 说明 + 徽标（规格表「是」3 张=「需登录」；「部分」2 张=「部分需登录」，其余 5 张无徽标）。
+- CSS `/* __CHSI_ENTRY_V1_CSS__ */`（`</style>` 前）：`grid-template-columns:repeat(auto-fill,minmax(140px,1fr))`；`@media (min-width:640px)`→3 列、`(min-width:960px)`→4 列；卡片 `min-height:88px`（点按 ≥44px）、`overflow-wrap:anywhere`，无固定宽度/横向滚动；360/390/430 实测 2 列且无横向溢出，1280 为 4 列。
+- 红线：加载/切页阶段对学信网**零请求**（全 HTML 仅 10 处 `chsi.com.cn`，全部是卡片 href，点击才跳转）；不 iframe 内嵌、不采集/不保存账号密码（浏览器跨域限制，网页端只做入口）；单文件零依赖；APP_VER 仍 2.0.0。
+- 使用说明 `__UG_CARDS_V1__` 追加第 19 张 `chsi` 卡（cat study、scene grid、3 步 + tip）。AGENTS §4b 按 Lead 要求本增量不动。
+
+### ② 测试（实跑）
+- 新增 `tools/tests/v2_chsi_check.py` **54/54**（静态 15 + 运行时 39）：430/360/390/1280 四档 × 两条进入路径（`gotoTab("chsi")`、「全部」页点 `#allCards [data-card="chsi"]`）→ `#s-chsi` 可见；10 卡 href 顺序严格等于规格 §1 + target/rel；头部文案逐字；徽标 3+2；网格列数 430/360/390=2、1280=4；10 卡点按高度 88px（≥44）；无横向溢出；0 JS 报错 / 0 console.error / 0 外部请求（performance resource 不含 chsi.com.cn，加载+切页两阶段）；截图 5 张落盘 `tools/tests/_shots_chsi/`。
+- 测试基础设施修正（本测试内）：headless Edge 的 `--window-size` 有最小窗宽（外页视口恒 ~492），旧截图 harness 用 `margin:0 auto` 会让 iframe 左偏 31–66px、PNG 被裁右侧；本测试改为 iframe 左对齐，手机截图完整不裁切（其它旧测试的截图 harness 未改，不影响其断言）。
+- 回归：`overflow_check` 430/360/390 overflowCount=0、`v2_ui_check 27/27`、`v2_drag_check 69/69`、`v2_ug_check 56/56`（UG 卡 18→19 计数期望更新：S9/R1/R2/R5/R6/R7/R8/R10/R13/R14/R15/R16/R27，未放宽断言）、`optim_v1_check GREEN`、`optim_v2_check main 16 + admin 70 + hash 4 GREEN`；额外相邻面 `v2_jw_check 55/55`。
+- `v2_drag_check` 适配（如实）：新增 1 张全部页工具卡使全部页高度 +130px，M 边缘自动滚动用例固定 `scrollTo(scrollHeight*0.35)` 后 handle 落进 sticky 工具栏（y≈18px，按下落空）→ 增加「handle 若贴近顶栏/视口外则先滚到卡片居中再取安全落点」兜底（M1/M3/M4 断言不变）；HEAD 基线实跑 69/69、修改后实跑 69/69。
+- `v2_jw_check` 过期断言修正（如实）：S2 原要求 jw 是 TOOLS 最后一项（本增量 chsi 追加在 jw 之后 → 改为「jw 逐字存在且其后为 chsi」）；S9 UG 卡数 18→19；J5 卡片说明在 2026-11-14 增量 57 已精简为「成绩、选课与考试」（**S2/J5 在改前 HEAD 基线就已红，非本任务引入**，已一并修正）。实跑 55/55。
+- 测试身份 `SID=9999000005 / 测试同学`（9999 段 mock，符合 AGENTS §0-7）；未使用真实学号/真实学信网账号；页面加载不触发任何外部请求。
+
+### ③ 状态 / 回滚
+
+- 本次网页**已上线 OSS+ECS**：线上 **1,245,831 B / sha256 `9f93306be176892ce5aff187e19979336fb5462e36f2e3c5766ab0327d56ba72`**（`deploy/oss_object.py check index.html` = MATCH；`python deploy/ecs_site.py verify` = MATCH（ECS_IP 直连字节校验），gzip 391,472 B；ECS 直连实取同字节且含 `#s-chsi`、10 张官方工具卡、`chsi-grid`、`APP_VER 2.0.0`）。部署前线上备份 `tools/_backup/index_online_20261115-1414_preChsi.html`（1,241,167 B / `000f0787…`）。Lead 独立复跑 `v2_chsi_check 54/54`、`overflow 430/360/390=0`、`v2_ui 27/27`、`v2_drag 69/69`、`v2_ug 56/56`、`v2_jw 55/55`。APP_VER 仍 2.0.0；无 DB / `userdata` v6 / 云函数变更。
+- 源码 `tools/index.html` **1,245,831 B / sha256 `9f93306be176892ce5aff187e19979336fb5462e36f2e3c5766ab0327d56ba72`**；本次改动 hunk：CSS `+2558`、`#s-chsi` `+3108`、TOOLS `+5614`、ALL_TONE `+5750`、UG `+19281`；`git diff` 另含并行地图会话 1 行 WIP（`...&v=202611152305`，未触碰，随本文件一并提交/部署；路径不变仅缓存版本号）。
+- 安卓端（同批另一任务）：v4.53.0 / vc71 APK `artifacts/classtools-4.53.0-release-signed.apk` **3,284,845 B / SHA-256 `DA22AC202FFC77B0C54803E94CADACC43BDD80FFA17314217C27DE6F6F9E14BC`**（点「学信网」→ 手动登录官方页 → 学籍/学历/学位/在线验证报告数据卡 + 10 官方工具入口卡 + 桌面版/手机版 UA 切换；窄屏 2 列/≥600dp 3 列；单测 **1276/0**（100 suites，新增 ChsiExtractLogicTest 26）；未真机/真实账号验证——红线）。
+- 回滚：网页重传部署前备份后 OSS+ECS apply；安卓删除 features/chsi、ui/screens/chsi 与测试文件、共享文件按 pending 文档反向 edit、版本号回退；无 DB 变更。
 ## 2026-11-14 21:1x–21:4x · 增量 60：OPPO 官方推送 SDK 接入（安卓客户端 + 云端 push_tokens + 本机服务端推送；网页无需部署；待用户开通 OPPO 推送/密钥后真机验证）
 
 > 用户 2026-11-14 晚要求「尝试将通知接入 oppo 官方 sdk」；已确认目标=App 未运行也能收系统通知栏推送，允许新增设备 token 表，先用测试权限验证。官方 SDK V4.0.0。
