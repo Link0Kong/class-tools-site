@@ -49,6 +49,15 @@ def main():
     css = re.sub(r":root\{[^}]*\}", ":root{" + TOOLS_VARS + "}", css, count=1)
     css += OVERRIDE
 
+    # 2026-11-15 网页移植：深色覆盖（纯追加；浅色默认视觉不变）。
+    # 父页只切 iframe <html data-appearance="dark">；覆盖层由 build_dark_theme.py 按角色映射生成，
+    # 生成段必须放在 OVERRIDE 之后（OVERRIDE 带 !important 浅色底），靠属性选择器加权 + !important 压过。
+    try:
+        from build_dark_theme import build_dark_css, NOTICE_DARK_MANUAL
+        css += "\n/* __NOTICE_DARK_THEME__ */\n" + NOTICE_DARK_MANUAL + build_dark_css(css)
+    except Exception as e:  # 生成器缺失/异常时保持浅色可用，不阻断嵌入
+        print("warn: notice dark theme skipped:", e)
+
     # 模板自带的 __noticeHeight 用 documentElement.scrollHeight 测量并每 1.5s 上报。
     # 父页已改回「固定视口 iframe + iframe 内部原生滚动」，不再消费高度上报；
     # 这里去掉模板内的测量块（保留 setFoldCard 里对 window.__noticeHeight 的调用），
@@ -102,7 +111,7 @@ function __noticeHeight(){ /* 父页固定视口 iframe + iframe 内部原生滚
         raise SystemExit("NOTICE_TPL_B64 marker missing")
     idxhtml = re.sub(r'var NOTICE_TPL_B64=".*?";',
                      'var NOTICE_TPL_B64="' + b64 + '";', idxhtml, count=1, flags=re.S)
-    INDEX.write_text(idxhtml, encoding="utf-8")
+    INDEX.write_text(idxhtml, encoding="utf-8", newline="\n")  # 固定 LF，避免 Windows 默认 CRLF 污染单文件
     print("embedded notice template:", len(html), "bytes ->", len(b64), "b64")
 
 

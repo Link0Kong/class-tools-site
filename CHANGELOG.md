@@ -2,6 +2,15 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-15 19:3x–20:0x · 小程序提醒链路修复（云函数源码；网页无改动、无需部署）
+
+> 用户反馈「微信小程序提醒功能异常」。线上实测（automator 调 `notify` 云函数）：部署的仍是 2026-11-10 旧版（`ntStatus`/`bootstrap`/`scan` 均 `unknown-action`），且 `diag.hb.source` 一直为 `flush`、等待 80s 无 `timer` 心跳 → 定时触发器未注册。源码另有一处会让新通知提醒永远 `no-token` 的缺陷。
+
+- **源码修复**（`mp-class-tools/cloudfunctions/notify/index.js` + `scan.js`）：`patchCfg()` 原先用 `doc.set({data:patch})` 写 `notify_cfg/__notify_cfg`，而云开发 `set` 是整文档替换 → bootstrap 写入的班级 token 在第一次 scan 写 `lastSig` 时被清掉；每次 bootstrap 又清掉基线。改为「已有文档 `doc.update` 字段合并；文档不存在时 `getCfg` + `scan.mergeCfg` 合并后 `set` 完整文档」，新增纯函数 `scan.mergeCfg`。
+- **测试**：`notify_flush_ui_test.js` 11/11（C7 防回退）、`task7_unit_tests.js` 24/24（B2b bootstrap→scan→bootstrap 字段不丢）、`cloudfunctions/notify.test.js` 35/35、`notify_fix_20261110.test.js` 18/18；`node --check` / `staticcheck.py` / `code_quality_check.js` 通过。另用临时 mock 集成跑通 bootstrap→baseline→新通知 send=1，token 全程保留。
+- **部署状态**：仅改源码；**未自动上传云函数/触发器、未改小程序前端、未动 VERSION 2.0.0/UD v6、网页零改动**。需用户按 `mp-class-tools/README.md §九·补`：① 上传 `notify` 云函数（带 `scan.js`/`rest-config.js`）；② 右键 `config.json`「上传触发器」（`0 */1 * * * * *`）；③ 上传后 `notify {action:'diag'}` 验证 `hb.source=timer`、`notify.hasToken=true`。
+- 回滚：还原两个云函数文件与测试；云端未部署，无回滚动作。
+
 ## 2026-11-15 13:50–15:0x · 增量 61：三端中的网页 + 安卓新增「学信网」入口——网页官方工具卡片页（手机优先 2/3/4 列，**已上线 OSS+ECS**）+ 安卓卡片页/数据卡（4.53.0 APK 已交付）；小程序不动
 
 > 用户原话（2026-11-15 13:50）：「以相同方式引入学信网入口，同样将内部常用工具做成卡片，整体页面要适配手机」。规格唯一来源 `_audit/chsi_entry_20261115/CHSI_ENTRY_SPEC.md`；口径：网页 = 站内「学信网」卡片页（仅官方工具入口，不抓数据、不内嵌、不保存账号）；安卓 = 数据卡 + 手动登录（另一任务）；小程序不动。任务单原写「增量 57」，因 57–60 已被 2026-11-14 其他增量占用，按编号顺延为本增量 61。
