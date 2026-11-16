@@ -59,7 +59,7 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = "2.3"
+VERSION = "2.4"
 ROOT = os.path.abspath(os.environ.get("DROP_ROOT", "/opt/class-tools/drop"))
 PORT = int(os.environ.get("DROP_PORT", "8093"))
 DEFAULT_GATEWAY = ("https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com"
@@ -433,9 +433,12 @@ def _session_expires_at(sess):
 
 
 def _public_session(sess):
+    # v2.4：带上当前最大事件 seq。大屏每次打开时用它对本次会话「从当前时刻起」收事件，
+    # 避免把 72h 云空间里上一次大屏/文件传输的历史事件当成「本次收到」。
     return {"id": sess["id"], "code": sess["code"],
             "createdAt": int(sess["createdAt"]),
-            "expiresAt": _session_expires_at(sess)}
+            "expiresAt": _session_expires_at(sess),
+            "seq": int(sess.get("seq") or 0)}
 
 
 def _append_event_locked(sess, kind, payload, from_name):
@@ -1155,20 +1158,36 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, payload)
 
     def _route_presence_get(self):
-        """大屏在线状态：同一班级账号（同 sid）任意设备可查。30s 内 heartbeat 视为在线。"""
+        """大屏在线状态：同一班级账号（同 sid）任意设备可查。30s 内 heartbeat 视为在线。
+
+        v2.4：同时返回 `sinceSeq`——大屏本次打开时的事件起始 seq。控制器据此只显示
+        「本次大屏期间」收到的文件/文字，不会翻出 72h 云空间里的旧记录。
+        """
         auth = self._auth()
         with _LOCK:
             sess = _find_active_session_locked(auth["sid"])
             now = _now_ms()
             at = int(sess.get("stageAt") or 0) if sess is not None else 0
             stage = bool(sess is not None and at > 0 and (now - at) <= PRESENCE_TTL_MS)
-        self._send_json(200, {"ok": True, "stage": stage, "at": at})
+            stage_since = int(sess.get("stageSince") or 0) if stage else 0
+        self._send_json(200, {"ok": True, "stage": stage, "at": at,
+                              "sinceSeq": stage_since,
+                              "stageSince": stage_since})
 
     def _route_presence_post(self):
-        """大屏心跳：{stage:true} 标记在线（30s 有效），{stage:false} 立即下线。"""
+        """大屏心跳：{stage:true, sinceSeq?} 标记在线（30s 有效），{stage:false} 立即下线。
+
+        v2.4：`sinceSeq` 由大屏在打开时上报（= 打开时刻会话最大 seq），控制器用它
+        作为 `/state` 的 since 起点；不传时服务端取当前 seq（向后兼容旧页面）。
+        """
         auth = self._auth()
         body = self._read_json()
         want = bool(body.get("stage", True))
+        since_raw = body.get("sinceSeq")
+        try:
+            since_req = int(since_raw) if since_raw is not None else None
+        except (TypeError, ValueError):
+            since_req = None
         with _LOCK:
             sess = _find_active_session_locked(auth["sid"])
             now = _now_ms()
@@ -1176,11 +1195,21 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, {"ok": False, "stage": False,
                                       "reason": "云空间会话不存在；请先打开大屏/文件传输"})
                 return
-            sess["stageAt"] = now if want else 0
+            cur_seq = int(sess.get("seq") or 0)
+            if want:
+                if since_req is None:
+                    since_req = cur_seq
+                since_val = max(0, min(int(since_req), cur_seq))
+                sess["stageSince"] = since_val
+                sess["stageAt"] = now
+            else:
+                sess["stageAt"] = 0
+                sess["stageSince"] = 0
             sess["lastActivityAt"] = now
             sess["updatedAt"] = now
             _save_session(sess)
-        self._send_json(200, {"ok": True, "stage": want, "at": now})
+        self._send_json(200, {"ok": True, "stage": want, "at": now,
+                              "sinceSeq": (int(sess.get("stageSince") or 0) if want else 0)})
 
     def _route_close(self):
         auth = self._auth()

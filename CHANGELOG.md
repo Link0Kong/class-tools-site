@@ -2,6 +2,30 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-16 21:2x · 修复：大屏退出后「大屏互联」一直显示开启 + 上一次大屏数据回放（网页已上线 OSS+ECS；drop 服务 v2.4）
+
+> 用户反馈（2026-11-16 21:17）：「大屏互联功能一直显示开启，即使我已经把大屏退出了，而且上一次大屏的数据还一直留存着」。
+> 根因（两处叠加）：① **presence 竞态**——`opt2StageOpen` 里 `stgDropEnsure().then(... stgPresenceStart())` 没有生命周期守卫，用户在大屏打开后立即退出（/open 尚未返回）时，迟到的回调会在关闭后重新启动 10s 心跳，于是「全部页→大屏互联」入口/其他设备控制器永久显示在线；② **本次会话未隔离**——大屏复用 72h 云空间会话，重开时 `/state?since=0` 会把上一次大屏/文件传输的历史事件全部回放成「本次收到」；接收模块（recv）也因此残留旧文件/文字。
+> 范围：`tools/index.html`（§11 大屏块，presence/会话游标/控制器；APP_VER 仍 2.0.0）、`deploy/drop_app.py`（v2.4：`session.seq` + `/presence` 的 `sinceSeq`）、`drop/CONTRACT.md`、`drop/tests/test_drop_app.py`、`tools/tests/v2_stage_drop_session_check.py`（新增）、`tools/tests/optim_v2_check.py`。
+
+- **presence 生命周期加守卫**：`STAGE.lifeGen` 每次打开/关闭递增；`stgDropEnsure(true)` 的异步回调发现「大屏已关闭 / 世代变化」时直接上报 `presence=false` 并返回，绝不再启动心跳；`stgPresenceStart()` 要求 `STAGE.open`，心跳 interval 每秒检查，关闭即停；`stgPresenceStop()` 立即 POST false（keepalive），并新增 `pagehide`/`beforeunload` keepalive 兜底（关标签页/刷新也下线）。
+- **会话游标隔离「本次大屏」**：`POST /open`、`GET /mine` 的 `session` 新增 `seq`（当前最大事件 seq）；大屏每次打开用 `stgDropBeginStage()` 把游标对齐到该 seq 并清空本次接收列表，`/state` 只拉之后的新事件；退出大屏时清空 recv/互联列表（云空间文件仍保留 3 天，可在「文件传输」页查/删）。
+- **其他设备控制器只按 presence 判定在线**：不再「只要 72h 云空间会话存在就显示已连接」；`/presence` 新增 `sinceSeq`（大屏打开时刻上报），控制器用 `sinceSeq` 作为 `/state` 起点，只显示本次大屏期间的文件/文字；大屏退出（或心跳 30s 过期）后控制器显示「大屏已退出」并隐藏上传/遥控区。
+- **大屏互联面板**不再提供「关闭通道」误删 72h 云空间文件：× / 「收起」只收起面板；面板文案区分「本次互联已开启 / 云空间已连接 · 大屏未在线」。
+- **测试（真实输出）**：新增 `tools/tests/v2_stage_drop_session_check.py` **24/24 PASS**（预置 4 条历史事件后打开大屏不显示旧内容；本次事件出现；退出 presence 立即 false/入口隐藏/无心跳残留；`/open` 延迟 900ms 时快速退出也不会把 presence 拉回；重开不显示上一次消息；控制器在线/退出/本次事件隔离；0 JS 报错）；drop 单测 **93/93 OK**（新增 `session.seq`、`/presence` `sinceSeq` 往返/钳制/下线归零/旧客户端兼容用例）；`optim_v2_check` **GREEN 0 fails**（mock 升级为 v2.4 presence/seq 语义）；真实 ECS 黑盒（测试身份）：`session.seq` 0→3、`/presence {sinceSeq:2}` 读取一致、下线 sinceSeq=0 且会话保留、越界 sinceSeq 钳制到 3、旧页面不传 sinceSeq 取当前 seq；`deploy/ecs_drop.py verify` PASS。
+- **上线**：drop 服务 ECS **v2.4**（`/drop/__health` = `{"ok":true,"version":"2.4"...}`）；网页 OSS+ECS **1,321,954 B / sha256 `5fc54899…`**（本次部署时线上已是并行会话合并后的同一份文件，`oss_object check`/ECS 均 MATCH）。回滚：网页重传 `tools/_backup/index_online_20261116-2120_preDropSessionFix.html`（1,322,990B/`621f6a7b…`，修复前）；drop 服务按 `drop/CONTRACT.md §7` 回退 v2.3（去掉 `/presence` 的 sinceSeq/`session.seq` 消费方即可；服务端旧字段向后兼容）。
+- **已知限制（如实）**：旧版本缓存页面（修复前打开、未刷新的标签）仍可能每 10s 上报旧心跳，直到关闭/刷新；presence 心跳 30s 内视为在线（页面崩溃后最迟 30s 自动离线）；云空间文件仍按设计保留 3 天，本次只隔离「大屏互联/接收」的会话视图，不改变「文件传输」工具的保留策略。本文件同时含并行会话「学信网入口下线」改动（其 CHANGELOG 记未部署，实际随本次合并文件一并上线；以文件内容与线上 sha 为准）。
+
+## 2026-11-16 21:1x · 网页删除「活动 / 今日校园 / 学信网」三工具（web task-75；未部署、未 commit）
+
+> 用户要求全端删除「活动 / 今日校园 / 学信网」三个工具。网页侧现状：`活动` 已于 2026-11-15 按用户决定撤回（commit `6c0ae49`，改由安卓 App 原生提供）；`今日校园` 从未进入网页 `TOOLS`（仅安卓 App 有；网页通知正文里的「今日校园」是上游 App 专名，不是工具入口）；本次删除唯一存在的 `学信网`（增量 61 新增）。
+
+- **`tools/index.html` 死代码删除（APP_VER 仍 2.0.0）**：`TOOLS` 的 `chsi` 条目、`ALL_TONE.chsi`、`#s-chsi` 整段 HTML（含 `__CHSI_ENTRY_V1_BEGIN__/_END__` 标记与上方注释）、`__CHSI_ENTRY_V1_CSS__` 样式块、深色主题下 3 条 `#s-chsi` 规则（1 条合并选择器内、2 条独立 hover/active）、使用说明第 19 张 `chsi` 卡；无隐藏/灰显/降级逻辑保留。
+- **入口不可达验证口径**：顶部快捷工具栏与「全部」页卡片均由 `TOOLS` + `tabInfoOf` 驱动（`renderTabs` 对 `homeTools` 按 `tabInfoOf` 过滤、未知 key 自动丢弃；`allCardDefs` 遍历 `TOOLS`），`#tab=` 直达经 `gotoTab` → `toolOf` 校验，`chsi` 均不再命中；网页无工具搜索 UI（唯一搜索框是投票「指定成员」搜索）。全部页卡片 18→17（管理员视图；普通成员 17→16）、使用说明卡 19→18。
+- **测试同步**：删除 `tools/tests/v2_chsi_check.py`（54 项，目标已不存在）；`v2_ug_check` 固定计数 19→18 张、57→54 步（S9/R1/R2/R5/R6/R7/R8/R10/R13/R14/R15/R16/R27，未放宽断言）；`v2_jw_check` 恢复「jw 为 TOOLS 末尾」断言并 UG 卡数 19→18；`v2_port_ui_check` 全部页描述卡下限 18→17；`tools/tests/_power_preview.html` 由 `power_check.build_previews()` 按新 `index.html` 重生成（0 处 chsi）。
+- **实跑结果（最终合并文件复跑）**：`overflow_check 430` overflowCount=0；`v2_ui_check 27/27`；`v2_port_ui_check 80/80`；`export_check draw` 退出码 0（`_shots/export_draw.png` 219,094 B）；`v2_ug_check 56/56`（含 430/360/390/1280 运行时、0 JS 报错/0 外部请求）；`v2_jw_check 52/55`——S3/S12/S14 三条静态断言在**改动前的 HEAD 工作树副本**上同样 FAIL（`__JW_ENTRY_V1_JS__` 尾部切片被 11-16 新增 JS 块污染、`tail` 起算点失效），属既存测试陈旧假设，非本次改动引入；S2/S9 两条与旧工具相关的断言已更新并通过。补充运行时验收（临时脚本，未入库；在纯删除中间态实跑）：老 `homeTools=["chsi",...]` 启动后工具栏自动过滤为 `draw,tt,hw,all`、DOM 无 `#s-chsi`/`#s-activity`/`#s-todaycampus`、`#tab=chsi` 不切页、页面 0 JS 报错（5/5 PASS）；最终合并文件上同一入口逻辑未改动（删除仅由 `TOOLS`/`tabInfoOf` 数据驱动）。
+- **源码**：`tools/index.html` 最终合并文件 **1,321,954 B / sha256 `5fc54899fc3aee282ef2c05b453cd4a268226715446c3cf343d0eacadedc0624`**（本任务纯删除中间态 1,318,125 B / `5fadfd84…`；两者均 LF、单文件零依赖、`APP_VER` 仍 2.0.0）。**注意**：合并前后的工作树同时含并行会话「大屏互联 drop 会话/keepalive」整文件写入（约 +3.8 KB，`2026-11-16` 同日；该会话曾把本删除覆盖回旧版，本轮已把其改动与删除合并为同一文件并复跑全部测试）；工作树原有的地图缓存版本号 1 行 WIP 原样保留。**未部署 OSS/ECS、未 commit**（由 Lead 统一集成部署；回滚=在最终文件上还原本任务 7 处删除）。
+
 ## 2026-11-15 19:3x–20:0x · 小程序提醒链路修复（云函数源码；网页无改动、无需部署）
 
 > 用户反馈「微信小程序提醒功能异常」。线上实测（automator 调 `notify` 云函数）：部署的仍是 2026-11-10 旧版（`ntStatus`/`bootstrap`/`scan` 均 `unknown-action`），且 `diag.hb.source` 一直为 `flush`、等待 80s 无 `timer` 心跳 → 定时触发器未注册。源码另有一处会让新通知提醒永远 `no-token` 的缺陷。

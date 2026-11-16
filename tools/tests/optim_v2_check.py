@@ -102,19 +102,36 @@ window.fetch=function(u,o){
     return ok([]);
   }
   if(s.indexOf("/drop/")>=0){
-    var ds=null;try{ds=JSON.parse(localStorage.getItem("__mock_drop")||"null");}catch(e){}
-    if(s.indexOf("/open")>=0){
-      ds={id:"sess-opt",code:"2468",expiresAt:Date.now()+3600000,createdAt:Date.now()};
-      try{localStorage.setItem("__mock_drop",JSON.stringify(ds));}catch(e){}
-      return ok({ok:true,session:ds});
+    /* v2.4 mock：session.seq / presence(stage,sinceSeq) / /state since 增量 —— 与真实 drop 服务语义一致 */
+    var DS=window.__MOCK_DROP||(window.__MOCK_DROP={events:[],presence:{stage:false,at:0,since:0},session:null});
+    function mseq(){var m=0;DS.events.forEach(function(e){m=Math.max(m,Number(e.seq)||0);});return m;}
+    function msess(){if(!DS.session)DS.session={id:"sess-opt",code:"2468",expiresAt:Date.now()+259200000,createdAt:Date.now()};DS.session.seq=mseq();return DS.session;}
+    var dpath=s.replace(/^.*\/drop/,"").split("#")[0];
+    if(dpath.indexOf("/open")===0)return ok({ok:true,session:JSON.parse(JSON.stringify(msess()))});
+    if(dpath.indexOf("/close")===0){DS.session=null;DS.events=[];DS.presence={stage:false,at:0,since:0};return ok({ok:true});}
+    if(dpath.indexOf("/mine")===0)return ok({ok:true,session:JSON.parse(JSON.stringify(msess()))});
+    if(dpath.indexOf("/presence")===0){
+      var pbody={};try{pbody=(o&&o.body)?JSON.parse(o.body):{};}catch(e){}
+      if(o&&String(o.method||"GET").toUpperCase()==="POST"){
+        if(pbody.stage){DS.presence.stage=true;DS.presence.at=Date.now();var cur=mseq();DS.presence.since=(pbody.sinceSeq==null)?cur:Math.max(0,Math.min(Number(pbody.sinceSeq)||0,cur));}
+        else{DS.presence.stage=false;DS.presence.at=0;DS.presence.since=0;}
+      }
+      var live=!!(DS.presence.stage&&(Date.now()-DS.presence.at)<=30000);
+      return ok({ok:true,stage:live,at:DS.presence.at,sinceSeq:live?DS.presence.since:0,stageSince:live?DS.presence.since:0});
     }
-    if(s.indexOf("/close")>=0){try{localStorage.removeItem("__mock_drop");}catch(e){}return ok({ok:true});}
-    if(s.indexOf("/mine")>=0)return ok({ok:true,session:ds});
-    if(s.indexOf("/state")>=0){
-      if(!ds)return ok({ok:false,reason:"no session"});
-      return ok({ok:true,session:ds,events:[{seq:1,kind:"file",at:Date.now(),from:{name:"测试同学"},
-        payload:{fileId:"f1",name:"现场照片.jpg",size:2048,mime:"image/jpeg",downloadUrl:"#dl"}}],cursor:1});
+    if(dpath.indexOf("/state")>=0){
+      if(!DS.events.length)DS.events.push({seq:1,kind:"file",at:Date.now(),from:{name:"测试同学"},
+        payload:{fileId:"f1",name:"现场照片.jpg",size:2048,mime:"image/jpeg",downloadUrl:"#dl"}});
+      var q={};var qs=dpath.split("?")[1]||"";
+      qs.split("&").forEach(function(kv0){var kv=kv0.split("=");if(kv[0])q[decodeURIComponent(kv[0])]=decodeURIComponent(kv[1]||"");});
+      var since=Number(q.since)||0;
+      var evs=DS.events.filter(function(e){return Number(e.seq)>since;}).map(function(e){return JSON.parse(JSON.stringify(e));});
+      return ok({ok:true,session:{id:msess().id,code:msess().code,expiresAt:msess().expiresAt,seq:mseq()},
+        events:evs,cursor:evs.length?evs[evs.length-1].seq:since});
     }
+    if(dpath.indexOf("/text")===0){DS.events.push({seq:mseq()+1,kind:"text",at:Date.now(),from:{name:"测试同学"},payload:{text:"ok"}});return ok({ok:true,seq:mseq()});}
+    if(dpath.indexOf("/cmd")===0)return ok({ok:true,seq:mseq()+1});
+    if(dpath.indexOf("/upload/")>=0)return ok({ok:true,uploadId:"u1",chunkSize:8388608});
     return ok({ok:true});
   }
   if(s.indexOf("tt.json")>=0)return ok(DATA.tt);
@@ -287,8 +304,8 @@ RUNNER = r"""
           T("大屏互联：控制器可关闭", !q("#dropCtl").classList.contains("on"), "");
           /* 互联：大屏面板 */
           click("#o2sDropBtn"); await sleep(500);
-          T("大屏互联：面板显示通道/链接（2026-11-12 起无房间码）", !!q("#o2sDropModal") && !q("#o2sDropModal").hidden &&
-            txt("#o2sDropModal").indexOf("通道已开启")>=0 && txt("#o2sDropModal").indexOf("房间码")<0 &&
+          T("大屏互联：面板显示状态/链接（2026-11-12 起无房间码）", !!q("#o2sDropModal") && !q("#o2sDropModal").hidden &&
+            txt("#o2sDropModal").indexOf("本次互联已开启")>=0 && txt("#o2sDropModal").indexOf("房间码")<0 &&
             !!q("#o2sDropLink") && String(q("#o2sDropLink").value||"").length>0, "");
           T("大屏互联：收到文件/文字列表", txt("#o2sDropModal").indexOf("收到的文件")>=0 && txt("#o2sDropModal").indexOf("现场照片.jpg")>=0, "");
           try{q("#o2sDropModal").hidden=true;}catch(e){}

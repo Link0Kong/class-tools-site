@@ -353,14 +353,14 @@ class TestCorsAndHealth(Base):
         self.assertEqual(app.MAX_FILE_BYTES, 0)      # 0 = 不限
         self.assertEqual(app.MAX_SESSION_BYTES, 0)   # 0 = 不限
         self.assertEqual(app.UPLOAD_TTL_SEC, 86400)
-        self.assertEqual(app.VERSION, "2.3")
+        self.assertEqual(app.VERSION, "2.4")
 
     def test_health_no_auth_and_shape(self):
         status, headers, data = self.get("/__health")
         self.assertEqual(status, 200)
         payload = self.client.json_of(status, data)
         self.assertTrue(payload.get("ok"))
-        self.assertEqual(payload["version"], "2.3")
+        self.assertEqual(payload["version"], "2.4")
         self.assertEqual(payload["sessions"], 0)
         self.assertEqual(payload["files"], 0)
         self.assertEqual(payload["bytes"], 0)
@@ -449,7 +449,7 @@ class TestCorsAndHealth(Base):
 class TestSessions(Base):
     def test_open_returns_contract_fields(self):
         session = self.open_session("tok_alice")
-        self.assertEqual(set(session.keys()), {"id", "code", "expiresAt", "createdAt"})
+        self.assertEqual(set(session.keys()), {"id", "code", "expiresAt", "createdAt", "seq"})
         self.assertRegex(session["id"], r"^[0-9a-f]{16}$")
         self.assertRegex(session["code"], r"^\d{6}$")
         now = int(time.time() * 1000)
@@ -926,7 +926,7 @@ class TestFileDelete(Base):
 
 
 class TestPresence(Base):
-    """大屏在线状态（/presence，2026-11-12 v2.3）。"""
+    """大屏在线状态（/presence，2026-11-12 v2.3；v2.4 增加 sinceSeq 本次起点）。"""
 
     def test_requires_auth(self):
         self.assertEqual(self.get("/presence")[0], 401)
@@ -969,6 +969,54 @@ class TestPresence(Base):
         self.open_session("tok_bob")
         status, pay = self._get_json("/presence", "tok_bob")
         self.assertFalse(pay.get("stage"))
+
+    def test_session_payload_has_current_seq(self):
+        """v2.4：/open、/mine 的 session.seq = 当前最大事件 seq（大屏据此从「现在」收事件）。"""
+        session = self.open_session("tok_alice")
+        self.assertIn("seq", session)
+        self.assertEqual(int(session.get("seq") or 0), 0)
+        sid = session["id"]
+        self.post_json("/text", {"sessionId": sid, "text": "一"}, token="tok_alice")
+        self.post_json("/text", {"sessionId": sid, "text": "二"}, token="tok_alice")
+        status, pay = self._get_json("/mine", "tok_alice")
+        self.assertEqual(int((pay.get("session") or {}).get("seq") or 0), 2)
+        status, _hd, data = self.post_json("/open", {}, token="tok_alice")
+        self.assertEqual(status, 200)
+        self.assertEqual(int((self.client.json_of(status, data).get("session") or {}).get("seq") or 0), 2)
+
+    def test_presence_since_seq_roundtrip(self):
+        """v2.4：大屏打开时上报 sinceSeq，控制器读到同一 sinceSeq；下线后归零。"""
+        session = self.open_session("tok_alice")
+        sid = session["id"]
+        for t in ("甲", "乙", "丙"):
+            self.post_json("/text", {"sessionId": sid, "text": t}, token="tok_alice")
+        # 打开大屏时已存在 3 条历史；大屏从 seq=2 开始收（只把之后的当“本次”）
+        self.post_json("/presence", {"stage": True, "sinceSeq": 2}, token="tok_alice")
+        status, pay = self._get_json("/presence", "tok_alice")
+        self.assertTrue(pay.get("stage"))
+        self.assertEqual(int(pay.get("sinceSeq")), 2)
+        self.assertEqual(int(pay.get("stageSince")), 2)
+        # 其它同账号 token 读到同一个值
+        status, pay2 = self._get_json("/presence", "tok_alice2")
+        self.assertEqual(int(pay2.get("sinceSeq")), 2)
+        # 旧页面不带 sinceSeq：服务端取当前 seq（向后兼容）
+        self.post_json("/presence", {"stage": True}, token="tok_alice")
+        status, pay = self._get_json("/presence", "tok_alice")
+        self.assertEqual(int(pay.get("sinceSeq")), 3)
+        # 下线：stage/sinceSeq 都归零，但会话与文件保留（72h 云空间语义）
+        self.post_json("/presence", {"stage": False}, token="tok_alice")
+        status, pay = self._get_json("/presence", "tok_alice")
+        self.assertFalse(pay.get("stage"))
+        self.assertEqual(int(pay.get("sinceSeq")), 0)
+        status, mine = self._get_json("/mine", "tok_alice")
+        self.assertTrue((mine.get("session") or {}).get("id"))
+        # sinceSeq 非法/越界：归一化到 [0, 当前 seq]
+        self.post_json("/presence", {"stage": True, "sinceSeq": -5}, token="tok_alice")
+        status, pay = self._get_json("/presence", "tok_alice")
+        self.assertEqual(int(pay.get("sinceSeq")), 0)
+        self.post_json("/presence", {"stage": True, "sinceSeq": 999999}, token="tok_alice")
+        status, pay = self._get_json("/presence", "tok_alice")
+        self.assertEqual(int(pay.get("sinceSeq")), 3)
 
     def _get_json(self, path, token):
         status, _hd, data = self.get(path, token=token)

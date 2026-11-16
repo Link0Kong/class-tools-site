@@ -8,6 +8,11 @@
 > 413 拒收前有界读取请求体，避免客户端连接 RST。
 > **v2.3（2026-11-12）** 新增 `GET/POST /presence`：大屏在线心跳（30s TTL）；网页大屏每 10s 上报，
 > 同账号其它设备据此判断「是否有大屏在开」——无大屏时隐藏「大屏互联」入口，小程序动态显示该工具。
+> **v2.4（2026-11-16）** `/presence` 增加 **`sinceSeq`**（大屏打开时刻的会话最大 seq）：大屏首次心跳上报，
+> 同账号控制器据此只显示「本次大屏期间」收到的文件/文字，不再翻出 72h 云空间里的旧记录；
+> `POST /open`、`GET /mine` 的 `session` 新增 **`seq`** 字段（当前最大事件 seq），供前端拿到「从此刻起」的游标；
+> 网页端同时修复：退出大屏立即 POST presence=false（含 `pagehide`/`beforeunload` keepalive），
+> 快速开关时迟到的 `/open` 不会再把 presence 拉起；退出大屏会清空本次接收列表（云空间文件仍保留 3 天）。
 >
 > - 用途：**同账号（同 sid）跨设备传文件**、发文字、遥控指令中转；服务是独立「文件传输」工具的后端
 >   （网页 `#s-file` 文件传输页 / 大屏互联面板共用同一服务），**不限于大屏**，手机 ↔ 电脑 ↔ 大屏均可。
@@ -123,10 +128,11 @@ body `{}`（可为空 body）。返回：
 
 ```json
 {"ok":true,"session":{"id":"1a2b3c4d5e6f7a8b","code":"042317",
- "createdAt":1762860000000,"expiresAt":1763119200000}}
+ "createdAt":1762860000000,"expiresAt":1763119200000,"seq":42}}
 ```
 
-（`expiresAt` 语义见 §2：创建时 = 创建时刻 + 72h，之后随活动/未过期文件滑动。）
+（`expiresAt` 语义见 §2：创建时 = 创建时刻 + 72h，之后随活动/未过期文件滑动。
+`seq` 为当前会话最大事件 seq（v2.4）：大屏打开时把它作为「本次起点」，再用 `/state?since=<seq>` 只取之后的新事件。）
 
 #### `GET /mine`（鉴权）
 
@@ -159,10 +165,16 @@ body `{}`（可为空 body）。返回：
 
 #### `GET /presence`、`POST /presence`（鉴权）
 
-- `POST /presence` body `{"stage":true}`：标记当前账号大屏在线（`stageAt=now`，30s 内有效）；`{"stage":false}` 立即下线。返回 `{"ok":true,"stage":true|false,"at":<ms>}`。
-- `GET /presence`：同账号任意设备可查，返回 `{"ok":true,"stage":bool,"at":<ms>}`；无会话时 stage=false（不创建会话）。
+- `POST /presence` body `{"stage":true,"sinceSeq":<int>?}`：标记当前账号大屏在线（`stageAt=now`，30s 内有效）；
+  `sinceSeq` 由大屏在打开时上报（= 打开时刻 `session.seq`，服务端 clamp 到 `[0,当前seq]`；不传时取当前 seq，向后兼容旧页面）。
+  `{"stage":false}` 立即下线并清零 `stageSince`。
+  返回 `{"ok":true,"stage":true|false,"at":<ms>,"sinceSeq":<int>}`（下线时 sinceSeq=0）。
+- `GET /presence`：同账号任意设备可查，返回 `{"ok":true,"stage":bool,"at":<ms>,"sinceSeq":<int>,"stageSince":<int>}`；
+  无会话/过期时 stage=false、sinceSeq=0（不创建会话）。`sinceSeq` 只在大屏在线时给出，表示**本次大屏**的事件起点。
 - 用途：网页「全部页 → 大屏互联」与小程序「全部工具 → 大屏互联」仅在大屏在线时显示；
-  网页大屏打开后每 10s POST 心跳，关闭时 POST false。
+  网页大屏打开后每 10s POST 心跳，关闭时（含 `pagehide` keepalive）POST false。
+- 控制器读取 `sinceSeq` 后以 `/state?...&since=<sinceSeq>` 拉取，**只显示本次大屏期间**新增的文件/文字；
+  72h 云空间里的历史记录不会回放成大屏消息（历史文件请到「文件传输」页查看）。
 - 注意：区分于文件云空间会话——文件页自动开会话**不会**让 presence=true（未上报 stage）。
 
 #### `DELETE /file/<fileId>?sessionId=<sid>`（鉴权，临时云空间单文件删除）
