@@ -1,9 +1,9 @@
 # 班级工具站 Windows 原生版 · 全功能 + Win11 Fluent 设计方案
 
-> 版本：v0.3（设计稿） · 日期：2026-11-16 · 状态：**范围已确认；M0 通过，M1 骨架已落地，按里程碑推进**
+> 版本：v0.3（设计稿） · 日期：2026-11-16 · 状态：**范围已确认；M0 ✅、M1 数据层/登录 ✅，M2 课表/作业/通知进行中**
 > 适用：**只在旅行者自己的 Windows 电脑上使用**；**功能全做**；**Win11 现代化 UI + 高质量交互**；不要 WebView/网页壳
 > **2026-11-16 已确认**：全功能（含地图、PPT 播放器、大屏 V5）；安卓独有功能（今日校园/第二课堂/快递/学信网提取）不做；WinUI 3 工具链已通过。
-> 代码：`C:\Users\Ko_Li\.openclaw\workspace\windows-class-tools`（`ClassTools.WinUI.sln`；M1 骨架：NavigationView + 标题栏 + 工作台 + 24 页导航占位）。
+> 代码：`C:\Users\Ko_Li\.openclaw\workspace\windows-class-tools`（`ClassTools.WinUI.sln`；M1 登录/同步数据层已完成，M2 页面进行中）。
 > 说明：本文 v0.3 直接取代 v0.2 的单机原生方案（同一文件已更新为全量范围）；v0.1 WebView2 壳方案见 [WINDOWS_DESKTOP_DESIGN_20261116.md](WINDOWS_DESKTOP_DESIGN_20261116.md)（已存档）。
 > 关联契约：`AGENTS.md` §0/§1、`CLOUDBASE.md`、`HANDOFF.md` §5、`ppt/CONTRACT.md`、`vote/CONTRACT.md`、`draw/CONTRACT.md`、`drop/CONTRACT.md`、`tools/tests/_water_contract.md`
 > 本文只做设计：不改网页、不改云端表/RLS/UD v6、不部署。
@@ -520,7 +520,7 @@ dotnet publish src/ClassTools.App -c Release -r win-x64 --self-contained true `
 | 阶段 | 内容 | 人日 |
 |---|---|---|
 | M0 工具链/设计验证 | WinUI 3 最小工程、Mica/NavigationView/Dialog/Toast/托盘/Office/文件选择器；决定 WinUI 3 或 WPF-UI | 4–6 |
-| M1 壳与数据层 | 设计系统/导航/标题栏/托盘/设置；ApiClient/DPAPI/缓存/UD v6/marks/离线 | 20–24 |
+| M1 壳与数据层 | 设计系统/导航/标题栏/托盘/设置；ApiClient/DPAPI/缓存/UD v6/marks/离线（**数据层/登录已完成**：单测 10/10、真实冒烟、UIA 登录/重启恢复 PASS；托盘/Toast 待补） | 20–24 |
 | M2 学习页 | 工作台/工具库/课表/作业/通知（解析/管理/提醒） | 30–34 |
 | M3 班级工具 | 抽签/分组/存证/导出/QR；名单/点名/体测 | 30–34 |
 | M4 互动与生活 | 投票；电费/水量图表；PPT 上传/下载/播放/Office | 32–36 |

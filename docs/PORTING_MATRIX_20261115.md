@@ -5,7 +5,7 @@
 > 结论口径：**可完整移植** = 网页端能力与安卓基本等价或已具备；**部分缺失** = 网页平台限制导致只能做子集/替代形态；**不移植** = 网页无法可靠实现，或无收益/与用户既定决定冲突。
 > 本次红线：只改 `web` 源码与测试；**不部署线上**；`APP_VER` 保持 **2.0.0**；不引入构建链/外部依赖/外部请求；不改 UD v6 契约与云端表。
 > 相关规范：`AGENTS.md` §0（红线）§1（设计规范）§4b（架构补充）、`HANDOFF.md` §5.2（自检）、`web/vote/CONTRACT.md`、`web/ppt/CONTRACT.md`。
-> **2026-11-16 附注**：按用户要求网页已移除「学信网」工具（`活动` 已于 2026-11-15 撤回、`今日校园` 从未在网页提供）；本文件 §1 / §2.1 #15 / §5 中相关描述为 2026-11-15 历史审计快照，当前状态见文末 §7。
+> **2026-11-16 附注（21:4x 更正）**：网页「学信网」入口按用户更正已恢复（仅网页保留；`活动` 已于 2026-11-15 撤回、`今日校园` 从未在网页提供，二者仍不出现）；本文件 §1 / §2.1 #15 / §5 中相关描述为 2026-11-15 历史审计快照，当前状态见文末 §7。
 
 ## 0. 审计方法与证据来源
 
@@ -131,7 +131,7 @@ python tests\v2_ug_check.py          # 使用说明
 | `tests/overflow_check.py 430 / 960 / 1320` | **overflowCount=0**（三档；per-tab draw/tt/hw/nt/ft 全 0） |
 | `tests/v2_drag_check.py` | **69/69 PASS**（拖动/排序/拖入工具栏语义未变） |
 | `tests/v2_ug_check.py` | **56/56 PASS** |
-| `tests/v2_chsi_check.py` | **54/54 PASS**（并行改动回归；**2026-11-16 已随学信网工具删除，见 §7**） |
+| `tests/v2_chsi_check.py` | **54/54 PASS**（并行改动回归；2026-11-16 曾随 task-75 删除，**同日按用户更正恢复并复跑 54/54，见 §7**） |
 | `tests/v2_notice_data_check.py` | **27/27 PASS** |
 | `tests/v2_notice_dynamic_cat_check.py` | **17/18**：`E13 可筛选到动态新分类` 失败；已用 `git show HEAD:tools/notice-board-live-demo.html` 副本复跑 **同样 17/18** → **改动前既有失败**（该测试对象是 `notice-board-live-demo.html`，本次未改动该文件；与本次改动无关） |
 | 视觉审计 | `tests/_shots_port/`（过程截图，gitignore）：dark 19 页 @1280 + light 19 页 @960（另 1320 抽检），0 横向溢出、无 JS 报错；深色各页可读、无浅色大块残留（地图 iframe 为画面型浅色，保持其自身配色）；外观弹层浅/深两态截图核对 |
@@ -151,9 +151,9 @@ python tests\v2_ug_check.py          # 使用说明
 4. 通知表未来若超过网关单次返回上限，可将 `cbGetNotices` 改为 Range 分页 + 复用本次的进度/重试 UI（本次不预置分页，避免 103 组表被拆页拖慢首屏）。
 5. 深色模式下若后续新增工具页/组件，需同步补深色覆盖（本次深色覆盖为「语义变量 + 浅色硬编码批量映射」，新增浅色硬编码可能漏网，建议新组件优先用 CSS 变量）。
 
-## 7. 2026-11-16 变更附注：网页移除「学信网」入口（历史审计内容保持原样）
+## 7. 2026-11-16 变更附注：网页「学信网」入口先移除后更正恢复（历史审计内容保持原样）
 
-- 用户要求全端删除「活动 / 今日校园 / 学信网」三工具（web task-75）。网页侧：`活动` 已于 2026-11-15 按用户决定撤回（commit `6c0ae49`，改由安卓 App 原生提供）；`今日校园` 从未进入网页 `TOOLS`（仅安卓 App 有，本矩阵 #37 已记为「不移植」）；本次删除唯一存在的 `学信网`（增量 61 新增的 `#s-chsi` 页面）。
-- 已删除：`TOOLS.chsi`、`ALL_TONE.chsi`、`#s-chsi` 整段 HTML/`__CHSI_ENTRY_V1__` 标记、`__CHSI_ENTRY_V1_CSS__` 样式与深色主题 3 条规则、使用说明第 19 张 `chsi` 卡、`tools/tests/v2_chsi_check.py`；`v2_ug_check`/`v2_jw_check`/`v2_port_ui_check` 中旧工具计数同步更新，`tools/tests/_power_preview.html` 已按新 `index.html` 重新生成。
-- 当前网页：`TOOLS` 14 项（draw/tt/committee/hw/nt/ft/roll/stats/diag/water/vote/ppt/map/jw），使用说明 18 张卡，全部页卡片 17 张（管理员视图，含电费/反馈/使用说明独立页）。`APP_VER` 仍 `2.0.0`。
-- 因此本文件 §1「可完整移植（网页已具备）21 项」中的「学信网（入口）」与 §5 测试表中的 `tests/v2_chsi_check.py 54/54` 均为历史快照，不再对应当前源码；实现与实跑明细见 `CHANGELOG.md` 2026-11-16 条目。
+- 用户先要求全端删除「活动 / 今日校园 / 学信网」三工具（web task-75），随后更正为**仅网页保留学信网**（Android/小程序/鸿蒙仍删除，web task-77）。网页侧：`活动` 已于 2026-11-15 按用户决定撤回（commit `6c0ae49`，改由安卓 App 原生提供）；`今日校园` 从未进入网页 `TOOLS`（仅安卓 App 有，本矩阵 #37 已记为「不移植」）；`学信网` 于 2026-11-16 先随 task-75 删除（HEAD `9092feb`），后按 task-77 恢复到当前 `index.html`（= HEAD + 原 chsi 7 处块；确认 `activity`/`todaycampus`/`今日校园` 仍为 0）。
+- 恢复内容：`TOOLS.chsi`、`ALL_TONE.chsi`、`#s-chsi` 整段 HTML/`__CHSI_ENTRY_V1__` 标记、`__CHSI_ENTRY_V1_CSS__` 样式与深色主题 3 条规则、使用说明第 19 张 `chsi` 卡，以及 `tools/tests/v2_chsi_check.py`；`v2_ug_check`/`v2_jw_check`/`v2_port_ui_check` 计数与 `tools/tests/_power_preview.html` 一并恢复/重生成。
+- 当前网页：`TOOLS` 15 项（draw/tt/committee/hw/nt/ft/roll/stats/diag/water/vote/ppt/map/jw/chsi），使用说明 19 张卡；`APP_VER` 仍 `2.0.0`；源码 1,326,819 B / sha256 `8cc6f447…`（详见 `CHANGELOG.md` 2026-11-16 21:4x 更正条目）。
+- 因此本文件 §1「可完整移植（网页已具备）21 项」中的「学信网（入口）」与 §5 测试表中的 `tests/v2_chsi_check.py 54/54` 仍适用（该测试已恢复并通过）；`活动`/`今日校园` 仍维持「不移植/不在网页」。

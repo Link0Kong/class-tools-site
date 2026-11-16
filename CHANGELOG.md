@@ -2,6 +2,15 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-16 21:4x · 更正：网页恢复「学信网」工具（用户更正：仅网页保留；Android/小程序/鸿蒙仍删除；未部署、未 commit）
+
+> 用户更正：网页版学信网可以留下，其它端仍删除。当前 HEAD `9092feb` 已删除 chsi（线上 1,321,954B/`5fc54899`），本次只把学信网相关代码合并回网页，activity/today 仍不在网页。注意 `9092feb^` 因并行提交 `78765f4` 已含删除结果，实际以备份 `tools/_backup/index_online_20261116-2129_preRemoveTools.html`（1,322,990 B / `621f6a7b`，含 chsi）为片段来源；插入位置按当前 HEAD 锚点，并做了「再跑一次删除脚本 == HEAD 字节级一致」的往返校验。
+
+- **恢复清单（`tools/index.html`，7 处）**：`TOOLS` 末尾 `{k:"chsi",n:"学信网",d:"学籍 · 学历 · 学位；官方入口卡"}`（jw 后加逗号）；`ALL_TONE.chsi="blue"`；`#s-chsi` 整段 HTML（含 `__CHSI_ENTRY_V1_BEGIN__/_END__` 标记与注释）；`__CHSI_ENTRY_V1_CSS__` 样式块；深色主题 `.vote-opt-edit .vnum + #s-chsi .chsi-card em` 合并规则；深色 `#s-chsi .chsi-card:hover/:active` 两条；使用说明第 19 张 `chsi` 卡。
+- **测试恢复**：`tools/tests/v2_chsi_check.py`（54 项，从 `9092feb^` 取回）；`v2_ug_check` 回 19 卡/57 步计数；`v2_jw_check` 回「jw 后为 chsi」+ UG 19 卡断言；`v2_port_ui_check` 全部页描述卡下限回 18；`tools/tests/_power_preview.html` 由 `power_check.build_previews()` 按恢复后 `index.html` 重生成（含 chsi 64 处、keepalive 5 处）。
+- **实跑结果**：`overflow_check 430` overflowCount=0；`v2_ui_check 27/27`；`v2_port_ui_check 80/80`；`export_check draw` 退出码 0（`_shots/export_draw.png` 221,094 B）；`v2_chsi_check 54/54`（430/360/390/1280 两路径）；`v2_ug_check 56/56`（19 卡/57 步）；`v2_jw_check 52/55`——S3/S12/S14 三条既有静态断言在改动前工作树副本上同样 FAIL（与学信网无关的陈旧切片假设），S2/S9 已随 chsi 恢复通过。
+- **确认**：`tools/index.html` 中 `activity`/`todaycampus`/`今日校园` = 0，网页仍只有「学信网」恢复、其它两个工具保持不出现；`APP_VER` 仍 `2.0.0`。最终 **1,326,819 B / sha256 `8cc6f447443575904945c818dc79001aa76cded9f6ff5b0e964df9bc3cbf965c`**（LF；= HEAD 1,321,954 B + 原 chsi 删除字节 4,865 B）。**未部署 OSS/ECS、未 commit**（由 Lead 部署）；回滚=还原上述 7 处恢复（回到 `9092feb` 字节）。
+
 ## 2026-11-16 21:2x · 修复：大屏退出后「大屏互联」一直显示开启 + 上一次大屏数据回放（网页已上线 OSS+ECS；drop 服务 v2.4）
 
 > 用户反馈（2026-11-16 21:17）：「大屏互联功能一直显示开启，即使我已经把大屏退出了，而且上一次大屏的数据还一直留存着」。
@@ -17,6 +26,8 @@
 - **已知限制（如实）**：旧版本缓存页面（修复前打开、未刷新的标签）仍可能每 10s 上报旧心跳，直到关闭/刷新；presence 心跳 30s 内视为在线（页面崩溃后最迟 30s 自动离线）；云空间文件仍按设计保留 3 天，本次只隔离「大屏互联/接收」的会话视图，不改变「文件传输」工具的保留策略。本文件同时含并行会话「学信网入口下线」改动（其 CHANGELOG 记未部署，实际随本次合并文件一并上线；以文件内容与线上 sha 为准）。
 
 ## 2026-11-16 21:1x · 网页删除「活动 / 今日校园 / 学信网」三工具（web task-75；未部署、未 commit）
+
+> **2026-11-16 21:4x 用户更正：网页保留学信网，已恢复（见上一条）；Android/小程序/鸿蒙仍删除。本条目以下内容为当时记录，仅 activity/今日校园保持删除。**
 
 > 用户要求全端删除「活动 / 今日校园 / 学信网」三个工具。网页侧现状：`活动` 已于 2026-11-15 按用户决定撤回（commit `6c0ae49`，改由安卓 App 原生提供）；`今日校园` 从未进入网页 `TOOLS`（仅安卓 App 有；网页通知正文里的「今日校园」是上游 App 专名，不是工具入口）；本次删除唯一存在的 `学信网`（增量 61 新增）。
 

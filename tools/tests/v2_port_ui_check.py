@@ -339,7 +339,7 @@ async function run(){
         if(el.scrollHeight>el.clientHeight+1)bad.push(el.textContent.slice(0,12));
         if(lines>2)long.push(el.textContent.slice(0,12)+":"+lines);
       });
-      T("E"+label+"1 工具卡片描述无裁切（"+(label==="1"?"430":"960/1320")+"）", ds.length>=17&&bad.length===0, "n="+ds.length+" bad="+JSON.stringify(bad));
+      T("E"+label+"1 工具卡片描述无裁切（"+(label==="1"?"430":"960/1320")+"）", ds.length>=18&&bad.length===0, "n="+ds.length+" bad="+JSON.stringify(bad));
       T("E"+label+"2 工具卡片描述≤2 行（不省略号截断当前文案）", long.length===0, JSON.stringify(long));
       T("E"+label+"3 描述两行盒模型生效（-webkit-line-clamp:2）",
         (function(){try{return String(ff.contentWindow.getComputedStyle(q(ff,"#allCards .tdesc")).webkitLineClamp)==="2";}catch(e){return false;}})(), "");
