@@ -1,0 +1,119 @@
+{
+  "_readme": [
+    "★ 先把这个文件复制成 config.json，再按下面说明填。JSON 不支持注释，以 _ 开头的键都是说明，程序会忽略。",
+    "★ 主链路是「免登录」的：只需要 schoolcode（769 已预置）+ idserial（你的学号）+ payproid（2122 已预置）+ 房间清单。",
+    "★ 不需要密码、不需要短信、不需要 deviceId。",
+    "★ 房间清单填在 rooms[]，格式 {label, roomverify, occupant?}；occupant 只存本机，不会出现在任何输出/快照/看板里。",
+    "★ config.json 含个人信息（学号/房间），已列入 .gitignore，不要提交、不要发群里；跑一次 run.bat secure 可收紧权限。",
+    "★ 推送渠道全部可选：不配 = 只在本地日志里写；配了才发。"
+  ],
+
+  "backend": "cloudpay",
+  "schoolcode": "769",
+  "channelno": "30",
+
+  "_cloudpay_readme": [
+    "backend=cloudpay：完美校园「云支付网关」免登录查询（推荐，无需账号密码/短信）。",
+    "idserial = 你的学号（完美校园绑定的那个；FJTCM 校园卡号=学号）。",
+    "payproid = 缴费项目 id。FJTCM 预置 2122 = 旗山用电支出；屏山学生用电 = 4498；屏山教职工 = 3518。",
+    "           不确定就先跑 run.bat projects，把列表里你宿舍对应的 id 填这里。",
+    "channelno 固定 30，不用改；request_interval 是批量查询时的每请求间隔秒数（默认 1.1，别调太小）。"
+  ],
+  "idserial": "",
+  "payproid": "2122",
+  "request_interval": 1.1,
+  "request_timeout": 25,
+
+  "_rooms_readme": [
+    "宿舍名统一为规范名：{楼号}号楼{座}{房间号}，例 13号楼324、16号楼305、23号楼A座321、23号楼B座423。",
+    "本工具会按 roomverify 自动生成规范名（label/building/room），class 站点与本机输出因此始终一致；",
+    "config 里写旧名字也不影响输出（doctor 会提示哪个 label 不是规范名）。",
+    "房间清单：跑 run.bat rooms --building 楼栋 --room 房间号 查 roomverify，然后按下面格式填。",
+    "roomverify 形如 1-13---324（areaid-楼栋---房间）、4-23B---423（23号楼B座；注意 areaid 是 4）。",
+    "实测：13/16号楼用 areaid=1；23号楼A/B 用 areaid=4。同一个房间号在不同 areaid 下可能是别的楼，别选错。",
+    "default_room 写 default 房间的规范名（或 roomverify，兼容旧 label）（sample/report/test/now 默认查这个）。",
+    "occupant 可选：只在本机保存，任何命令输出、snapshot、dashboard 都不会带它。"
+  ],
+  "_rooms_example": [
+    { "label": "13号楼324", "roomverify": "1-13---324" },
+    { "label": "16号楼305", "roomverify": "1-16---305" },
+    { "label": "23号楼A座321", "roomverify": "4-23A---321" },
+    { "label": "23号楼B座423", "roomverify": "4-23B---423" }
+  ],
+  "rooms": [],
+  "default_room": "",
+
+  "_room_readme": [
+    "兼容单房间写法：如果只有一间房，直接填 room.roomverify 即可（可不用 rooms[]）。",
+    "room.label 只是推送标题里的名字，建议写规范名（如「13号楼324」）；输出始终以 roomverify 派生的规范名为准。"
+  ],
+  "room": {
+    "roomverify": "",
+    "label": ""
+  },
+
+  "_payPro_readme": "payproid 没填时才会按项目名自动匹配（默认找名称含「用电支出」的项目）。businesstype 电=2、水=1。",
+  "payPro": {
+    "electric": { "name": "用电支出", "businesstype": 2 }
+  },
+
+  "threshold_low": 10,
+  "_threshold_readme": "threshold_low = 低电提醒阈值（度，给 sample/report/test 用）；low_alert_interval_hours = 提醒节流间隔（默认 3 小时一次，充值后重新武装）。",
+  "low_alert_interval_hours": 3,
+
+  "snapshot_low_threshold": 30,
+  "_snapshot_readme": "snapshot_low_threshold = snapshot/dashboard/query 里判定「低电」的阈值（度，默认 30），和上面的 low 提醒阈值相互独立。",
+
+  "timezone": "Asia/Shanghai",
+
+  "_wanxiao_readme": [
+    "【仅可选 fallback】backend 改成 \"wanxiao\" 或把 wanxiao_fallback 设为 true 才会用到手机号密码。",
+    "默认 cloudpay 免登录，不需要填 phone/password，也不需要 deviceId。",
+    "wanxiao 链路 = 完美校园账密登录 + CloudPayment；首次在新设备登录会要求一次短信验证码（run.bat sms-send → run.bat sms-code 123456）。",
+    "phone/password 也可以不放文件里，改用环境变量 WANXIAO_PHONE / WANXIAO_PASSWORD。"
+  ],
+  "wanxiao_fallback": false,
+  "phone": "",
+  "password": "",
+  "deviceId": "",
+
+  "_push_readme": [
+    "推送全部可选。不配 = 只在日志里写，不报错；配几个发几个。push.channels 留空 = 自动检测下面已填好的渠道。",
+    "channels 可写 [\"pushplus\"] / [\"wecom\"] / [\"serverchan\"] / [\"webhook\"] / [\"email\"]，也可多选。",
+    "pushplus  ：https://www.pushplus.plus 登录后拿 token（微信推送，最省事）。",
+    "wecom     ：企业微信群 → 群机器人 → 添加 → 复制 Webhook 地址（含 key=）。",
+    "serverchan：https://sct.ftqq.com 登录后拿 SendKey（Server酱，微信推送）。",
+    "webhook   ：任意能收 JSON POST 的地址（自建/IFTTT/n8n 等），format 可 json 或 form。",
+    "email     ：QQ邮箱 → 设置 → 账户 → 开启 SMTP → 生成「授权码」；password 填授权码（不是登录密码），QQ邮箱 App 会弹通知。"
+  ],
+  "push": {
+    "channels": [],
+    "pushplus": {
+      "token": ""
+    },
+    "wecom": {
+      "webhook": ""
+    },
+    "serverchan": {
+      "sendkey": ""
+    },
+    "webhook": {
+      "url": "",
+      "format": "json",
+      "headers": {}
+    },
+    "email": {
+      "_howto": "smtp_host=smtp.qq.com，smtp_port=465，ssl=true；user=你的QQ邮箱，password=授权码，to=[收件邮箱]（可与 user 相同）",
+      "smtp_host": "smtp.qq.com",
+      "smtp_port": 465,
+      "ssl": true,
+      "user": "",
+      "password": "",
+      "to": [],
+      "from_name": "电费监控"
+    }
+  },
+
+  "_legacy_pushplus_readme": "兼容原项目写法：也可以在顶层直接写 pushplus_token，效果同上。",
+  "pushplus_token": ""
+}

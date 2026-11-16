@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.db
+*.db-wal
+*.db-shm
+*.log
+*.lock
+.env
+src/config.json
+src/snapshot.json
+research/class_power_snapshot.json
+.DS_Store
+Thumbs.db

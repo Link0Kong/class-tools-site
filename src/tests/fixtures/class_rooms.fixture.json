@@ -1,0 +1,124 @@
+{
+  "_readme": [
+    "离线 fake 网关 fixture：把真实网关换成本地 JSON，用于 `--fixture` 演示和离线测试。",
+    "匹配规则：method 必须相同，bizcontent 里写到的键值必须全部相等（其余键忽略），按顺序取第一条命中。",
+    "roomverify / quantity 来自 2026-11-05 项目 Lead 的 FJTCM 实测快照；",
+    "已剔除 occupant（同学姓名）等个人信息，只保留房间号与电量读数。",
+    "宿舍名统一为班级站规范名 {楼号}号楼{座}{房间号}（13号楼324 / 23号楼A座321 / 23号楼B座423）。"
+  ],
+  "_rooms": [
+    { "label": "13号楼324", "building": "13号楼", "room": "324", "roomverify": "1-13---324" },
+    { "label": "13号楼308", "building": "13号楼", "room": "308", "roomverify": "1-13---308" },
+    { "label": "16号楼305", "building": "16号楼", "room": "305", "roomverify": "1-16---305" },
+    { "label": "16号楼306", "building": "16号楼", "room": "306", "roomverify": "1-16---306" },
+    { "label": "23号楼A座321", "building": "23号楼A座", "room": "321", "roomverify": "4-23A---321" },
+    { "label": "23号楼A座323", "building": "23号楼A座", "room": "323", "roomverify": "4-23A---323" },
+    { "label": "23号楼A座324", "building": "23号楼A座", "room": "324", "roomverify": "4-23A---324" },
+    { "label": "23号楼A座325", "building": "23号楼A座", "room": "325", "roomverify": "4-23A---325" },
+    { "label": "23号楼A座326", "building": "23号楼A座", "room": "326", "roomverify": "4-23A---326" },
+    { "label": "23号楼A座327", "building": "23号楼A座", "room": "327", "roomverify": "4-23A---327" },
+    { "label": "23号楼A座328", "building": "23号楼A座", "room": "328", "roomverify": "4-23A---328" },
+    { "label": "23号楼A座329", "building": "23号楼A座", "room": "329", "roomverify": "4-23A---329" },
+    { "label": "23号楼A座330", "building": "23号楼A座", "room": "330", "roomverify": "4-23A---330" },
+    { "label": "23号楼B座422", "building": "23号楼B座", "room": "422", "roomverify": "4-23B---422" },
+    { "label": "23号楼B座423", "building": "23号楼B座", "room": "423", "roomverify": "4-23B---423" },
+    { "label": "23号楼B座424", "building": "23号楼B座", "room": "424", "roomverify": "4-23B---424" },
+    { "label": "23号楼B座425", "building": "23号楼B座", "room": "425", "roomverify": "4-23B---425" }
+  ],
+  "responses": [
+    {
+      "method": "smallProgramPayPro",
+      "bizcontent": { "schoolcode": "769" },
+      "businessData": [
+        { "id": 2122, "flag": 2, "payproname": "旗山用电支出", "description": "上街校区缴电费" },
+        { "id": 3518, "flag": 2, "payproname": "屏山用电支出", "description": "屏山教职工生活区缴电费" },
+        { "id": 4498, "flag": 2, "payproname": "屏山学生用电", "description": "学生购电" }
+      ]
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "1-13---324" },
+      "businessData": { "description": "剩余电量", "quantity": "78.97", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "1-13---308" },
+      "businessData": { "description": "剩余电量", "quantity": "307.88", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "1-16---305" },
+      "businessData": { "description": "剩余电量", "quantity": "22.25", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "1-16---306" },
+      "businessData": { "description": "剩余电量", "quantity": "96.50", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "4-23A---321" },
+      "businessData": { "description": "剩余电量", "quantity": "382.02", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "4-23A---323" },
+      "businessData": { "description": "剩余电量", "quantity": "195.94", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "4-23A---324" },
+      "businessData": { "description": "剩余电量", "quantity": "387.88", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "4-23A---325" },
+      "businessData": { "description": "剩余电量", "quantity": "220.65", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "4-23A---326" },
+      "businessData": { "description": "剩余电量", "quantity": "163.95", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "4-23A---327" },
+      "businessData": { "description": "剩余电量", "quantity": "114.99", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "4-23A---328" },
+      "businessData": { "description": "剩余电量", "quantity": "385.83", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "4-23A---329" },
+      "businessData": { "description": "剩余电量", "quantity": "295.75", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "4-23A---330" },
+      "businessData": { "description": "剩余电量", "quantity": "166.03", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "4-23B---422" },
+      "businessData": { "description": "剩余电量", "quantity": "243.69", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "4-23B---423" },
+      "businessData": { "description": "剩余电量", "quantity": "148.83", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "4-23B---424" },
+      "businessData": { "description": "剩余电量", "quantity": "63.65", "quantityunit": "度" }
+    },
+    {
+      "method": "samllProgramGetRoomState",
+      "bizcontent": { "roomverify": "4-23B---425" },
+      "businessData": { "description": "剩余电量", "quantity": "288.23", "quantityunit": "度" }
+    }
+  ]
+}

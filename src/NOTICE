@@ -1,0 +1,121 @@
+# NOTICE — 来源与修改说明 / Provenance and Modifications
+
+本目录（`src/`）是「完美校园宿舍电费查询 / 低电提醒」的本地化实现，包含两份
+从 MIT 许可项目 vendor 进来的 Python 源码，以及本地新增的适配层与脚本。
+
+## 上游项目 / Upstream
+
+- 项目：campus-electricity-monitor（宿舍电费监控：完美校园 CloudPayment 链路）
+- 仓库：https://github.com/jialiangh/campus-electricity-monitor
+- 作者：jialiangh
+- 许可：MIT License（见同目录 `LICENSE`，版权行原样保留 `Copyright (c) 2026 jialiangh`）
+- 被 vendor 的文件：
+  - `wanxiao_login.py` ← 上游 `wanxiao_login.py`
+  - `electricity_monitor.py` ← 上游 `electricity_monitor.py`（统计分析 / SQLite 台账 /
+    低电提醒 / 周报 / rooms / projects 等主体逻辑来自上游）
+  - `tests/selftest.py` ← 上游 `tests/selftest.py`（改为适配本目录结构，断言语义不变）
+  - `config.example.json` ← 上游 `config.example.json` 的结构与字段（已扩充）
+
+按 MIT 要求：本目录所有上游衍生文件保留原版权声明；新增文件同样以 MIT 许可发布。
+`LICENSE` 全文仅保留上游版权行，不额外附加限制。
+
+## 本次本地化改动（相对上游）
+
+### 1. 新增「免登录」主后端（新增文件 `cloudpay.py`）
+- 上游只有「完美校园账密登录 → CloudPayment」一条链路；本项目新增完美校园
+  **云支付网关**（`cloudpaygateway.59wanmei.com:8087/paygateway/smallpaygateway/trade`）
+  免登录查询：`smallProgramPayPro` / `samllProgramGetRoom` / `samllProgramGetRoomState`。
+- 2026-11-05 由项目 Lead 在福建中医药大学（schoolcode=769）用真实学号实测：只需要
+  `schoolcode + 学号(idserial) + payproid + roomverify`，**不需要密码 / token / deviceId / 短信**；
+  17 个班级房间全部拿到真实剩余量。
+- 实测细节已写进代码/README：缴费项目 2122/3518/4498；每个房间树 `optype=3` 只返回一个虚拟楼层
+  `id=-1`；`optype=4` 的 `id` 就是 roomverify（`1-13---324` / `4-23B---423`）；
+  13/16 号楼在 areaid=1、23A/23B 在 areaid=4。
+- 因此 `electricity_monitor.py` 重构为双后端：
+  - 默认 `backend = "cloudpay"`（免登录）；
+  - 上游的账密登录 + CloudPayment 代码**完整保留**，作为可选 fallback
+    （`backend = "wanxiao"` 或 `wanxiao_fallback = true` 时启用），行为未删减。
+- 网关客户端加了**指数退避重试**：超时 / 网络错 / 5xx / 405 / 「频繁请求」「9004」等可重试错误，
+  按 3s→6s→12s 最多重试 3 次，耗尽后提示可能被 WAF 限流，不死循环；
+  批量查询串行执行、每请求默认间隔 1.1 秒（`request_interval` / `--req-interval`）。
+- 新增 `FixtureGateway`（`--fixture <json>`）：按 method + bizcontent 子集匹配的本地假网关，
+  支持离线演示与全链路测试，**绝不发网络请求**。
+
+### 2. FJTCM 预置
+- `config.example.json` 预置 `schoolcode = "769"`、`payproid = "2122"`（旗山用电支出），
+  并在 `_readme` / `_howto` 键里写清学号、roomverify、推送渠道怎么填。
+- `doctor` 的提示语针对 FJTCM 调整（769 / 2122 / 4498 / 3518）。
+- 不预置任何真实个人信息：学号、房间号、手机号一律由使用者本人填写。
+
+### 3. Windows 化（修掉上游的 Linux-only 假设）
+- `util.py`：UTF-8 控制台（`chcp 65001` / `reconfigure`）、`Tee` 文件日志（pythonw 无控制台）、
+  `FileLock` 单实例锁（替代上游 cron 里的 `flock`）、`icacls` 权限收紧（替代 `chmod`）。
+- `run.bat` / `run.ps1`：统一入口（登录取数 + 推送 + 台账），设置 `PYTHONUTF8`。
+- `install_task.ps1`：用 `schtasks /create` 注册「每小时采样 + 周一 00:05 周报」两条计划任务，
+  优先 `pythonw.exe` 隐藏黑框、输出落日志；`-Remove` / `-Status` / `-DryRun` 辅助参数。
+  不用 `Register-ScheduledTask`（本机 PowerShell 注册会被拒）。
+- `electricity_monitor.py install` 子命令改为输出 Windows schtasks 命令（上游输出 cron）。
+
+### 4. 推送适配器（新增文件 `push.py`）
+- 保留上游 PushPlus；新增企业微信群机器人 / Server酱 / 通用 webhook / QQ邮箱 SMTP。
+- 全部可选；未配置渠道时**只写日志、不报错**（上游缺 token 会直接 `SystemExit`）。
+- 与上游相同的 HTML 正文会转成纯文本给企业微信 / 通用 webhook / 邮件纯文本兜底；
+  企业微信 markdown 按 4096 字节上限截断。
+
+### 5. 新增子命令 / 参数
+- `doctor`：检查 Python 版本、cryptography（仅 fallback 需要）、配置文件字段、台账、
+  deviceId/token 状态、三条域名 TCP 连通性。**不登录、不发个人信息**（idserial 不上网）。
+- `query [--all] [--json-out <file>]`：查单个/全部房间剩余量（表格 + 可选 JSON），串行限流。
+- `snapshot`：批量查全部房间 → 班级站用的精简 JSON（generated_at/payproid/payproname/
+  rooms[{label,building,room,roomverify,quantity,unit,low}]，**不含 occupant/姓名**；
+  low 默认 <30 度，可 `--low-threshold` 或 `snapshot_low_threshold` 改）。
+- `dashboard`（新增文件 `dashboard.py`）：snapshot.json → **单文件 HTML 看板**，
+  下拉选房间、低电标红、只看低电；纯内联 CSS/JS，零外部请求/CDN/字体外链。
+- `--dry`：试跑，只读、只打印，不写库、不推送（上游仅 report 支持）。
+- `--config` / `--backend` / `--log` / `--no-net` / `--fixture`；`state`（now 别名）、
+  `watch`（run 别名）、`secure`（收紧 config/state/台账/日志权限）。
+- `rooms` 增加 `--floor` / `--payproid` / `--max-calls`，并用 `--campus/--building/--room`
+  逐层剪枝，避免整棵树全量拉取撞 WAF。
+- config 新增 `rooms[]`（label/roomverify/occupant 可选）+ `default_room`：
+  `query`/`now`/`sample`/`report`/`test` 默认操作 `default_room`；`occupant` 只存本机内存，
+  任何命令输出、snapshot、dashboard、日志都不会出现。
+- `tests/fixtures/class_rooms.fixture.json`：17 个班级房间的真实 roomverify/读数（**无姓名**），
+  供离线测试与演示使用。
+
+### 6. 安全 / 隐私
+- 所有日志与输出对 **密码、token、deviceId、手机号、webhook key、邮箱授权码** 掩码
+  （`util.mask_secret` / `mask_phone` / `mask_url` / `scrub`）。
+- 上游会把 `user` 里的姓名 / 证件号 / 手机号（`mobileSm3`）写进 state 文件并打印；
+  本次**已删除**这段：state 只保留 token / session / obtained_at / deviceId。
+- 新增的 `occupant` 字段（同宿舍同学姓名）**只在本机 config 里**：`query`/`snapshot`/
+  `dashboard`/日志全部白名单过滤，绝不输出；离线 fixture 也已剔除全部姓名。
+- `config.json`、`wanxiao_state.json`、`electricity.db`、`snapshot.json`、`dashboard.html`、
+  `*.log`、`logs/` 全部列入 `.gitignore`；state/snapshot 写入走"临时文件 + replace"原子写
+  并尽力 `icacls` 收紧权限。
+- 上游登录/取数链路关闭了 TLS 证书校验（`CERT_NONE`，与 App 行为一致），
+  已保留但在 README 风险一节注明；新建的免登录 cloudpay 网关客户端**正常校验证书**。
+
+### 7. 其他
+- `electricity_monitor.py` 配置加载改为"缺失/损坏不炸 import"：doctor/status 能先跑起来，
+  真正需要配置的命令再用中文提示缺哪些字段。
+- 缴费项目选择不再"找不到就默认选第一个"：找不到「用电支出」会列出可用项目并报错，
+  避免拿错项目去查房间（对 FJTCM 尤其重要）。
+- 低电量提醒节流间隔可配置（`low_alert_interval_hours`，默认 3 小时，与上游一致）。
+- 原上游的 `install_cron.sh`、`docs/images/*`、README 图片未 vendor（Linux 专用/体积原因）。
+
+### 8. 宿舍命名统一（2026-11-05，本次）
+- 与班级站统一使用规范名 `{楼号}号楼{座}{房间号}`：`13号楼324`、`16号楼305`、
+  `23号楼A座321`、`23号楼B座423`。
+- `util.canonical_room()` 从 roomverify 派生 label/building/room（`1-13---324` → `13号楼`+`324`；
+  `4-23B---423` → `23号楼B座`+`423`），`cfg_rooms()` 统一套用并按楼号/房间号自然排序；
+  config 里的旧 label 不再影响输出（`doctor` 会提示同步配置），`default_room` 仍兼容旧写法。
+- `snapshot`/`query`/`dashboard` 全部使用规范名；`dashboard` 增加按楼栋分组
+  （`optgroup` + 分组行）与自然排序（13号楼 → 16号楼 → 23号楼A座 → 23号楼B座）。
+- 同步更新 `config.example.json`（`_rooms_example`）、`tests/fixtures/class_rooms.fixture.json`、
+  `README_zh.md` 示例与 `tests/smoke.py` 断言；不含 occupant 的约束不变。
+
+## 未 vendor 的交叉参考
+
+设计时还参考了 `DHKun_PowerApi.kt`、`DHKun_monitor.py`、`Andtun02_api.py`、
+`Zuizhuban_wanxiao-cloudpay.js` 等公开实现（见研究目录），仅作协议交叉验证，
+没有代码进入本目录。
