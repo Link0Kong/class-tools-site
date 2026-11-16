@@ -1,10 +1,9 @@
 {
-  "versionCode": 79,
-  "versionName": "4.57.0-test1",
-  "apkUrl": "http://121.196.47.2/android/classtools-4.57.0-test1.apk",
-  "apkUrlOss": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-4.57.0-test1.apk",
-  "notes": "测试版本 1\n1. 新增检测更新 / 自动更新\n2. 活动登录支持上传头像\n3. 今日校园 CAS 自动登录\n4. 学信网人工确认兜底\n5. 地图 2.5D 修复",
+  "versionCode": 83,
+  "versionName": "1.0.0-beta1",
+  "apkUrl": "http://121.196.47.2/android/classtools-1.0.0-beta1.apk",
+  "notes": "1.0.0-beta1 vc83\n1. 删除活动/今日校园/学信网三个工具\n2. 检测到更新自动在首页弹窗（无需手动点检查更新）\n3. 其余保持 vc82",
   "force": false,
-  "channel": "test1",
-  "sha256": "0c3424d406f059ad6d063df3900d8fbd3e0ff9be5a05db33bd0bcdc51e02ba9f"
+  "channel": "beta",
+  "sha256": "91814e1a5bc6e715e2a9645f1f8e2f313a86db7b22cc61daef45dc79017ac69a"
 }

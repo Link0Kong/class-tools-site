@@ -358,14 +358,12 @@ def static_checks(html):
     add("S1 中间入口页/旧按钮/旧 CSS/旧标记已全部删除（点卡片直进）",
         all(x not in html for x in gone), [x for x in gone if x in html])
 
-    # S2 TOOLS 含 jw 条目（增量 57 精简说明；增量 61 在 jw 之后追加 chsi，jw 不再一定是数组最后一个）；ALL_TONE 保留
+    # S2 TOOLS 含 jw 条目（增量 57 精简说明；2026-11-16 工具精简后 jw 回到数组末尾）；ALL_TONE 保留
     m = re.search(r"var TOOLS=\[(.*?)\];", html, re.S)
     tools = m.group(1) if m else ""
     jw_entry = '{k:"jw",n:"教务",d:"成绩、选课与考试",url:"http://210.34.74.77/sso.jsp"}'
-    chsi_entry = '{k:"chsi",n:"学信网",d:"学籍 · 学历 · 学位；官方入口卡"}'
-    add("S2 TOOLS 含 jw 条目（逐字含 url 教务链接；增量 61 起其后仅 chsi），ALL_TONE.jw=\"blue\" 保留",
-        tools.count(jw_entry) == 1 and chsi_entry in tools
-        and tools.index(jw_entry) < tools.index(chsi_entry)
+    add("S2 TOOLS 含 jw 条目（逐字含 url 教务链接，且为数组末尾），ALL_TONE.jw=\"blue\" 保留",
+        tools.count(jw_entry) == 1 and tools.rstrip().endswith(jw_entry)
         and re.search(r'var ALL_TONE=\{[^}]*jw:"blue"', html) is not None, tools[-200:].replace("\n", " "))
 
     # S3 新 JS 块：内容 + 位置 + 无定时器/网络请求/密码
@@ -411,8 +409,8 @@ def static_checks(html):
     # S9 UG jw 卡文案逐字
     m = re.search(r"var UG=\(function\(\)\{(.*?)\}\)\(\);", html, re.S)
     ug = m.group(1) if m else ""
-    add("S9 UG jw 卡逐字文案（sub/steps/tip 指向直进 + 浏览器自动填充；增量 61 起共 19 张）",
-        ug.count('{id:"') == 19
+    add("S9 UG jw 卡逐字文案（sub/steps/tip 指向直进 + 浏览器自动填充；2026-11-16 工具精简后共 18 张）",
+        ug.count('{id:"') == 18
         and '{id:"jw",cat:"study",title:"教务入口",sub:"点卡片直接打开教务系统"' in ug
         and 'steps:["点『教务』卡片直接打开教务系统","首次登录时勾选浏览器『保存密码』","之后打开即自动填充账号密码"]' in ug
         and 'tip:"自动填充由浏览器完成；校外打不开时先连学校 VPN"' in ug, "cards=%d" % ug.count('{id:"'))

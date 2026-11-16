@@ -209,7 +209,6 @@ body.embed .card{top:10px;bottom:auto;max-height:calc(100% - 20px);overflow:auto
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 8 5-8 5-8-5 8-5Z"/><path d="m4 13 8 5 8-5"/></svg>2.5D
       </button>
       <span class="sep"></span>
-      <button type="button" id="btnLoc" class="ico" title="定位" aria-label="定位" style="font-size:11px;font-weight:700">定位</button>
       <button type="button" id="btnView" class="ico" title="切换视角" aria-label="切换视角">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19.5 7.5A8.5 8.5 0 1 0 21 12"/><path d="M20 3v5h-5"/></svg>
       </button>
@@ -248,7 +247,6 @@ body.embed .card{top:10px;bottom:auto;max-height:calc(100% - 20px);overflow:auto
 
   <div id="embedBar" class="embedbar">
     <div class="ebmain"><b id="ebName">—</b><span id="ebMeta">—</span></div>
-    <button id="ebLoc" type="button">定位</button>
     <button id="ebDetails" type="button">详情</button>
     <button id="ebFloor" type="button">楼层</button>
     <button id="ebTt" class="pri" type="button">课表</button>
@@ -346,39 +344,6 @@ var DATA = {"vb":[848,493],"features":[{"id":"B378392","k":"bld","t":"polygon","
     { id: "dorm", name: "宿舍区", xy: [200, 250] }
   ];
   var ORIGIN = { kind: "gate", id: "south" };
-  /* WGS84 -> master 像素（由 OSM 图书馆/第一食堂/动物实验中心 拟合；误差约几十米） */
-  var GEO_LAT = [-8.91897693e-06, -7.45709015e-06, 26.10142103];
-  var GEO_LON = [-1.72804435e-05, -2.15608268e-05, 119.24886700];
-  var MYLOC = null;
-  function geoToMaster(lat, lon) {
-    var a=GEO_LAT[0],b=GEO_LAT[1],c=GEO_LAT[2],d=GEO_LON[0],e=GEO_LON[1],f=GEO_LON[2];
-    var det=a*e-b*d, dx=lat-c, dy=lon-f;
-    return [ (dx*e-b*dy)/det, (a*dy-d*dx)/det ];
-  }
-  function setMyLocation(lat, lon, acc) {
-    var p = geoToMaster(lat, lon);
-    if (!isFinite(p[0]) || !isFinite(p[1])) { toast("定位坐标异常"); return; }
-    MYLOC = { x:p[0], y:p[1], lat:lat, lon:lon, acc:acc||0 };
-    ORIGIN = { kind:"gps", id:"me" };
-    refreshRoute(); updateEmbedBar(); scheduleRender();
-    toast("已定位 · 精度约 " + Math.round(acc||0) + "m");
-  }
-  window.zqSetMyLocation = setMyLocation;
-  function locateMe() {
-    if (window.AndroidMap && window.AndroidMap.requestLocation) {
-      try { window.AndroidMap.requestLocation(); toast("正在获取定位…"); return; } catch(e) {}
-    }
-    if (!navigator.geolocation) { toast("当前环境不支持定位"); return; }
-    if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
-      toast("手机浏览器定位需要 HTTPS；可先用 App/小程序定位");
-    }
-    navigator.geolocation.getCurrentPosition(function (pos) {
-      setMyLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
-    }, function (err) {
-      toast("定位失败：" + (err && err.message ? err.message : "请允许定位权限"));
-    }, { enableHighAccuracy:true, timeout:12000, maximumAge:5000 });
-  }
-
   /* 道路名：依据公开地图截图整理（近似，仅供导航文案） */
   var ROAD_NAME = {};
   var ROAD_LABELS = [], ROAD_SEEN = {};
@@ -902,7 +867,6 @@ var DATA = {"vb":[848,493],"features":[{"id":"B378392","k":"bld","t":"polygon","
   }
   var ROUTE = null;
   function originInfo() {
-    if (ORIGIN.kind === "gps" && MYLOC) return { name:"我的位置", x:MYLOC.x, y:MYLOC.y };
     if (ORIGIN.kind === "bld" && BYID[ORIGIN.id]) {
       var ob = BYID[ORIGIN.id];
       return { name: (ob.ln || ob.n), x: ob.x, y: ob.y, b: ob };
@@ -1258,21 +1222,6 @@ var DATA = {"vb":[848,493],"features":[{"id":"B378392","k":"bld","t":"polygon","
     drawRoadLabels();
     drawPOIs();
     drawLabels();
-    drawMyLocation();
-  }
-  function drawMyLocation() {
-    if (!MYLOC) return;
-    var p = proj(MYLOC.x, MYLOC.y, 0.8);
-    var r = Math.max(6, Math.min(26, (MYLOC.acc || 10) * 0.55));
-    ctx.save();
-    ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(47,128,237,.14)"; ctx.fill();
-    ctx.beginPath(); ctx.arc(p[0], p[1], 5.5, 0, Math.PI * 2);
-    ctx.fillStyle = "#2F80ED"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
-    ctx.font = '700 10px "Microsoft YaHei", sans-serif'; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(250,250,242,.95)";
-    ctx.strokeText("我的位置", p[0], p[1] - 8); ctx.fillStyle = "#2F80ED"; ctx.fillText("我的位置", p[0], p[1] - 8);
-    ctx.restore();
   }
   var rafPending = false;
   function scheduleRender() {
@@ -1585,8 +1534,6 @@ var DATA = {"vb":[848,493],"features":[{"id":"B378392","k":"bld","t":"polygon","
   if(ebF) ebF.addEventListener("click",function(){var b=document.getElementById("btnFloor");if(b)b.click();});
   var ebT=document.getElementById("ebTt");
   if(ebT) ebT.addEventListener("click",function(){var b=document.getElementById("btnTt");if(b)b.click();});
-  var _locBtn=document.getElementById("btnLoc"); if(_locBtn)_locBtn.addEventListener("click",locateMe);
-  var _ebLoc=document.getElementById("ebLoc"); if(_ebLoc)_ebLoc.addEventListener("click",locateMe);
   document.getElementById("btnTt").addEventListener("click", function () { if (window.parent !== window) { try{parent.postMessage({type:"zq-map-open",tab:"tt"},"*");}catch(e){} } else { toast("已接入班级工具站后可跳回课表"); } });
   document.getElementById("btnFloor").addEventListener("click", function () {
     var b = BYID[SEL], room = D.rooms[b.id];
