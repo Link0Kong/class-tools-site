@@ -7,6 +7,7 @@
 - 仓库（**均为私有**，含个人信息、服务器 IP 与云端配置说明，请勿公开/转存）：
   - GitHub（主，remote `origin`）：https://github.com/Link0Kong/class-tools-site
   - Gitee（镜像，remote `gitee`）：https://gitee.com/ko_Link/class-tools-site
+  - 全部项目仓库地图（小程序 / Android / HarmonyOS / Windows / 管线）：[REPOS.md](REPOS.md)
 - 分支：`master`（两端同名）
 
 ## 先读什么
