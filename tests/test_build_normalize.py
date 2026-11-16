@@ -1,0 +1,308 @@
+# -*- coding: utf-8 -*-
+"""builder 数据侧单测：时间归一（契约 §1/§4）+ 发送者身份映射（契约 §5）。
+
+运行：
+  C:\\briefdesk\\venv\\Scripts\\python.exe C:\\Users\\Ko_Li\\.openclaw\\workspace\\briefdesk-plan\\tests\\test_build_normalize.py
+
+只读产品数据（class-*.json / notice-manual-patches.json / ai-triage-notices.json），
+临时文件写在 tests 目录内并清理。
+"""
+import json
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+BASE = Path(r"C:\Users\Ko_Li\.openclaw\workspace\briefdesk-plan")
+sys.path.insert(0, str(BASE))
+sys.path.append(r"C:\briefdesk\scripts")
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
+import build_notice_board as bnb  # noqa: E402
+
+PASS = 0
+FAIL = 0
+FAILED = []
+
+
+def check(name, cond, detail=""):
+    global PASS, FAIL
+    if cond:
+        PASS += 1
+        print("PASS " + name)
+    else:
+        FAIL += 1
+        FAILED.append(name)
+        print("FAIL " + name + ("  " + str(detail) if detail else ""))
+
+
+def eq(name, actual, expected):
+    check(name, actual == expected, "expected=%r actual=%r" % (expected, actual))
+
+
+# ---------------------------------------------------------------- 1. 身份映射（契约 §5）
+print("---- §5 发送者身份映射（网名 → 姓名 + 职务）----")
+roster = bnb.load_roster()
+check("roster 非空", bool(roster.get("by_clean")))
+info = bnb._roster_lookup("天城企鹅", roster)
+eq("天城企鹅 → 姓名", (info or {}).get("name"), "兰佳杰")
+eq("天城企鹅 → 职务", (info or {}).get("role"), "学习委员")
+eq("天城企鹅 → 班委徽标", (info or {}).get("badge"), "班委")
+eq("08曹明星 → 姓名", (bnb._roster_lookup("08曹明星", roster) or {}).get("name"), "曹明星")
+eq("64陈玉霞 → 姓名", (bnb._roster_lookup("64陈玉霞", roster) or {}).get("name"), "陈玉霞")
+check("未知发送者不误命中", bnb._roster_lookup("路过的陌生人", roster) is None)
+
+it = {"kind": "file", "time": "10-29 15:27", "from": "天城企鹅", "name": "花名册.xls"}
+bnb._fill_sender(it, roster)
+eq("_fill_sender fromName", it.get("fromName"), "兰佳杰")
+eq("_fill_sender fromRole", it.get("fromRole"), "学习委员")
+eq("_fill_sender fromBadge", it.get("fromBadge"), "班委")
+eq("_fill_sender 保留 fromRaw", it.get("fromRaw"), "天城企鹅")
+
+g_file = {"id": "g_qqfile_1a81286a3a", "cat": "班级事务", "title": "更新版学生花名册发布",
+          "items": [{"kind": "file", "label": "附件", "time": "10-29 15:27",
+                     "from": "天城企鹅", "name": "级信息管理与信息系统-花名册学生名单.xls"}]}
+bnb.attach_sender_roles([g_file])
+eq("A5 花名册卡 senderName", g_file.get("senderName"), "兰佳杰")
+eq("A5 花名册卡 senderRole", g_file.get("senderRole"), "学习委员")
+check("A5 不再以天城企鹅作为发送者", "天城企鹅" not in json.dumps(
+    {k: v for k, v in g_file.items() if k != "items"}, ensure_ascii=False))
+
+# ---------------------------------------------------------------- 2. 人工补丁字段（契约 §1）
+print("---- §1 人工补丁 GROUP_PATCH_FIELDS / ISO 校验 ----")
+for k in ("deadlineAction", "eventAction", "signupStart", "signupEnd"):
+    check("GROUP_PATCH_FIELDS 含 " + k, k in bnb.GROUP_PATCH_FIELDS)
+gp = {"id": "g_patch"}
+bnb._apply_patch_to_group(gp, {"signupStart": "2026-11-08T14:00", "signupEnd": "2026-11-08T18:00",
+                               "deadlineAction": "报名截止"})
+eq("补丁 signupStart 补 +08:00", gp.get("signupStart"), "2026-11-08T14:00:00+08:00")
+eq("补丁 signupEnd 补 +08:00", gp.get("signupEnd"), "2026-11-08T18:00:00+08:00")
+eq("补丁 deadlineAction", gp.get("deadlineAction"), "报名截止")
+
+# ---------------------------------------------------------------- 3. 时间归一（契约 §4）
+print("---- §4 时间归一（notice_time + builder 补缺）----")
+
+# 3.1 手抄报：报名优先（signup 11-03 12:00–20:30；作品 deadline 11-12 20:00 保留）
+g_food = {
+    "id": "g_food", "cat": "活动", "title": "惜粮手抄报活动通知",
+    "deadline": "2026-11-12T20:00:00+08:00",
+    "items": [{"kind": "text", "label": "活动通知", "time": "11-02 10:46", "from": "21林宇翔",
+               "text": "各位同学大家好～这个秋日，由福建中医药大学学生膳食管理委员会承办的“食不易得，惜粮在行”"
+                       "主题活动正式启动啦！活动对象：全体在校学生。活动时间：2026年10月30日-11月15日。"
+                       "开群时间：11月3日 12:00。收集表报名时间：11月3日12:00-20:30。参与者在 11月5日-11日期间"
+                       "完成主题手抄报绘画，于 11月12日20:00 前将作品拍照提交至群作业，并在作品右下角写上"
+                       "姓名、学号、学院信息，审核合格后可获得活动证明。具体内容见策划书。"},
+              {"kind": "form", "label": "活动报名", "time": "11-02 10:46", "name": "报名表"}],
+}
+bnb.MANUAL_SET_FIELDS.clear()
+bnb.normalize_group_times([g_food])
+eq("A4 手抄报 signupStart", g_food.get("signupStart"), "2026-11-03T12:00:00+08:00")
+eq("A4 手抄报 signupEnd", g_food.get("signupEnd"), "2026-11-03T20:30:00+08:00")
+check("A4 手抄报 deadline 保留作品提交", str(g_food.get("deadline") or "").startswith("2026-11-12"),
+      g_food.get("deadline"))
+eq("A4 手抄报 deadlineAction", g_food.get("deadlineAction"), "投稿截止")
+
+# 3.2 药膳：人工补丁追加更正文本后 final pass 刷新 signup 到 11-07（人工字段优先）
+g_food2 = {
+    "id": "g_qqm_7704134971497063025_c0", "cat": "活动", "title": "药膳答题打卡活动报名",
+    "items": [{"kind": "text", "label": "通知", "time": "11-04 10:18", "from": "21林宇翔",
+               "text": "线上活动QQ群：1127693680 2026年11月7日—11月14日 2026年11月5日12:00—18:00 "
+                       "11月5日12:00开放“食养本草，润愈身心”药膳知识线上答题打卡QQ活动群，"
+                       "填写群精华消息内的线上报名表并核对信息正确即为报名成功。"}],
+}
+bnb.MANUAL_SET_FIELDS.clear()
+bnb.normalize_group_times([g_food2])
+bnb.apply_manual_patches([g_food2])
+bnb.normalize_group_times([g_food2], final=True)
+eq("A3 药膳 deadline=人工补丁 11-07 18:00", g_food2.get("deadline"), "2026-11-07T18:00:00+08:00")
+eq("A3 药膳 eventAt=人工补丁 11-07 12:00", g_food2.get("eventAt"), "2026-11-07T12:00:00+08:00")
+eq("A3 药膳 signupStart=更正 11-07 12:00", g_food2.get("signupStart"), "2026-11-07T12:00:00+08:00")
+eq("A3 药膳 signupEnd=更正 11-07 18:00", g_food2.get("signupEnd"), "2026-11-07T18:00:00+08:00")
+check("A3 药膳 deadlineAction 含「截止」", "截止" in str(g_food2.get("deadlineAction") or ""),
+      g_food2.get("deadlineAction"))
+bnb.MANUAL_SET_FIELDS.clear()
+
+# 3.2b 药膳 c1（回归）：正文含「进群修改群昵称」不是更正来源，final pass 不得刷新 signup
+#     （曾把「活动周期 11月7日—11月14日」误当报名 end，覆盖成 11-14）
+g_c1 = {
+    "id": "g_qqm_7704134971497063025_c1", "cat": "活动", "title": "药膳手记线上打卡活动报名",
+    "items": [{"kind": "text", "label": "通知", "time": "11-04 10:18", "from": "21林宇翔",
+               "text": "拾味本草，手记食养”药膳手记线上打卡活动。线上活动QQ群：817436248。"
+                       "活动周期内（11月7日至11月14日）需完成共计5次有效打卡，结束后将全部打卡照片统一提交至群作业。"
+                       "2026年11月5日12:00—18:00 2026年11月5日12:00开放报名QQ群聊：817436248"
+                       "（活动群聊上限200人，名额满后关闭群聊），进群修改群昵称为“学院+姓名+学号”，"
+                       "填写群精华消息内报名表并核对信息正确即为报名成功。"}],
+}
+bnb.normalize_group_times([g_c1])
+eq("c1 non-final signupStart=11-05 12:00", g_c1.get("signupStart"), "2026-11-05T12:00:00+08:00")
+eq("c1 non-final signupEnd=11-05 18:00", g_c1.get("signupEnd"), "2026-11-05T18:00:00+08:00")
+check("c1 不误判为补充/更正卡", not bnb._has_supplement_item(g_c1))
+bnb.normalize_group_times([g_c1], final=True)
+eq("c1 final 不刷新 signupStart", g_c1.get("signupStart"), "2026-11-05T12:00:00+08:00")
+eq("c1 final 不刷新 signupEnd（不得变成 11-14）", g_c1.get("signupEnd"), "2026-11-05T18:00:00+08:00")
+
+# 3.3 申报材料：deadline 11-06 12:00 不被文本重解析覆盖，动作=报送姓名截止
+g_apply = {
+    "id": "g_ait_5396a55f24", "cat": "班级事务", "title": "申报材料报送提醒",
+    "deadline": "2026-11-06T12:00:00+08:00", "aiTriage": True,
+    "items": [{"kind": "text", "label": "通知", "time": "11-05 20:47", "from": "陈玉霞",
+               "text": "请申报的同学明天中午前报送姓名，周日晚点名时需要提交材料！"}],
+}
+bnb.normalize_group_times([g_apply])
+eq("A2 申报材料 deadline 保持 11-06 12:00", g_apply.get("deadline"), "2026-11-06T12:00:00+08:00")
+eq("A2 申报材料 deadlineAction（§0.2 短词）", g_apply.get("deadlineAction"), "报送截止")
+eq("A2 申报材料 eventAt 周日晚点名 19:00", g_apply.get("eventAt"), "2026-11-08T19:00:00+08:00")
+eq("A2 申报材料 eventAction（§0.2 短词）", g_apply.get("eventAction"), "点名")
+
+# 3.4 骨伤作品征集：只有 signupStart，不合成 signupEnd（显示回落 deadline）
+g_gu = {
+    "id": "g_qqm_7704510965381867825_c0", "cat": "活动", "title": "骨伤学院运动会作品征集",
+    "deadline": "2026-11-08T00:00:00+08:00",
+    "items": [{"kind": "text", "label": "通知", "time": "11-04 10:00",
+               "text": "“追风逐浪，定格荣光”运动会系列征集活动。2⃣子活动二【运动风采合影征集】"
+                       "11 月 5 日 12:00 开放QQ群聊，进群后填写收集表（上限 200 份）。"
+                       "11 月 7 日 24:00 前提交原图照片 + 带互动的发布截图，审核通过即可获得活动证明。"}],
+}
+bnb.normalize_group_times([g_gu])
+eq("骨伤 signupStart=11-05 12:00", g_gu.get("signupStart"), "2026-11-05T12:00:00+08:00")
+check("骨伤 signupEnd 不合成（None/空）", not g_gu.get("signupEnd"), g_gu.get("signupEnd"))
+eq("骨伤 deadline 保持 11-08", g_gu.get("deadline"), "2026-11-08T00:00:00+08:00")
+
+# 3.5 征文（活动+投稿，无报名语义）：不被合成 signup，动作=投稿截止
+g_essay = {
+    "id": "g_essay", "cat": "活动", "title": "杏林故事征文通知",
+    "deadline": "2026-11-15T23:59:00+08:00",
+    "items": [{"kind": "text", "label": "原始通知", "time": "10-29 12:17", "from": "64陈玉霞",
+               "text": "关于开展“岐黄薪火·我的杏林故事”征文的通知：须为原创首发，仅接收 Word 文档。"
+                       "活动截止时间：2026 年 11 月 15 日。投稿方式：作品电子版发送至邮箱 2006002@fjtcm.edu.cn。"}],
+}
+bnb.normalize_group_times([g_essay])
+check("征文不合成 signup", not g_essay.get("signupStart") and not g_essay.get("signupEnd"),
+      (g_essay.get("signupStart"), g_essay.get("signupEnd")))
+eq("征文 deadlineAction=投稿截止", g_essay.get("deadlineAction"), "投稿截止")
+eq("征文 deadline 保持 11-15", g_essay.get("deadline"), "2026-11-15T23:59:00+08:00")
+
+# 3.6 运动会观众：有报名语义（征集）→ signupEnd 取 deadline（报名截止）
+g_view = {
+    "id": "g_games_viewer", "cat": "活动", "title": "校运动会观众征集",
+    "deadline": "2026-11-03T18:30:00+08:00",
+    "items": [{"kind": "text", "label": "原始通知", "time": "11-03 14:03", "from": "64陈玉霞",
+               "text": "为保证校运动会顺利开展，需要向 25 级、26 级各班征集运动会观众，每半日需要各班 6 名观众。截止今天六点半！"}],
+}
+bnb.normalize_group_times([g_view])
+eq("观众征集 signupEnd=deadline（报名截止）", g_view.get("signupEnd"), "2026-11-03T18:30:00+08:00")
+check("观众征集 deadlineAction=报名截止", "报名" in str(g_view.get("deadlineAction") or ""),
+      g_view.get("deadlineAction"))
+
+# ---------------------------------------------------------------- 3.7 第三轮 §0：legacy 卡时间/动作补全
+print("---- §0.2/§0.5 动作精简 + legacy 微信卡 eventAt + 00:00 修正 ----")
+eq("_short_action 报送姓名截止→报送截止", bnb._short_action("报送姓名截止"), "报送截止")
+eq("_short_action 集合点名→点名", bnb._short_action("集合点名"), "点名")
+eq("_short_action 活动开始→开始", bnb._short_action("活动开始"), "开始")
+eq("_short_action 签到签退→签到", bnb._short_action("签到签退"), "签到")
+eq("_short_action 比赛开始→比赛", bnb._short_action("比赛开始"), "比赛")
+eq("_short_action 截断 >6 字", bnb._short_action("超长动作描述超过六字"), "超长动作描述"[:6])
+
+# R1：legacy 微信卡正文只有「下午」，要补出 eventAt=11-05 14:00（用 notice_time 单一真源）
+g_wx = {
+    "id": "g_wxg_c66a85ae46", "cat": "活动", "title": "下午招聘会请准时到场",
+    "group": "26信管班群", "source": "微信群 · 26信管班群",
+    "items": [{"kind": "text", "label": "群通知", "time": "11-05 13:00",
+               "text": "下午的招聘会请各班同学准时到场"}],
+}
+bnb.normalize_group_times([g_wx])
+eq("R1 legacy 微信卡 eventAt=11-05 14:00", g_wx.get("eventAt"), "2026-11-05T14:00:00+08:00")
+check("R1 legacy 微信卡 eventAction 非空且≤6 字", 0 < len(str(g_wx.get("eventAction") or "")) <= 6,
+      g_wx.get("eventAction"))
+
+# R5：OCR 赛程表 00:00 的 eventAt 用文本首个钟点（9:10）+ 5号 修正
+g_ocr = {
+    "id": "g_qqimg_6d052014c3", "cat": "活动", "title": "运动会项目及参赛人员安排",
+    "summary": "公布运动会各项比赛时间及参赛人员名单。",
+    "aiSummary": "公布运动会各项比赛时间及参赛人员名单。",
+    "eventAt": "2026-11-05T00:00:00+08:00",
+    "items": [{"kind": "text", "label": "名单", "time": "11-04 19:49",
+               "text": "日期 项目 时间 姓名 教工女子青年组200 米 9:10 陈江美 学生女子组200米-预赛 9:40 "
+                       "5号上午 杨欢欢 学生女子组标枪-预决赛 00:6 丘嘉欣"}],
+}
+bnb.normalize_group_times([g_ocr])
+ev = str(g_ocr.get("eventAt") or "")
+check("R5 00:00 eventAt 修正为文本钟点 9:10", ev.endswith("T09:10:00+08:00") or ev.endswith("T09:10"),
+      ev)
+
+# R7：长期安排 action 不被误改，recurrence 保留
+g_dorm = {
+    "id": "g_dorm", "cat": "班级事务", "title": "宿舍卫生检查安排",
+    "recurrence": {"freq": "monthly_weeks", "weekday": 3, "weeks": [1, 2, 3],
+                   "time": "17:30", "startAt": "2026-11-04T17:30:00+08:00",
+                   "label": "每月前三周 周三 17:30"},
+    "items": [{"kind": "text", "label": "通知", "time": "11-03 09:13",
+               "text": "自本周（11.4）起，每月前三周的周三下午 5:30 例行检查。"}],
+}
+bnb.normalize_group_times([g_dorm])
+check("R7 长期安排 recurrence 保留", (g_dorm.get("recurrence") or {}).get("freq") == "monthly_weeks",
+      g_dorm.get("recurrence"))
+
+# ---------------------------------------------------------------- 4. ai-triage 新字段透传
+print("---- §1 load_ai_triage_notices 新字段透传 ----")
+fd, tmp_name = tempfile.mkstemp(prefix="triage_", suffix=".json", dir=str(Path(__file__).parent))
+os.close(fd)
+tmp = Path(tmp_name)
+try:
+    tmp.write_text(json.dumps({"items": [{
+        "id": "g_ait_test", "cat": "活动", "title": "药膳报名测试",
+        "summary": "报名 11-07 12:00—18:00",
+        "deadline": "2026-11-07T18:00", "eventAt": None,
+        "deadlineAction": "报名截止", "eventAction": "活动开始",
+        "signupStart": "2026-11-07T12:00", "signupEnd": "2026-11-07T18:00",
+        "aiMerged": True, "supplement": True, "updatedAt": "2026-11-05T21:07:00+08:00",
+        "items": [{"kind": "text", "label": "通知", "time": "11-05 12:37",
+                   "text": "报名时间：2026年11月7日12:00—18:00"}],
+    }]}, ensure_ascii=False), encoding="utf-8")
+    old = bnb.AI_TRIAGE
+    bnb.AI_TRIAGE = tmp
+    try:
+        items = bnb.load_ai_triage_notices()
+    finally:
+        bnb.AI_TRIAGE = old
+    got = items[0] if items else {}
+    eq("ai-triage deadlineAction 透传", got.get("deadlineAction"), "报名截止")
+    eq("ai-triage eventAction 透传", got.get("eventAction"), "活动开始")
+    eq("ai-triage signupStart 补 +08:00", got.get("signupStart"), "2026-11-07T12:00:00+08:00")
+    eq("ai-triage signupEnd 补 +08:00", got.get("signupEnd"), "2026-11-07T18:00:00+08:00")
+    eq("ai-triage deadline 补 +08:00", got.get("deadline"), "2026-11-07T18:00:00+08:00")
+    check("ai-triage aiMerged 透传", got.get("aiMerged") is True, got.get("aiMerged"))
+    check("ai-triage supplement 透传", got.get("supplement") is True, got.get("supplement"))
+    eq("ai-triage updatedAt 透传（已更新徽标）", got.get("updatedAt"), "2026-11-05T21:07:00+08:00")
+finally:
+    try:
+        tmp.unlink()
+    except OSError:
+        pass
+
+# ---------------------------------------------------------------- 5. 合成 signup 清理（投稿类）
+print("---- _drop_synthetic_signup：投稿/征文类合成 signup 清除 ----")
+g_syn = {"id": "x", "cat": "活动", "deadline": "2026-11-15T23:59:00+08:00",
+         "signupEnd": "2026-11-15T23:59:00+08:00",
+         "items": [{"kind": "text", "time": "10-29", "text": "征文投稿截止 11 月 15 日"}]}
+bnb._drop_synthetic_signup(g_syn)
+check("无报名语义时清掉合成 signup", not g_syn.get("signupEnd"), g_syn.get("signupEnd"))
+g_syn2 = {"id": "y", "cat": "活动", "deadline": "2026-11-03T18:30:00+08:00",
+          "signupEnd": "2026-11-03T18:30:00+08:00",
+          "items": [{"kind": "text", "time": "11-03", "text": "征集运动会观众，截止今天六点半"}]}
+bnb._drop_synthetic_signup(g_syn2)
+eq("有报名/征集语义时保留 signup", g_syn2.get("signupEnd"), "2026-11-03T18:30:00+08:00")
+
+# ---------------------------------------------------------------- 结果
+print("\n================ 结果 ================")
+print("PASS %d / FAIL %d" % (PASS, FAIL))
+if FAIL:
+    print("失败用例：")
+    for f in FAILED:
+        print(" - " + f)
+    sys.exit(1)
+print("全部通过 ✅")
