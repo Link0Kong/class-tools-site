@@ -128,6 +128,12 @@ def _caddy_http():
 		uri strip_prefix /drop
 		reverse_proxy 127.0.0.1:8093
 	}
+
+	# OPPO 账号绑定/快捷登录验证服务（deploy/ecs_account.py；见 android-class-tools/docs/OPPO_ACCOUNT.md）
+	handle /account/* {
+		uri strip_prefix /account
+		reverse_proxy 127.0.0.1:8094
+	}
 	# 校园地图共享状态（deploy/ecs_map.py）
 	handle /map/api/* {
 		uri strip_prefix /map/api
@@ -186,6 +192,12 @@ tool.furina.fun {
 		uri strip_prefix /drop
 		reverse_proxy 127.0.0.1:8093
 	}
+
+	# OPPO 账号绑定/快捷登录验证服务（deploy/ecs_account.py；见 android-class-tools/docs/OPPO_ACCOUNT.md）
+	handle /account/* {
+		uri strip_prefix /account
+		reverse_proxy 127.0.0.1:8094
+	}
 	# 校园地图共享状态（deploy/ecs_map.py）
 	handle /map/api/* {
 		uri strip_prefix /map/api
@@ -236,6 +248,12 @@ tool.furina.fun {
 	handle /drop/* {
 		uri strip_prefix /drop
 		reverse_proxy 127.0.0.1:8093
+	}
+
+	# OPPO 账号绑定/快捷登录验证服务（deploy/ecs_account.py；见 android-class-tools/docs/OPPO_ACCOUNT.md）
+	handle /account/* {
+		uri strip_prefix /account
+		reverse_proxy 127.0.0.1:8094
 	}
 	# 校园地图共享状态（deploy/ecs_map.py）
 	handle /map/api/* {

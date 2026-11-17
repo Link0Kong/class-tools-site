@@ -2,6 +2,17 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-17 20:0x–20:5x · 增量 62：OPPO 账号绑定学号（≤3 个）+ OPPO 快捷登录（安卓 + ECS 账号验证服务）；安装包改规范命名
+
+> 用户要求：允许 OPPO 账号绑定学号（一学号最多 3 个）、允许 OPPO 快捷登录；安装包替换桌面规范命名包、不要功能命名包。已确认：可自助解绑；允许 ECS 新增账号验证接口（服务端 authCode→openid）。
+
+- **安装包**：桌面只保留 `班级工具站_v1.0.0-beta2_安卓.apk`（vc85 / 1.0.0-beta2 / **5,787,701 B / SHA-256 `CE861934…055C78`**，v2 签名；功能命名包已删）；`artifacts/classtools-1.0.0-beta2-vc85-release-signed.apk` 同字节。
+- **云端**：迁移 `deploy/cloudbase/2026-11-17_account_bindings.sql` 已应用（绑定表 + 仅管理员 RLS + 3 条上限触发器）；测试身份实测第 4 条绑定被拒、普通 token 直连不可见、管理员可清理。
+- **ECS**：新增 `deploy/account_app.py` + `deploy/ecs_account.py`（`class-tools-account.service` 127.0.0.1:8094），`deploy/ecs_site.py` 三套 Caddy 配置加 `/account/*` 反代并 apply；公网 `/account/__health` 200。接口：`/oppo/login`、`/oppo/bind`、`/oppo/bindings`、`/oppo/unbind`；authCode 服务端换 openid、openid 不出服务端、绑定表仅管理员 token、限频 30/分/IP。
+- **本地 mock E2E 通过**：绑定 4 个 mock 账号→前 3 成功/第 4 limit；快捷登录返回班级 token（class_whoami 校验）；解绑后登录 unbound。绑定行已清理。
+- **安卓**：OPPO 账号 OAuth SDK 1.1.3 + 身份页快捷登录 + 我的→账号绑定/解绑/列表（N/3）；全量单测 **1545/1545（116 suites，新增账号 72）**；APK vc85/1.0.0-beta2。当前账号服务凭证未填 → 快捷登录/账号入口隐藏；真实 OAuth 未联调（需账号服务专用凭证 + ColorOS 真机）。
+- **待用户操作**：账号服务专用 AppID/AppKey/AppSecret 填 `C:\briefdesk\secrets\oppo-account.json` + `app/oppo.properties` 的 `oppo.accountAppId/accountAppKey` → Lead 重跑 `deploy\ecs_account.py deploy`（health configured:true）+ 重打 APK。
+- 文档：`通知OPPO账号绑定与快捷登录_接入说明_20261117.md`、`android-class-tools/docs/OPPO_ACCOUNT.md`。回滚：停 ECS 服务/去 Caddy 路由；DROP 表；客户端回退上一版 APK。
 ## 2026-11-16 21:4x · 更正：网页恢复「学信网」工具（用户更正：仅网页保留；Android/小程序/鸿蒙仍删除；未部署、未 commit）
 
 > 用户更正：网页版学信网可以留下，其它端仍删除。当前 HEAD `9092feb` 已删除 chsi（线上 1,321,954B/`5fc54899`），本次只把学信网相关代码合并回网页，activity/today 仍不在网页。注意 `9092feb^` 因并行提交 `78765f4` 已含删除结果，实际以备份 `tools/_backup/index_online_20261116-2129_preRemoveTools.html`（1,322,990 B / `621f6a7b`，含 chsi）为片段来源；插入位置按当前 HEAD 锚点，并做了「再跑一次删除脚本 == HEAD 字节级一致」的往返校验。
@@ -2036,5 +2047,6 @@
   同步脏检测（后台逻辑不跨端推送/不改用户偏好；用户手动切换视图、导入自定义课表仍正常同步）；
   ② UD 模块含 apply/DOM 辅助约 280 行（契约估 ~150 行）；③ 网页无隐私开关（隐私/数据管理页在小程序），
   网页不承诺开关。
+
 
 

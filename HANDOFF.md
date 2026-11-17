@@ -3585,3 +3585,33 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - **网页已上线 OSS+ECS**：线上 **1,245,831 B / sha256 `9f93306be176892ce5aff187e19979336fb5462e36f2e3c5766ab0327d56ba72`**（`oss_object check` MATCH；`ecs_site verify` MATCH，gzip 391,472 B；ECS 直连实取同字节且含 `#s-chsi`/10 卡/`chsi-grid`/`APP_VER 2.0.0`）；部署前备份 `tools/_backup/index_online_20261115-1414_preChsi.html`（1,241,167 B/`000f0787…`）。Lead 独立复跑 v2_chsi 54/54、overflow 430/360/390=0、v2_ui 27/27、v2_drag 69/69、v2_ug 56/56、v2_jw 55/55。APP_VER 2.0.0；无 DB / `userdata` v6 / 云函数变更。
 - **安卓端同批交付**：v4.53.0/vc71 APK `artifacts/classtools-4.53.0-release-signed.apk` **3,284,845 B / SHA-256 `DA22AC202FFC77B0C54803E94CADACC43BDD80FFA17314217C27DE6F6F9E14BC`**（手动登录学信网 + 学籍/学历/学位/在线验证报告数据卡 + 10 官方入口卡 + 桌面版/手机版 UA 切换；窄屏 2 列/≥600dp 3 列；数据仅内存、证件号/手机号掩码、不保存学信网密码；单测 1276/0（100 suites，新增 26）；未真机/真实账号验证——红线）。
 - 本次改动 hunk：CSS `+2558`、`#s-chsi` `+3108`、TOOLS `+5614`、ALL_TONE `+5750`、UG `+19281`；git diff 另含并行地图会话 1 行 WIP（`...&v=202611152305`，未触碰，随本文件一并提交/部署；路径不变仅缓存版本号）。
+## 2026-11-17 20:0x–20:5x · 增量 62：OPPO 账号绑定学号（一学号最多 3 个）+ OPPO 快捷登录（安卓客户端 + ECS 账号验证服务）；安装包改回规范命名
+
+> 用户 2026-11-17 原话：「允许 oppo 账号绑定学号，同样一个学号至多绑定 3 个不同的 oppo 账号，允许 oppo 快捷登录，并且生成的安装包应该替换掉桌面原有的规范命名安装包，而不是以功能命名的安装包。」
+> 已确认：① 允许用户自助解绑任意已绑定 OPPO 账号；② 允许在 ECS 新增账号验证小接口（authCode 由服务端换 openid，不信任客户端）。
+> 关联文档：`web/通知OPPO账号绑定与快捷登录_接入说明_20261117.md`、`android-class-tools/docs/OPPO_ACCOUNT.md`。
+
+### 安装包命名（已完成）
+- 桌面 `C:\Users\Ko_Li\OneDrive\桌面\` 只保留规范命名 **`班级工具站_v1.0.0-beta2_安卓.apk`**（旧 `…beta1…` 删除、功能命名 `班级工具站_OPPO推送_vc84.apk` 删除）；同字节复制 `android-class-tools/artifacts/classtools-1.0.0-beta2-vc85-release-signed.apk`。
+- 当前 APK：vc85 / 1.0.0-beta2 / **5,787,701 B / SHA-256 `CE861934E606E5B408505C133BDAB8ABFA2D39DD5C705D313D89D0DB78055C78`**（v2 签名；含 OPPO 推送 + 账号 OAuth SDK，账号服务凭证未填 → 快捷登录/绑定入口隐藏）。
+
+### 云端 / 安全（已完成并应用）
+- 迁移 `deploy/cloudbase/2026-11-17_account_bindings.sql` 已应用：`public.account_bindings(id,sid,name,provider='oppo',openid,nickname,created_at,updated_at)`；`UNIQUE(provider,openid)` + `UNIQUE(provider,sid,openid)`；RLS 仅 `auth_admin()` 可读写；触发器 `account_bindings_limit_trg` 强制同一学号最多 3 条（第 4 条报 `binding_limit_reached`）。
+- 已用测试身份实测：普通/测试 token 直连读回 `[]`；管理员 token 插入 3 条成功、第 4 条 400 reject；清理后 0 行。
+- **ECS 账号验证服务已上线**：`deploy/account_app.py` + `deploy/ecs_account.py`（systemd `class-tools-account.service`，127.0.0.1:8094，Python 标准库）；`deploy/ecs_site.py` 三套 Caddy 站点块新增 `/account/*` 反代（已 apply，公网 `http://121.196.47.2/account/__health` = 200）。
+- 接口：`POST /oppo/login`、`POST /oppo/bind`、`GET /oppo/bindings`、`POST /oppo/unbind`、`GET /__health`；安全：authCode 服务端换 openid（不落客户端/不回传）、openid 不出服务端、绑定表仅管理员 token、接口 30 次/分/IP 限频、日志不打印 code/token。
+- 本地 mock 端到端已过：测试身份绑定 4 个 mock 账号→前 3 成功/第 4 `limit`；快捷登录命中绑定→返回班级 token（`rpc/class_whoami` 校验通过）；解绑后登录 `unbound`。
+- **账号服务凭证仍未就绪**：用推送 AppKey/AppSecret 调 `https://api.uc.oppomobile.com/oauth2/token/token-code` 仍 `invalid_client`（2020003）→ 需用户在 OPPO「账号服务」应用详情取**账号服务专用** AppID/AppKey/AppSecret，填 `C:\briefdesk\secrets\oppo-account.json` + 安卓 `app/oppo.properties`（`oppo.accountAppId/oppo.accountAppKey`）→ 重跑 `python deploy\ecs_account.py deploy`（health 应 `configured:true`）→ 重打 APK 真机联调。
+
+### 安卓客户端（未 commit；仓库无远端）
+- 接入 OPPO 账号 OAuth SDK `com.heytap.accountsdk:account-oauth-web-sdk:1.1.3`（Maven Central；AAR 核对 1.1.3 不读宿主 Manifest APPID，appId/appKey/scope/state 由 `AcOauthRequest.Builder` 运行时传入）。
+- 身份页「OPPO 账号快捷登录」（需勾选协议；授权中禁用转圈）→ authCode → `POST /account/oppo/login` → 成功后构造既有 Session 走与学号+姓名一致的登录流程；`unbound` 简短提示先学号+姓名登录再绑定。
+- 「我的 → 账号」：OPPO 账号 · 已绑定 N/3；BottomSheet 列表（昵称+日期+解绑确认）、绑定按钮（≥3 禁用）；错误 Toast；退出/切号清空内存列表（不落盘 OPPO 标识）；未配置/非 ColorOS 设备入口隐藏。
+- 网络：独立 `EcsOppoAccountApi`（不加 CloudBase Authorization；默认 `http://121.196.47.2/account`，gradle 属性 `ct.accountBaseUrl` 可覆盖；15s 超时、非 2xx/401/非 JSON 安全降级）。
+- 测试：全量 `:app:testDebugUnitTest` **1545/1545（116 suites）**，新增账号纯逻辑单测 **72**（Config 21 / Api 29 / Manager 22，假 SDK/假 ECS）；APK aapt2 核验组件（OAuthWebActivity/receiver/queries）与 dex 类存在。
+- 未验证（如实）：真实 OPPO 授权（缺账号服务凭证/未上 ColorOS 真机）；真实 `/oppo/login|bind` 边界以服务端为准（客户端按契约+容错实现）。
+
+### 回滚
+- 客户端：回退安卓工作区/安装上一版 APK（vc84）。
+- ECS：`systemctl disable --now class-tools-account`；`deploy/ecs_site.py` 去掉 `/account/*` 后 apply；删 `/opt/class-tools/account`。
+- 云端：迁移文件头部 `DROP TRIGGER/FUNCTION/TABLE` 命令；本机删 `oppo-account.json` 后服务 configured=false（不影响其它功能）。
