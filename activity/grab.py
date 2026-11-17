@@ -239,7 +239,69 @@ def parse_lg_info(raw: str) -> dict | None:
     token, uid, cid = obj.get("token"), obj.get("userId"), obj.get("classId")
     if not token or not uid or not cid:
         return None
-    return {"token": token, "userId": uid, "classId": cid}
+    out = {"token": token, "userId": uid, "classId": cid}
+    if obj.get("openId"):
+        out["openId"] = obj["openId"]
+    return out
+
+
+def decode_auth_header(value: str) -> list:
+    """解 base64(ts:nonce:sig:token[:...]) → 字段列表；失败返回 []。"""
+    try:
+        text = base64.b64decode(value + "=" * (-len(value) % 4)).decode("utf-8", "ignore")
+    except Exception:
+        return []
+    parts = text.split(":")
+    return parts if len(parts) >= 4 else []
+
+
+def import_from_capture() -> dict | None:
+    """从 pcap 抓包里取最近一次真实登录态（token / userId / classId / openId）。
+
+    只读 pcap/captures 下已落盘的 JSON；没有抓包就返回 None。
+    """
+    base = ROOT.parent / "pcap" / "captures"
+    if not base.exists():
+        return None
+    sessions = sorted([p for p in base.iterdir() if p.is_dir()],
+                      key=lambda p: p.stat().st_mtime, reverse=True)
+    token = uid = cid = oid = None
+    saved = None
+    for sess in sessions:
+        for f in sorted(sess.glob("*.json"), reverse=True):
+            if f.name == "meta.json":
+                continue
+            try:
+                rec = json.loads(f.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            url = rec.get("url") or ""
+            blob = url + " " + (rec.get("req_text") or "") + " " + (rec.get("resp_text") or "")
+            if oid is None:
+                m = re.search(r'"openId"\s*:\s*"([^"]+)"', blob)
+                if m:
+                    oid = m.group(1)
+            if uid is None:
+                m = re.search(r"/for_sign/([0-9a-f]{32})/class/([0-9a-f]{32})", url)
+                if m:
+                    uid, cid = m.group(1), m.group(2)
+            if token is None and "stmapi" in url:
+                auth = next((v for k, v in (rec.get("req_headers") or [])
+                             if k.lower() == "authorization"), "")
+                parts = decode_auth_header(auth) if auth else []
+                if parts and len(parts[3]) >= 16:
+                    token = parts[3]
+                    saved = f"{sess.name}/{f.stem}"
+        if token and uid and cid:
+            break
+    if not (token and uid and cid):
+        return None
+    out = {"token": token, "userId": uid, "classId": cid,
+           "savedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+           "from": f"capture:{saved}"}
+    if oid:
+        out["openId"] = oid
+    return out
 
 
 def browser_login(port=9224, timeout=240, log=print) -> dict | None:
@@ -342,6 +404,8 @@ class App:
         self._refresh_login_state()
         if self.state.get("token"):
             self.root.after(300, self.reload_list)
+        else:
+            self.root.after(200, self._auto_import)
 
     # ---------------------------------------------------------------- UI
     def _build(self):
@@ -350,7 +414,8 @@ class App:
         self.login_label = ttk.Label(top, text="未登录")
         self.login_label.pack(side="left")
         ttk.Button(top, text="登录学校账号", command=self.do_login).pack(side="left", padx=8)
-        ttk.Button(top, text="刷新列表", command=self.reload_list).pack(side="left")
+        ttk.Button(top, text="从抓包导入", command=self.do_import_capture).pack(side="left")
+        ttk.Button(top, text="刷新列表", command=self.reload_list).pack(side="left", padx=8)
         ttk.Button(top, text="清除登录", command=self.clear_login).pack(side="left", padx=8)
 
         body = ttk.PanedWindow(self.root, orient="horizontal")
@@ -436,6 +501,30 @@ class App:
         return sel[0] if sel else ""
 
     # ---------------------------------------------------------------- 动作
+    def _apply_import(self, info: dict):
+        info.setdefault("settings", self.state.get("settings", {}))
+        self.state.update(info)
+        save_state(self.state)
+        self._refresh_login_state()
+        self.log(f"已导入登录态（{info.get('from', '')}）。")
+        self.reload_list()
+
+    def do_import_capture(self):
+        info = import_from_capture()
+        if not info:
+            self.log("没找到可用抓包：先用 pcap 抓一次（打开小程序活动页），再点这里。")
+            return
+        self._apply_import(info)
+
+    def _auto_import(self):
+        if self.state.get("token"):
+            return
+        info = import_from_capture()
+        if info:
+            self._apply_import(info)
+        else:
+            self.log("未检测到抓包登录态：点「登录学校账号」，或先用 pcap 抓一次再点「从抓包导入」。")
+
     def do_login(self):
         def work():
             info = browser_login(log=self.log)
@@ -692,6 +781,11 @@ def selftest() -> int:
     info = parse_lg_info(json.dumps({"token": "t", "userId": "u", "classId": "c"}))
     check("lgInfo 解析", info == {"token": "t", "userId": "u", "classId": "c"})
     check("lgInfo 缺字段返回 None", parse_lg_info("{}") is None)
+    check("lgInfo 带 openId", (parse_lg_info(json.dumps(
+        {"token": "t", "userId": "u", "classId": "c", "openId": "o1"})) or {}).get("openId") == "o1")
+    auth = base64.b64encode(b"1794668287:I5Bn9M50lZq4AYAK:abc:def").decode()
+    check("Authorization 解析", decode_auth_header(auth) ==
+          ["1794668287", "I5Bn9M50lZq4AYAK", "abc", "def"])
 
     check("满员不算有名额", not role_is_free({"limit": 200, "used": 200}))
     check("剩 1 算有名额", role_is_free({"limit": 200, "used": 199}))
@@ -720,9 +814,26 @@ def smoke() -> int:
     return 0
 
 
+def import_capture_cli() -> int:
+    info = import_from_capture()
+    if not info:
+        print("没找到抓包登录态：先运行 pcap，并在微信里打开一次活动页。")
+        return 1
+    st = load_state()
+    st.update(info)
+    save_state(st)
+    print(f"已导入：{info.get('from')}")
+    print(f"  userId {'有' if info.get('userId') else '无'} / classId {'有' if info.get('classId') else '无'}"
+          f" / openId {'有' if info.get('openId') else '无'}")
+    print("现在可以运行 grab.py 了。")
+    return 0
+
+
 def main() -> int:
     if "--selftest" in sys.argv:
         return selftest()
+    if "--import-capture" in sys.argv:
+        return import_capture_cli()
     if "--smoke" in sys.argv:
         return smoke()
     if tk is None:
