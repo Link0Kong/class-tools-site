@@ -2,7 +2,15 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
-## 2026-11-17 21:2x–21:4x · 安卓 vc86/beta3：ColorOS-only 账号入口、快捷登录免填学号姓名、OPPO 授权错误可诊断、更新改弹窗手动选择
+## 2026-11-17 22:4x–23:0x · 安卓 vc87/beta4：补齐 OPPO 账号 OAuth Manifest APPID（修复 2020003 的客户端配置缺失）并发布
+
+> 用户反馈 OPPO 授权仍提示 2020003；仔细核对 OPPO 账号 OAuth SDK 文档后，发现「Manifest 配置 MSP 开放平台 APPID」一步此前缺失。
+
+- `AndroidManifest.xml` 新增 `com.heytap.msp.client.appid=${oppoAccountAppId}`（Gradle 从 `oppo.properties` 注入）+ 系统账号服务 provider `<queries>`；合并 manifest 已核对 APPID=38092999。
+- 版本 vc87 / 1.0.0-beta4（测试版本 4）；全量单测 **1566/0**；APK **5,787,765 B / SHA-256 `CFB5418E…2981E1AC`**。
+- 桌面规范包 `班级工具站_v1.0.0-beta4_安卓.apk`；更新通道 latest.json vc87 + ECS APK 已发布并实取 sha 一致（OSS `.apk.bin` 同步）。
+- 待 ColorOS 真机验证 2020003 是否消除；若仍失败，下一步查 OPPO 账号服务应用激活/上架/包名签名。
+- 回滚：更新通道 latest.json 回 vc86、桌面回 beta3；网页无需部署。## 2026-11-17 21:2x–21:4x · 安卓 vc86/beta3：ColorOS-only 账号入口、快捷登录免填学号姓名、OPPO 授权错误可诊断、更新改弹窗手动选择
 
 > 用户反馈：OPPO 授权失败；账号相关应只在 ColorOS 显示；未输入学号姓名无法快捷登录；检测到更新不应立即自动更新，应在弹窗给选择。
 
@@ -2066,6 +2074,7 @@
   同步脏检测（后台逻辑不跨端推送/不改用户偏好；用户手动切换视图、导入自定义课表仍正常同步）；
   ② UD 模块含 apply/DOM 辅助约 280 行（契约估 ~150 行）；③ 网页无隐私开关（隐私/数据管理页在小程序），
   网页不承诺开关。
+
 
 
 

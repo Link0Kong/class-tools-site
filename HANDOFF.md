@@ -3635,3 +3635,24 @@ sync-repos.cmd "feat: 说明本次改了什么"
 
 ### 回滚
 - 客户端回退 vc85/beta2（artifacts/桌面旧包），更新通道把 latest.json 改回 vc85 或从 ECS 删 beta3 APK；网页无需部署。
+
+## 2026-11-17 22:4x–23:0x · 增量 64：补齐 OPPO 账号 OAuth 官方要求的 Manifest APPID，重建 vc87/beta4 并发布（真机验证 2020003 是否消除）
+
+> 用户 2026-11-17：「提示2020003」「请你仔细阅读说明文档后继续尝试，我已经确定都配置好了」。
+> 复盘：OPPO 账号OAuth授权SDK接入指导要求「在 AndroidManifest.xml 的 application 节点配置 MSP 开放平台生成的 APPID」；此前 vc85/vc86 只在 BuildConfig 传入 appId/appKey，**Manifest 未声明 APPID**（AAR 静态分析未发现读取，但系统账号服务/H5 兜底会按宿主应用识别，Authing 文档给出键名为 `com.heytap.msp.client.appid`）。2020003 正是「未知的应用，检查 appid 和环境是否正确」。
+
+### 本次改动
+- `AndroidManifest.xml`：
+  - application 下新增 `<meta-data android:name="com.heytap.msp.client.appid" android:value="${oppoAccountAppId}" />`（值由 Gradle manifestPlaceholders 从 `app/oppo.properties` 的 `oppo.accountAppId` 注入，空值不崩溃）；
+  - 新增 `<queries><provider android:authorities="com.platform.usercenter.account.ams.provider" /></queries>`，让 SDK 能发现系统账号服务 provider（优先原生授权而非仅 H5 兜底）。
+- `app/build.gradle.kts`：`manifestPlaceholders["oppoAccountAppId"]`；版本 **vc87 / 1.0.0-beta4 / 测试版本 4**；单测版本断言同步 4。
+- 合并 manifest 已核对：`com.heytap.msp.client.appid=38092999`、provider query 存在。
+- 构建/测试：`:app:testDebugUnitTest :app:assembleRelease` 通过；全量单测 **1566/0**；APK **5,787,765 B / SHA-256 `CFB5418EDA62A987EE99C109A5DD628CFD7E52C7D720D274A8E0A5302981E1AC`**（vc87/beta4，v2 签名）。
+
+### 发布
+- 桌面规范包更新为 `C:\Users\Ko_Li\OneDrive\桌面\班级工具站_v1.0.0-beta4_安卓.apk`（旧 beta3 删除；`artifacts/classtools-1.0.0-beta4-vc87-release-signed.apk` 同字节）。
+- 更新通道：`http://121.196.47.2/android/latest.json` → **versionCode=87 / 1.0.0-beta4 / sizeBytes=5,787,765 / sha256 cfb5418e…**；`/android/classtools-1.0.0-beta4.apk` HTTP 200，下载 sha 与 manifest 一致；OSS `.apk.bin` + latest.json 同步。
+- 若 ColorOS 真机仍报 2020003：下一跳查 OPPO 账号服务应用是否真正完成「激活/上架/包名签名」；客户端已无法再补配置项（APPID 声明已按官方要求补齐）。
+
+### 回滚
+- 客户端回退 beta3（artifacts/旧桌面包）；更新通道 latest.json 改回 vc86；ECS 删 beta4 APK；网页无需部署。
