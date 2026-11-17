@@ -1,9 +1,10 @@
 {
-  "versionCode": 85,
-  "versionName": "1.0.0-beta2",
-  "apkUrl": "http://121.196.47.2/android/classtools-1.0.0-beta2.apk",
-  "notes": "1.0.0-beta2 vc85\n1. OPPO 推送已启用；OPPO 账号绑定/快捷登录入口（账号服务凭证配置后启用）\n2. 通知与桌面规范包同步",
+  "versionCode": 86,
+  "versionName": "1.0.0-beta3",
+  "apkUrl": "http://121.196.47.2/android/classtools-1.0.0-beta3.apk",
+  "notes": "1.0.0-beta3 vc86\n1. 检查更新/自动检查发现新版只弹窗，不再自动下载；下载完点「立即安装」才安装（可稍后）\n2. OPPO 账号快捷登录/绑定仅在 ColorOS 设备显示；快捷登录不再依赖学号姓名输入\n3. OPPO 授权失败会显示错误码；更新弹窗样式优化（版本对比/包大小/说明）",
   "force": false,
   "channel": "beta",
-  "sha256": "7580c6e708c866c26ee6e183495fe3166376a6950e758d67f96a8f7e0f5708c6"
+  "sizeBytes": 5787701,
+  "sha256": "11c121c8acc6e94b561a7784e3eaab98f05613ec20a536f537a3a584a52bbd93"
 }

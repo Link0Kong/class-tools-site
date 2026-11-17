@@ -3615,3 +3615,23 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 客户端：回退安卓工作区/安装上一版 APK（vc84）。
 - ECS：`systemctl disable --now class-tools-account`；`deploy/ecs_site.py` 去掉 `/account/*` 后 apply；删 `/opt/class-tools/account`。
 - 云端：迁移文件头部 `DROP TRIGGER/FUNCTION/TABLE` 命令；本机删 `oppo-account.json` 后服务 configured=false（不影响其它功能）。
+
+## 2026-11-17 21:2x–21:4x · 增量 63：安卓 vc86/beta3——ColorOS-only 账号入口、快捷登录免填学号姓名、OPPO 授权错误可诊断、更新改为弹窗手动选择（不再自动下载/安装）
+
+> 用户 2026-11-17 晚反馈：「提示oppo授权失败；oppo账号相关的应该只在coloros手机上显示；登录界面未输入姓名学号时无法使用oppo快捷登录；优化更新卡片，不应该在检测到更新后立即自动更新，而是应该在弹窗中给出选择。」
+
+### 修复
+1. **OPPO 账号只在 ColorOS 显示**：`OppoAccountDeviceSupport` 改为严格检测 ColorOS ROM（`ro.build.version.oplusrom/opporom/oplusos` 任一非空），不再仅凭厂商/品牌；非 ColorOS 设备身份页快捷登录与「我的→账号」入口完全不显示。补 3 组单测。
+2. **快捷登录免填学号姓名**：入口移到身份卡标题下方、表单之前；按钮只依赖协议勾选/授权状态，不再与学号姓名联动；未勾选协议点击给提示。补 UI 静态断言 + 规则单测。
+3. **授权错误可诊断**：SDK 错误码显示 `中文原因（code=xxx）`；ECS `oppo_exchange_failed`（如 `invalid_client`）提示「OPPO 账号服务未开通或凭证不匹配（invalid_client），请联系管理员」；登录/绑定/非 2xx 三路径映射 + 单测。
+   - 排查结论（ECS 日志）：用户操作时段只有 `GET /oppo/bindings`，**没有 authCode 到 `/oppo/login`** → 失败发生在 OPPO SDK 授权阶段（非 ColorOS 设备/未登录 OPPO 账号/账号服务应用未激活/包签名不符），不是服务端换 openid；服务端另有 `invalid_client`（凭证问题）待用户处理。
+4. **更新交互**：自动/手动检查发现新版本**只弹窗，不自动下载**；下载完成不自动拉起安装器，等用户点「立即安装」；移除 `autoDownloadOnAutomaticCheck`；弹窗优化为「发现新版本 / 当前 vX → 新版本 vY / 说明滚动区 / 包大小（可选 sizeBytes）/ 渠道」+「立即更新/稍后」「取消下载」「立即安装/重试」；force 无稍后/取消；新增 UpdateManagerTest 13 项。
+
+### 产物 / 测试 / 发布
+- 安卓 vc86 / 1.0.0-beta3：`assembleRelease` + lintVital 通过；全量单测 **1566/0（117 suites；账号 78、更新 49）**；APK **5,787,701 B / SHA-256 `11C121C8ACC6E94B561A7784E3EAAB98F05613EC20A536F537A3A584A52BBD93`**（v2 签名）。
+- 桌面规范包更新为 `C:\Users\Ko_Li\OneDrive\桌面\班级工具站_v1.0.0-beta3_安卓.apk`（旧 beta2 删除；artifacts `classtools-1.0.0-beta3-vc86-release-signed.apk` 同字节）。
+- 更新通道已发布：ECS `http://121.196.47.2/android/latest.json` → **vc86/1.0.0-beta3 / sizeBytes=5787701 / sha256 11c121c8…**；`/android/classtools-1.0.0-beta3.apk` HTTP 200 实取 sha 一致；OSS 同步 `.apk.bin` + latest.json（沿用 OSS 禁 .apk 的做法）。
+- 未验证（如实）：ColorOS 真机真实 OPPO 授权（服务端 invalid_client 待账号服务修好）；非 ColorOS 真机“入口不显示”仅逻辑单测；更新下载/安装真机端到端沿用既有实现，未真机跑本轮“手动选择”路径。
+
+### 回滚
+- 客户端回退 vc85/beta2（artifacts/桌面旧包），更新通道把 latest.json 改回 vc85 或从 ECS 删 beta3 APK；网页无需部署。

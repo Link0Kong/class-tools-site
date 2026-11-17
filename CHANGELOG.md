@@ -2,6 +2,17 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-17 21:2x–21:4x · 安卓 vc86/beta3：ColorOS-only 账号入口、快捷登录免填学号姓名、OPPO 授权错误可诊断、更新改弹窗手动选择
+
+> 用户反馈：OPPO 授权失败；账号相关应只在 ColorOS 显示；未输入学号姓名无法快捷登录；检测到更新不应立即自动更新，应在弹窗给选择。
+
+- **ColorOS-only**：`OppoAccountDeviceSupport` 严格按 ColorOS ROM 属性判断；非 ColorOS 隐藏快捷登录/账号入口（含补单测）。
+- **快捷登录独立性**：入口移到身份表单前，按钮只依赖协议勾选/授权状态，不依赖学号姓名；未勾选协议点击给提示。
+- **授权错误诊断**：SDK 错误码显示「中文（code=xxx）」；ECS `oppo_exchange_failed`/`invalid_client` 显示「账号服务未开通或凭证不匹配」；登录/绑定/非 2xx 映射 + 单测。ECS 日志确认用户操作时无 authCode 到 `/oppo/login`（失败在 SDK 授权阶段）。
+- **更新交互**：自动/手动检查发现新版只弹窗，不自动下载；下载完成不自动安装，等「立即安装」；弹窗显示当前→新版、说明、包大小(sizeBytes)、渠道，按钮立即更新/稍后/取消下载/立即安装/重试，force 无稍后；新增 UpdateManagerTest 13 项。
+- **产物**：vc86 / 1.0.0-beta3，**5,787,701 B / SHA-256 `11C121C8…52BBD93`**，全量单测 **1566/0**；桌面规范包 `班级工具站_v1.0.0-beta3_安卓.apk`；更新通道 `latest.json` vc86 + ECS APK 已发布并实取 sha 校验一致。
+- 未验证：ColorOS 真机真实 OPPO 授权（服务端 invalid_client 待账号服务修好）；更新手动选择路径未真机跑。
+- 回滚：更新通道 latest.json 回 vc85（或删 beta3 APK）；桌面回旧包；网页无需部署。
 ## 2026-11-17 21:1x · 修复安卓检查更新：发布 vc85/beta2 到更新通道（latest.json + APK）
 
 > 用户反馈「app 的检查更新检查不到」。排查：更新服务器 `http://121.196.47.2/android/latest.json` 仍是 **vc84/1.0.0-beta1**（`versionCode=84`），而桌面新包已是 **vc85/1.0.0-beta2**；App 更新判定只看 `versionCode > 当前 versionCode`，所以装 vc84→服务器同为 84 不会提示，装 vc85→服务器 84 更低也不会提示；同时 vc85 APK 之前未发布到更新通道（ECS `/var/www/tool/android/` 无 beta2 文件）。
@@ -2055,6 +2066,7 @@
   同步脏检测（后台逻辑不跨端推送/不改用户偏好；用户手动切换视图、导入自定义课表仍正常同步）；
   ② UD 模块含 apply/DOM 辅助约 280 行（契约估 ~150 行）；③ 网页无隐私开关（隐私/数据管理页在小程序），
   网页不承诺开关。
+
 
 
 
