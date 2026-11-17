@@ -178,6 +178,19 @@ def pick_role(roles: list, prefer: str = "") -> dict | None:
     return roles[0] if roles else None
 
 
+def role_is_free(role: dict) -> bool:
+    """角色是否还有名额（limit 为空 = 不限）。"""
+    return role.get("limit") is None or role.get("used", 0) < role["limit"]
+
+
+def signup_is_open(detail: dict, now_ms: float | None = None) -> bool:
+    """是否已到报名开始时间（没有 begin 字段按已开放）。"""
+    begin = detail.get("supBeginTime")
+    if not begin:
+        return True
+    return (now_ms if now_ms is not None else time.time() * 1000) >= begin
+
+
 def sign_up(st: dict, activity_id: str, role_id: str):
     path = f"/organizations/sign_up/activity/{activity_id}/role/{role_id}/user/{st['userId']}"
     return api("POST", path, "", None, st.get("token", ""))
@@ -601,14 +614,16 @@ class App:
         save_state(self.state)
 
         self.watch_stop = threading.Event()
+        auto = bool(self.auto_var.get())
         self.watch_btn.configure(text="停止监控")
         self.watch_label.configure(text=f"监控中 · {interval:g}s")
-        self.log(f"开始监控：{self.tree.item(aid, 'text')} / {role['name']} / 每 {interval:g}s")
+        self.log(f"开始监控：{self.tree.item(aid, 'text')} / {role['name']} / 每 {interval:g}s"
+                 + ("（自动报名开）" if auto else "（只提醒）"))
         self.watch_thread = threading.Thread(
-            target=self._watch_loop, args=(aid, role["roleId"], role["name"], interval), daemon=True)
+            target=self._watch_loop, args=(aid, role["roleId"], role["name"], interval, auto), daemon=True)
         self.watch_thread.start()
 
-    def _watch_loop(self, aid: str, role_id: str, role_name: str, interval: float):
+    def _watch_loop(self, aid: str, role_id: str, role_name: str, interval: float, auto: bool):
         last_msg = None
         while not self.watch_stop.is_set():
             try:
@@ -618,14 +633,10 @@ class App:
                 if not role:
                     self.log("监控的角色不存在了，停止。")
                     break
-                if role["limit"] is None:
-                    free = True
-                else:
-                    free = role["used"] < role["limit"]
-                now = time.time() * 1000
-                opened = not d.get("supBeginTime") or now >= d.get("supBeginTime")
+                free = role_is_free(role)
+                opened = signup_is_open(d)
                 if free and opened:
-                    if self.auto_var.get():
+                    if auto:
                         status, raw = sign_up(self.state, aid, role_id)
                         if status == 200:
                             self.log("★ 抢到了！已提交报名。")
@@ -681,6 +692,14 @@ def selftest() -> int:
     info = parse_lg_info(json.dumps({"token": "t", "userId": "u", "classId": "c"}))
     check("lgInfo 解析", info == {"token": "t", "userId": "u", "classId": "c"})
     check("lgInfo 缺字段返回 None", parse_lg_info("{}") is None)
+
+    check("满员不算有名额", not role_is_free({"limit": 200, "used": 200}))
+    check("剩 1 算有名额", role_is_free({"limit": 200, "used": 199}))
+    check("不限名额算有名额", role_is_free({"limit": None, "used": 999}))
+    now = time.time() * 1000
+    check("未到报名时间不算开放", not signup_is_open({"supBeginTime": now + 60_000}))
+    check("已过报名时间算开放", signup_is_open({"supBeginTime": now - 1000}))
+    check("无报名时间按已开放", signup_is_open({}))
 
     st = load_state()
     print(f"  info 本机登录：{'有' if st.get('token') else '无'}（{st.get('savedAt', '—')}）")
