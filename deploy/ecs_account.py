@@ -149,8 +149,7 @@ APP_DIR="__APP_DIR__"
 SERVICE="__SERVICE__"
 chown -R www-data:www-data "$APP_DIR" 2>/dev/null || true
 chmod 755 "$APP_DIR"
-chmod 600 "$APP_DIR/class-token" "$APP_DIR/oppo-account.json" 2>/dev/null || true
-chmod 640 "$APP_DIR/publish_key" 2>/dev/null || true
+chmod 640 "$APP_DIR/class-token" "$APP_DIR/oppo-account.json" "$APP_DIR/publish_key" 2>/dev/null || true
 chown root:www-data "$APP_DIR/class-token" "$APP_DIR/oppo-account.json" "$APP_DIR/publish_key" 2>/dev/null || true
 chmod 755 "$APP_DIR/app.py"
 python3 -m py_compile "$APP_DIR/app.py"

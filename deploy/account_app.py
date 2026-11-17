@@ -89,7 +89,7 @@ def _load_admin_token():
 def _load_oppo_config():
     raw = _read_file(OPPO_FILE)
     try:
-        data = json.loads(raw.decode("utf-8", "replace"))
+        data = json.loads(raw.decode("utf-8-sig"))
     except Exception:  # noqa: BLE001
         return None
     if not isinstance(data, dict):
