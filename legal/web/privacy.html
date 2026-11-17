@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>班级工具站（网页端）隐私政策 V1.0</title>
+<meta name="description" content="班级工具站网页端隐私政策：处理者、收集范围、敏感信息、第三方、跨境、保存期限、用户权利与投诉渠道。">
+<meta name="robots" content="index,follow">
+<meta name="format-detection" content="telephone=no">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="theme-color" content="#F7F8F8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111614" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://tool.furina.fun/legal/web/privacy.html">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23F7F8F8'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%234E9082'/%3E%3Ccircle cx='15' cy='15' r='5' fill='%236E8CA8'/%3E%3Ccircle cx='49' cy='49' r='5' fill='%23B98F63'/%3E%3C/svg%3E">
+<style>
+:root{
+  color-scheme: light dark;
+  --bg:#F7F8F8; --bg2:#F1F3F2; --card:#FFFFFF; --ink:#23302E; --ink2:#526460;
+  --ink3:#7B8C88; --line:#E1E7E5; --line2:#D3DDD9;
+  --teal:#4E9082; --teal-d:#3A7267; --blue:#6E8CA8; --sand:#B98F63;
+  --warn:#A85B4E; --warn-bg:#FBF1ED; --warn-line:#E9C9BE;
+  --note-bg:#EDF5F2; --note-line:#CBE0D9;
+  --shadow:0 10px 30px rgba(35,48,46,.06);
+  --r:16px; --max:1180px;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#111614; --bg2:#151C19; --card:#18211E; --ink:#E7EFEC; --ink2:#B7C6C1;
+    --ink3:#8FA19C; --line:#2A3833; --line2:#35453F;
+    --teal:#72B6A6; --teal-d:#8DCABC; --blue:#93AEC7; --sand:#D3AC7E;
+    --warn:#E0A08F; --warn-bg:#2A1D18; --warn-line:#5B3A30;
+    --note-bg:#152521; --note-line:#2E4A42;
+    --shadow:0 12px 34px rgba(0,0,0,.24);
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:88px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.78 var(--font);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+a{color:var(--teal-d);text-decoration:none;text-underline-offset:3px}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid color-mix(in srgb,var(--teal) 55%,transparent);outline-offset:3px;border-radius:6px}
+img{max-width:100%}
+.skip{position:absolute;left:-9999px;top:0;background:var(--card);color:var(--ink);padding:10px 14px;z-index:99;border:1px solid var(--line)}
+.skip:focus{left:12px;top:12px}
+.wrap{width:100%;max-width:var(--max);margin:0 auto;padding:0 22px}
+.site-head{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.head-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:64px}
+.brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;min-width:0}
+.brand:hover{text-decoration:none}
+.brand-dots{display:inline-flex;gap:4px;flex:0 0 auto}
+.brand-dots i{width:8px;height:8px;border-radius:50%;background:var(--teal);display:block}
+.brand-dots i:nth-child(2){background:var(--blue)}
+.brand-dots i:nth-child(3){background:var(--sand)}
+.brand-text{font-weight:700;font-size:15px;line-height:1.2;white-space:nowrap}
+.brand-text small{display:block;font-weight:500;font-size:11px;color:var(--ink3);letter-spacing:.12em;margin-top:3px}
+.head-actions{display:flex;align-items:center;gap:14px;font-size:13px;color:var(--ink2);flex-wrap:wrap;justify-content:flex-end}
+.btn-print{border:1px solid var(--line2);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 12px;font:inherit;font-size:12px;cursor:pointer}
+.btn-print:hover{border-color:var(--teal);color:var(--teal-d)}
+.layout{display:grid;grid-template-columns:258px minmax(0,1fr);gap:38px;padding-top:30px;padding-bottom:70px;align-items:start}
+.toc{position:sticky;top:88px;max-height:calc(100vh - 110px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
+.toc details{margin:0}
+.toc summary{list-style:none;cursor:pointer;font-weight:700;font-size:14px;letter-spacing:.04em;color:var(--ink);display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 0 10px;border-bottom:1px solid var(--line);margin-bottom:10px}
+.toc summary::-webkit-details-marker{display:none}
+.toc summary::after{content:"−";color:var(--ink3);font-weight:400}
+.toc details:not([open]) summary::after{content:"+"}
+.toc ol{list-style:none;margin:0;padding:0;counter-reset:toc}
+.toc li{counter-increment:toc;margin:0}
+.toc li a{display:block;padding:5px 4px 5px 28px;position:relative;color:var(--ink2);font-size:13px;line-height:1.45;border-radius:7px}
+.toc li a::before{content:counter(toc,decimal-leading-zero);position:absolute;left:4px;top:5px;color:var(--ink3);font:11px/1.5 var(--mono)}
+.toc li a:hover{background:var(--bg2);color:var(--teal-d);text-decoration:none}
+.toc-note{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--ink3);line-height:1.6}
+.toc-note p{margin:0 0 6px}
+.doc{min-width:0}
+.doc-head{background:linear-gradient(135deg,color-mix(in srgb,var(--teal) 10%,var(--card)),var(--card) 58%,color-mix(in srgb,var(--sand) 9%,var(--card)));border:1px solid var(--line);border-radius:22px;padding:30px 30px 24px;box-shadow:var(--shadow);margin-bottom:20px}
+.kicker{font:700 11px/1.4 var(--mono);letter-spacing:.12em;color:var(--teal-d);text-transform:uppercase;margin-bottom:10px}
+.doc-head h1{font-size:clamp(30px,4.6vw,44px);line-height:1.12;letter-spacing:-.02em;margin:0 0 8px;font-weight:800}
+.lead{font-size:17px;color:var(--ink2);margin:0 0 18px}
+.meta-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.meta-grid>div{background:var(--card);padding:10px 12px}
+.meta-grid span{display:block;font-size:11px;color:var(--ink3);letter-spacing:.04em;margin-bottom:3px}
+.meta-grid b{font-size:13px;font-weight:650;line-height:1.4}
+.doc-note{font-size:12px;color:var(--ink3);margin:14px 0 0;line-height:1.6}
+.ends{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px}
+.ends a{border:1px solid var(--line2);background:var(--card);color:var(--ink2);border-radius:999px;padding:6px 12px;font-size:12px;line-height:1.4}
+.ends a:hover{border-color:var(--teal);color:var(--teal-d);text-decoration:none}
+.ends a.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:0 0 20px}
+.sum-card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px;box-shadow:var(--shadow)}
+.sum-num{display:block;font:700 11px/1 var(--mono);color:var(--teal);letter-spacing:.08em;margin-bottom:8px}
+.sum-card b{display:block;font-size:14px;margin-bottom:4px}
+.sum-card p{margin:0;font-size:12.5px;color:var(--ink2);line-height:1.65}
+.callout{border:1px solid var(--note-line);background:var(--note-bg);border-radius:14px;padding:14px 16px;margin:18px 0}
+.callout.warn{border-color:var(--warn-line);background:var(--warn-bg)}
+.callout-title{font-weight:750;font-size:14px;margin-bottom:4px}
+.callout.warn .callout-title{color:var(--warn)}
+.callout-body{font-size:13.5px;color:var(--ink2);line-height:1.7}
+.callout-body p{margin:4px 0}
+.callout-body ul{margin:4px 0 4px 18px;padding:0}
+.tag{display:inline-block;font-size:11px;line-height:1.5;padding:1px 7px;border-radius:999px;border:1px solid var(--line2);color:var(--ink2);background:var(--bg2);white-space:nowrap}
+.tag.ok{color:var(--teal-d);border-color:var(--note-line);background:var(--note-bg)}
+.tag.warn{color:var(--warn);border-color:var(--warn-line);background:var(--warn-bg)}
+section{scroll-margin-top:88px;margin:0 0 26px}
+h2{font-size:23px;line-height:1.3;letter-spacing:-.01em;margin:34px 0 12px;padding-top:14px;border-top:1px solid var(--line);font-weight:800}
+h2 .h2num{color:var(--teal);font:700 12px/1 var(--mono);letter-spacing:.08em;display:block;margin-bottom:7px}
+h3{font-size:17px;line-height:1.45;margin:20px 0 8px;font-weight:750}
+h4{font-size:15px;margin:16px 0 6px;font-weight:700}
+p{margin:8px 0}
+ul,ol{margin:8px 0 10px 22px;padding:0}
+li{margin:4px 0}
+li>ul,li>ol{margin-top:3px}
+b,strong{font-weight:750}
+.small{font-size:12.5px;color:var(--ink3);line-height:1.65}
+.mono{font-family:var(--mono);font-size:.92em}
+.table-wrap{width:100%;overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin:12px 0 16px;background:var(--card);-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:720px;font-size:13px;line-height:1.6}
+caption{caption-side:top;text-align:left;padding:10px 12px 0;font-weight:700;color:var(--ink2);font-size:12.5px}
+th,td{text-align:left;vertical-align:top;padding:9px 11px;border-bottom:1px solid var(--line)}
+th{background:var(--bg2);color:var(--ink2);font-weight:700;white-space:nowrap;position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+td code,th code,p code,li code{font-family:var(--mono);font-size:.9em;background:var(--bg2);border:1px solid var(--line);border-radius:5px;padding:1px 4px;overflow-wrap:anywhere}
+.template{font:12.5px/1.7 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg2);border:1px dashed var(--line2);border-radius:12px;padding:14px 16px;margin:12px 0;color:var(--ink)}
+.defs{display:grid;grid-template-columns:1fr;gap:8px;margin:10px 0}
+.defs div{border-left:3px solid var(--note-line);padding:2px 0 2px 12px}
+.defs dt{font-weight:750;font-size:14px}
+.defs dd{margin:2px 0 0;color:var(--ink2);font-size:13.5px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mini-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.mini-card b{display:block;margin-bottom:4px}
+.mini-card p{margin:0;font-size:13px;color:var(--ink2)}
+.site-foot{border-top:1px solid var(--line);background:var(--bg2);padding:28px 0 34px;margin-top:10px}
+.foot-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:24px}
+.site-foot p{margin:0 0 8px;font-size:12.5px;color:var(--ink2);line-height:1.7}
+.foot-brand{font-weight:800;color:var(--ink);font-size:14px}
+.fine{font-size:11.5px;color:var(--ink3)}
+.foot-line{border-top:1px solid var(--line);padding-top:12px;margin-top:16px!important;font-size:11.5px;color:var(--ink3)}
+.nobreak{break-inside:avoid}
+@media (max-width:960px){
+  .layout{grid-template-columns:1fr;gap:16px;padding-top:18px}
+  .toc{position:static;max-height:none;padding:10px 14px}
+  .toc-note{display:none}
+  .toc summary{padding-bottom:0;border-bottom:0;margin-bottom:0}
+  .toc details[open] summary{padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:10px}
+  .doc-head{padding:22px 20px 18px;border-radius:18px}
+  .meta-grid{grid-template-columns:1fr 1fr}
+  .head-inner{min-height:58px}
+  .brand-text{font-size:14px}
+  .head-actions a{display:none}
+  .foot-grid{grid-template-columns:1fr;gap:10px}
+  .split{grid-template-columns:1fr}
+}
+@media (max-width:520px){
+  .wrap{padding:0 15px}
+  .doc-head h1{font-size:29px}
+  .lead{font-size:15px}
+  .meta-grid{grid-template-columns:1fr}
+  .ends a{font-size:11.5px;padding:5px 10px}
+  h2{font-size:21px}
+  .summary-grid{grid-template-columns:1fr}
+  .callout{padding:12px 13px}
+  .site-head{position:static}
+  .layout{padding-bottom:44px}
+}
+@media print{
+  :root{color-scheme:light}
+  body{background:#fff;color:#111;font-size:11pt;line-height:1.65}
+  .site-head,.toc,.ends,.btn-print,.skip{display:none!important}
+  .layout{display:block;max-width:none;padding:0}
+  .wrap{max-width:none;padding:0}
+  .doc-head{box-shadow:none;border:1px solid #bbb;background:#fff;padding:16px 18px}
+  .doc-head h1{font-size:24pt}
+  .summary-grid{grid-template-columns:1fr 1fr}
+  .sum-card,.callout,.mini-card{box-shadow:none}
+  h2{page-break-after:avoid;border-top:1px solid #ccc}
+  h3,h4{page-break-after:avoid}
+  table{min-width:0;font-size:9.5pt}
+  .table-wrap{overflow:visible;border-color:#bbb}
+  th{position:static}
+  a{color:#111;text-decoration:underline}
+  .site-foot{background:#fff;border-top:1px solid #bbb}
+  .foot-grid{grid-template-columns:1fr 1fr}
+}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+
+<header class="site-head">
+  <div class="wrap head-inner">
+    <a class="brand" href="../index.html" aria-label="返回法律文件中心">
+      <span class="brand-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="brand-text">班级工具站<small>法律文件</small></span>
+    </a>
+    <div class="head-actions">
+      <a href="../web/terms.html">用户协议</a>
+      <a href="../index.html">文档中心</a>
+      <button type="button" class="btn-print" data-print>打印 / 保存 PDF</button>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="wrap layout">
+
+<aside class="toc" aria-label="本页目录">
+  <details open>
+    <summary>目录</summary>
+    <ol><li><a href="#s1">一、定义与适用范围</a></li><li><a href="#s2">二、处理者与联系方式</a></li><li><a href="#s3">三、我们处理哪些信息</a></li><li><a href="#s4">四、处理目的与法律依据</a></li><li><a href="#s5">五、敏感个人信息</a></li><li><a href="#s6">六、本机存储与 Cookie</a></li><li><a href="#s7">七、委托处理、共享与公开披露</a></li><li><a href="#s8">八、数据出境</a></li><li><a href="#s9">九、存储地点与保存期限</a></li><li><a href="#s10">十、安全保护</a></li><li><a href="#s11">十一、你的权利</a></li><li><a href="#s12">十二、未成年人保护</a></li><li><a href="#s13">十三、政策更新</a></li><li><a href="#s14">十四、联系我们与投诉</a></li><li><a href="#sa">附件 A：个人信息处理清单</a></li><li><a href="#sb">附件 B：权限与系统能力</a></li><li><a href="#sc">附件 C：第三方 SDK / 服务</a></li><li><a href="#sd">附件 D：数据权利申请模板</a></li><li><a href="#se">附件 E：版本记录</a></li></ol>
+  </details>
+  <div class="toc-note">
+    <p><b>快速说明</b></p>
+    <p>本页无外部字体、无统计脚本、无广告。打印时自动隐藏导航。</p>
+  </div>
+</aside>
+
+<article class="doc">
+
+<header class="doc-head">
+  <div class="kicker">班级工具站 · 法律文件 · CT-LEGAL-PRIVACY-WEB-V10</div>
+  <h1>隐私政策</h1>
+  <p class="lead">适用于网页端（浏览器，含手机、平板和桌面浏览器）</p>
+  <div class="meta-grid">
+    <div><span>适用端</span><b>网页端</b></div>
+    <div><span>文档版本</span><b>V1.0</b></div>
+    <div><span>生效日期</span><b>2026年11月17日</b></div>
+    <div><span>最近更新</span><b>2026年11月17日</b></div>
+    <div><span>运营者</span><b>陈子麒（个人开发者）</b></div>
+    <div><span>当前版本</span><b>站点 2.0.0（单文件静态页）</b></div>
+  </div>
+  <p class="doc-note">本页是面向网页端的正式文本。若端内旧版说明与本页不一致，以本页为准，并将在下一次版本更新时同步端内。</p>
+</header>
+
+<nav class="ends" aria-label="切换适用端"><a href="../web/privacy.html" class="on" aria-current="page">网页端</a><a href="../android/privacy.html">安卓端</a><a href="../windows/privacy.html">电脑端</a><a href="../harmony/privacy.html">鸿蒙端</a><a href="../mp/privacy.html">微信小程序端</a></nav>
+<div class="summary-grid"><div class="sum-card"><span class="sum-num">01</span><b>浏览器内运行</b><p>网页端不需要安装 App；身份令牌和缓存保存在浏览器 localStorage / IndexedDB，关闭浏览器后仍可能保留。</p></div><div class="sum-card"><span class="sum-num">02</span><b>境内云 + 香港 OSS</b><p>班级数据存腾讯云 CloudBase（上海）；PPT 源文件与转换产物存阿里云 OSS 香港，属于跨境存储。</p></div><div class="sum-card"><span class="sum-num">03</span><b>不申请敏感权限</b><p>网页端不申请定位、通讯录、摄像头、麦克风权限；通知权限仅在您主动开启提醒时申请。</p></div><div class="sum-card"><span class="sum-num">04</span><b>大屏与互联</b><p>大屏、文件互联会把内容展示在现场或同账号设备上；请不要展示学号、手机号、宿舍号等敏感信息。</p></div><div class="sum-card"><span class="sum-num">05</span><b>删除路径</b><p>本机数据可在浏览器站点设置中清除；云端数据请通过「反馈」页或邮箱申请，15 个工作日内处理。</p></div></div>
+<div class="callout warn"><div class="callout-title">阅读提示：本页只适用于网页端</div><div class="callout-body"><p>班级工具站有五个端，各端的运行环境、权限、第三方和删除路径不同。请确认您正在使用的端；其他端请回到<a href="../index.html">文档中心</a>切换。</p><p><b>重点：</b>PPT 文件存于阿里云 OSS 香港并采用公共读，属于跨境存储；体测健康数据、教务密码、OPPO/华为账号标识等按敏感个人信息规则处理；未满 18 周岁请在监护人知情同意下使用。</p></div></div>
+<div class="callout"><div class="callout-title">本端功能概览</div><div class="callout-body">
+<p>网页端是班级工具站的主站，入口为 <span class="mono">https://tool.furina.fun/</span>（域名恢复前可能使用 IP 调试入口）。主要功能包括：身份核验、工作台与自定义工具栏、抽签 / 分组 / 结果单、课表、作业、通知（含附件与长期通知）、体测、名单（班委 / 团员 / 全班）、点名、访问统计（仅管理员）、诊断、电费、水量、投票、演示（PPT 上传 / 转换 / 下载 / 在线预览）、校园 2.5D 地图、教务入口、学信网入口、文件传输、大屏与多端互联、反馈、使用说明、外观与提醒设置。</p>
+<p>网页端不提供公开注册、评论、支付、广告、直播或新闻信息服务；除本班身份门禁外，没有面向社会公众的内容发布功能。</p>
+</div></div>
+<h2 id="s1"><span class="h2num">01</span>一、定义与适用范围</h2>
+<p>本政策是<b>网页端（浏览器，含手机、平板和桌面浏览器）</b>（以下简称“本端”）的隐私政策，由 陈子麒 以个人开发者身份发布。本政策适用于本端的身份核验、班级工具、跨端同步、通知提醒、诊断、反馈、PPT、文件传输等全部功能，以及本端在本政策生效期间处理个人信息的活动。</p>
+<p>本政策<b>不适用</b>于：学校教务/统一认证、学信网、快递、微信、OPPO、华为、Microsoft Office、浏览器等第三方独立提供的产品/服务。您使用这些第三方时，应阅读其各自的隐私政策/用户协议；本站不控制第三方的处理行为。</p>
+<h3>1.1 本端功能与边界</h3>
+<p>本端是班级内部辅助工具，<b>不是学校官方平台</b>，不提供公开注册、教育培训、新闻、社区、支付、广告、直播或电商服务。本端仅面向班级官方名单内的成员；非本班人员无法通过身份核验。</p>
+<h3>1.2 主要定义</h3>
+
+<dl class="defs">
+<div><dt>个人信息</dt><dd>以电子或者其他方式记录的与已识别或者可识别的自然人有关的各种信息，不包括匿名化处理后的信息。</dd></div>
+<div><dt>敏感个人信息</dt><dd>一旦泄露或者非法使用，容易导致自然人的人格尊严受到侵害或者人身、财产安全受到危害的个人信息，包括生物识别、宗教信仰、特定身份、医疗健康、金融账户、行踪轨迹等信息，以及不满十四周岁未成年人的个人信息。</dd></div>
+<div><dt>处理</dt><dd>包括个人信息的收集、存储、使用、加工、传输、提供、公开、删除等。</dd></div>
+<div><dt>处理者</dt><dd>自主决定处理目的、处理方式的组织、个人；本政策中指 陈子麒（个人开发者）。</dd></div>
+<div><dt>受托处理</dt><dd>接受处理者委托，按照约定处理个人信息的主体；本政策中指腾讯云、阿里云等云服务商。</dd></div>
+<div><dt>删除</dt><dd>从我们的业务系统中移除个人信息，使其不能被访问、检索；备份/日志中的副本按备份周期滚动覆盖。端内“清除云端”如为覆盖/置否/归档，属于逻辑清除，不等同于物理删除。</dd></div>
+<div><dt>匿名化</dt><dd>个人信息经过处理无法识别特定自然人且不能复原的过程；匿名化后的信息不属于个人信息。</dd></div>
+</dl>
+
+<h2 id="s2"><span class="h2num">02</span>二、处理者与联系方式</h2>
+<p><b>处理者：</b>陈子麒（个人开发者、班级管理员）。<br><b>联系邮箱：</b><a href="mailto:Ko_Link@outlook.com">Ko_Link@outlook.com</a><br><b>站内渠道：</b>本端“反馈”页（如该端提供；反馈内容仅管理员可见）<br><b>班级渠道：</b>班级群 @管理员<br><b>响应时限：</b>收到有效申请后 15 个工作日内。</p>
+<p>本站<b>不是学校、学院、班级或任何老师的官方平台</b>，学校/学院/班级不承担本站的数据处理责任。若您向学校、学院或班级委员会提交与学籍、成绩、奖惩、请假等有关的正式申请，请走学校/学院的官方渠道，不要仅通过本站反馈。</p>
+<p>如您未满 18 周岁，或您是未成年人的监护人，请通过上述邮箱联系我们。我们会在核实身份后处理查阅、更正、删除、撤回同意等请求。</p>
+<h2 id="s3"><span class="h2num">03</span>三、我们处理哪些信息</h2>
+<p>我们遵循<b>最小必要</b>原则：只处理实现班级工具功能所必需的信息，不收集与功能无关的信息，不进行广告画像，不出售个人信息。完整字段、来源、存储和保留期见<a href="#sa">附件 A</a>。</p>
+<h3>3.1 身份与班级组织信息</h3>
+<p>学号、姓名、班级身份令牌、签发/到期时间；座号、班委职务/徽章、团员身份、管理员标识。学号 + 姓名仅用于与班级官方名单比对；页面和导出图不展示学号（电费页仅展示本人关注宿舍的规范楼栋 + 房间号 + 电量，且不导出）。</p>
+<h3>3.2 班级共享内容</h3>
+<p>班级名单、作业、通知、课表、电费/水量、投票、PPT、文件等。它们可能由班委/管理员整理，或来自班级公开群、学校教务快照。通知可能包含发送人昵称、角色、文本、图片、附件、OCR 文本等；我们要求管理员在发布前去除手机号、身份证号、学号等不必要的个人信息，但无法保证每条内容都完全脱敏。我们会在班级群公告/本页说明通知整理范围，不采集私聊；如您是内容中的当事人且不希望被展示，请通过邮箱/反馈申请删除。</p>
+<h3>3.3 您的操作与偏好</h3>
+<p>作业完成、通知已处理/置顶、工具栏顺序与工具页顺序、体测录入与历史、抽签/分组参数与名单、点名名单与到·假、隐藏项、课表与提醒偏好、昵称、关注宿舍（电费）、抄表记录（水量）、投票选择、PPT 上传、文件传输、反馈、诊断上报等。网页端与小程序、安卓、鸿蒙、电脑端按同一账号同步（以各端实际支持为准）。</p>
+<h3>3.4 设备、日志与诊断</h3>
+<p>为保障安全、排查故障和适配屏幕，本端可能处理：设备/系统/浏览器或 WebView 版本、屏幕尺寸、内存/存储、网络类型、时钟偏差、接口延迟、异常摘要、崩溃/错误码；云服务商可能记录 IP、时间、请求路径、状态码、User-Agent 等网络日志。设备信息按最小化字段采集；日志不记录 token、学号、姓名、宿舍号。</p>
+<h3>3.5 权限与系统能力</h3>
+<p>本端只申请实现功能所需的权限；未列出的权限（定位、通讯录、短信、通话记录、相机、麦克风、生物识别等）不申请。完整权限见<a href="#sb">附件 B</a>。</p>
+<h3>3.6 第三方来源</h3>
+<p>微信小程序端的 openid 来自微信云开发；安卓端的 OPPO openID/authCode 来自 OPPO 账号服务；鸿蒙端的华为 openID 来自华为 Account Kit；通知摘要可能由 DeepSeek API 辅助生成；课表可能来自学校教务快照。我们只接收实现功能所必需的最小字段。</p>
+<h3>3.7 我们不主动收集的信息</h3>
+<p>身份证号、人脸/指纹/声纹、银行卡、精确位置、通讯录、短信、通话记录、剪切板历史、相册全量、麦克风、健康平台数据、宗教信仰、医疗病历等。若您主动上传的文件中包含这些信息，由您自行负责；我们可能要求删除或拒绝展示。</p>
+<h3>3.8 本端特别说明</h3>
+<div class="special">
+<h3>1. 浏览器本地存储</h3>
+<p>网页端使用以下浏览器本地能力。它们只保存在当前浏览器/设备上，不上传到与本站无关的第三方：</p>
+<ul>
+<li><b>localStorage</b>：身份令牌与姓名 / 学号（<span class="mono">zq_class_identity</span>）、工具与页面偏好（<span class="mono">zq_tools_v2_&lt;sid&gt;</span>）、同步缓存（<span class="mono">zq_udcache_*</span>）、勾选缓存（<span class="mono">zq_marks_cache_*</span>）、提醒与外观偏好等。</li>
+<li><b>IndexedDB</b>：通知列表等较大的本机缓存，用于减少重复请求和离线展示。</li>
+<li><b>浏览器缓存 / Service Worker</b>：本站当前不注册用于后台推送的 Service Worker；如浏览器自身缓存静态资源，可在浏览器设置中清除。</li>
+</ul>
+<p>本站不使用广告 Cookie、跨站跟踪 Cookie 或第三方统计脚本。CloudBase 网关可能为安全目的使用必要的会话/安全机制，具体以腾讯云服务条款为准。</p>
+
+<h3>2. 通知与后台提醒</h3>
+<p>网页端的提醒依赖浏览器 Notification 权限和页面打开状态。您可以在提醒设置中拒绝或关闭；关闭后仅影响提醒，不影响其他功能。页面关闭、浏览器被系统回收或设备休眠后，网页端无法保证继续提醒。</p>
+
+<h3>3. 演示（PPT）与跨境存储</h3>
+<p>网页端支持上传 PPT、由本机转换机转换为分步图片/视频/PDF/兼容版，并下载。PPT 源文件、转换产物和单独抽取的音视频存放在<b>阿里云 OSS 香港（oss-cn-hongkong）</b>，属于向香港传输并存储。OSS Bucket 为<b>公共读</b>：链接不可枚举，但持有链接的人可以访问。请勿上传含身份证、成绩单、病历、手机号、住址等敏感信息的 PPT。首次上传前，网页端应以单独弹窗取得您的单独同意；如不同意，请不要使用 PPT 功能。</p>
+
+<h3>4. 文件传输、大屏与互联</h3>
+<p>文件传输使用阿里云 ECS 的临时空间，文件自上传完成起 72 小时自动删除；下载链接为短时签名链接。大屏会把抽签、投票、名单、PPT、计时等内容展示在教室/活动现场；文件互联只允许同一班级账号的设备互见，但大屏现场人员仍可能看到屏幕内容。请勿在大屏展示敏感个人信息。</p>
+
+<h3>5. 诊断信息</h3>
+<p>诊断页会读取浏览器/设备的基础信息（平台、系统、浏览器/WebView 版本、屏幕、内存、存储、网络类型、时钟偏差）和接口延迟，用于判断故障。诊断报告会脱敏（不展示 token、学号、姓名），但已认证的班级成员可以在诊断页看到脱敏后的服务健康与设备检查结果。您可以在诊断页选择是否上报异常。</p>
+
+<h3>6. 网页端不收集的信息</h3>
+<p>网页端不主动读取通讯录、短信、通话记录、精确定位、相册全量、摄像头、麦克风、剪贴板历史或生物识别信息。您主动选择文件、上传 PPT、复制导出文本时，才会读取对应内容。</p>
+</div>
+<h2 id="s4"><span class="h2num">04</span>四、处理目的与法律依据</h2>
+<p>我们依据《中华人民共和国个人信息保护法》等法律处理个人信息。主要依据包括：为订立/履行您作为一方当事人的合同所必需（第 13 条第 2 项）、取得您的同意（第 13 条第 1 项）、履行法定职责/义务（第 13 条第 3 项）、以及法律规定的其他情形。对敏感个人信息，我们另行取得单独同意（第 28、29 条）。</p>
+<div class="table-wrap"><table class=""><thead><tr><th scope="col">处理目的</th><th scope="col">典型场景</th><th scope="col">法律依据</th><th scope="col">是否必需 / 拒绝后果</th></tr></thead><tbody><tr><td>身份核验与班级门禁</td><td>学号 + 姓名比对、签发 token、防止非本班人员访问</td><td>履行合同所必需；同意</td><td>必需；拒绝则无法使用班级数据</td></tr><tr><td>班级工具与跨端同步</td><td>作业/通知/课表/体测/抽签/分组/点名/电费/水量/投票/PPT/文件</td><td>履行合同所必需；同意（可选功能）</td><td>功能必需；拒绝对应功能不可用</td></tr><tr><td>提醒与通知</td><td>本机提醒、微信订阅消息、OPPO/华为/Windows 推送</td><td>同意；履行合同所必需</td><td>可选；拒绝仅收不到提醒</td></tr><tr><td>安全、诊断与故障排查</td><td>设备检查、异常上报、访问日志、防攻击</td><td>履行法定职责/义务；履行合同所必需</td><td>安全/诊断所必需；可拒绝非必要诊断上报</td></tr><tr><td>访问统计</td><td>管理员查看班级活跃度（按姓名聚合，不显示学号）</td><td>同意；班级事务管理所必需</td><td>仅管理员可见；可申请删除</td></tr><tr><td>反馈处理</td><td>处理您提交的问题/建议/删除申请</td><td>同意；履行合同所必需</td><td>可选；不提交不影响基本功能</td></tr><tr><td>敏感个人信息</td><td>体测健康数据、教务密码、OPPO/华为账号标识、特定身份</td><td>单独同意（第 29 条）</td><td>可选；拒绝仅对应功能不可用</td></tr><tr><td>数据出境</td><td>PPT 源文件/转换产物存香港 OSS</td><td>单独同意 + 第 38 条规定的出境条件</td><td>可选；拒绝请不要使用 PPT</td></tr><tr><td>AI 辅助</td><td>通知摘要/分类、诊断分析</td><td>同意；履行合同所必需</td><td>可选；拒绝不影响原始通知查看</td></tr></tbody></table></div>
+<p><b>自动化决策：</b>我们不会基于个人信息对您进行自动化决策，不会用于广告定向、信用评估、录取/评奖等对您有重大影响的决定。抽签/分组是班级活动的随机算法，不基于您的个人信息进行画像；AI 摘要/诊断结论仅供参考，不构成自动决定。</p>
+<h2 id="s5"><span class="h2num">05</span>五、敏感个人信息</h2>
+<p>本端可能处理以下敏感个人信息。我们会在处理前以单独弹窗/勾选/明确提示等方式向您告知必要性、对您的影响，并取得<b>单独同意</b>；您拒绝仅影响对应功能，不影响身份核验和其他工具。您可以随时撤回同意，但撤回不影响撤回前已进行的处理。</p>
+<h3>5.1 体测健康数据</h3>
+<p>身高、体重、肺活量、50 米、坐位体前屈、立定跳远、引体向上/仰卧起坐、长跑、总分/等级等，用于国标算分、等级和历史记录。属于医疗健康类敏感个人信息。数据原则上仅本人可读写；不导出给他人；您可在体测历史删除或邮件申请删除。拒绝提供仅影响体测功能。</p>
+<h3>5.2 教务账号/密码（可选）</h3>
+<p>教务账号/密码仅限本人使用、不得共享。各端处理方式不同：</p><ul><li><b>安卓端：</b>如您选择保存密码，密码用 Android Keystore AES-256-GCM 加密后仅存本机；不上传、不同步、不写日志。WebView 打开学校官方页面；退出/清除登录会删除密文和 Cookie。</li><li><b>鸿蒙端：</b>可选 Asset Store 本机加密保存；如使用“个人课表登录”，密码经 PGP 加密后暂存云端任务队列，由管理员本机转换程序解密并向学校系统提交；明文不写入数据库/日志。</li><li><b>网页端/微信小程序端：</b>如使用个人课表登录，密码经 PGP 加密后暂存云端任务队列，由管理员本机转换程序解密并向学校系统提交；提交后任务清理；明文不落 localStorage/数据库/日志。</li><li><b>电脑端：</b>原生端不收集、不保存教务密码；如打开网页登录入口，适用网页端的规则。</li></ul><p>教务系统可能因共享账号、频繁登录、验证码/风控限制账号；请遵守学校规定。因学校规则导致的限制/封禁，由学校处理，本站不承担责任。</p>
+<h3>5.3 特定身份/班级组织信息</h3>
+<p>团员身份、班委职务、管理员标识等来自班级公开名单/班委整理，用于名单展示、投票可见范围和权限判断。我们<b>不用于</b>政治评价、奖惩、排名或其他目的。如您认为信息有误或不希望展示，可申请更正/删除；这可能导致对应名单/投票功能不可用。</p>
+<h3>5.4 宿舍房间号与水电数据</h3>
+<p>关注宿舍的规范楼栋 + 房间号、剩余电量、抄表读数等，仅用于本人电费/水量页面展示和估算；不导出、不对外分享、不在班级名单中展示。您可以在电费/水量页取消关注或清除记录。</p>
+<h3>5.5 投票选择与匿名</h3>
+<p>投票可能涉及您的意见、偏好或对班级事务的态度。发起人可选择匿名/实名、结果可见性、可见范围。匿名投票不向发起人/管理员返回投票人身份，但服务端仍按学号去重；由于班级人数/范围较小，结合上下文仍可能被推断。请勿在投票中填写身份证、手机号、病历等敏感信息。</p>
+<h3>5.6 单独同意的撤回</h3>
+<p>您可以通过关闭对应功能、撤销系统/微信授权、删除数据、邮件申请等方式撤回同意。撤回后我们将不再处理对应信息，但已完成的处理、依法必须保留的日志/备份、以及第三方已按其规则处理的数据不受影响。</p>
+<h2 id="s6"><span class="h2num">06</span>六、本机存储与 Cookie</h2>
+<p>本端不使用广告/跨站跟踪 Cookie，不接入第三方统计、埋点、CDN 字体或广告 SDK。为实现登录保持、离线缓存和偏好，本端会使用本机存储：</p>
+<div class="table-wrap"><table class=""><thead><tr><th scope="col">存储位置</th><th scope="col">内容</th><th scope="col">目的</th><th scope="col">期限 / 清除</th></tr></thead><tbody><tr><td>localStorage</td><td>身份令牌、姓名/学号、工具/页面偏好、同步缓存、勾选缓存、提醒/外观设置</td><td>登录保持、离线缓存、个性化</td><td>直到退出/清除站点数据/浏览器回收；token 约 30 天</td></tr><tr><td>IndexedDB</td><td>通知列表等较大缓存</td><td>减少重复请求、离线展示</td><td>直到清除站点数据/浏览器回收</td></tr><tr><td>浏览器缓存</td><td>静态资源、页面缓存</td><td>加速加载</td><td>由浏览器管理；可在设置中清除</td></tr><tr><td>剪贴板</td><td>您主动复制的抽签/分组结果、核验/下载链接</td><td>方便粘贴</td><td>由系统管理；可能被其他应用读取</td></tr></tbody></table></div>
+<p><b>网页端：</b>localStorage/IndexedDB 对同源脚本可见；共用电脑/浏览器请在使用后退出身份并清除站点数据。<b>安卓端：</b>应用私有目录 + Keystore；<span class="mono">allowBackup=false</span>。<b>电脑端：</b>DPAPI 绑定当前 Windows 用户，数据目录可打开清理。<b>鸿蒙端：</b>Preferences + Asset Store。<b>微信小程序端：</b>微信小程序本地存储，清除小程序缓存/卸载微信会删除本机数据。</p>
+<p>我们不响应“Do Not Track”信号，因为本站不做跨站跟踪/广告画像；如未来引入统计，会先更新本政策并取得同意。</p>
+<h2 id="s7"><span class="h2num">07</span>七、委托处理、共享与公开披露</h2>
+<h3>7.1 委托处理</h3>
+<p>我们委托腾讯云 CloudBase、阿里云 OSS/ECS、微信云开发、DeepSeek API 等云服务商处理实现功能所必需的数据。受托方仅按我们的指示和协议处理，不得用于其自身目的（法律另有要求除外）。我们会通过协议、权限控制、最小字段、加密/脱敏等方式约束。</p>
+<h3>7.2 班级内共享</h3>
+<p>班级数据在班级内部共享：已认证成员可看到班级名单、作业、通知、课表、投票结果等；管理员可看到访问统计、反馈和通知管理字段；匿名投票不返回投票人身份。PPT 为班级共享，OSS 公共读链接持有者可访问；文件传输仅同一班级账号的设备互见；大屏内容现场可见。请勿把班级数据转发到班级外。</p>
+<h3>7.3 第三方 SDK / 服务</h3>
+<p>本端不接入广告、统计、画像、社交分享 SDK。仅使用下列第三方服务/系统能力；具体字段与地点见<a href="#sc">附件 C</a>。</p>
+<div class="table-wrap"><table class=""><thead><tr><th scope="col">服务/接收方</th><th scope="col">适用端</th><th scope="col">目的</th><th scope="col">涉及信息</th><th scope="col">地点</th><th scope="col">说明</th></tr></thead><tbody><tr><td>腾讯云 CloudBase（腾讯云计算（北京）有限责任公司）</td><td>全部端</td><td>班级数据库、身份核验、同步、投票、PPT 元数据、诊断、访问统计</td><td>学号/姓名/token、班级数据、您主动提交的内容、设备诊断信息</td><td>中国上海（ap-shanghai）</td><td>受托处理；按腾讯云服务条款与数据处理协议；仅按我们的指示处理</td></tr><tr><td>阿里云 OSS（阿里云计算有限公司）</td><td>全部端（使用 PPT 时）</td><td>PPT 源文件、转换产物、音视频、PDF、兼容版存储与下载</td><td>PPT 内容、文件名/大小/哈希、下载请求</td><td>中国香港（oss-cn-hongkong）</td><td>跨境；Bucket 公共读；链接不可枚举但持有者可访问；首次使用需单独同意</td></tr><tr><td>阿里云 ECS（阿里云计算有限公司）</td><td>全部端</td><td>站点托管、通知附件、文件传输、PPT 下载缓存、OPPO 账号服务、地图共享状态</td><td>附件、临时文件、下载请求、OPPO authCode/openID、诊断请求</td><td>中国内地（阿里云 ECS）</td><td>受托处理；文件传输 72 小时；附件签名 URL；正式发布使用 HTTPS</td></tr><tr><td>深度求索（DeepSeek）API（北京深度求索人工智能基础技术研究有限公司）</td><td>全部端（服务端整理通知/诊断时）</td><td>对班级公开通知文本进行摘要/分类；对诊断信息做辅助分析</td><td>通知文本（发送前尽量去除手机号、身份证号、学号等直接标识）；不上传图片原文件</td><td>中国内地</td><td>受托处理/API 服务；不用于对个人作出自动决策；如服务条款无法满足要求，将停止使用</td></tr><tr><td>学校教务/统一认证、学信网、快递等第三方</td><td>按端提供入口</td><td>您主动打开教务、学信网、快递等官方页面/App</td><td>由第三方按其规则收集；本站不接收您的第三方密码（个人课表登录除外）</td><td>中国内地</td><td>第三方独立处理者；适用其隐私政策/用户协议；本站不控制其行为</td></tr><tr><td>浏览器厂商 / 操作系统</td><td>全部端（网页端）</td><td>浏览器运行、通知、文件选择、下载</td><td>浏览器类型/版本、设备能力；由浏览器厂商按其隐私政策处理</td><td>您的设备</td><td>本站不接收浏览器厂商的账号或画像数据</td></tr><tr><td>Microsoft PowerPoint / WPS</td><td>网页端（仅调起时）</td><td>通过系统协议打开 PPT</td><td>您选择的文件路径/URL；由本机软件处理</td><td>您的电脑</td><td>本站不控制第三方软件；是否上传由其自身决定</td></tr></tbody></table></div>
+<h3>7.4 转让</h3>
+<p>如本站因合并、转让、运营者变更等需要转移个人信息，我们会告知您接收方名称/联系方式、处理目的/方式，并要求接收方继续遵守本政策；如处理目的/方式发生重大变化，会重新取得同意。您不同意时，可以停止使用并申请删除。</p>
+<h3>7.5 公开披露</h3>
+<p>我们不会公开披露您的个人信息，除非取得您的单独同意或法律要求。请注意：PPT 存储在公共读 OSS，文件链接不可枚举但持有链接者可访问；大屏/投屏/截图可能使信息在现场公开。这些场景由使用者自行控制。</p>
+<h3>7.6 例外</h3>
+<p>根据法律法规、法院/仲裁机构生效文书、行政机关/司法机关依法提出的要求，或为保护您/他人的生命、财产/重大合法权益，我们可能披露必要信息；在法律允许范围内，我们会通知您。</p>
+<h3>7.7 不出售、不广告</h3>
+<p>我们<b>不出售、不出租、不交换</b>您的个人信息，不向广告商/数据经纪商提供，不做用户画像/定向广告。本站无广告位、无推广链接、无会员付费。</p>
+<h2 id="s8"><span class="h2num">08</span>八、数据出境</h2>
+<h3>8.1 境内存储</h3>
+<p>班级业务数据、身份核验、投票、诊断、文件传输、通知附件等主要存储在<b>中国内地</b>：腾讯云 CloudBase（上海 ap-shanghai）、阿里云 ECS（中国内地）。</p>
+<h3>8.2 香港 OSS（PPT 功能）</h3>
+<p>演示（PPT）功能的源文件、转换后的分步图片/视频/PDF/兼容版、单独抽取的音视频，存储在<b>阿里云 OSS 香港（oss-cn-hongkong）</b>。这属于向香港传输并存储个人信息/文件内容。涉及信息：PPT 内容、文件名/大小/哈希、下载请求、上传者/班级标识。目的：跨端下载、在线预览、ECS 缓存回源。接收方：阿里云计算有限公司（香港地域）。</p>
+<p>香港的数据保护法律与中国内地不完全相同。我们会在首次使用 PPT 前单独告知并取得您的<b>单独同意</b>；如您不同意，请不要上传 PPT（仅下载/播放也可能从香港读取文件，请同样知悉）。您可以删除 PPT 或邮件申请删除；删除后 OSS 链接可能短期仍可访问，备份最长 180 天。</p>
+<h3>8.3 合规措施</h3>
+<p>我们会在开通/继续提供跨境功能前，按《个人信息保护法》第 38 条采取必要措施（如标准合同、保护认证或安全评估，以适用为准），开展个人信息保护影响评估（PIA），并对 PPT 上传页做单独同意提示。若无法满足法律要求，我们将停止该功能或把存储迁回境内。</p>
+<h3>8.4 其他跨境</h3>
+<p>除香港 OSS 外，当前不主动向其他境外地区提供个人信息。若未来新增境外服务/域名/存储，我们会更新本政策并重新取得同意。</p>
+<h2 id="s9"><span class="h2num">09</span>九、存储地点与保存期限</h2>
+<p>我们只在实现处理目的所必需的<b>最短期限</b>内保留个人信息，到期删除或匿名化；法律另有要求、安全/备份/争议处理需要的除外。端内“清除云端”如为覆盖/置否/归档，属于逻辑清除；物理删除请邮件申请，我们在 15 个工作日内处理。</p>
+<div class="table-wrap"><table class=""><thead><tr><th scope="col">数据类别</th><th scope="col">适用端</th><th scope="col">保留期</th><th scope="col">说明</th></tr></thead><tbody><tr><td>身份 token</td><td>全部端</td><td>约 30 天（Windows 约 29 天）</td><td>到期/退出/注销即失效；不长期保留明文</td></tr><tr><td>本机缓存/偏好</td><td>全部端</td><td>直到您清除/卸载/清理站点数据</td><td>可随时清除；云端不受影响</td></tr><tr><td>userdata / marks / fitrecs</td><td>全部端</td><td>直到您清除/申请删除；物理删除在 15 个工作日内</td><td>端内“清除云端”为逻辑清除：覆盖为空/置否/归档，不是物理删除</td></tr><tr><td>访问统计</td><td>网页/小程序/安卓/鸿蒙/电脑</td><td>90 天</td><td>按保留规则清理；可申请删除</td></tr><tr><td>反馈</td><td>全部端</td><td>处理完成后 1 年</td><td>可申请提前删除</td></tr><tr><td>通知与附件</td><td>全部端</td><td>通知失效/归档后 6 个月；附件签名 URL 默认 180 天</td><td>附件不随通知自动删除，需管理员按 180 天清理</td></tr><tr><td>PPT 与媒体</td><td>使用 PPT 的端</td><td>直到删除；软删后 90 天（最长 180 天）清理 OSS；备份最长 180 天</td><td>OSS 香港公共读；删除后链接可能短期仍可访问</td></tr><tr><td>文件传输</td><td>全部端</td><td>文件 72 小时；未完成分片 24 小时；签名 URL 30 分钟</td><td>关闭会话立即删除；不是备份</td></tr><tr><td>诊断</td><td>全部端</td><td>90 天</td><td>AI 分析/修复记录随诊断清理</td></tr><tr><td>安全/网络日志</td><td>全部端</td><td>以云服务商日志策略为准，一般不超过 180 天</td><td>用于安全审计/故障排查；法律另有要求除外</td></tr><tr><td>投票</td><td>全部端</td><td>直到投票删除；软删后 30 天（最长 90 天）清理</td><td>匿名票不返回投票人身份；服务端仍按学号去重</td></tr><tr><td>账号绑定/订阅</td><td>安卓/鸿蒙/小程序</td><td>直到解绑/取消/注销/申请删除；取消/注销后 30 天内删除，最长不超过 1 年</td><td>OPPO/华为/微信平台可能另按其规则保留日志</td></tr><tr><td>备份</td><td>全部端</td><td>滚动覆盖，最长 180 天</td><td>仅用于灾难恢复，不用于业务展示</td></tr></tbody></table></div>
+<p><b>期限口径：</b>表中为当前保留规则；因备份/云服务机制延迟的，最长不超过 180 天，且不用于业务展示。您可以随时通过邮箱申请提前删除。</p>
+<p><b>备份/日志：</b>云服务商/安全日志一般滚动保留不超过 180 天；备份用于灾难恢复，不用于业务展示。即使您删除数据，备份中的副本可能在滚动周期内继续存在，但不会被主动读取/使用。</p>
+<p><b>例外：</b>法律法规要求保留、司法机关/行政机关依法要求、为解决争议/投诉所必需、保护您/他人重大权益所必需的，可能延长保留期。</p>
+<h2 id="s10"><span class="h2num">10</span>十、安全保护</h2>
+<h3>10.1 技术措施</h3>
+<ul><li>正式环境使用 HTTPS/TLS 传输；云端接口使用班级 token + 行级权限（RLS）校验，前端不持有高权限密钥。</li><li>身份 token 约 30 天；退出/失效即清理本机会话；安卓 <span class="mono">allowBackup=false</span>；电脑端 DPAPI；安卓 Keystore；鸿蒙 Asset Store。</li><li>日志脱敏：不记录 token、学号、姓名、宿舍号、密码；诊断字段最小化；错误上报做掩码。</li><li>最小权限：管理员仅访问维护所需数据；云端表按本人/管理员/班级成员分级授权；投票等敏感表不开放匿名直连。</li><li>依赖最小化：网页端零外部统计/广告/字体；原生端不接第三方统计/广告 SDK。</li></ul>
+<h3>10.2 组织措施</h3>
+<p>仅管理员/必要维护人员可接触云端数据；要求保密；定期检查权限、日志、备份和第三方服务；发现漏洞/事件时及时修复。我们会对受托方（云服务商）做基本安全评估，但无法控制其全部内部行为。</p>
+<h3>10.3 您的配合</h3>
+<p>请使用锁屏密码/系统账户保护设备；不要在共用设备保存教务密码；不要截图/转发 token、身份页、班级名单；发现账号被冒用、token 泄露、设备丢失，请立即退出登录、修改学校密码（如适用）并联系我们。</p>
+<h3>10.4 安全事件</h3>
+<p>如发生或可能发生个人信息泄露、篡改、丢失，我们会立即采取补救措施，评估影响，按法律要求向监管部门报告，并通过班级群/邮件/页面通知受影响的用户；必要时建议您修改学校密码、解绑 OPPO/华为账号。我们不会隐瞒事件，但也不会在未核实前发布不实信息。</p>
+<h3>10.5 安全边界</h3>
+<p>互联网没有绝对安全。我们尽力保护，但不能保证 100% 不被攻击/误操作/不可抗力影响。因您主动分享、共用设备、第三方平台、学校系统、网络攻击等造成的风险，需结合具体情况判断责任。</p>
+<h2 id="s11"><span class="h2num">11</span>十一、你的权利</h2>
+<p>根据《个人信息保护法》，您对个人信息享有知情/决定、查阅/复制、更正/补充、删除、撤回同意、可携带、解释说明、投诉等权利；近亲属可依法对死者个人信息行使相关权利。我们不会因您行使权利而歧视您，但拒绝必要信息可能导致对应功能不可用。</p>
+<h3>11.1 各端操作路径</h3>
+<div class="table-wrap"><table class=""><thead><tr><th scope="col">端</th><th scope="col">查阅/复制</th><th scope="col">更正</th><th scope="col">删除本机</th><th scope="col">删除云端</th><th scope="col">撤回/注销</th></tr></thead><tbody><tr><td>网页端</td><td>身份页/本机备份导出（以实际功能为准）；云端完整副本可邮件申请</td><td>反馈页或邮件申请；管理员核对后更正</td><td>浏览器站点设置 → 清除 Cookie/站点数据；退出身份</td><td>邮件/反馈申请；15 个工作日内处理</td><td>退出身份、清除站点数据、邮件注销</td></tr><tr><td>安卓端</td><td>我的 → 数据与隐私 → 导出我的数据（JSON，不含 token/学号明文）</td><td>反馈页或邮件申请；名单/角色由管理员更正</td><td>我的 → 数据与隐私 → 清除本机数据；系统设置 → 清除应用数据</td><td>我的 → 数据与隐私 → 清除云端（逻辑清除）；物理删除邮件申请</td><td>退出登录、权限管理关闭授权、OPPO 解绑、邮件注销</td></tr><tr><td>电脑端</td><td>设置 → 导出备份（userdata v6，以实际导出为准）；云端完整副本邮件申请</td><td>反馈页或邮件申请</td><td>设置 → 清除缓存/打开数据目录；退出登录；卸载</td><td>邮件/反馈申请；15 个工作日内处理</td><td>退出登录、清除缓存、邮件注销</td></tr><tr><td>鸿蒙端</td><td>当前无独立导出页；可邮件申请导出</td><td>反馈页或邮件申请；名单/角色由管理员更正</td><td>我的 → 退出登录；系统设置 → 清除应用数据/卸载</td><td>邮件/反馈申请；15 个工作日内处理</td><td>退出登录、华为账号解绑、邮件注销</td></tr><tr><td>微信小程序端</td><td>我的 → 数据与隐私 → 导出我的数据（JSON 复制到剪贴板）</td><td>反馈页或邮件申请；名单/角色由管理员更正</td><td>我的 → 数据与隐私 → 清除本机数据；微信 → 清除小程序缓存</td><td>我的 → 数据与隐私 → 清除云端（逻辑清除）；访问统计/反馈/物理删除邮件申请</td><td>退出身份、微信授权管理关闭订阅、邮件注销</td></tr></tbody></table></div>
+<h3>11.2 申请方式</h3>
+<p>您可以通过本端“反馈”页或邮箱 <a href="mailto:Ko_Link@outlook.com">Ko_Link@outlook.com</a> 提交申请。为保护安全，我们可能要求您提供姓名、学号、使用的端、请求类型和必要证明；我们只用于核实身份，不用于其他目的。模板见<a href="#sd">附件 D</a>。我们将在 15 个工作日内回复；复杂请求可能延长，会告知原因。</p>
+<h3>11.3 注销（无独立账号）</h3>
+<p>本站没有传统“注册账号”，身份来自班级名单核验。所谓“注销”是指：撤销班级 token、停止服务、删除/匿名化您的个人数据、解绑 OPPO/华为账号、删除推送 token/订阅记录。您可以通过邮箱申请；我们核实后处理。注销后您仍可能在班级名单中（这是班级事务记录，不由本站单独决定删除）；如需从班级名单移除，请联系班委/学校。注销后如仍在本班名单，可重新核验，但历史个人数据不再恢复。</p>
+<h3>11.4 例外</h3>
+<p>以下情形可能无法立即删除/撤回：法律法规要求保留；司法机关/行政机关依法要求；安全/备份/争议处理所必需；删除会严重影响他人合法权益。我们会说明理由。</p>
+<h2 id="s12"><span class="h2num">12</span>十二、未成年人保护</h2>
+<p>本端主要面向高校班级成员，通常已满 18 周岁；如您未满 18 周岁，应在监护人陪同下阅读本政策，并在监护人知情同意后使用。我们不主动面向未满 14 周岁的儿童提供本服务；如发现误收集了儿童个人信息，我们会删除。</p>
+<p>监护人如发现未成年人未经同意使用本端，或希望查阅/更正/删除其信息，请通过邮箱联系我们。我们会核实监护关系后处理。若班级成员中包含未成年人，班委/管理员应协助取得监护人同意，并遵守《未成年人保护法》《未成年人网络保护条例》《儿童个人信息网络保护规定》。</p>
+<h2 id="s13"><span class="h2num">13</span>十三、政策更新</h2>
+<p>我们可能因功能、第三方、法律或安全变化更新本政策。更新时会修改页面顶部的版本号/生效日期，并在本页/班级群/端内提示。涉及处理目的、方式、种类、跨境、第三方共享、敏感信息、权利等<b>重大变更</b>时，我们会重新取得您的单独同意，不会仅以“继续使用”视为同意。</p>
+<p>您可以在本页查看历史版本记录（<a href="#se">附件 E</a>）。如您不同意更新后的政策，请停止使用并申请删除；继续使用前请阅读新版。</p>
+<h2 id="s14"><span class="h2num">14</span>十四、联系我们与投诉</h2>
+<p>如对本政策有疑问、意见、投诉，或需要行使权利，请联系：<br><b>运营者/个人信息保护负责人：</b>陈子麒<br><b>邮箱：</b><a href="mailto:Ko_Link@outlook.com">Ko_Link@outlook.com</a><br><b>站内：</b>“反馈”页（如该端提供）<br><b>班级：</b>班级群 @管理员</p>
+<p>如您认为我们的处理侵犯了您的合法权益，且与我们协商未果，可以向网信、电信、公安、市场监管等部门投诉/举报：国家网信办举报中心 12377；工信部 12321；当地网信办/公安机关。我们愿意配合处理。</p>
+<h2 id="sa"><span class="h2num">A</span>附件 A：个人信息处理清单</h2>
+<p>下表按“类别 / 字段 / 场景 / 必要性 / 存储 / 保留期”列明本端处理的主要个人信息。未列出的信息如与具体功能相关，以该功能页面的说明为准。</p>
+<div class="table-wrap"><table class=""><thead><tr><th scope="col">类别</th><th scope="col">具体内容</th><th scope="col">场景 / 来源</th><th scope="col">必要性</th><th scope="col">存储 / 接收方</th><th scope="col">保留期</th></tr></thead><tbody><tr><td>身份核验</td><td>学号、姓名、班级身份令牌、签发/到期时间、设备随机标识（网页端）或设备型号（原生端）</td><td>您在身份页提交学号 + 姓名；服务端与班级官方名单比对后签发 token</td><td>必需；否则无法进入班级数据</td><td>CloudBase PostgreSQL（上海）private.class_ids / class_sessions；本机保存 token</td><td>token 约 30 天（Windows 约 29 天）；到期/退出/注销即失效</td></tr><tr><td>班级组织信息</td><td>座号、姓名、班委职务/徽章、团员身份、管理员标识</td><td>班级公开名单/班委整理；名单工具、投票可见范围、权限判断使用</td><td>班级工具运行所必需；页面不展示学号</td><td>CloudBase class_members / class_league / private.class_ids</td><td>随班级名单更新；可申请更正/删除；不用于评价</td></tr><tr><td>作业、通知与课表</td><td>作业标题/内容/截止/附件；通知标题/摘要/正文/附件/发送人昵称或角色；课表课程/教师/周次/教室</td><td>班级公开通知、班委发布、学校教务快照；通知可能由班级群公开消息整理</td><td>班级信息展示所必需；仅本班可见</td><td>CloudBase homework / notices / site_assets；附件可能在 ECS</td><td>通知失效/归档后 6 个月内清理；附件签名 URL 默认 180 天，随通知重建</td></tr><tr><td>体测健康数据</td><td>身高、体重、肺活量、50 米、坐位体前屈、立定跳远、引体向上/仰卧起坐、长跑、总分/等级、性别/年级</td><td>您在体测页主动录入；用于国标算分、等级和历史</td><td>敏感个人信息；单独同意；拒绝仅影响体测</td><td>CloudBase userdata.fit / fitrecs；原则上仅本人可读写</td><td>直到您删除/清除/申请删除；备份最长 180 天</td></tr><tr><td>抽签、分组、点名</td><td>范围、人数、排除号、是否重复、名单选择、结果、名称映射、存证记录；点名到/假状态</td><td>您在抽签/分组/点名页主动操作</td><td>功能所必需；结果仅用于班级活动</td><td>CloudBase userdata.draw/group/roster、marks、draw 记录表</td><td>直到您清除/申请删除；存证记录按抽签记录规则保留</td></tr><tr><td>课表、提醒与昵称偏好</td><td>周/日视图、个人课表、学期开始、提醒开关/时间、昵称、工具栏顺序、隐藏项、外观</td><td>您主动设置或跨端同步</td><td>功能所必需；可清除</td><td>CloudBase userdata v6；本机缓存</td><td>直到您清除/申请删除；本机缓存可随时清除</td></tr><tr><td>电费与水量</td><td>关注宿舍的规范楼栋 + 房间号、剩余电量、低电阈值、24h/7d/30d 趋势、抄表月份/读数/人数</td><td>您主动选择关注宿舍/录入抄表；与班级云端数据合并</td><td>功能所必需；仅本人页面展示，不导出</td><td>CloudBase power / power_history / water / userdata.power/water</td><td>直到您取消关注/清除/申请删除；历史采样按数据源规则</td></tr><tr><td>投票</td><td>投票标题/说明/选项/配图、单选/多选、匿名/实名、可见范围（全班/班委/团员/指定座号）、截止时间、投票选择、投票人姓名（实名时）</td><td>您发起/参与投票；可见范围由发起人设置</td><td>功能所必需；匿名票不返回投票人身份</td><td>CloudBase polls / poll_votes（RPC 访问；两表对 anon 无直连权限）</td><td>直到投票删除/软删清理；软删后 30 天内清理（最长 90 天）</td></tr><tr><td>演示（PPT）</td><td>PPT 源文件、文件名/大小/哈希、转换后的分步图片/视频/PDF/兼容版、单独抽取的音视频、manifest、上传分片</td><td>您主动上传/下载/播放 PPT</td><td>功能所必需；可拒绝，不使用 PPT</td><td>CloudBase ppt_decks / ppt_upload_chunks；阿里云 OSS 香港（公共读）；ECS 缓存</td><td>直到您/管理员删除；软删后 90 天内清理 OSS 资产（最长 180 天），备份最长 180 天</td></tr><tr><td>文件传输 / 云空间</td><td>您选择的文件、文件名/大小、文字消息、遥控指令、会话/分片信息、下载签名</td><td>您主动上传/发送/遥控；同账号设备互见</td><td>功能所必需；临时中转，不是备份</td><td>阿里云 ECS 临时空间（/drop）；签名 URL 30 分钟</td><td>文件 72 小时；未完成分片 24 小时；关闭会话立即删除</td></tr><tr><td>反馈</td><td>反馈内容、可选联系方式（QQ/微信/邮箱等）、提交人身份、处理状态、时间</td><td>您在反馈页主动提交</td><td>处理问题所必需；联系方式可选</td><td>CloudBase feedback；仅管理员可读</td><td>处理完成后 1 年；可申请删除</td></tr><tr><td>访问统计</td><td>学号、姓名、设备随机标识、小时级时间、访问槽位</td><td>您使用网页/小程序时自动记录（每小时最多一条）</td><td>班级活跃度统计所必需；仅管理员可见</td><td>CloudBase visits</td><td>90 天（按我们的保留规则清理）；可申请删除</td></tr><tr><td>诊断</td><td>平台/系统/App 或浏览器版本、屏幕、内存、存储、网络、WebView/基础库版本、时钟偏差、接口延迟、异常摘要、设备检查结果</td><td>您打开诊断页或主动上报异常时</td><td>故障排查所必需；设备信息最小化</td><td>CloudBase client_diag / diag_analysis / repair_tasks；已认证成员可见脱敏结果</td><td>90 天；AI 分析/修复记录随诊断清理</td></tr><tr><td>安全与网络日志</td><td>IP 地址、时间、请求路径、状态码、User-Agent、错误码、云服务商安全日志</td><td>访问本站/云端时由网络与云服务自动生成</td><td>履行网络安全义务、排查攻击/故障所必需</td><td>腾讯云 CloudBase / 阿里云 ECS / OSS 的日志系统</td><td>一般不超过 180 天；法律另有要求除外</td></tr><tr><td>备份</td><td>加密/受控的数据库与对象存储备份</td><td>云服务商/管理员按安全需要生成</td><td>灾难恢复与安全所必需</td><td>云服务商备份系统；不用于业务展示</td><td>滚动覆盖，最长 180 天；恢复后按本政策处理</td></tr><tr><td>浏览器本地数据</td><td>localStorage / IndexedDB 中的身份令牌、姓名/学号、工具偏好、通知与课表缓存、提醒/外观设置</td><td>您在本浏览器登录、使用、设置时生成</td><td>实现登录保持与离线缓存所必需；可在浏览器中清除</td><td>当前浏览器设备；不上传到无关第三方</td><td>直到您退出、清除站点数据或浏览器回收；身份令牌约 30 天</td></tr><tr><td>网页诊断信息</td><td>平台/系统/浏览器或 WebView 版本、屏幕、内存、存储、网络类型、时钟偏差、接口延迟、异常堆栈摘要</td><td>您打开诊断页或主动上报异常时</td><td>故障排查所必需；不上报不影响基本使用</td><td>CloudBase（上海）client_diag；已认证成员可在诊断页看到脱敏结果</td><td>90 天（按我们的保留规则清理）</td></tr><tr><td>大屏 / 互联内容</td><td>大屏布局、投票/抽签/名单展示内容、同账号设备间传输的文件与文字、遥控指令</td><td>您主动开启大屏、文件互联或遥控时</td><td>实现现场展示/同账号互传所必需</td><td>浏览器本机 + ECS 临时空间；文件 72 小时</td><td>大屏布局为本机偏好；互联文件 72 小时；文字/指令随会话过期</td></tr></tbody></table></div>
+<h2 id="sb"><span class="h2num">B</span>附件 B：权限与系统能力</h2>
+<p>本端只申请实现功能所需的权限/系统能力；未列出的权限（定位、通讯录、短信、通话记录、相机、麦克风、生物识别等）不申请。拒绝授权只影响对应功能。</p>
+<div class="table-wrap"><table class=""><thead><tr><th scope="col">适用端</th><th scope="col">权限/能力</th><th scope="col">触发场景</th><th scope="col">是否必需</th><th scope="col">拒绝后果</th></tr></thead><tbody><tr><td>网页端</td><td>浏览器通知</td><td>您主动开启作业/上课/通知提醒时</td><td>可选</td><td>仅收不到提醒，其他功能正常</td></tr><tr><td>网页端</td><td>文件选择 / 下载</td><td>上传 PPT、选择附件、下载兼容版/PDF/视频时</td><td>功能必需</td><td>无法上传或下载对应文件</td></tr><tr><td>网页端</td><td>剪贴板写入</td><td>复制结果、核验链接、导出文本时</td><td>可选</td><td>可手动选择文本复制</td></tr><tr><td>网页端</td><td>全屏 / 系统协议</td><td>大屏、PPT 播放、调起 PowerPoint/WPS 时</td><td>可选</td><td>可窗口播放或手动打开文件</td></tr><tr><td>网页端</td><td>无定位/通讯录/摄像头/麦克风</td><td>不申请</td><td>—</td><td>—</td></tr></tbody></table></div>
+<h2 id="sc"><span class="h2num">C</span>附件 C：第三方 SDK / 服务</h2>
+<p>本端不接入广告、统计、画像、社交分享 SDK。以下为功能所必需的云服务/系统能力/第三方入口。第三方可能有其独立的隐私政策，建议您阅读。</p>
+<div class="table-wrap"><table class=""><thead><tr><th scope="col">服务/接收方</th><th scope="col">适用端</th><th scope="col">目的</th><th scope="col">涉及信息</th><th scope="col">地点</th><th scope="col">说明</th></tr></thead><tbody><tr><td>腾讯云 CloudBase（腾讯云计算（北京）有限责任公司）</td><td>全部端</td><td>班级数据库、身份核验、同步、投票、PPT 元数据、诊断、访问统计</td><td>学号/姓名/token、班级数据、您主动提交的内容、设备诊断信息</td><td>中国上海（ap-shanghai）</td><td>受托处理；按腾讯云服务条款与数据处理协议；仅按我们的指示处理</td></tr><tr><td>阿里云 OSS（阿里云计算有限公司）</td><td>全部端（使用 PPT 时）</td><td>PPT 源文件、转换产物、音视频、PDF、兼容版存储与下载</td><td>PPT 内容、文件名/大小/哈希、下载请求</td><td>中国香港（oss-cn-hongkong）</td><td>跨境；Bucket 公共读；链接不可枚举但持有者可访问；首次使用需单独同意</td></tr><tr><td>阿里云 ECS（阿里云计算有限公司）</td><td>全部端</td><td>站点托管、通知附件、文件传输、PPT 下载缓存、OPPO 账号服务、地图共享状态</td><td>附件、临时文件、下载请求、OPPO authCode/openID、诊断请求</td><td>中国内地（阿里云 ECS）</td><td>受托处理；文件传输 72 小时；附件签名 URL；正式发布使用 HTTPS</td></tr><tr><td>深度求索（DeepSeek）API（北京深度求索人工智能基础技术研究有限公司）</td><td>全部端（服务端整理通知/诊断时）</td><td>对班级公开通知文本进行摘要/分类；对诊断信息做辅助分析</td><td>通知文本（发送前尽量去除手机号、身份证号、学号等直接标识）；不上传图片原文件</td><td>中国内地</td><td>受托处理/API 服务；不用于对个人作出自动决策；如服务条款无法满足要求，将停止使用</td></tr><tr><td>学校教务/统一认证、学信网、快递等第三方</td><td>按端提供入口</td><td>您主动打开教务、学信网、快递等官方页面/App</td><td>由第三方按其规则收集；本站不接收您的第三方密码（个人课表登录除外）</td><td>中国内地</td><td>第三方独立处理者；适用其隐私政策/用户协议；本站不控制其行为</td></tr><tr><td>浏览器厂商 / 操作系统</td><td>全部端（网页端）</td><td>浏览器运行、通知、文件选择、下载</td><td>浏览器类型/版本、设备能力；由浏览器厂商按其隐私政策处理</td><td>您的设备</td><td>本站不接收浏览器厂商的账号或画像数据</td></tr><tr><td>Microsoft PowerPoint / WPS</td><td>网页端（仅调起时）</td><td>通过系统协议打开 PPT</td><td>您选择的文件路径/URL；由本机软件处理</td><td>您的电脑</td><td>本站不控制第三方软件；是否上传由其自身决定</td></tr></tbody></table></div>
+<h2 id="sd"><span class="h2num">D</span>附件 D：数据权利申请模板</h2>
+<p>请将下列内容发送至 <a href="mailto:Ko_Link@outlook.com">Ko_Link@outlook.com</a>，或在本端“反馈”页提交（如提供）。我们只将信息用于核实与处理请求。</p>
+<pre class="template">主题：班级工具站个人信息权利申请（网页端）
+
+姓名：
+学号（仅用于核实，不会公开）：
+使用的端：网页端
+联系邮箱/微信：
+申请类型：查阅 / 复制 / 更正 / 删除 / 撤回同意 / 注销 / 其他
+涉及的数据或页面：
+具体说明：
+是否同意我们为核实身份而联系班级管理员/班委：是 / 否
+日期：
+
+声明：我是上述学号的本人（或已取得合法授权的监护人/近亲属），所填信息真实。
+
+<p class="small">如您无法提供学号，我们可能无法核实身份；您可以选择通过班级群联系管理员，或提供其他能证明班级身份的信息。我们不会要求您提供身份证照片、银行卡等与核实无关的敏感信息。</p>
+<h2 id="se"><span class="h2num">E</span>附件 E：版本记录</h2>
+<div class="table-wrap"><table class=""><thead><tr><th scope="col">版本</th><th scope="col">生效日期</th><th scope="col">主要变更</th><th scope="col">发布者</th></tr></thead><tbody><tr><td>V1.0</td><td>2026年11月17日</td><td>首次发布五端差异化隐私政策：网页端、安卓端、电脑端、鸿蒙端、微信小程序端；含个人信息处理清单、权限、第三方、跨境、权利与申请模板。</td><td>陈子麒</td></tr></tbody></table></div>
+</article>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <p class="foot-brand">班级工具站 · 法律文件</p>
+        <p>运营者：陈子麒（个人开发者、班级管理员）<br>
+        联系邮箱：<a href="mailto:Ko_Link@outlook.com">Ko_Link@outlook.com</a><br>
+        响应时限：收到有效申请后 15 个工作日内</p>
+      </div>
+      <div>
+        <p><b>本端文档</b><br>
+        <a href="../web/privacy.html">隐私政策</a> · <a href="../web/terms.html">用户协议</a><br>
+        <a href="../index.html">全部端文档</a></p>
+        <p class="fine">网站备案信息：以工信部备案系统公示为准（域名恢复后更新）</p>
+      </div>
+      <div>
+        <p><b>版本</b><br>V1.0 · 生效 2026年11月17日<br>最近更新 2026年11月17日</p>
+        <p class="fine">本站为个人开发的班级辅助工具，<b>不是学校官方平台</b>，不代表学校、学院、班级或任何老师。</p>
+      </div>
+    </div>
+    <p class="foot-line">本页为静态法律文本，不包含跟踪脚本、外部字体、广告或第三方统计。法律文本不构成正式法律意见；发布前请按实际功能与适用法律复核。</p>
+    <p class="foot-line"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">工信部备案系统</a> · 文档编号 CT-LEGAL-PRIVACY-WEB-V10</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  document.querySelectorAll('[data-print]').forEach(function(btn){
+    btn.addEventListener('click', function(){ window.print(); });
+  });
+  // 目录在桌面端保持展开；移动端默认收起，点开后可正常跳转。
+  try{
+    var d=document.querySelector('.toc details');
+    if(d && window.matchMedia && window.matchMedia('(max-width:960px)').matches){ d.removeAttribute('open'); }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

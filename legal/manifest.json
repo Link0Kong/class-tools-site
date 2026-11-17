@@ -1,0 +1,62 @@
+{
+  "schema": "class-tools-legal",
+  "version": "1.0",
+  "effectiveDate": "2026年11月17日",
+  "lastUpdated": "2026年11月17日",
+  "operator": {
+    "name": "陈子麒",
+    "role": "个人开发者、班级管理员",
+    "email": "Ko_Link@outlook.com",
+    "official": false,
+    "note": "不是学校官方平台，不代表学校、学院、班级或任何老师"
+  },
+  "baseUrl": "https://tool.furina.fun/legal/",
+  "documents": {
+    "web": {
+      "name": "网页端",
+      "full": "网页端（浏览器，含手机、平板和桌面浏览器）",
+      "version": "站点 2.0.0（单文件静态页）",
+      "privacy": "web/privacy.html",
+      "terms": "web/terms.html",
+      "filing": "网站备案信息：以工信部备案系统公示为准（域名恢复后更新）"
+    },
+    "android": {
+      "name": "安卓端",
+      "full": "安卓端（Android 原生 App，包名 com.furina.classtools）",
+      "version": "Android 1.0.0-beta3（vc86）",
+      "privacy": "android/privacy.html",
+      "terms": "android/terms.html",
+      "filing": "APP 备案信息：以工信部备案系统公示为准"
+    },
+    "windows": {
+      "name": "电脑端",
+      "full": "电脑端（Windows 原生客户端，ClassTools.exe）",
+      "version": "Windows 0.1.0（WinUI 3 里程碑版）",
+      "privacy": "windows/privacy.html",
+      "terms": "windows/terms.html",
+      "filing": "APP 备案信息：以工信部备案系统公示为准"
+    },
+    "harmony": {
+      "name": "鸿蒙端",
+      "full": "鸿蒙端（HarmonyOS / HarmonyOS NEXT 原生 App，含手机、平板、2in1 和手表）",
+      "version": "HarmonyOS 1.0.6（M79）",
+      "privacy": "harmony/privacy.html",
+      "terms": "harmony/terms.html",
+      "filing": "APP 备案信息：以工信部备案系统公示为准"
+    },
+    "mp": {
+      "name": "微信小程序端",
+      "full": "微信小程序端（微信小程序「班级工具」，AppID wx3df9869d229b96c4）",
+      "version": "小程序 2.0.0（v25 / 30 页）",
+      "privacy": "mp/privacy.html",
+      "terms": "mp/terms.html",
+      "filing": "小程序备案号：闽ICP备2026042939号"
+    }
+  },
+  "notes": [
+    "PPT 源文件与转换产物存放于阿里云 OSS 香港（公共读），属于跨境存储；首次使用需单独同意。",
+    "体测健康数据、教务密码、OPPO/华为账号标识、特定身份等按敏感个人信息规则处理。",
+    "端内“清除云端”为逻辑清除（覆盖为空/置否/归档），物理删除需邮件申请（15 个工作日内）。",
+    "本清单供各端统一调取；如域名变更，请同步更新 baseUrl 与各端内置链接。"
+  ]
+}

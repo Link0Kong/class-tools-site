@@ -25,6 +25,7 @@
 
 ```
 tools/          站点本体：index.html（单文件主程序）、tt.json（课表快照）、tests/（自检套件）、build_notice_embed.py
+legal/          五端隐私政策 / 用户协议（10 个独立静态页 + 文档中心 + manifest，见 legal/README.md）
 deploy/         部署：OSS 上传（sync_tools.py）、ECS 备案落点部署（ecs_site.py，见 deploy/ECS_DEPLOY.md）、CloudBase SQL、证书、对象校验（creds.env 等凭据已排除）
 jwxt/           教务课表同步（本机 DPAPI 凭据；产物 tools/tt.json）
 ppt/            PPT 演示：本机转换机 agent + 云端契约 / 运维文档

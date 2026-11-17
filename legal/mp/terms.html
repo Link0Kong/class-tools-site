@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>班级工具站（微信小程序端）用户协议 V1.0</title>
+<meta name="description" content="班级工具站微信小程序端用户协议：服务性质、使用资格、账号与设备、使用规范、用户内容、第三方、免责、终止与争议解决。">
+<meta name="robots" content="index,follow">
+<meta name="format-detection" content="telephone=no">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="theme-color" content="#F7F8F8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111614" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://tool.furina.fun/legal/mp/terms.html">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23F7F8F8'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%234E9082'/%3E%3Ccircle cx='15' cy='15' r='5' fill='%236E8CA8'/%3E%3Ccircle cx='49' cy='49' r='5' fill='%23B98F63'/%3E%3C/svg%3E">
+<style>
+:root{
+  color-scheme: light dark;
+  --bg:#F7F8F8; --bg2:#F1F3F2; --card:#FFFFFF; --ink:#23302E; --ink2:#526460;
+  --ink3:#7B8C88; --line:#E1E7E5; --line2:#D3DDD9;
+  --teal:#4E9082; --teal-d:#3A7267; --blue:#6E8CA8; --sand:#B98F63;
+  --warn:#A85B4E; --warn-bg:#FBF1ED; --warn-line:#E9C9BE;
+  --note-bg:#EDF5F2; --note-line:#CBE0D9;
+  --shadow:0 10px 30px rgba(35,48,46,.06);
+  --r:16px; --max:1180px;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#111614; --bg2:#151C19; --card:#18211E; --ink:#E7EFEC; --ink2:#B7C6C1;
+    --ink3:#8FA19C; --line:#2A3833; --line2:#35453F;
+    --teal:#72B6A6; --teal-d:#8DCABC; --blue:#93AEC7; --sand:#D3AC7E;
+    --warn:#E0A08F; --warn-bg:#2A1D18; --warn-line:#5B3A30;
+    --note-bg:#152521; --note-line:#2E4A42;
+    --shadow:0 12px 34px rgba(0,0,0,.24);
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:88px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.78 var(--font);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+a{color:var(--teal-d);text-decoration:none;text-underline-offset:3px}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid color-mix(in srgb,var(--teal) 55%,transparent);outline-offset:3px;border-radius:6px}
+img{max-width:100%}
+.skip{position:absolute;left:-9999px;top:0;background:var(--card);color:var(--ink);padding:10px 14px;z-index:99;border:1px solid var(--line)}
+.skip:focus{left:12px;top:12px}
+.wrap{width:100%;max-width:var(--max);margin:0 auto;padding:0 22px}
+.site-head{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.head-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:64px}
+.brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;min-width:0}
+.brand:hover{text-decoration:none}
+.brand-dots{display:inline-flex;gap:4px;flex:0 0 auto}
+.brand-dots i{width:8px;height:8px;border-radius:50%;background:var(--teal);display:block}
+.brand-dots i:nth-child(2){background:var(--blue)}
+.brand-dots i:nth-child(3){background:var(--sand)}
+.brand-text{font-weight:700;font-size:15px;line-height:1.2;white-space:nowrap}
+.brand-text small{display:block;font-weight:500;font-size:11px;color:var(--ink3);letter-spacing:.12em;margin-top:3px}
+.head-actions{display:flex;align-items:center;gap:14px;font-size:13px;color:var(--ink2);flex-wrap:wrap;justify-content:flex-end}
+.btn-print{border:1px solid var(--line2);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 12px;font:inherit;font-size:12px;cursor:pointer}
+.btn-print:hover{border-color:var(--teal);color:var(--teal-d)}
+.layout{display:grid;grid-template-columns:258px minmax(0,1fr);gap:38px;padding-top:30px;padding-bottom:70px;align-items:start}
+.toc{position:sticky;top:88px;max-height:calc(100vh - 110px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
+.toc details{margin:0}
+.toc summary{list-style:none;cursor:pointer;font-weight:700;font-size:14px;letter-spacing:.04em;color:var(--ink);display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 0 10px;border-bottom:1px solid var(--line);margin-bottom:10px}
+.toc summary::-webkit-details-marker{display:none}
+.toc summary::after{content:"−";color:var(--ink3);font-weight:400}
+.toc details:not([open]) summary::after{content:"+"}
+.toc ol{list-style:none;margin:0;padding:0;counter-reset:toc}
+.toc li{counter-increment:toc;margin:0}
+.toc li a{display:block;padding:5px 4px 5px 28px;position:relative;color:var(--ink2);font-size:13px;line-height:1.45;border-radius:7px}
+.toc li a::before{content:counter(toc,decimal-leading-zero);position:absolute;left:4px;top:5px;color:var(--ink3);font:11px/1.5 var(--mono)}
+.toc li a:hover{background:var(--bg2);color:var(--teal-d);text-decoration:none}
+.toc-note{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--ink3);line-height:1.6}
+.toc-note p{margin:0 0 6px}
+.doc{min-width:0}
+.doc-head{background:linear-gradient(135deg,color-mix(in srgb,var(--teal) 10%,var(--card)),var(--card) 58%,color-mix(in srgb,var(--sand) 9%,var(--card)));border:1px solid var(--line);border-radius:22px;padding:30px 30px 24px;box-shadow:var(--shadow);margin-bottom:20px}
+.kicker{font:700 11px/1.4 var(--mono);letter-spacing:.12em;color:var(--teal-d);text-transform:uppercase;margin-bottom:10px}
+.doc-head h1{font-size:clamp(30px,4.6vw,44px);line-height:1.12;letter-spacing:-.02em;margin:0 0 8px;font-weight:800}
+.lead{font-size:17px;color:var(--ink2);margin:0 0 18px}
+.meta-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.meta-grid>div{background:var(--card);padding:10px 12px}
+.meta-grid span{display:block;font-size:11px;color:var(--ink3);letter-spacing:.04em;margin-bottom:3px}
+.meta-grid b{font-size:13px;font-weight:650;line-height:1.4}
+.doc-note{font-size:12px;color:var(--ink3);margin:14px 0 0;line-height:1.6}
+.ends{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px}
+.ends a{border:1px solid var(--line2);background:var(--card);color:var(--ink2);border-radius:999px;padding:6px 12px;font-size:12px;line-height:1.4}
+.ends a:hover{border-color:var(--teal);color:var(--teal-d);text-decoration:none}
+.ends a.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:0 0 20px}
+.sum-card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px;box-shadow:var(--shadow)}
+.sum-num{display:block;font:700 11px/1 var(--mono);color:var(--teal);letter-spacing:.08em;margin-bottom:8px}
+.sum-card b{display:block;font-size:14px;margin-bottom:4px}
+.sum-card p{margin:0;font-size:12.5px;color:var(--ink2);line-height:1.65}
+.callout{border:1px solid var(--note-line);background:var(--note-bg);border-radius:14px;padding:14px 16px;margin:18px 0}
+.callout.warn{border-color:var(--warn-line);background:var(--warn-bg)}
+.callout-title{font-weight:750;font-size:14px;margin-bottom:4px}
+.callout.warn .callout-title{color:var(--warn)}
+.callout-body{font-size:13.5px;color:var(--ink2);line-height:1.7}
+.callout-body p{margin:4px 0}
+.callout-body ul{margin:4px 0 4px 18px;padding:0}
+.tag{display:inline-block;font-size:11px;line-height:1.5;padding:1px 7px;border-radius:999px;border:1px solid var(--line2);color:var(--ink2);background:var(--bg2);white-space:nowrap}
+.tag.ok{color:var(--teal-d);border-color:var(--note-line);background:var(--note-bg)}
+.tag.warn{color:var(--warn);border-color:var(--warn-line);background:var(--warn-bg)}
+section{scroll-margin-top:88px;margin:0 0 26px}
+h2{font-size:23px;line-height:1.3;letter-spacing:-.01em;margin:34px 0 12px;padding-top:14px;border-top:1px solid var(--line);font-weight:800}
+h2 .h2num{color:var(--teal);font:700 12px/1 var(--mono);letter-spacing:.08em;display:block;margin-bottom:7px}
+h3{font-size:17px;line-height:1.45;margin:20px 0 8px;font-weight:750}
+h4{font-size:15px;margin:16px 0 6px;font-weight:700}
+p{margin:8px 0}
+ul,ol{margin:8px 0 10px 22px;padding:0}
+li{margin:4px 0}
+li>ul,li>ol{margin-top:3px}
+b,strong{font-weight:750}
+.small{font-size:12.5px;color:var(--ink3);line-height:1.65}
+.mono{font-family:var(--mono);font-size:.92em}
+.table-wrap{width:100%;overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin:12px 0 16px;background:var(--card);-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:720px;font-size:13px;line-height:1.6}
+caption{caption-side:top;text-align:left;padding:10px 12px 0;font-weight:700;color:var(--ink2);font-size:12.5px}
+th,td{text-align:left;vertical-align:top;padding:9px 11px;border-bottom:1px solid var(--line)}
+th{background:var(--bg2);color:var(--ink2);font-weight:700;white-space:nowrap;position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+td code,th code,p code,li code{font-family:var(--mono);font-size:.9em;background:var(--bg2);border:1px solid var(--line);border-radius:5px;padding:1px 4px;overflow-wrap:anywhere}
+.template{font:12.5px/1.7 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg2);border:1px dashed var(--line2);border-radius:12px;padding:14px 16px;margin:12px 0;color:var(--ink)}
+.defs{display:grid;grid-template-columns:1fr;gap:8px;margin:10px 0}
+.defs div{border-left:3px solid var(--note-line);padding:2px 0 2px 12px}
+.defs dt{font-weight:750;font-size:14px}
+.defs dd{margin:2px 0 0;color:var(--ink2);font-size:13.5px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mini-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.mini-card b{display:block;margin-bottom:4px}
+.mini-card p{margin:0;font-size:13px;color:var(--ink2)}
+.site-foot{border-top:1px solid var(--line);background:var(--bg2);padding:28px 0 34px;margin-top:10px}
+.foot-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:24px}
+.site-foot p{margin:0 0 8px;font-size:12.5px;color:var(--ink2);line-height:1.7}
+.foot-brand{font-weight:800;color:var(--ink);font-size:14px}
+.fine{font-size:11.5px;color:var(--ink3)}
+.foot-line{border-top:1px solid var(--line);padding-top:12px;margin-top:16px!important;font-size:11.5px;color:var(--ink3)}
+.nobreak{break-inside:avoid}
+@media (max-width:960px){
+  .layout{grid-template-columns:1fr;gap:16px;padding-top:18px}
+  .toc{position:static;max-height:none;padding:10px 14px}
+  .toc-note{display:none}
+  .toc summary{padding-bottom:0;border-bottom:0;margin-bottom:0}
+  .toc details[open] summary{padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:10px}
+  .doc-head{padding:22px 20px 18px;border-radius:18px}
+  .meta-grid{grid-template-columns:1fr 1fr}
+  .head-inner{min-height:58px}
+  .brand-text{font-size:14px}
+  .head-actions a{display:none}
+  .foot-grid{grid-template-columns:1fr;gap:10px}
+  .split{grid-template-columns:1fr}
+}
+@media (max-width:520px){
+  .wrap{padding:0 15px}
+  .doc-head h1{font-size:29px}
+  .lead{font-size:15px}
+  .meta-grid{grid-template-columns:1fr}
+  .ends a{font-size:11.5px;padding:5px 10px}
+  h2{font-size:21px}
+  .summary-grid{grid-template-columns:1fr}
+  .callout{padding:12px 13px}
+  .site-head{position:static}
+  .layout{padding-bottom:44px}
+}
+@media print{
+  :root{color-scheme:light}
+  body{background:#fff;color:#111;font-size:11pt;line-height:1.65}
+  .site-head,.toc,.ends,.btn-print,.skip{display:none!important}
+  .layout{display:block;max-width:none;padding:0}
+  .wrap{max-width:none;padding:0}
+  .doc-head{box-shadow:none;border:1px solid #bbb;background:#fff;padding:16px 18px}
+  .doc-head h1{font-size:24pt}
+  .summary-grid{grid-template-columns:1fr 1fr}
+  .sum-card,.callout,.mini-card{box-shadow:none}
+  h2{page-break-after:avoid;border-top:1px solid #ccc}
+  h3,h4{page-break-after:avoid}
+  table{min-width:0;font-size:9.5pt}
+  .table-wrap{overflow:visible;border-color:#bbb}
+  th{position:static}
+  a{color:#111;text-decoration:underline}
+  .site-foot{background:#fff;border-top:1px solid #bbb}
+  .foot-grid{grid-template-columns:1fr 1fr}
+}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+
+<header class="site-head">
+  <div class="wrap head-inner">
+    <a class="brand" href="../index.html" aria-label="返回法律文件中心">
+      <span class="brand-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="brand-text">班级工具站<small>法律文件</small></span>
+    </a>
+    <div class="head-actions">
+      <a href="../mp/privacy.html">隐私政策</a>
+      <a href="../index.html">文档中心</a>
+      <button type="button" class="btn-print" data-print>打印 / 保存 PDF</button>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="wrap layout">
+
+<aside class="toc" aria-label="本页目录">
+  <details open>
+    <summary>目录</summary>
+    <ol><li><a href="#t1">一、协议主体与接受</a></li><li><a href="#t2">二、服务性质与内容</a></li><li><a href="#t3">三、使用资格与身份</a></li><li><a href="#t4">四、账号、会话与设备</a></li><li><a href="#t5">五、使用规范</a></li><li><a href="#t6">六、用户内容与班级数据</a></li><li><a href="#t7">七、隐私与个人信息</a></li><li><a href="#t8">八、第三方服务</a></li><li><a href="#t9">九、知识产权</a></li><li><a href="#t10">十、服务变更、中断与终止</a></li><li><a href="#t11">十一、免责声明与责任限制</a></li><li><a href="#t12">十二、违约与处理</a></li><li><a href="#t13">十三、协议更新</a></li><li><a href="#t14">十四、法律适用与争议解决</a></li><li><a href="#t15">十五、其他</a></li><li><a href="#ta">附件 A：禁止内容清单</a></li><li><a href="#tb">附件 B：本端特别条款</a></li><li><a href="#tc">附件 C：版本记录</a></li></ol>
+  </details>
+  <div class="toc-note">
+    <p><b>快速说明</b></p>
+    <p>本页无外部字体、无统计脚本、无广告。打印时自动隐藏导航。</p>
+  </div>
+</aside>
+
+<article class="doc">
+
+<header class="doc-head">
+  <div class="kicker">班级工具站 · 法律文件 · CT-LEGAL-TERMS-MP-V10</div>
+  <h1>用户协议</h1>
+  <p class="lead">适用于微信小程序端（微信小程序「班级工具」，AppID wx3df9869d229b96c4）</p>
+  <div class="meta-grid">
+    <div><span>适用端</span><b>微信小程序端</b></div>
+    <div><span>文档版本</span><b>V1.0</b></div>
+    <div><span>生效日期</span><b>2026年11月17日</b></div>
+    <div><span>最近更新</span><b>2026年11月17日</b></div>
+    <div><span>运营者</span><b>陈子麒（个人开发者）</b></div>
+    <div><span>当前版本</span><b>小程序 2.0.0（v25 / 30 页）</b></div>
+  </div>
+  <p class="doc-note">本页是面向微信小程序端的正式文本。若端内旧版说明与本页不一致，以本页为准，并将在下一次版本更新时同步端内。</p>
+</header>
+
+<nav class="ends" aria-label="切换适用端"><a href="../web/terms.html">网页端</a><a href="../android/terms.html">安卓端</a><a href="../windows/terms.html">电脑端</a><a href="../harmony/terms.html">鸿蒙端</a><a href="../mp/terms.html" class="on" aria-current="page">微信小程序端</a></nav>
+<div class="summary-grid"><div class="sum-card"><span class="sum-num">01</span><b>微信平台</b><p>小程序受微信平台规则、审核规范、隐私保护指引约束；微信可能按其规则处理账号/设备信息。</p></div><div class="sum-card"><span class="sum-num">02</span><b>仅限本班</b><p>仅限班级名单内的同学使用；不得冒用身份，不得把班级数据外传或用于商业目的。</p></div><div class="sum-card"><span class="sum-num">03</span><b>订阅消息</b><p>提醒需要您主动点击授权订阅消息；可随时在微信设置/小程序内关闭，关闭后收不到提醒。</p></div><div class="sum-card"><span class="sum-num">04</span><b>文件与相册</b><p>保存导出图、下载 PPT/附件会写入微信/系统允许的目录；请自行管理，勿保存他人隐私。</p></div><div class="sum-card"><span class="sum-num">05</span><b>非独立 App</b><p>小程序不是独立 App，不能脱离微信运行；微信版本/基础库/域名白名单会影响功能。</p></div></div>
+<div class="callout warn"><div class="callout-title">请先阅读：这是一份班级内部工具协议</div><div class="callout-body"><p>本站由 陈子麒 个人开发，<b>不是学校官方平台</b>，不提供教育培训、学历、成绩认定、评奖评优、支付、广告或公共服务。继续使用前，请确认您已阅读并同意本协议与<a href="../mp/privacy.html">隐私政策</a>；如不同意，请停止使用。</p></div></div>
+<div class="callout"><div class="callout-title">本端功能概览</div><div class="callout-body">
+<p>微信小程序端是班级工具站的微信入口（AppID <span class="mono">wx3df9869d229b96c4</span>，当前 2.0.0 / v25，30 个页面）。主要功能包括：身份核验、工作台、全部工具、抽签 / 分组 / 结果单、课表、作业、通知（含附件/长期通知/提醒）、体测、名单（班委 / 团员 / 全班）、点名、访问统计（仅管理员）、诊断、电费、水量、投票、演示（PPT 上传 / 下载 / 播放）、文件传输 / 临时云空间、大屏互联（screencast）、抽签记录、校园地图、反馈、使用说明、数据与隐私。</p>
+<p>小程序不提供公开注册、支付、广告、直播或新闻服务；不获取微信昵称/头像/手机号，不读取通讯录、定位、麦克风。</p>
+</div></div>
+<h2 id="t1"><span class="h2num">01</span>一、协议主体与接受</h2>
+<p>本协议由您与<b>陈子麒</b>（个人开发者、班级管理员，以下简称“我们”或“运营者”）订立。本协议适用于<b>微信小程序端（微信小程序「班级工具」，AppID wx3df9869d229b96c4）</b>（以下简称“本端”）的身份核验、班级工具、同步、通知、PPT、文件传输、大屏/互联、反馈等全部功能。</p>
+<p>您通过以下任一方式即表示已阅读、理解并同意本协议：① 在身份页勾选“我已阅读并同意《用户协议》《隐私政策》”；② 提交学号 + 姓名或使用 OPPO/华为/微信快捷登录；③ 实际使用本端功能。若您不同意本协议任何内容，请停止使用。</p>
+<p>如您未满 18 周岁，应在监护人陪同下阅读本协议，并在监护人同意后使用；如您未满 14 周岁，请勿使用本端。监护人代未成年人同意时，应确认其理解本协议与隐私政策。</p>
+<p>本协议与<a href="../mp/privacy.html">《隐私政策》</a>共同构成您使用本端的完整约定；两者不一致时，涉及个人信息处理以隐私政策为准，其他事项以本协议为准。</p>
+<h2 id="t2"><span class="h2num">02</span>二、服务性质与内容</h2>
+<p>本端是<b>班级内部辅助工具</b>，不是学校、学院、班级或任何老师的官方平台；不提供教育培训、课程销售、学历认证、成绩认定、评奖评优、新闻、社区、直播、电商、支付、金融等服务。本端不收费、无广告、无会员、无内购；如有人以本端名义收费，请勿支付并向管理员举报。</p>
+<p>本端功能以实际页面为准，可能包括：身份核验、工作台/工具栏、抽签/分组/结果单、课表、作业、通知、体测、名单（班委/团员/全班）、点名、访问统计（管理员）、诊断、电费、水量、投票、演示（PPT）、校园地图、教务/学信网入口、文件传输、大屏/互联、反馈、使用说明、设置。部分功能仅在特定端提供；不同端的界面/能力可能不同。</p>
+<p>本端可能因域名备案、云服务到期/迁移、版本更新、维护、第三方接口调整、不可抗力等暂停/中断。我们会尽量提前在班级群/页面提示，但不承诺 100% 可用、不中断、无错误。</p>
+<h3>2.1 本端特别约定</h3>
+<p>本端的运行环境、权限、第三方和限制见<a href="#tb">附件 B</a>。您应选择与自己的设备/账号匹配的端；因使用不兼容的设备、浏览器、微信版本、系统版本导致的失败，我们不承担责任，但会尽量提供提示/替代方式。</p>
+<h2 id="t3"><span class="h2num">03</span>三、使用资格与身份</h2>
+<p>本端仅限班级官方名单内的成员使用。您需要提交<b>本人真实学号 + 姓名</b>，经云端与班级名单比对后获得班级 token；没有公开注册、没有账号密码、没有游客模式。非本班人员、已离校/被移出名单的人员不得使用。</p>
+<ul><li><b>一人一号：</b>不得冒用、借用、盗用他人学号/姓名；不得把 token 分享给他人；不得代他人登录。</li><li><b>信息真实：</b>不得提交虚假姓名/学号；如信息变更，请联系班委/管理员更正。</li><li><b>账号绑定：</b>安卓端 OPPO 账号、鸿蒙端华为账号快捷登录/绑定，一个学号最多绑定 3 个；不得绑定他人账号；可随时解绑。</li><li><b>资格终止：</b>您毕业、转班、退学、被移出班级名单，或管理员基于安全/纪律原因收回权限时，使用资格终止；您应及时导出/删除个人数据。</li></ul>
+<p>我们有权对身份核验失败、异常登录、频繁尝试、疑似冒用等采取限制/拒绝/要求重新核验等措施；这不应被视为对您的歧视，而是保护班级数据安全。</p>
+<h2 id="t4"><span class="h2num">04</span>四、账号、会话与设备</h2>
+<p>本端没有传统账号密码，使用班级 token 维持会话。token 有效期约 30 天（Windows 约 29 天），到期/退出/失效后需重新核验。您应妥善保管设备、系统账户、微信/OPPO/华为账号和 token；因共用设备、未退出登录、设备丢失、恶意软件等导致的访问/泄露，由您及时采取补救措施并承担相应风险。</p>
+<p>您可以在端内退出登录、清除本机会话/缓存、关闭云同步、关闭通知/日历权限、解绑 OPPO/华为账号。退出/卸载不一定删除云端数据；云端删除请按隐私政策申请。换设备/重装后需重新核验。</p>
+<p>我们可能为安全/故障排查记录登录时间、设备类型、错误码等最小日志；不会记录您的密码明文（教务密码处理见隐私政策）。如发现异常登录，请立即退出、修改学校密码（如适用）并联系我们。</p>
+<h2 id="t5"><span class="h2num">05</span>五、使用规范</h2>
+<p>您应遵守法律法规、校纪校规、公序良俗和本协议，不得利用本端从事下列行为（完整清单见<a href="#ta">附件 A</a>）：</p>
+<ul><li>发布/传播违法、色情、暴力、恐怖、赌博、诈骗、传销、谣言、仇恨、歧视、侮辱、诽谤、骚扰、人肉/网络暴力等内容；</li><li>未经授权公开他人学号、姓名、手机号、宿舍号、成绩、体测、投票、聊天记录、照片等个人信息；</li><li>冒用身份、代考/替课/代签、伪造证明、考试作弊、违反学术诚信；</li><li>把班级名单、通知、课表、体测、投票、PPT、文件等外传、出售、出租、打包、用于商业/招聘/推广；</li><li>爬取/批量导出/逆向/绕过权限/攻击/植入恶意代码/干扰服务/滥用接口；</li><li>上传含身份证、银行卡、病历、密码、密钥、他人隐私/敏感信息的文件；</li><li>其他违反法律、校纪、公序良俗或侵犯他人合法权益的行为。</li></ul>
+<p>本端不是法外空间；班级群/学校的规定同样适用。您对通过本端发布/上传/分享的内容负责，即使内容由他人转发/整理，也不免除您的注意义务。</p>
+<h2 id="t6"><span class="h2num">06</span>六、用户内容与班级数据</h2>
+<h3>6.1 权属</h3>
+<p>您上传/提交的内容（反馈、投票、PPT、文件、体测记录、抽签/分组参数等）归您或原权利人所有；班级名单、通知、课表、成绩、体测等班级数据归班级成员/班级共同体，本站仅在服务范围内处理，不主张所有权。PPT 上传者保留版权，但授予班级成员在班级内部查看/下载的权利。</p>
+<h3>6.2 授权</h3>
+<p>为提供服务，您授予我们一项<b>非独占、免费、有限</b>的许可：存储、复制、传输、展示给班级成员、转换/压缩/生成缩略图/兼容版、备份、排查故障；仅在实现功能所必需的范围内，并可向受托云服务商转授权。该许可随内容删除/服务终止而终止，但备份/法律保留除外。</p>
+<h3>6.3 您的责任</h3>
+<p>您保证对上传内容拥有合法权利/授权，不侵犯他人著作权、肖像权、隐私权、个人信息权益；不上传违法/敏感/机密内容。因您的内容/分享导致第三方投诉/索赔/处罚，由您承担相应责任；我们有权删除/屏蔽/移交线索。</p>
+<h3>6.4 班级数据</h3>
+<p>班级数据仅限本班内部使用；不得截图外传、打包出售、用于商业目的、公开到社交平台。通知可能来自班级公开群/班委整理，可能包含第三方个人信息；我们要求管理员脱敏，但您也应谨慎转发。如您是当事人且不希望被展示，可申请删除。</p>
+<h3>6.5 PPT、文件与投票</h3>
+<ul><li><b>PPT：</b>上传即表示您同意班级成员查看/下载，并知悉 OSS 香港公共读链接可能被持有者访问；请勿上传机密/敏感 PPT。转换结果可能因字体、媒体编码、Office 版本等失真；重要演示请保留原件并提前测试。</li><li><b>文件传输：</b>是 72 小时临时中转，不是备份/网盘；不做病毒扫描；请勿上传违法/敏感文件；同账号设备可互见。</li><li><b>投票：</b>一人一票，按学号去重；匿名票不返回投票人身份，但小范围可能被推断；发起人应对标题/选项/可见范围/匿名设置负责，不得用于歧视、骚扰、违法事项；结果不构成学校/班级官方结论。</li></ul>
+<h3>6.6 内容管理</h3>
+<p>我们有权（但无义务）对内容进行审核/抽检；发现违法/侵权/敏感/不适宜内容，可删除、屏蔽、限制功能、暂停/终止使用，并依法向有关部门报告。因技术/人力限制，我们不能保证及时发现所有违规内容；您可通过反馈举报。</p>
+<h2 id="t7"><span class="h2num">07</span>七、隐私与个人信息</h2>
+<p>我们按<a href="../mp/privacy.html">《隐私政策》</a>处理个人信息。该政策列明处理者、收集范围、敏感信息、第三方、跨境、保存期限、您的权利与投诉渠道，与本协议同等重要。请在使用前阅读。</p>
+<p>体测健康数据、教务密码、OPPO/华为账号标识、PPT 跨境等需要单独同意的场景，我们会另行提示；拒绝仅影响对应功能。您可以通过端内设置/退出/清除/邮件申请行使查阅、复制、更正、删除、撤回同意、注销等权利。</p>
+<h2 id="t8"><span class="h2num">08</span>八、第三方服务</h2>
+<p>本端可能使用/跳转腾讯云 CloudBase、阿里云 OSS/ECS、微信/微信云开发、OPPO 推送/账号、华为账号/推送、Microsoft Windows/Office、学校教务/统一认证、学信网、快递等第三方。第三方独立提供服务，适用其自己的协议/隐私政策；我们不控制其行为，也不对其可用性/内容/扣费/账号限制承担责任。</p>
+<p>您通过本端跳转第三方（如教务、学信网、快递）时，应自行判断风险；不要在本站页面输入第三方密码（个人课表登录功能除外），不要把学校账号交给他人。第三方链接/接口可能变更/失效，我们会尽量提示但不保证。</p>
+<h2 id="t9"><span class="h2num">09</span>九、知识产权</h2>
+<p>本端的代码、页面设计、图标、文案、导出模板、地图数据等，其著作权/其他权利归运营者或原权利人所有。未经书面许可，不得复制、修改、分发、反向工程、爬取、批量导出、用于商业产品，或去除水印/版权标识。</p>
+<p>您的内容权利归您/原权利人；本协议不转移著作权。班级名单、学校名称/标识、教师姓名等归相应权利人；本站仅为班级事务展示，不主张所有权。如您认为本端内容侵犯您的权利，请通过邮箱/反馈提交权属证明，我们会核实处理。</p>
+<p>“班级工具站”名称、品牌三圆点、页面视觉等仅用于识别本服务；未经许可不得用于冒充官方/招生/收费/推广。</p>
+<h2 id="t10"><span class="h2num">10</span>十、服务变更、中断与终止</h2>
+<p>我们可能因功能迭代、备案/域名、云服务到期/迁移、安全、维护、第三方接口、法律/监管要求等变更/暂停/终止全部或部分服务。我们会尽量提前通知；紧急/不可抗力情况下可能无法提前。</p>
+<p>您可以随时停止使用、退出登录、清除本机数据、申请注销。我们可在您违反本协议/法律/校纪、危害班级数据安全、冒用身份、攻击服务、被投诉/监管要求等情况下，采取警告、限制功能、暂停/终止使用、删除内容等措施；必要时报告学校/有关部门。终止后您应及时导出/备份需要的内容；我们按隐私政策删除/保留数据。</p>
+<p>如您对处理有异议，可通过邮箱申诉；我们会复核。因终止导致的功能/数据不可用，我们不承担超出法律强制范围的赔偿责任。</p>
+<h2 id="t11"><span class="h2num">11</span>十一、免责声明与责任限制</h2>
+<p>本端按<b>“现状”</b>提供，免费、非商业、班级内部使用。我们尽力维护，但不保证：① 不中断/无错误/无病毒；② 数据/课表/通知/成绩/电费/水量完全准确/及时；③ PPT 转换/播放/下载在所有设备上完美；④ 通知/提醒必达；⑤ 第三方服务持续可用；⑥ 抽签/分组/体测结果符合学校官方认定。</p>
+<p>本端不是学校官方系统；课表、成绩、考试、选课、评奖、体测、毕业等以学校/学院正式通知为准。AI 摘要/诊断结论仅供参考，可能有误；地图数据为自制，不应用于紧急导航/救援；投票结果不代表学校/班级官方决定；抽签/分组不作为评奖评优依据。</p>
+<p>在法律允许的范围内，我们对因使用/无法使用本端、数据延迟/丢失、第三方行为、网络/设备/系统故障、不可抗力等造成的<b>间接、附带、惩罚性、后果性损失</b>不承担责任；对直接损失，我们仅在存在故意/重大过失时依法承担。本条不排除法律强制规定的责任，也不排除因我们过错造成您人身/财产损害应承担的责任。</p>
+<p>您因违反本协议/法律/校纪、侵犯他人权益、上传/分享内容、共用设备/账号、未备份等造成的损失/索赔/处罚，由您承担；如使我们/第三方遭受损失，您应依法赔偿。</p>
+<h2 id="t12"><span class="h2num">12</span>十二、违约与处理</h2>
+<p>如您违约，我们可根据情节采取：提醒/警告、删除/屏蔽内容、限制上传/投票/PPT/文件传输、要求重新核验、暂停/终止使用、报告学校/监管/司法机关。涉嫌违法犯罪的，我们可能移交线索。</p>
+<p>您应配合调查，不得继续违规/销毁证据。对处理有异议，可申诉；申诉不影响紧急止损措施。因违约导致的数据删除/服务终止，我们不承担恢复责任。</p>
+<h2 id="t13"><span class="h2num">13</span>十三、协议更新</h2>
+<p>我们可能因功能/法律/安全/第三方变化更新本协议。更新时修改版本号/生效日期，并在本页/班级群/端内提示。涉及您重大权益的变更，我们会以显著方式提示；如法律要求重新同意，我们会重新取得同意，不会仅以“继续使用”视为同意。</p>
+<p>如您不同意更新后的协议，请停止使用并申请删除；继续使用前请阅读新版。历史版本记录见<a href="#tc">附件 C</a>。</p>
+<h2 id="t14"><span class="h2num">14</span>十四、法律适用与争议解决</h2>
+<p>本协议的订立、效力、解释、履行和争议解决适用<b>中华人民共和国法律</b>（不含冲突法）。如法律对消费者/未成年人有特别保护规定，从其规定。</p>
+<p>因本协议/使用本端发生争议，双方应先友好协商；协商不成，任何一方可向<b>被告住所地或合同履行地有管辖权的人民法院</b>提起诉讼。我们不会通过格式条款不合理地排除您的法定诉讼权利。</p>
+<h2 id="t15"><span class="h2num">15</span>十五、其他</h2>
+<p>本协议部分条款无效/不可执行，不影响其他条款效力；我们未行使/延迟行使权利，不构成放弃；您不得未经同意转让本协议下的权利义务，我们可在合并/转让/运营者变更时依法转移并通知；标题仅为方便阅读，不影响解释；本协议以中文为准，如有翻译版本，中文优先。</p>
+<p>通知方式：本页公告、班级群、端内提示、您提供的邮箱/反馈渠道。您应保持联系渠道可用；因您未查看/渠道失效导致的后果，由您承担，但我们会尽量以显著方式提示。</p>
+<p>联系邮箱：<a href="mailto:Ko_Link@outlook.com">Ko_Link@outlook.com</a>；响应时限：收到有效申请后 15 个工作日内。运营者：陈子麒（个人开发者）。</p>
+<h2 id="ta"><span class="h2num">A</span>附件 A：禁止内容清单</h2>
+<p>您不得通过本端（包括反馈、投票、PPT、文件传输、通知/作业发布、大屏/互联等）制作、复制、发布、传播、存储下列内容：</p>
+<ol><li>违反宪法、法律、行政法规，危害国家安全、泄露国家秘密、颠覆国家政权、破坏国家统一的内容；</li><li>损害国家荣誉/利益、煽动民族仇恨/歧视、破坏民族团结、破坏宗教政策、宣扬邪教/封建迷信的内容；</li><li>散布谣言、扰乱社会/校园秩序、破坏稳定的内容；</li><li>淫秽、色情、赌博、暴力、凶杀、恐怖、教唆犯罪、自伤/自杀鼓励的内容；</li><li>侮辱、诽谤、威胁、骚扰、人肉搜索、网络暴力、歧视、仇恨言论；</li><li>未经授权公开他人学号、姓名、手机号、宿舍号、身份证号、成绩、体测、投票、聊天记录、照片、家庭信息等；</li><li>考试作弊、代考、替课、代签、伪造证明、学术不端、违反学校纪律的内容；</li><li>商业广告、传销、诈骗、贷款、刷单、赌博推广、恶意营销；</li><li>病毒、木马、恶意代码、爬虫、绕过权限、攻击/干扰服务的内容；</li><li>侵犯他人著作权、商标权、专利权、肖像权、名誉权、隐私权、个人信息权益的内容；</li><li>其他违反法律、校纪校规、公序良俗或本协议的内容。</li></ol>
+<p>我们有权删除/屏蔽上述内容，并视情节限制/终止使用、报告学校/有关部门。您发现违规内容，可通过反馈/邮箱举报。</p>
+<h2 id="tb"><span class="h2num">B</span>附件 B：本端特别条款</h2>
+<div class="special">
+<h3>1. 微信平台规则</h3>
+<p>小程序受《微信小程序平台运营规范》《微信小程序隐私保护指引》等约束。微信可能对小程序进行审核、下架、限制能力或调整接口；因微信平台原因导致的功能不可用，本站不承担责任，但会尽量提供替代方式。</p>
+
+<h3>2. 非独立 App</h3>
+<p>小程序不能脱离微信运行，不保证在全部微信版本、基础库、机型上一致；微信未授权相关接口、域名未加入合法域名、系统权限关闭时，对应功能可能不可用。</p>
+
+<h3>3. 订阅消息</h3>
+<p>订阅消息需要您每次主动点击授权，微信可能限制一次性/长期订阅；未授权、过期、微信关闭通知时收不到提醒。订阅消息内容可能包含作业/通知摘要，请注意他人可见。</p>
+
+<h3>4. 文件、相册与分享</h3>
+<p>保存导出图、下载 PPT/附件、转发文件到聊天会离开小程序，进入微信/系统/其他应用的控制范围；分享后的扩散由您负责。请勿把班级名单、成绩、体测、投票、通知等转发到班级外。</p>
+
+<h3>5. 数据删除</h3>
+<p>小程序内“清除云端”是逻辑清除（覆盖/置否/归档），不是物理删除；访问统计/反馈不能自助删除。需要物理删除/注销，请通过反馈或邮箱申请，15 个工作日内处理。</p>
+
+<h3>6. 审核与备案</h3>
+<p>小程序备案号、类目、隐私指引以微信公众平台和工信部备案系统公示为准。小程序可能因审核/备案/域名/接口调整暂停服务；我们会尽量提前在班级群/页面提示。</p>
+</div>
+<h2 id="tc"><span class="h2num">C</span>附件 C：版本记录</h2>
+<div class="table-wrap"><table class=""><thead><tr><th scope="col">版本</th><th scope="col">生效日期</th><th scope="col">主要变更</th><th scope="col">发布者</th></tr></thead><tbody><tr><td>V1.0</td><td>2026年11月17日</td><td>首次发布五端差异化用户协议：网页端、安卓端、电脑端、鸿蒙端、微信小程序端；含服务边界、使用规范、内容与数据、第三方、免责与争议解决。</td><td>陈子麒</td></tr></tbody></table></div>
+</article>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <p class="foot-brand">班级工具站 · 法律文件</p>
+        <p>运营者：陈子麒（个人开发者、班级管理员）<br>
+        联系邮箱：<a href="mailto:Ko_Link@outlook.com">Ko_Link@outlook.com</a><br>
+        响应时限：收到有效申请后 15 个工作日内</p>
+      </div>
+      <div>
+        <p><b>本端文档</b><br>
+        <a href="../mp/privacy.html">隐私政策</a> · <a href="../mp/terms.html">用户协议</a><br>
+        <a href="../index.html">全部端文档</a></p>
+        <p class="fine">小程序备案号：闽ICP备2026042939号</p>
+      </div>
+      <div>
+        <p><b>版本</b><br>V1.0 · 生效 2026年11月17日<br>最近更新 2026年11月17日</p>
+        <p class="fine">本站为个人开发的班级辅助工具，<b>不是学校官方平台</b>，不代表学校、学院、班级或任何老师。</p>
+      </div>
+    </div>
+    <p class="foot-line">本页为静态法律文本，不包含跟踪脚本、外部字体、广告或第三方统计。法律文本不构成正式法律意见；发布前请按实际功能与适用法律复核。</p>
+    <p class="foot-line"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">工信部备案系统</a> · 文档编号 CT-LEGAL-TERMS-MP-V10</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  document.querySelectorAll('[data-print]').forEach(function(btn){
+    btn.addEventListener('click', function(){ window.print(); });
+  });
+  // 目录在桌面端保持展开；移动端默认收起，点开后可正常跳转。
+  try{
+    var d=document.querySelector('.toc details');
+    if(d && window.matchMedia && window.matchMedia('(max-width:960px)').matches){ d.removeAttribute('open'); }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>
