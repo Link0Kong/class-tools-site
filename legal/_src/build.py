@@ -17,6 +17,7 @@ sys.path.insert(0, str(HERE))
 
 from common import (  # noqa: E402
     BASE,
+    DEBUG_BASE,
     EFFECTIVE,
     EMAIL,
     LAST_UPDATED,
@@ -197,6 +198,7 @@ def index_html() -> str:
     <div class="kicker">班级工具站 · LEGAL DOCUMENTS · V%s</div>
     <h1>隐私政策与用户协议</h1>
     <p class="lead">五个端，各自一份完整文本：网页端、安卓端、电脑端、鸿蒙端、微信小程序端。每端的运行环境、权限、第三方、数据删除路径和特别风险都不同，请不要混用。</p>
+    <p class="index-note"><b>当前调试入口：</b><a href="http://121.196.47.2/legal/">http://121.196.47.2/legal/</a> · 域名恢复后使用 <span class="mono">https://tool.furina.fun/legal/</span>（页面内链接为相对路径，两种入口都可正常阅读）。</p>
     <div class="hero-actions">
       <a class="btn-primary" href="#platforms">选择你的端</a>
       <a class="btn-ghost" href="manifest.json">统一调取清单 JSON</a>
@@ -232,7 +234,7 @@ def index_html() -> str:
   </table></div>
 
   <h2 class="index-sec">统一调取地址</h2>
-  <p>域名恢复后，各端可直接加载下列稳定地址；开发者也可读取 <a href="manifest.json">manifest.json</a> 获取版本、路径和适用端。当前域名未恢复时，请以本地预览或 IP 调试入口为准。</p>
+  <p>域名恢复后，各端可直接加载下列稳定地址；开发者也可读取 <a href="manifest.json">manifest.json</a> 获取版本、路径和适用端。当前域名未恢复时，可把下表中的 <span class="mono">https://tool.furina.fun</span> 替换为 <span class="mono">http://121.196.47.2</span> 访问，路径不变。</p>
   <div class="table-wrap"><table class="url-table">
     <thead><tr><th>端</th><th>隐私政策</th><th>用户协议</th><th>适用环境</th><th>版本</th></tr></thead>
     <tbody>%s</tbody>
@@ -289,6 +291,7 @@ def manifest() -> dict:
             "note": "不是学校官方平台，不代表学校、学院、班级或任何老师",
         },
         "baseUrl": BASE,
+        "debugBaseUrl": DEBUG_BASE,
         "documents": {
             key: {
                 "name": PLATFORMS[key]["name"],
@@ -304,7 +307,8 @@ def manifest() -> dict:
             "PPT 源文件与转换产物存放于阿里云 OSS 香港（公共读），属于跨境存储；首次使用需单独同意。",
             "体测健康数据、教务密码、OPPO/华为账号标识、特定身份等按敏感个人信息规则处理。",
             "端内“清除云端”为逻辑清除（覆盖为空/置否/归档），物理删除需邮件申请（15 个工作日内）。",
-            "本清单供各端统一调取；如域名变更，请同步更新 baseUrl 与各端内置链接。",
+            "当前域名未恢复：调试入口为 debugBaseUrl；域名恢复后使用 baseUrl。",
+            "本清单供各端统一调取；如域名变更，请同步更新 baseUrl/debugBaseUrl 与各端内置链接。",
         ],
     }
 

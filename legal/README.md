@@ -27,7 +27,7 @@ https://tool.furina.fun/legal/android/terms.html
 ...
 ```
 
-> 当前 `tool.furina.fun` 仍在备案/域名恢复期；本目录**尚未部署**。恢复后按 §3 上传 OSS/ECS 即可。
+> **已部署（2026-11-17 22:27）**：ECS `http://121.196.47.2/legal/`、OSS `https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/legal/index.html` 均为 HTTP 200；当前域名未恢复，页面内相对链接可直接在 IP 下使用。域名恢复后按 §3 复跑并切换正式域名。
 > 小程序备案号：`闽ICP备2026042939号`。网站/APP 备案号以工信部系统公示为准，页脚已留说明，取得后替换。
 
 ---
@@ -55,11 +55,32 @@ python preview_check.py    # 需先启动 Edge headless CDP（见脚本头注释
 
 ---
 
-## 3. 部署（域名恢复后）
+## 3. 部署（已执行一次；域名恢复后复跑）
+
+### 3.0 当前已部署状态（2026-11-17 22:27）
+
+```text
+ECS 入口：      http://121.196.47.2/legal/
+OSS 入口：      https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/legal/index.html
+ECS 目录：      /var/www/tool/legal（12 个公开文件）
+manifest：      debugBaseUrl = http://121.196.47.2/legal/
+                baseUrl      = https://tool.furina.fun/legal/
+```
+
+复跑命令：
+
+```powershell
+cd C:\Users\Ko_Li\.openclaw\workspace\web
+python deploy\sync_legal.py            # OSS + ECS，自动跳过 README/_src
+python deploy\sync_legal.py --oss-only # 只更新 OSS
+python deploy\sync_legal.py --ecs-only # ECS 从 OSS 重新拉取（重试）
+```
+
+`deploy/sync_legal.py` 只发布 `index.html`、`manifest.json` 和 5 个端目录下的 `*.html`，共 12 个文件；`README.md`、`_src/` 属于内部维护资料，不会出现在公网。
 
 ### 3.1 OSS
 
-把 `legal/` 整个目录上传到 Bucket `tool-furina-fun` 的 `legal/` 前缀，保持目录结构。所有 HTML 使用 `Content-Type: text/html; charset=utf-8`，`Cache-Control: no-cache`（法律文本需要及时更新；也可 `max-age=300`）。
+只上传公开的 12 个文件到 Bucket `tool-furina-fun` 的 `legal/` 前缀（`deploy/sync_legal.py` 已自动过滤 `README.md`/`_src/`），保持目录结构。所有 HTML 使用 `Content-Type: text/html; charset=utf-8`，`Cache-Control: no-cache`（法律文本需要及时更新；也可 `max-age=300`）。
 
 可复用 `deploy/sync_tools.py` 的凭据读取方式（`ALIYUN_AK_ID` / `ALIYUN_AK_SECRET` 或 `deploy/creds.env`，**不要打印/提交凭据**）：
 
