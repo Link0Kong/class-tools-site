@@ -64,20 +64,25 @@ python preview_check.py    # 需先启动 Edge headless CDP（见脚本头注释
 可复用 `deploy/sync_tools.py` 的凭据读取方式（`ALIYUN_AK_ID` / `ALIYUN_AK_SECRET` 或 `deploy/creds.env`，**不要打印/提交凭据**）：
 
 ```python
-# 示例：在 web 目录运行；只上传 legal/，不碰 tools/index.html
-import os
+# 示例：在 web 目录运行；bucket 用与 deploy/sync_tools.py 相同的方式初始化
+# （凭据从环境变量或 deploy/creds.env 读取，禁止写入/提交本文件）
 from pathlib import Path
 import oss2
 
-# 凭据加载方式与 deploy/sync_tools.py 一致；此处不展开，避免误贴密钥
-ak, sk = ...  # 从环境变量或 deploy/creds.env 读取，禁止写入本文件
-bucket = oss2.Bucket(oss2.Auth(ak, sk), "https://oss-cn-hongkong.aliyuncs.com", "tool-furina-fun")
+bucket = oss2.Bucket(
+    oss2.Auth(ak, sk),  # 由部署脚本/环境变量提供，不在文档中展开
+    "https://oss-cn-hongkong.aliyuncs.com",
+    "tool-furina-fun",
+)
 root = Path("legal")
 for p in root.rglob("*"):
     if p.is_file():
         key = p.as_posix()  # legal/web/privacy.html
         ctype = "text/html; charset=utf-8" if p.suffix == ".html" else "application/json; charset=utf-8"
-        bucket.put_object_from_file(key, str(p), headers={"Content-Type": ctype, "Cache-Control": "no-cache"})
+        bucket.put_object_from_file(
+            key, str(p),
+            headers={"Content-Type": ctype, "Cache-Control": "no-cache"},
+        )
 ```
 
 ### 3.2 ECS
