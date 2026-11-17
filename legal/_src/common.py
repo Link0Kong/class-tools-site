@@ -97,6 +97,18 @@ def doc_head(p: dict, kind: str) -> str:
         p["code"],
         VERSION.replace(".", ""),
     )
+    debug_line = ""
+    if DEBUG_BASE.rstrip("/") != BASE.rstrip("/"):
+        debug_line = (
+            '<p class="doc-note">当前调试入口：<a href="%s%s/%s.html">%s%s/%s.html</a>；'
+            '域名恢复后使用 <a href="%s%s/%s.html">%s%s/%s.html</a>。页面内链接为相对路径，两种入口都可正常阅读。</p>'
+            % (
+                DEBUG_BASE, p["key"], kind,
+                DEBUG_BASE, p["key"], kind,
+                BASE, p["key"], kind,
+                BASE, p["key"], kind,
+            )
+        )
     return """
 <header class="doc-head">
   <div class="kicker">班级工具站 · 法律文件 · %s</div>
@@ -111,7 +123,7 @@ def doc_head(p: dict, kind: str) -> str:
     <div><span>当前版本</span><b>%s</b></div>
   </div>
   <p class="doc-note">本页是面向%s的正式文本。若端内旧版说明与本页不一致，以本页为准，并将在下一次版本更新时同步端内。</p>
-  <p class="doc-note">当前调试入口：<a href="%s%s/%s.html">%s%s/%s.html</a>；域名恢复后使用 <a href="%s%s/%s.html">%s%s/%s.html</a>。页面内链接为相对路径，两种入口都可正常阅读。</p>
+  %s
 </header>
 """ % (
         doc_id,
@@ -124,10 +136,7 @@ def doc_head(p: dict, kind: str) -> str:
         OPERATOR,
         p["version"],
         p["name"],
-        DEBUG_BASE, p["key"], kind,
-        DEBUG_BASE, p["key"], kind,
-        BASE, p["key"], kind,
-        BASE, p["key"], kind,
+        debug_line,
     )
 
 

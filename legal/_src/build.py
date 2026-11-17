@@ -162,6 +162,13 @@ def index_html() -> str:
                 p["version"],
             )
         )
+    debug_note = ""
+    if DEBUG_BASE.rstrip("/") != BASE.rstrip("/"):
+        debug_note = (
+            '<p class="index-note"><b>当前调试入口：</b><a href="%s">%s</a> · '
+            '域名恢复后使用 <span class="mono">%s</span>（页面内链接为相对路径，两种入口都可正常阅读）。</p>'
+            % (DEBUG_BASE, DEBUG_BASE, BASE)
+        )
     return """<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -198,7 +205,7 @@ def index_html() -> str:
     <div class="kicker">班级工具站 · LEGAL DOCUMENTS · V%s</div>
     <h1>隐私政策与用户协议</h1>
     <p class="lead">五个端，各自一份完整文本：网页端、安卓端、电脑端、鸿蒙端、微信小程序端。每端的运行环境、权限、第三方、数据删除路径和特别风险都不同，请不要混用。</p>
-    <p class="index-note"><b>当前调试入口：</b><a href="http://121.196.47.2/legal/">http://121.196.47.2/legal/</a> · 域名恢复后使用 <span class="mono">https://tool.furina.fun/legal/</span>（页面内链接为相对路径，两种入口都可正常阅读）。</p>
+    %s
     <div class="hero-actions">
       <a class="btn-primary" href="#platforms">选择你的端</a>
       <a class="btn-ghost" href="manifest.json">统一调取清单 JSON</a>
@@ -259,6 +266,7 @@ def index_html() -> str:
         CSS,
         INDEX_CSS,
         VERSION,
+        debug_note,
         VERSION,
         EFFECTIVE,
         LAST_UPDATED,
