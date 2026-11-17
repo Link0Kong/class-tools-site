@@ -1,9 +1,9 @@
 {
-  "versionCode": 83,
-  "versionName": "1.0.0-beta1",
-  "apkUrl": "http://121.196.47.2/android/classtools-1.0.0-beta1.apk",
-  "notes": "1.0.0-beta1 vc83\n1. 删除活动/今日校园/学信网三个工具\n2. 检测到更新自动在首页弹窗（无需手动点检查更新）\n3. 其余保持 vc82",
+  "versionCode": 85,
+  "versionName": "1.0.0-beta2",
+  "apkUrl": "http://121.196.47.2/android/classtools-1.0.0-beta2.apk",
+  "notes": "1.0.0-beta2 vc85\n1. OPPO 推送已启用；OPPO 账号绑定/快捷登录入口（账号服务凭证配置后启用）\n2. 通知与桌面规范包同步",
   "force": false,
   "channel": "beta",
-  "sha256": "91814e1a5bc6e715e2a9645f1f8e2f313a86db7b22cc61daef45dc79017ac69a"
+  "sha256": "7580c6e708c866c26ee6e183495fe3166376a6950e758d67f96a8f7e0f5708c6"
 }

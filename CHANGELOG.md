@@ -2,6 +2,14 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-17 21:1x · 修复安卓检查更新：发布 vc85/beta2 到更新通道（latest.json + APK）
+
+> 用户反馈「app 的检查更新检查不到」。排查：更新服务器 `http://121.196.47.2/android/latest.json` 仍是 **vc84/1.0.0-beta1**（`versionCode=84`），而桌面新包已是 **vc85/1.0.0-beta2**；App 更新判定只看 `versionCode > 当前 versionCode`，所以装 vc84→服务器同为 84 不会提示，装 vc85→服务器 84 更低也不会提示；同时 vc85 APK 之前未发布到更新通道（ECS `/var/www/tool/android/` 无 beta2 文件）。
+
+- 已发布：`android/latest.json` → `versionCode=85 / versionName=1.0.0-beta2 / apkUrl=http://121.196.47.2/android/classtools-1.0.0-beta2.apk / sha256=7580c6e7…5708c6 / channel=beta / force=false`；
+- APK 已上传 OSS（因 OSS 限制 `.apk` 后缀，沿用 `.apk.bin` 方式）并由 ECS 落成 `/var/www/tool/android/classtools-1.0.0-beta2.apk`（5,787,701 B，sha256 与 manifest 一致）；ECS `latest.json`/APK 均 HTTP 200 实取校验通过。
+- 影响：手机上当前为 **vc84 或更低** 的 App 现在检查更新可发现 vc85/beta2；已经是 **vc85/beta2** 的手机显示「已是最新」是正常的（服务器没有更高 versionCode）。注意本轮两次 vc85 构建（先无账号密钥、后有账号密钥）versionCode 都是 85，若装的是前一个 vc85，系统不会提示同版本更新，需手动安装桌面最新 `班级工具站_v1.0.0-beta2_安卓.apk` 或后续升 vc86。
+- 回滚：把 `latest.json` 改回上一版 vc84/beta1 并从 ECS 删除 beta2 APK（OSS beta2.apk.bin 可保留）。
 ## 2026-11-17 20:0x–20:5x · 增量 62：OPPO 账号绑定学号（≤3 个）+ OPPO 快捷登录（安卓 + ECS 账号验证服务）；安装包改规范命名
 
 > 用户要求：允许 OPPO 账号绑定学号（一学号最多 3 个）、允许 OPPO 快捷登录；安装包替换桌面规范命名包、不要功能命名包。已确认：可自助解绑；允许 ECS 新增账号验证接口（服务端 authCode→openid）。
@@ -2047,6 +2055,7 @@
   同步脏检测（后台逻辑不跨端推送/不改用户偏好；用户手动切换视图、导入自定义课表仍正常同步）；
   ② UD 模块含 apply/DOM 辅助约 280 行（契约估 ~150 行）；③ 网页无隐私开关（隐私/数据管理页在小程序），
   网页不承诺开关。
+
 
 
 
