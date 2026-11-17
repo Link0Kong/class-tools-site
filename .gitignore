@@ -62,8 +62,10 @@ pcap/tests/_out/
 
 # ==== 第二课堂本地助手（activity/）：token 绝不入库 ====
 activity/token.json
+activity/grab.json
 activity/config.json
 activity/profile/
+activity/browser-profile/
 
 # Android 更新分发二进制（只上传 OSS/ECS，不入库）
 android/*.apk
