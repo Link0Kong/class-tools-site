@@ -3725,7 +3725,7 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 新增 `tools/tests/v2_notice_slowrun_check.py` **18/18**（数据字段、DOM chip「11月17日（本周二） 17:00 补报名」、主列表/档 3、长期通知数=进行中、无 recurrence 冲突、0 JS 报错、截图 `tools/tests/_v2_notice_reports/slowrun_fix.png`）。
 - `test_notice_merge.py` 全 PASS（新增重发全文去重用例）；回归 period 53/53、longterm 27/27、live 20/20、publish 20/20、data 27/27、dynamic_cat 18/18、ui 27/27。
 - 云端 104/104；测试身份只读核验：title=冬季傍晚慢跑打卡（11-16至11-27）、eventAt=11-17T17:00、eventAction=补报名、expireAt=11-27T20:00、recurrence=null、actionable=true、items 重复全文已去重。
-- board 页 14,624,371 B / `bec85a73…`、data 14,537,486 B；网页 index 未变（1,335,115 B / `610a39dc…`，纯数据修复）。
+- board 页 14,624,368 B / `3419bc2e…`、data 14,537,493 B；网页 index 未变（1,335,115 B / `610a39dc…`，纯数据修复）。
 
 ### 回滚
 - 移除 `notice-manual-patches.json` 中该组补丁并重建；或还原 `build_notice_board.py` 的 `resolve_recurrence_conflicts` 与 `notice_merge.py` 文本去重；重新 `sync_notices_cloud`。

@@ -12,7 +12,7 @@
 - **分组去重（`notice_merge.merge_groups`）**：同一活动补充通知重发全文时，同原文（≥14 字）即使消息时间不同也只保留一份；补报名原文/附件保留。修复后该组 items 4→3（重复全文消失）。
 - **AI 提示词**：`ai_quality.py` / `ai_brief.py` 增补「固定日期范围内的活动/打卡不是长期安排；有 signup/deadline/eventAt 时 recurrence 必须 null；标题不得用补充通知的局部动作（补报名）替换活动主体」。
 - **测试**：新增 `tools/tests/v2_notice_slowrun_check.py` **19/19**（数据字段/DOM chip「11月17日（本周二） 17:00 补报名」/主列表/档位 3/长期通知 1=进行中/无 recurrence 冲突/0 JS 报错/截图）；`test_notice_merge.py` 增加重发全文去重用例，全部 PASS；回归 `v2_notice_period_check` 53/53、`v2_notice_longterm_check` 27/27、`v2_notice_live_check` 20/20、`v2_notice_publish_check` 20/20、`v2_notice_data_check` 27/27、`v2_notice_dynamic_cat_check` 18/18、`v2_ui_check` 27/27。
-- **云端**：`sync_notices_cloud` 104/104；测试身份只读核验该组 title/eventAt/eventAction/expireAt/recurrence=null/actionable=true；board 页 14,624,371 B（sha256 `bec85a73…`）、data 14,537,486 B。网页 `index.html` 未变（仍 1,335,115 B / `610a39dc…`，数据驱动无需重发）。
+- **云端**：`sync_notices_cloud` 104/104；测试身份只读核验该组 title/eventAt/eventAction/expireAt/recurrence=null/actionable=true；board 页 14,624,368 B（sha256 `3419bc2e…`）、data 14,537,493 B。网页 `index.html` 未变（仍 1,335,115 B / `610a39dc…`，数据驱动无需重发）。
 - **影响**：长期通知数由「recurrence 组数」口径恢复为进行中安排数（屏山慢跑不再算长期）；该卡进入主列表档 3，chip 显示 11-17 17:00 补报名。小程序/安卓读同一字段，下个版本/已发布版本均按 `eventAt` 显示（无需改客户端代码）。
 
 ## 2026-11-18 12:45–13:0x · 通知「发布时间统一」：无时间通知以发布时间入主列表、动作「发布」并统一排序/统计（网页已上线 OSS+ECS；小程序/安卓源码待发）
