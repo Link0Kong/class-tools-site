@@ -14,6 +14,12 @@
 
 ## 1. 切流窗口（建议 5–10 分钟，低峰；提前在群里通知）
 
+> **推荐用编排命令**（2026-11-18 已演练）：
+> `python deploy\migration\cutover_run.py rehearsal --artifact <快照目录> --skip-snapshot`（安全演练）
+> `python deploy\migration\cutover_run.py execute --artifact <快照目录> --skip-snapshot --confirm-cutover`（真正切流）
+> `python deploy\migration\cutover_run.py rollback --confirm`（回滚）。
+> 下面 §1 是等价的手工步骤（编排失败时按手工回退）。
+
 1. **宣布冻结**：请在班群/任意入口通知「接下来 5 分钟别提交作业/投票/抽签」。
 2. **最终快照**（CloudBase 只读）：
    ```

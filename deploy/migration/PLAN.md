@@ -148,3 +148,11 @@ PostgreSQL 18（class_tools 库：public 29 表 + private 5 表，88 函数、71
 - 导入 `class_tools_cut --reset`：4.4 分钟，`VERIFY_OK tables=34`；应用 `notice_meta_lite` + `notice_meta_cache` 两个 SQL 成功。
 - `switch-db class_tools_cut` 后测试账号 smoke：members **70（3.3ms）**、notices meta **6.1–7.5ms / 125 行 / sha `20a0346a…` 不变**、坏 token `[]`、生产路由仍 401（CloudBase 未动）。
 - 切回 `class_tools`，staging 恢复 200。结论：P4 切流脚本 + 最新两个优化 SQL 与当前线上数据兼容；真正切换窗口可控制在 1 分钟内（导出/导入可提前完成）。
+
+### 9.5 第六轮（2026-11-18 round 6）：P4 切流总编排 `cutover_run.py`
+
+- 新增 `deploy/migration/cutover_run.py`：把 CUTOVER 手工步骤收敛为一条命令：
+  `rehearsal`（默认，安全演练） / `execute --confirm-cutover`（真正切 Caddy） / `rollback --confirm`；
+  步骤：预检 staging →（可选新快照）→ import `class_tools_cut --reset` → verify → apply-sql ×2 → switch-db cut → 测试账号 smoke →（execute 才）Caddy 切 selfhosted + 生产 smoke；rehearsal 在 finally 自动切回 `class_tools`。
+- 实测 rehearsal（复用 `p4-final-20261118-1526`）：**rc=0，总 335.3s**（import 311.4s、verify 7.0s、两个 SQL 7.7s、切换/回切 7.6s、smoke 1.3s），staging 恢复 200；smoke 全 PASS（members 70 / meta 125 / RLS 负例 0）。真正切流窗口只剩「switch-db + Caddy + 生产 smoke」，可 <1 分钟。
+- 修复：子进程统一 `PYTHONIOENCODING=utf-8`（避免 Windows GBK 中文导致编排输出解码崩溃）；mode 默认 rehearsal；失败时 finally 仍恢复 staging。

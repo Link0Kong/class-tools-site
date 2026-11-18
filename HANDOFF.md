@@ -3770,5 +3770,9 @@ sync-repos.cmd "feat: 说明本次改了什么"
 **P5 切流前置演练（2026-11-18 round 5）**
 - 附件外置 staging 端到端演练 **8/8 PASS**（上传→签名 URL→staging 通知→网页测试账号读取 fetch 200→清理）；脚本 `deploy/migration/e2e_attach_staging.py`，切流后按 `CUTOVER.md §2` 开 `NOTICE_ATTACH_EXTERNALIZE=1` 回填存量。
 - P4 最终演练刷新：当前线上快照导入 `class_tools_cut`（4.4min/VERIFY_OK 34）+ 两个优化 SQL + `switch-db` 后 smoke：members 70/3.3ms、notices meta 6.1–7.5ms/sha 不变；切回 staging。真正切流窗口可 <1min。
+**P6 切流总编排（2026-11-18 round 6）**
+- `deploy/migration/cutover_run.py`：rehearsal（默认，安全） / execute --confirm-cutover / rollback --confirm；一条命令完成 快照→cut 库导入→2 个优化 SQL→switch-db→测试账号 smoke→（execute 才）Caddy 切换+生产 smoke；rehearsal finally 自动切回 staging。
+- 实测 rehearsal rc=0 总 **335.3s**（import 311s + verify 7 + SQL 8 + 切换/回切 8 + smoke 1.3），staging 恢复 200、生产仍 401；真正切换窗口可 <1min。
+- `deploy/migration/CUTOVER.md §1` 已推荐用编排命令；手工步骤保留作为回退。
 **P4 待办（门槛：ICP 备案通过 + 域名恢复）**：最终快照导出 → 导入 cut 库 → `ecs_pg.py switch-db` → Caddy 生产路由切自建
 （`CUTOVER.md`）→ 三端发布 → 观察 → 停 CloudBase。备案前不要切生产、不要发布走 http/IP 的正式版。
