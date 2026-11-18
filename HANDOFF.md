@@ -3708,3 +3708,25 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - board 页 **14,626,157 B / e603f657…**、data **14,539,363 B**；`sync_notices_cloud` **104/104**；测试身份只读核验：104 组全部带 `publishedAt`、9 组带 `publishAction`。
 - 部署前备份 `tools/_backup/index_online_20261118-1258_prePublishTime.html`（1,333,307 B / `b33d0251296ecc25c26e23dd56137d578874f72b57768c6d589ba4b3dd7ceac0`）；回滚=重传备份（数据新增字段旧模板忽略，可保留）。
 - 小程序需用户上传发布、安卓需重新打包安装后生效（源码与单测已就绪）。
+
+## 2026-11-18 13:2x–13:4x · 修复屏山慢跑「11-17 补报名」通知识别（增量 61，数据已同步云端；客户端无需改代码）
+
+### 问题与根因
+- 用户反馈：屏山慢跑打卡 11-17（本周二）补报名的消息识别出现分组/时间/分类异常。
+- 根因：11-14 活动通知与 11-17 补充通知（重发全文 + 屏山 17:00 补报名）合并后，AI 质检把「每日 17:00-20:00」判为 `recurrence`，标题被重写为「屏山慢跑打卡11-17补报名」；状态机 `recurrence` 优先于 `signupStart` → 显示「本次 11-18 17:00」、归入长期通知、`actionable=False`（不进待处理）。同时合并去重只按时间+内容判重，重发的同全文保留了第二份。
+
+### 修复
+- 数据：`C:\briefdesk\data\notice-manual-patches.json` 新增该组补丁（标题回活动主体、摘要、eventAt=11-17 17:00/eventAction=补报名、expireAt=11-27 20:00、actionable=true）。
+- 通用：`build_notice_board.py` 新增 `resolve_recurrence_conflicts()`（recurrence 与一次性时间并存 → 移除 recurrence、恢复 actionable，活动时段留在摘要/原文）；`notice_merge.merge_groups()` 对 text/follow 同原文（≥14 字）去重，重发全文只留一份。
+- AI：`ai_quality.py`/`ai_brief.py` 提示词增补固定日期活动不是长期安排、有 signup/deadline/eventAt 时 recurrence 必须 null、标题不得用补报名等局部动作替换活动主体。
+- 契约：`通知三端_长期通知与时间显示_契约_20261114.md` §1.1 增补该规则（2026-11-18 修正）。
+
+### 验证
+- 新增 `tools/tests/v2_notice_slowrun_check.py` **18/18**（数据字段、DOM chip「11月17日（本周二） 17:00 补报名」、主列表/档 3、长期通知数=进行中、无 recurrence 冲突、0 JS 报错、截图 `tools/tests/_v2_notice_reports/slowrun_fix.png`）。
+- `test_notice_merge.py` 全 PASS（新增重发全文去重用例）；回归 period 53/53、longterm 27/27、live 20/20、publish 20/20、data 27/27、dynamic_cat 18/18、ui 27/27。
+- 云端 104/104；测试身份只读核验：title=冬季傍晚慢跑打卡（11-16至11-27）、eventAt=11-17T17:00、eventAction=补报名、expireAt=11-27T20:00、recurrence=null、actionable=true、items 重复全文已去重。
+- board 页 14,624,371 B / `bec85a73…`、data 14,537,486 B；网页 index 未变（1,335,115 B / `610a39dc…`，纯数据修复）。
+
+### 回滚
+- 移除 `notice-manual-patches.json` 中该组补丁并重建；或还原 `build_notice_board.py` 的 `resolve_recurrence_conflicts` 与 `notice_merge.py` 文本去重；重新 `sync_notices_cloud`。
+- 客户端无改动，无需发版。

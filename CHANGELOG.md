@@ -2,6 +2,19 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-18 13:2x–13:4x · 修复屏山慢跑「11-17 补报名」识别：固定日期活动不再判长期安排（网页数据已同步云端）
+
+> 用户反馈：「屏山慢跑打卡11月17日（本周二）补报名的消息识别出现了分组异常和时间识别异常以及通知分类异常等问题，请修复」。
+> 根因：11-17 补充通知（重发活动全文 + 屏山校区 17:00 补报名）被并入 11-14 活动组后，AI 质检把「每日 17:00-20:00」判成 `recurrence`，并重写标题为「屏山慢跑打卡11-17补报名」；`recurrence` 在状态机中优先于 `signupStart`，导致卡片显示「本次 11-18 17:00」、被归入长期通知且 `actionable=False`（不进待处理）。
+
+- **数据修正（人工补丁 `C:\briefdesk\data\notice-manual-patches.json`）**：该组标题回到活动主体「冬季傍晚慢跑打卡（11-16至11-27）」；摘要补「屏山11-17 17:00补报名」；`eventAt=2026-11-17T17:00` + `eventAction=补报名`、`expireAt=2026-11-27T20:00`、`actionable=true`。
+- **通用规则（builder `resolve_recurrence_conflicts`）**：凡 `recurrence` 与 `signupStart/signupEnd/deadline/eventAt/signupWindows` 并存 → 以一次性时间为准、移除 recurrence（活动时段保留在摘要/原文），并恢复 actionable；日志 `recurrence->oneoff`。
+- **分组去重（`notice_merge.merge_groups`）**：同一活动补充通知重发全文时，同原文（≥14 字）即使消息时间不同也只保留一份；补报名原文/附件保留。修复后该组 items 4→3（重复全文消失）。
+- **AI 提示词**：`ai_quality.py` / `ai_brief.py` 增补「固定日期范围内的活动/打卡不是长期安排；有 signup/deadline/eventAt 时 recurrence 必须 null；标题不得用补充通知的局部动作（补报名）替换活动主体」。
+- **测试**：新增 `tools/tests/v2_notice_slowrun_check.py` **19/19**（数据字段/DOM chip「11月17日（本周二） 17:00 补报名」/主列表/档位 3/长期通知 1=进行中/无 recurrence 冲突/0 JS 报错/截图）；`test_notice_merge.py` 增加重发全文去重用例，全部 PASS；回归 `v2_notice_period_check` 53/53、`v2_notice_longterm_check` 27/27、`v2_notice_live_check` 20/20、`v2_notice_publish_check` 20/20、`v2_notice_data_check` 27/27、`v2_notice_dynamic_cat_check` 18/18、`v2_ui_check` 27/27。
+- **云端**：`sync_notices_cloud` 104/104；测试身份只读核验该组 title/eventAt/eventAction/expireAt/recurrence=null/actionable=true；board 页 14,624,371 B（sha256 `bec85a73…`）、data 14,537,486 B。网页 `index.html` 未变（仍 1,335,115 B / `610a39dc…`，数据驱动无需重发）。
+- **影响**：长期通知数由「recurrence 组数」口径恢复为进行中安排数（屏山慢跑不再算长期）；该卡进入主列表档 3，chip 显示 11-17 17:00 补报名。小程序/安卓读同一字段，下个版本/已发布版本均按 `eventAt` 显示（无需改客户端代码）。
+
 ## 2026-11-18 12:45–13:0x · 通知「发布时间统一」：无时间通知以发布时间入主列表、动作「发布」并统一排序/统计（网页已上线 OSS+ECS；小程序/安卓源码待发）
 
 > 用户原话（2026-11-18 12:45）：「将通知中不含时间的时间设定为发布时间，动作设为发布，并参与排序等等统一计算」。2026-11-14 契约曾把「无任何时间锚点」的通知单独放入「资料 / 无时间」栏、不进主列表/不参与待处理统计；本次改为统一计算。
@@ -787,7 +800,7 @@
 - **⑤ 小儿体质三报名窗口**：AI 质检产出 `signupWindows`（子活动一/二/三：11-10、11-11、11-12 各 12:00—18:00），三个时间写入要点；网页模板按当前时间**动态显示当前/下一个报名窗口**（状态 chip 保持「时间+短动作」契约，如「17 小时后 报名开始」；三窗口以要点/窗口数据体现）；云端 body 同步下发 `signupWindows`（`sync_notices_cloud.compact_group`），小程序/安卓用 signupStart（最早开始）/signupEnd（最晚结束）兜底。
 - **⑥ 去噪 + 质量最优化**：AI 质检逐条判断，剔除 5 条非通知/无内容（红会卫生碎片对话、采访招募已结束过程消息、急救点闲聊、纯图片无文字、APK 文件无说明）；全量扫描 66 组已无「未识别/无内容」残留；公众号链接 URL 做 `html.unescape`（`&amp;`）后补识别（综合管理服务类招聘会标题/发布信息不再显示「原文未能完整读取」）。判「不是通知」的旧结论会保留在 `ai-quality.json`，避免 triage 每轮重新产出又出现「删了又回来」。
 - **上线**：`index.html` **731,777 B · sha256 `c21787b9cc1323cc00e5c24b769d3c5ab640d79113e7b227b696def5e9b4bdb9`**（APP_VER 仍 2.0.0；模板增加 `g.expired` 与 `signupWindows` 动态逻辑，已重嵌并部署）。改前线上对象备份：`tools/_backup/index_online_20261109-1910_preWindowFix.html`（731,593B / `4407ae6f…`，本增量第二次补丁）；更早 `tools/_backup/index_online_20261109-1907_preLabelFix.html`（731,729B / `c0a38b8a…`）、`...1854_preQualityExpire.html`（730,113B / `a7b26001…`，当日 V2）；`oss_object.py check index.html` = **MATCH**。云端 `public.notices` 66/66 同步，分类分布与本地一致。桌面 demo 副本已刷新。
-- **验证**：新增 [`v2_notice_quality_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_notice_quality_check.py) **16/16**（过期/河洛/多窗口/附件/去噪/分类阈值/0 JS 错）；`v2_notice_dynamic_cat_check` **18/18**、`v2_notice_data_check` **27/27**（此前存量 D22 因质检重新生成要点后也转绿）、`v2_notice_live_check` **16/16**、`v2_admin_check` **39/39**、`v2_ui_check` **27/27**、`v2_notice_time_check` **64/72**（较改前基线 62/72 提升，剩余 8 项为存量花名册/献血断言）、`overflow_check 430`=0、`_check_template_embed_match`=YES；`detect_docs.py --rebuild` 端到端 exit 0 且完全幂等（quality called=0、categories cached、66 组稳定）；本轮未改小程序/安卓。顺带修掉 `detect_docs.py` 控制台 cp936 遇 emoji 标题崩溃的隐患（stdout 强制 UTF-8 replace，--watch 长期稳定）。
+- **验证**：新增 [`v2_notice_quality_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_notice_quality_check.py) **16/16**（过期/河洛/多窗口/附件/去噪/分类阈值/0 JS 错）；`v2_notice_dynamic_cat_check` **19/19**、`v2_notice_data_check` **27/27**（此前存量 D22 因质检重新生成要点后也转绿）、`v2_notice_live_check` **16/16**、`v2_admin_check` **39/39**、`v2_ui_check` **27/27**、`v2_notice_time_check` **64/72**（较改前基线 62/72 提升，剩余 8 项为存量花名册/献血断言）、`overflow_check 430`=0、`_check_template_embed_match`=YES；`detect_docs.py --rebuild` 端到端 exit 0 且完全幂等（quality called=0、categories cached、66 组稳定）；本轮未改小程序/安卓。顺带修掉 `detect_docs.py` 控制台 cp936 遇 emoji 标题崩溃的隐患（stdout 强制 UTF-8 replace，--watch 长期稳定）。
 - **已知限制**：公众号文章部分需微信环境验证（只能取标题/极短正文）；无 OCR（纯图片通知仍会丢弃或仅标题）；多报名窗口的「动态当前窗口」是网页端能力，小程序/安卓显示构建时的首个窗口/跨度；分类阈值会随通知自然增删（<3 条的旧分类会被合并）；Android/小程序需各自发布/升级后才看到最新数据。
 - **回滚**：线上重传 `tools/_backup/index_online_20261109-1910_preWindowFix.html`（本增量第二版；要回到本增量初版用 `...1907_preLabelFix.html`；要回到无本增量用 `...1854_preQualityExpire.html`）；代码/数据回滚详见 `C:\briefdesk\data\_backup_quality_20261109\ROLLBACK_NOTES_quality.md`（含 ai_quality.py 删除、各文件逆改、数据快照、云同步恢复）。
 
