@@ -11,6 +11,7 @@
 - [ ] `tool.furina.fun` 备案已通过、DNS 已恢复、ECS HTTPS 已启用（`deploy/ecs_site.py apply --https`），证书有效。
 - [ ] 本机管线环境变量已就绪（`CLASS_CB_BASE` 切换脚本/说明），ECS 云函数替代 timer 已部署但**未启用**。
 - [ ] 最新全量导出产物 + `verify_export` 全绿；ECS 备份任务在跑；CloudBase 仍在线。
+- [ ] `python deploy\migration\preflight_cutover.py --drift --check-remotes` 无 FAIL（DNS/ICP WARN 为已知门槛）；确认数据漂移表与最新快照。
 
 ## 1. 切流窗口（建议 5–10 分钟，低峰；提前在群里通知）
 

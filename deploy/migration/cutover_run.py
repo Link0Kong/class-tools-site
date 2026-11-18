@@ -210,6 +210,11 @@ def execute(artifact, skip_snapshot, confirm):
     if not confirm:
         raise SystemExit("[x] execute 必须显式 --confirm-cutover（生产会切 Caddy 路由）")
     log("\n########## P4 EXECUTE（生产切流） ##########")
+    log("[preflight] 切流前置检查（FAIL 会中止；DNS/ICP 未过是 WARN）")
+    pf_rc, _ = run("preflight", [PY, os.path.join(WEB, "deploy", "migration", "preflight_cutover.py"),
+                                "--drift", "--check-remotes"], 300, allow_fail=True)
+    if pf_rc != 0:
+        raise SystemExit("[x] preflight 存在 FAIL，已中止切流（见上方输出）")
     if not artifact:
         artifact = os.path.join(r"C:\briefdesk\data\cloudbase_migration",
                                 "cutover-" + time.strftime("%Y%m%d-%H%M"))

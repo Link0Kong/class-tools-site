@@ -164,3 +164,10 @@ PostgreSQL 18（class_tools 库：public 29 表 + private 5 表，88 函数、71
 - **备份闭环复跑**：`ecs_pg.py backup` 生成新 dump（pg_restore -l 419 行可读）→ `offsite --keep 8` 上传私有 OSS（42,984,251B，2 份）→
   `verify_offsite_backup.py` 下载 sha 一致、恢复临时库 rc=0（36 表/92 函数/73 策略/notices 184，含两个自建优化对象）→ 清理。
 - **文档**：`AGENTS.md §42` 固化迁移架构/切流顺序/红线/已知边界；`CLOUDBASE.md` 顶部加迁移状态块；避免后续会话误写 CloudBase。
+
+### 9.7 第八轮（2026-11-18 round 8）：切流日前置检查 `preflight_cutover.py`
+
+- 新增 `deploy/migration/preflight_cutover.py`：只读检查 CloudBase CLI/到期、DNS/HTTPS 门槛、ECS 首页/staging/生产模式、附件/PPT 缓存、PG 监控、备份年龄、异地备份、最新快照、测试账号 staging、仓库工作区；
+  `--drift` 用只读 SQL 对比 CloudBase 当前行数与最新快照；`--check-remotes` 核对双远端；`--json` 供脚本消费。
+- 2026-11-18 实测：**PASS 10 / WARN 3 / FAIL 0**（WARN：DNS NXDOMAIN 为 ICP 门槛、仓库有未提交改动、快照后 3 张表 live 漂移 class_sessions +48 / notices +1 / power_history +34）。
+- `cutover_run.py execute` 已集成：真正切流前自动跑 `preflight --drift --check-remotes`，有 FAIL 即中止（WARN 不阻断，DNS/ICP 仍需人工确认）。

@@ -3777,5 +3777,8 @@ sync-repos.cmd "feat: 说明本次改了什么"
 **P7 切流前置收尾（2026-11-18 round 7）**
 - 回滚编排安全实测 `cutover_run.py rollback --confirm`：rc=0 7.8s，生产 401/staging 200 不误改；备份+异地备份+恢复演练复跑全 PASS（42.98MB，36 表/92 函数/73 策略恢复）。
 - `AGENTS.md §42` 新增迁移架构/切流顺序/红线/已知边界；`CLOUDBASE.md` 顶部加迁移状态。切流前 CloudBase 只读、生产 Caddy 不动。
+**P8 切流日预检（2026-11-18 round 8）**
+- `deploy/migration/preflight_cutover.py`：只读检查 CloudBase 到期、DNS/HTTPS、ECS 站点/staging/生产模式、附件/PPT、PG 监控、备份/异地备份、最新快照、测试账号、仓库状态；`--drift` 对比主表行数漂移。
+- 实测 PASS 10 / WARN 3 / FAIL 0（DNS NXDOMAIN=ICP 门槛；快照后 class_sessions/notices/power_history 有 live 漂移）；`cutover_run execute` 已自动先跑 preflight，FAIL 中止。
 **P4 待办（门槛：ICP 备案通过 + 域名恢复）**：最终快照导出 → 导入 cut 库 → `ecs_pg.py switch-db` → Caddy 生产路由切自建
 （`CUTOVER.md`）→ 三端发布 → 观察 → 停 CloudBase。备案前不要切生产、不要发布走 http/IP 的正式版。
