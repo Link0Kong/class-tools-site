@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>班级工具站 · 图标库</title>
+<link rel="icon" href="web/favicon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #f7f8f8;
+    --ink: #2e3a38;
+    --muted: #6e7c78;
+    --line: #dfe4e1;
+    --card: #e4e9e7;
+    --teal: #4e9082;
+    --blue: #6e8ca8;
+    --sand: #b98f63;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 64px; }
+  header { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+  header > div { min-width: 0; }
+  header img { width: 96px; height: 96px; border-radius: 21px; box-shadow: 0 1px 0 rgba(0,0,0,.05), 0 10px 24px rgba(0,0,0,.08); }
+  h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: .01em; }
+  .sub { margin: 0; color: var(--muted); }
+  .meta { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+  .meta code { color: var(--teal); }
+  h2 { margin: 42px 0 14px; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+  h2::before { content: ""; width: 4px; height: 18px; border-radius: 2px; background: var(--teal); }
+  h2 small { color: var(--muted); font-size: 13px; font-weight: 400; }
+  .grid { display: flex; flex-wrap: wrap; gap: 14px; }
+  .cell {
+    width: 128px; min-height: 128px; border: 1px solid var(--line); border-radius: 14px;
+    background: var(--card); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 12px;
+  }
+  .cell.dark { background: #222a2a; border-color: #303a3a; }
+  .cell .art {
+    display: flex; align-items: center; justify-content: center; min-height: 64px;
+  }
+  .cell.dark .art { min-height: 48px; }
+  .cell .art img { display: block; image-rendering: auto; }
+  .cell .cap { color: var(--muted); font-size: 12px; }
+  .cell.dark .cap { color: #a9b6b2; }
+  .cell .cap b { color: var(--ink); font-size: 13px; font-weight: 600; }
+  .cell.dark .cap b { color: #e7efec; }
+  .scaled img { width: 104px; height: 104px; }
+  .dark-band { margin-top: 16px; padding: 20px; border-radius: 18px; background: #1f2626; }
+  .dark-band .grid { gap: 12px; }
+  .dark-band .cell { width: 104px; min-height: 104px; }
+  .dark-band .art { min-height: 48px; }
+  .features { display: flex; flex-wrap: wrap; gap: 14px; }
+  .feature {
+    flex: 1 1 220px; border: 1px solid var(--line); border-radius: 14px; background: #fff;
+    padding: 18px 20px;
+  }
+  .feature h3 { margin: 0 0 8px; font-size: 15px; }
+  .feature p { margin: 0; color: var(--muted); font-size: 13px; }
+  .feature code { color: var(--ink); background: var(--bg); padding: 1px 5px; border-radius: 5px; font-size: 12px; }
+  .files { list-style: none; margin: 0; padding: 0; }
+  .files li { padding: 7px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .files li:last-child { border-bottom: 0; }
+  .files .name { display: block; color: var(--ink); word-break: break-word; }
+  .files .size { display: block; color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  a { color: var(--teal); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .note { margin: 14px 0 0; color: var(--muted); font-size: 13px; }
+  footer { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
+  @media (max-width: 640px) {
+    .wrap { padding: 26px 16px 48px; }
+    header img { width: 72px; height: 72px; border-radius: 16px; }
+    h1 { font-size: 22px; }
+    .cell { width: 108px; min-height: 108px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <img src="png/app-icon-256.png" alt="班级工具站图标">
+    <div>
+      <h1>班级工具站 · 图标库</h1>
+      <p class="sub">三圆点标记 / 暖白圆角底 / 一份矢量源生成全平台尺寸</p>
+      <p class="meta">底色 <code>#F7F8F8</code> · 雾青 <code>#4E9082</code> · 灰蓝 <code>#6E8CA8</code> · 暖沙 <code>#B98F63</code> · 圆角 <code>14/64</code></p>
+    </div>
+  </header>
+
+  <h2>小尺寸 <small>实际像素，放在浅色底上检查</small></h2>
+  <div class="grid">
+    <div class="cell"><div class="art"><img src="png/app-icon-16.png" width="16" height="16" alt="16px"></div><div class="cap"><b>16</b> · favicon</div></div>
+    <div class="cell"><div class="art"><img src="png/app-icon-20.png" width="20" height="20" alt="20px"></div><div class="cap"><b>20</b></div></div>
+    <div class="cell"><div class="art"><img src="png/app-icon-24.png" width="24" height="24" alt="24px"></div><div class="cap"><b>24</b></div></div>
+    <div class="cell"><div class="art"><img src="png/app-icon-32.png" width="32" height="32" alt="32px"></div><div class="cap"><b>32</b> · favicon</div></div>
+    <div class="cell"><div class="art"><img src="png/app-icon-40.png" width="40" height="40" alt="40px"></div><div class="cap"><b>40</b></div></div>
+    <div class="cell"><div class="art"><img src="png/app-icon-48.png" width="48" height="48" alt="48px"></div><div class="cap"><b>48</b> · favicon</div></div>
+    <div class="cell"><div class="art"><img src="png/app-icon-64.png" width="64" height="64" alt="64px"></div><div class="cap"><b>64</b></div></div>
+    <div class="cell"><div class="art"><img src="png/app-icon-72.png" width="72" height="72" alt="72px"></div><div class="cap"><b>72</b></div></div>
+    <div class="cell"><div class="art"><img src="png/app-icon-96.png" width="96" height="96" alt="96px"></div><div class="cap"><b>96</b></div></div>
+    <div class="cell"><div class="art"><img src="png/app-icon-120.png" width="96" height="96" alt="120px"></div><div class="cap"><b>120</b> · 缩小</div></div>
+    <div class="cell"><div class="art"><img src="png/app-icon-128.png" width="96" height="96" alt="128px"></div><div class="cap"><b>128</b> · 缩小</div></div>
+  </div>
+
+  <h2>大尺寸 <small>按比例缩小显示</small></h2>
+  <div class="grid">
+    <div class="cell scaled"><div class="art"><img src="png/app-icon-144.png" alt="144px"></div><div class="cap"><b>144</b> · 小程序头像</div></div>
+    <div class="cell scaled"><div class="art"><img src="png/app-icon-152.png" alt="152px"></div><div class="cap"><b>152</b> · iPad</div></div>
+    <div class="cell scaled"><div class="art"><img src="png/app-icon-167.png" alt="167px"></div><div class="cap"><b>167</b> · iPad Pro</div></div>
+    <div class="cell scaled"><div class="art"><img src="png/app-icon-180.png" alt="180px"></div><div class="cap"><b>180</b> · iOS 主屏</div></div>
+    <div class="cell scaled"><div class="art"><img src="png/app-icon-192.png" alt="192px"></div><div class="cap"><b>192</b> · PWA</div></div>
+    <div class="cell scaled"><div class="art"><img src="png/app-icon-256.png" alt="256px"></div><div class="cap"><b>256</b> · 文档</div></div>
+    <div class="cell scaled"><div class="art"><img src="png/app-icon-384.png" alt="384px"></div><div class="cap"><b>384</b></div></div>
+    <div class="cell scaled"><div class="art"><img src="png/app-icon-512.png" alt="512px"></div><div class="cap"><b>512</b> · 商店 / 文档</div></div>
+    <div class="cell scaled"><div class="art"><img src="png/app-icon-1024.png" alt="1024px"></div><div class="cap"><b>1024</b> · 母版</div></div>
+  </div>
+
+  <h2>深色界面 <small>任务栏 / 深色模式</small></h2>
+  <div class="dark-band">
+    <div class="grid">
+      <div class="cell dark"><div class="art"><img src="png/app-icon-16.png" width="16" height="16" alt="16px"></div><div class="cap"><b>16</b></div></div>
+      <div class="cell dark"><div class="art"><img src="png/app-icon-24.png" width="24" height="24" alt="24px"></div><div class="cap"><b>24</b></div></div>
+      <div class="cell dark"><div class="art"><img src="png/app-icon-32.png" width="32" height="32" alt="32px"></div><div class="cap"><b>32</b></div></div>
+      <div class="cell dark"><div class="art"><img src="png/app-icon-48.png" width="48" height="48" alt="48px"></div><div class="cap"><b>48</b></div></div>
+      <div class="cell dark"><div class="art"><img src="png/app-icon-64.png" width="64" height="64" alt="64px"></div><div class="cap"><b>64</b></div></div>
+      <div class="cell dark"><div class="art"><img src="png/app-icon-128.png" width="72" height="72" alt="128px"></div><div class="cap"><b>128</b></div></div>
+    </div>
+  </div>
+
+  <h2>特殊形态</h2>
+  <div class="features">
+    <div class="feature">
+      <h3>满幅方形</h3>
+      <p>不透明，交给系统遮罩或商店审核。文件：<code>png/app-icon-square-1024.png</code>（256 / 512 同）</p>
+    </div>
+    <div class="feature">
+      <h3>PWA maskable</h3>
+      <p>内容缩到 40% 安全圆内，圆形 / 水滴形遮罩不裁掉圆点。</p>
+    </div>
+    <div class="feature">
+      <h3>透明圆点</h3>
+      <p>无底色，适合叠在照片、深色卡片、水印上。</p>
+    </div>
+    <div class="feature">
+      <h3>单色白</h3>
+      <p>给 Android 13 单色层 / 主题图标用，系统按 alpha 取色。</p>
+    </div>
+  </div>
+
+  <h2>平台文件</h2>
+  <div class="features">
+    <div class="feature">
+      <h3>网页 <code>web/</code></h3>
+      <ul class="files">
+        <li><span class="name">favicon.ico</span><span class="size">4 帧 · 16–64</span></li>
+        <li><span class="name">favicon.svg</span><span class="size">矢量</span></li>
+        <li><span class="name">apple-touch-icon.png</span><span class="size">180</span></li>
+        <li><span class="name">icon-192.png / icon-512.png</span><span class="size">PWA</span></li>
+        <li><span class="name">icon-maskable-512.png</span><span class="size">PWA</span></li>
+      </ul>
+    </div>
+    <div class="feature">
+      <h3>Android <code>android/</code></h3>
+      <ul class="files">
+        <li><span class="name">mipmap-*/ic_launcher.png</span><span class="size">48–192</span></li>
+        <li><span class="name">mipmap-*/ic_launcher_round.png</span><span class="size">48–192</span></li>
+        <li><span class="name">ic_launcher-playstore-512.png</span><span class="size">512</span></li>
+        <li><span class="name">ic_launcher_foreground-432.png</span><span class="size">432</span></li>
+        <li><span class="name">ic_launcher_monochrome-432.png</span><span class="size">432</span></li>
+      </ul>
+    </div>
+    <div class="feature">
+      <h3>HarmonyOS <code>harmony/</code></h3>
+      <ul class="files">
+        <li><span class="name">background-1024.png</span><span class="size">1024</span></li>
+        <li><span class="name">foreground-1024.png</span><span class="size">1024</span></li>
+        <li><span class="name">app_icon-1024.png</span><span class="size">1024</span></li>
+        <li><span class="name">layered_image.json</span><span class="size">配置</span></li>
+      </ul>
+    </div>
+    <div class="feature">
+      <h3>Windows <code>windows/</code></h3>
+      <ul class="files">
+        <li><span class="name">app-icon.ico</span><span class="size">9 帧 · 16–256</span></li>
+        <li><span class="name">app-icon-32.png</span><span class="size">32</span></li>
+        <li><span class="name">app-icon-48.png</span><span class="size">48</span></li>
+        <li><span class="name">app-icon-256.png</span><span class="size">256</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>矢量源</h2>
+  <p class="note">
+    <a href="source/app-icon.svg">app-icon.svg</a> · 圆角 /
+    <a href="source/app-icon-square.svg">app-icon-square.svg</a> · 方形 /
+    <a href="source/app-icon-glyph.svg">app-icon-glyph.svg</a> · 透明圆点 /
+    <a href="source/app-icon-mono.svg">app-icon-mono.svg</a> · 单色白
+  </p>
+  <p class="note">重新生成：<code>python build_icons.py</code>（需要 Pillow，仅生成时使用）。文件清单与 sha256 见 <a href="manifest.json">manifest.json</a>，使用说明见 <a href="README.md">README.md</a>。</p>
+
+  <footer>班级工具站 · 图标库 · 本页面只引用本目录文件，无外部请求。</footer>
+</div>
+</body>
+</html>
