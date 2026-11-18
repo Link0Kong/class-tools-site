@@ -13,6 +13,17 @@
 > `POST /open`、`GET /mine` 的 `session` 新增 **`seq`** 字段（当前最大事件 seq），供前端拿到「从此刻起」的游标；
 > 网页端同时修复：退出大屏立即 POST presence=false（含 `pagehide`/`beforeunload` keepalive），
 > 快速开关时迟到的 `/open` 不会再把 presence 拉起；退出大屏会清空本次接收列表（云空间文件仍保留 3 天）。
+> **v2.5（2026-11-19，修「文件上传后重新打开/换端就看不见」）**：
+> ① **`GET /state` 新增 `all=1`** —— 随事件一并返回**当前有效文件清单** `files`（未过期全量、每次重签
+> `downloadUrl`）、`fileSeq`、`expiredNotice`。**文件是会话状态而不是事件流**：事件表只保留最近
+> `DROP_MAX_EVENTS`（500）条、且「`since` 之后没有新事件」≠「没有文件」；三端以前只按事件渲染列表，
+> 因此事件被截断后会漏文件（表现为「重新打开软件/换端看不到已上传的文件」，删除/清空也会对
+> 列表里已过期的 id 失败）。**前端列表一律以 `files` 为准，事件只做增量提示**；不传 `all` 时保持
+> v2.4 形状（向后兼容旧客户端）。
+> ② **鉴权失败分类**：失败的鉴权结果做短缓存（网关拒绝 30s / 鉴权服务不可用 10s），并回响应头
+> **`X-Drop-Reason: token | unavailable`**——`token` = 身份令牌失效/过期（前端提示「重新登录」，停止空转轮询），
+> `unavailable` = 鉴权服务暂不可用（提示「稍后自动重试」，放慢轮询）。以前两者都是 401/503 的裸 reason，
+> 前端只能显示「连接异常」，用户不知道要重新登录。
 >
 > - 用途：**同账号（同 sid）跨设备传文件**、发文字、遥控指令中转；服务是独立「文件传输」工具的后端
 >   （网页 `#s-file` 文件传输页 / 大屏互联面板共用同一服务），**不限于大屏**，手机 ↔ 电脑 ↔ 大屏均可。
@@ -81,6 +92,8 @@ Access-Control-Expose-Headers: Content-Length,Content-Range
 
 - 成功：HTTP 200 + `{ok:true,...}`；JSON 一律 `application/json; charset=utf-8`、`Cache-Control: no-store`。
 - 失败：HTTP 4xx/5xx + **`{ok:false,reason:"中文"}`**（reason 可直接展示给用户）。
+- 鉴权失败另有机器可读响应头（v2.5）：`X-Drop-Reason: token`（身份令牌失效，提示重新登录）或
+  `unavailable`（鉴权服务故障，提示稍后重试）；同时已列入 CORS `Access-Control-Expose-Headers`。
 - 状态码约定：400 参数错误 / 401 未登录或 token 无效 / 403 越权、签名错、已过期 /
   404 会话或文件不存在 / 405 方法不支持 / 411 缺少 Content-Length /
   413 数量/分片/请求体超限（**单文件/单会话大小默认不设上限，见 §6**）/ 500 服务内部错误 /
@@ -161,6 +174,26 @@ body `{}`（可为空 body）。返回：
 - **`file` 事件（v2.1）**：`event.at` = 文件上传完成时刻；未过期文件事件带**每次读取重新签发**的
   `payload.downloadUrl`（30 分钟有效，见 §4）；文件已过期 → 该事件保留 `seq`，但 `payload.expired=true`
   且不再返回 `downloadUrl`（前端文件列表应过滤 `expired`，历史聊天记录可显示「文件已过期」）。
+- **`all=1`（v2.5，文件传输页必须使用）**：额外返回当前有效文件清单：
+
+```json
+{"ok":true,
+ "session":{"id":"…","code":"042317","expiresAt":1763119200000,"closed":false,"seq":42},
+ "events":[ … 同上（只含 seq > since 的事件）… ],
+ "cursor":42,
+ "files":[
+   {"id":"9f8e…","name":"讲义.pdf","size":1048576,"mime":"application/pdf",
+    "at":1762860002234,"downloadUrl":"http://121.196.47.2/drop/file/…?s=…&exp=…&sig=…"}
+ ],
+ "fileSeq":{"9f8e…":42},
+ "expiredNotice":2}
+```
+
+  - `files` = **未过期且实体仍在**的文件全量（**与 `since` 无关**，每次重签 `downloadUrl`），按 `at` 倒序；
+  - `fileSeq` = 本批事件涉及的 fileId → 当前最大 seq（增量提示用）；
+  - `expiredNotice` = 会话里曾上传、现已过期的文件数（列表下方「N 个文件已过期」提示）；
+  - 前端约定：`files` 是列表唯一真源；`events` 里 file/filedel 只用于弹「收到新文件」等提示。
+    不传 `all` 时响应形状与 v2.4 相同。
 - 跨账号访问别人的 sessionId → 403；sessionId 不存在/已回收 → 404。
 
 #### `GET /presence`、`POST /presence`（鉴权）

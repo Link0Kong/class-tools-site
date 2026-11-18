@@ -59,7 +59,7 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = "2.4"
+VERSION = "2.5"
 ROOT = os.path.abspath(os.environ.get("DROP_ROOT", "/opt/class-tools/drop"))
 PORT = int(os.environ.get("DROP_PORT", "8093"))
 DEFAULT_GATEWAY = ("https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com"
@@ -77,6 +77,10 @@ TEXT_MAX = int(os.environ.get("DROP_TEXT_MAX", "10000"))
 MAX_EVENTS = int(os.environ.get("DROP_MAX_EVENTS", "500"))
 URL_TTL_SEC = int(os.environ.get("DROP_URL_TTL_SEC", "1800"))
 AUTH_CACHE_SEC = int(os.environ.get("DROP_AUTH_CACHE_SEC", "120"))
+# v2.5：失败的鉴权结果也做短缓存（网关拒绝 30s / 鉴权服务不可用 10s），
+# 避免「身份服务抖动时每个请求都等一次 8s 超时」，也避免失效 token 反复打网关。
+AUTH_FAIL_TTL_SEC = int(os.environ.get("DROP_AUTH_FAIL_TTL_SEC", "30"))
+AUTH_FAIL_503_TTL_SEC = int(os.environ.get("DROP_AUTH_FAIL_503_TTL_SEC", "10"))
 PUBLIC_PREFIX = os.environ.get("DROP_PUBLIC_PREFIX", "/drop").rstrip("/")
 PUBLIC_BASE = os.environ.get("DROP_PUBLIC_BASE", "").rstrip("/")
 DISK_RESERVE = int(os.environ.get("DROP_DISK_RESERVE_BYTES", str(1024 ** 3)))
@@ -151,10 +155,13 @@ def warn(msg):
 class HttpError(Exception):
     """可映射为 HTTP 状态码 + 中文 reason 的业务错误。"""
 
-    def __init__(self, status, reason):
+    def __init__(self, status, reason, kind=""):
         Exception.__init__(self, reason)
         self.status = int(status)
         self.reason = str(reason or "请求失败")
+        # v2.5：机器可读的失败类别（目前只有鉴权用：token / unavailable），
+        # 通过响应头 X-Drop-Reason 回给前端，用于区分「身份失效」与「身份服务故障」。
+        self.kind = str(kind or "")
 
 
 class AuthError(HttpError):
@@ -604,8 +611,10 @@ def _session_bytes_locked(sess):
 # 鉴权：CloudBase rpc/class_whoami（fail closed）
 # ---------------------------------------------------------------------------
 def _gateway_whoami(token):
+    """RPC class_whoami → {sid,name,seat}；失败抛 AuthError（kind=token 表示网关明确拒绝，
+    kind=unavailable 表示鉴权服务本身不可用——前端两种提示完全不同）。"""
     if not PUBLISH_KEY:
-        raise AuthError(503, "鉴权服务暂不可用")
+        raise AuthError(503, "鉴权服务暂不可用", kind="unavailable")
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json",
@@ -621,46 +630,68 @@ def _gateway_whoami(token):
             status = resp.status
             raw = resp.read(65536)
     except urllib.error.HTTPError:
-        raise AuthError(503, "鉴权服务暂不可用")
+        raise AuthError(503, "鉴权服务暂不可用", kind="unavailable")
     except (urllib.error.URLError, OSError, ValueError):
-        raise AuthError(503, "鉴权服务暂不可用")
+        raise AuthError(503, "鉴权服务暂不可用", kind="unavailable")
     if status != 200:
-        raise AuthError(503, "鉴权服务暂不可用")
+        raise AuthError(503, "鉴权服务暂不可用", kind="unavailable")
     try:
         data = json.loads(raw.decode("utf-8", "replace"))
     except ValueError:
-        raise AuthError(503, "鉴权服务响应异常")
+        raise AuthError(503, "鉴权服务响应异常", kind="unavailable")
     if not isinstance(data, dict):
-        raise AuthError(503, "鉴权服务响应异常")
+        raise AuthError(503, "鉴权服务响应异常", kind="unavailable")
     if data.get("ok") is not True:
         reason = _BAD_CHARS.sub("", str(data.get("reason") or "")).strip()[:80]
-        raise AuthError(401, reason or "身份无效")
+        raise AuthError(401, reason or "身份无效", kind="token")
     sid = str(data.get("sid") or "").strip()
     name = _BAD_CHARS.sub("", str(data.get("name") or "")).strip()[:40]
     if not sid:
-        raise AuthError(503, "鉴权服务响应异常")
+        raise AuthError(503, "鉴权服务响应异常", kind="unavailable")
     return {"sid": sid, "name": name, "seat": data.get("seat")}
 
 
 def validate_token(token):
-    """token → {sid,name,seat}；成功缓存 AUTH_CACHE_SEC 秒；失败抛 AuthError。"""
+    """token → {sid,name,seat}；成功缓存 AUTH_CACHE_SEC 秒；失败抛 AuthError。
+
+    v2.5：失败缓存（短 TTL，`DROP_AUTH_FAIL_TTL_SEC` 默认 30s）
+    - 网关明确拒绝（ok:false，401 身份无效/过期）→ 失败缓存，响应 `X-Drop-Reason: token`
+      （客户端据此提示「身份已失效，请重新登录」，而不是「服务异常」）；
+    - 鉴权服务不可用（503 fail closed / 网关不可达 / 响应异常）→ 失败缓存
+      （避免网关抖动时每个请求都再等一次超时），响应 `X-Drop-Reason: unavailable`
+      （客户端据此提示「身份服务暂不可用」，**不得**提示重新登录）。
+    """
     token = str(token or "").strip()
     if not token:
-        raise AuthError(401, "缺少身份令牌")
+        raise AuthError(401, "缺少身份令牌", kind="token")
     if len(token) > 600:
-        raise AuthError(401, "身份令牌非法")
+        raise AuthError(401, "身份令牌非法", kind="token")
     now = time.time()
     with _LOCK:
         hit = _AUTH_CACHE.get(token)
         if hit is not None and hit[1] > now:
-            return dict(hit[0])
+            kind, payload = hit[0]
+            if kind == "ok":
+                return dict(payload)
+            raise AuthError(payload["status"], payload["reason"], kind=payload["kind"])
         if hit is not None:
             _AUTH_CACHE.pop(token, None)
-    payload = _gateway_whoami(token)
+    try:
+        payload = _gateway_whoami(token)
+    except AuthError as exc:
+        kind = exc.kind or ("token" if exc.status == 401 else "unavailable")
+        fail_ttl = AUTH_FAIL_503_TTL_SEC if kind == "unavailable" else AUTH_FAIL_TTL_SEC
+        with _LOCK:
+            if len(_AUTH_CACHE) > AUTH_CACHE_MAX:
+                _AUTH_CACHE.clear()
+            _AUTH_CACHE[token] = (("err", {"status": exc.status, "reason": exc.reason,
+                                           "kind": kind}),
+                                  time.time() + fail_ttl)
+        raise AuthError(exc.status, exc.reason, kind=kind)
     with _LOCK:
         if len(_AUTH_CACHE) > AUTH_CACHE_MAX:
             _AUTH_CACHE.clear()
-        _AUTH_CACHE[token] = (payload, time.time() + AUTH_CACHE_SEC)
+        _AUTH_CACHE[token] = (("ok", payload), time.time() + AUTH_CACHE_SEC)
     return dict(payload)
 
 
@@ -881,12 +912,16 @@ class Handler(BaseHTTPRequestHandler):
             "Access-Control-Allow-Headers":
                 "Content-Type,X-Device-Id,X-Upload-Id",
             "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
-            "Access-Control-Expose-Headers": "Content-Length,Content-Range",
+            "Access-Control-Expose-Headers":
+                "Content-Length,Content-Range,X-Drop-Reason",
         }
 
     def _base_headers(self):
         headers = self._cors_headers()
         headers["X-Content-Type-Options"] = "nosniff"
+        kind = getattr(self, "_err_kind", "")
+        if kind:
+            headers["X-Drop-Reason"] = kind
         return headers
 
     def _send_json(self, status, payload):
@@ -905,7 +940,9 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             self.close_connection = True
 
-    def _send_error_json(self, status, reason):
+    def _send_error_json(self, status, reason, kind=""):
+        if kind:
+            self._err_kind = kind
         if self.command in ("POST", "DELETE") and not getattr(self, "_body_read", False):
             self.close_connection = True          # 未读 body 时不能复用连接
         self._send_json(status, {"ok": False, "reason": str(reason or "请求失败")})
@@ -983,7 +1020,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             self._send_options()
         except HttpError as exc:
-            self._send_error_json(exc.status, exc.reason)
+            self._send_error_json(exc.status, exc.reason, kind=exc.kind)
 
     def do_GET(self):
         self._dispatch()
@@ -1075,7 +1112,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._route_delete_session(path[len("/session/"):])
             raise HttpError(404, "接口不存在")
         except HttpError as exc:
-            self._send_error_json(exc.status, exc.reason)
+            self._err_kind = exc.kind
+            self._send_error_json(exc.status, exc.reason, kind=exc.kind)
         except (BrokenPipeError, ConnectionResetError):
             self.close_connection = True
         except Exception as exc:  # noqa: BLE001
@@ -1109,6 +1147,15 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, payload)
 
     def _route_state(self, query):
+        """事件增量 + （v2.5 `all=1`）当前有效文件清单。
+
+        - 兼容：不传 `all` 时行为与 v2.4 完全一致（只回 `seq > since` 的事件；
+          注意：「文件」是会话状态，`since` 之后没有新事件不代表没有文件）。
+        - `all=1`：额外返回 `files`（**未过期文件全量**，带每次重签的 `downloadUrl`）、
+          `fileSeq`（本批事件涉及的 fileId → 当前最大 seq）、`expiredNotice`
+          （会话里曾上传、且最近事件已不在窗口内的过期文件数）。
+          前端「文件传输」页必须用它渲染列表，**事件只是增量提示**。
+        """
         auth = self._auth()
         session_id = _query_one(query, "sessionId")
         since_raw = _query_one(query, "since", "0")
@@ -1116,19 +1163,22 @@ class Handler(BaseHTTPRequestHandler):
             since = max(0, int(str(since_raw or "0")))
         except ValueError:
             raise HttpError(400, "since 非法")
+        want_all = _query_one(query, "all", "") in ("1", "true", "yes")
         with _LOCK:
             sess = _sess_owned_locked(auth, session_id)
             now = _now_ms()
             events = []
+            touched = set()
             for ev in sess.get("events") or []:
                 if int(ev.get("seq") or 0) <= since:
                     continue
                 item = dict(ev)
+                kind = ev.get("kind")
                 payload = dict(ev.get("payload") or {})
                 # v2.1：文件各自「上传完成 + 72h」过期；每次读事件列表时只对
                 # **未过期且实体仍在** 的文件重新签发下载 URL（解决「文件保留 3 天但签名仅 30 分钟」）；
                 # 过期文件保留 seq（历史不丢），标记 expired 且不再给 downloadUrl。
-                if ev.get("kind") == "file":
+                if kind == "file":
                     file_id = str(payload.get("fileId") or "")
                     path = os.path.join(FILES_DIR, sess["id"], file_id + ".bin")
                     record = None
@@ -1144,17 +1194,48 @@ class Handler(BaseHTTPRequestHandler):
                     else:
                         payload.pop("downloadUrl", None)
                         payload["expired"] = True
+                    touched.add(file_id)
+                elif kind == "filedel":
+                    touched.add(str(payload.get("fileId") or ""))
                 item["payload"] = payload
                 events.append(item)
             cursor = int(events[-1]["seq"]) if events else since
+            live = _live_files(sess, now)
+            live_ids = set(str(f.get("id") or "") for f in live)
             payload = {
                 "ok": True,
                 "session": {"id": sess["id"], "code": sess["code"],
                             "expiresAt": _session_expires_at(sess),
-                            "closed": bool(sess.get("closed"))},
+                            "closed": bool(sess.get("closed")),
+                            "seq": int(sess.get("seq") or 0)},
                 "events": events,
                 "cursor": cursor,
             }
+            if want_all:
+                files = []
+                for item in live:
+                    file_id = str(item.get("id") or "")
+                    if not _valid_hex_id(file_id):
+                        continue
+                    url = _download_url(self, file_id, sess["id"])
+                    if not os.path.isfile(os.path.join(FILES_DIR, sess["id"],
+                                                       file_id + ".bin")):
+                        continue
+                    files.append({"id": file_id, "name": item.get("name"),
+                                  "size": int(item.get("size") or 0),
+                                  "mime": item.get("mime") or "",
+                                  "at": _file_uploaded_at(item),
+                                  "downloadUrl": url})
+                files.sort(key=lambda x: -int(x.get("at") or 0))
+                # 过期文件：在文件表 / 事件窗口里出现过、但已不在有效清单中的 fileId
+                gone = set(str(item.get("id") or "") for item in _session_files(sess))
+                for ev in sess.get("events") or []:
+                    if ev.get("kind") == "file":
+                        gone.add(str((ev.get("payload") or {}).get("fileId") or ""))
+                payload["files"] = files
+                payload["fileSeq"] = dict(
+                    (file_id, int(sess.get("seq") or 0)) for file_id in touched if file_id)
+                payload["expiredNotice"] = max(0, len(gone - live_ids))
         self._send_json(200, payload)
 
     def _route_presence_get(self):

@@ -86,9 +86,17 @@ INIT = r"""
       expiresAt:0,openCount:0,closeCount:0};
     window.__ds=DS;
     function J(obj,status){status=status||200;return Promise.resolve(new Response(JSON.stringify(obj),{status:status,headers:{"Content-Type":"application/json"}}));}
-    function sess(){return DS.session?{id:DS.session.id,code:DS.session.code,createdAt:DS.session.createdAt,expiresAt:DS.session.expiresAt}:null;}
+    function sess(){return DS.session?{id:DS.session.id,code:DS.session.code,createdAt:DS.session.createdAt,expiresAt:DS.session.expiresAt,seq:DS.seq}:null;}
     function pushEvent(kind,payload){DS.seq++;DS.events.push({seq:DS.seq,kind:kind,at:Date.now(),from:{name:"__NAME__"},payload:payload});}
     function fileUrl(id){return "http://mock.local/drop/file/"+id+"?s=sess1&exp=1&sig=mock";}
+      /* v2.5：/state?all=1 的文件清单取自「会话文件表」而不是事件（与服务端一致）；
+         expiredNotice 由服务端统计（这里允许用例直接指定 DS.expiredNoticeN 模拟）。 */
+    function liveList(){
+      var now=Date.now(),ttl=DS.fileTtl!==undefined?Number(DS.fileTtl):259200000;
+      return DS.files.filter(function(f){return !(f.ttlOff)&&!(f.at&&(now-f.at)>ttl);}).map(function(f){
+        return {id:f.id,name:f.name,size:f.size,mime:f.mime,at:f.at||now,downloadUrl:fileUrl(f.id)};
+      }).sort(function(a,b){return (b.at||0)-(a.at||0);});
+    }
     function dropFile(id,extra){
       var f=null;
       for(var i=0;i<DS.files.length;i++){if(String(DS.files[i].id)===String(id)){f=DS.files[i];break;}}
@@ -108,7 +116,20 @@ INIT = r"""
       }
       if(s.indexOf("/mine")>=0)return J({ok:true,session:sess()});
       if(s.indexOf("/presence")>=0)return J({ok:true,stage:true,at:Date.now()});
-      if(s.indexOf("/state")>=0)return J({ok:true,session:sess(),events:DS.events.slice(),cursor:DS.seq});
+      if(s.indexOf("/state")>=0){
+        var sinceM=s.match(/[?&]since=(\d+)/),sinceV=sinceM?Number(sinceM[1]):0;
+        var evs=DS.hideEvents?[]:DS.events.filter(function(e){return Number(e.seq)>sinceV;}).map(function(e){
+          var c={seq:e.seq,kind:e.kind,at:e.at,from:e.from,payload:JSON.parse(JSON.stringify(e.payload))};
+          return c;
+        });
+        var out={ok:true,session:sess(),events:evs,cursor:DS.seq};
+        if(/[?&]all=1(&|$)/.test(s)){
+          out.files=liveList();
+          out.expiredNotice=Number(DS.expiredNoticeN||0);
+          out.fileSeq={};
+        }
+        return J(out);
+      }
       if(s.indexOf("/upload/init")>=0){
         var b={};try{b=JSON.parse(bodyBytes||"{}");}catch(e){}
         var uid="u"+(Object.keys(DS.uploads).length+1);
@@ -138,7 +159,7 @@ INIT = r"""
         var up2=DS.uploads[b2.uploadId||""]||null;
         if(up2)up2.finished=true;
         var f={id:"f"+(DS.filesSeq++),name:up2?up2.name:"file",size:up2?up2.size:0,mime:"application/octet-stream",
-          downloadUrl:""};
+          downloadUrl:"",at:Date.now()};
         f.downloadUrl=fileUrl(f.id);
         DS.files.push(f);pushEvent("file",{fileId:f.id,name:f.name,size:f.size,mime:f.mime,downloadUrl:f.downloadUrl});
         return J({ok:true,file:{id:f.id,name:f.name,size:f.size,mime:f.mime,downloadUrl:f.downloadUrl}});
@@ -392,14 +413,27 @@ def main():
         T("B5a 单文件删除成功（DELETE /file/<id>，行消失）", okd and bool(del_calls), (okd, del_calls[-3:]))
         T("B5b 删除后统计同步减少", s5["statCount"] in ("1", "2"), s5["statCount"])
 
-        # B6 过期文件
-        p.evaluate("""(function(){var ds=window.__ds;ds.seq++;
-          ds.events.push({seq:ds.seq,kind:"file",at:Date.now()-259200000-1000,from:{name:"测试同学"},
-            payload:{id:"fexpired",name:"旧文件.bin",size:123,expired:true}});})()""")
+        # B6 过期文件（v2.5 口径：/state?all=1 的 expiredNotice 由服务端统计）
+        p.evaluate("window.__ds.expiredNoticeN=1;'x'")
         p.evaluate("var b=document.getElementById('fileRefresh');if(b)b.click();'x'")
         ok6 = wait_for(lambda: bool(snap(p)["expiredNotice"]), 10)
         T("B6a 过期文件在列表下方标注「已过期」", ok6, snap(p)["expiredNotice"])
         T("B6b 过期文件不提供下载行", not any(it["name"] == "旧文件.bin" for it in snap(p)["files"]), snap(p)["files"])
+        p.evaluate("window.__ds.expiredNoticeN=0;'x'")
+
+        # B6c/B6d v2.5 回归：文件事件被挤出窗口（/state?since=<大值> 只回空事件）也必须看到文件
+        p.evaluate("""(function(){var ds=window.__ds;
+          ds.hideEvents=1;                       /* 模拟「事件表已截断 / 只拉增量」 */
+          ds.files.push({id:"fhidden1",name:"只剩清单也有.txt",size:10,mime:"text/plain",at:Date.now()});
+        })()""")
+        p.evaluate("var b=document.getElementById('fileRefresh');if(b)b.click();'x'")
+        ok6c = wait_for(lambda: any("只剩清单也有" in (it["name"] or "") for it in snap(p)["files"]), 10)
+        s6c = snap(p)
+        T("B6c 无 file 事件时（事件已截断）仍按服务端文件清单列出文件", ok6c, [it["name"] for it in s6c["files"]])
+        state_calls = [c for c in s6c["ds"]["calls"]
+                       if c.startswith("/state") and "all=1" in c]
+        T("B6d 文件页 /state 带 all=1（以服务端文件清单为准）",
+          bool(state_calls), [c for c in s6c["ds"]["calls"] if c.startswith("/state")][-3:])
 
         # B7 清空空间
         close_before = snap(p)["ds"]["closeCount"]

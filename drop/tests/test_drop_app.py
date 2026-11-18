@@ -353,14 +353,14 @@ class TestCorsAndHealth(Base):
         self.assertEqual(app.MAX_FILE_BYTES, 0)      # 0 = 不限
         self.assertEqual(app.MAX_SESSION_BYTES, 0)   # 0 = 不限
         self.assertEqual(app.UPLOAD_TTL_SEC, 86400)
-        self.assertEqual(app.VERSION, "2.4")
+        self.assertEqual(app.VERSION, "2.5")
 
     def test_health_no_auth_and_shape(self):
         status, headers, data = self.get("/__health")
         self.assertEqual(status, 200)
         payload = self.client.json_of(status, data)
         self.assertTrue(payload.get("ok"))
-        self.assertEqual(payload["version"], "2.4")
+        self.assertEqual(payload["version"], "2.5")
         self.assertEqual(payload["sessions"], 0)
         self.assertEqual(payload["files"], 0)
         self.assertEqual(payload["bytes"], 0)
@@ -1490,6 +1490,140 @@ class TestGatewayAuth(Base):
             self.assertTrue(payload["ok"])
         with app._LOCK:
             self.assertEqual(len(FAKE_GATEWAY["calls"]), 1)
+
+
+# ---------------------------------------------------------------------------
+# v2.5：鉴权失败分类（X-Drop-Reason）+ 失败缓存
+# ---------------------------------------------------------------------------
+class TestAuthFailKind(Base):
+    def setUp(self):
+        Base.setUp(self)
+        app.GATEWAY = FAKE_GATEWAY["base"]
+        app.PUBLISH_KEY = "pk-test"
+        app.validate_token = ORIG_VALIDATE
+        app._AUTH_CACHE.clear()
+
+    def tearDown(self):
+        app.validate_token = fake_validate
+        app.PUBLISH_KEY = "test-publish-key"
+        app.GATEWAY = "http://127.0.0.1:9/unreachable/"
+        app._AUTH_CACHE.clear()
+
+    def _queue(self, status, payload):
+        with app._LOCK:
+            FAKE_GATEWAY["queue"].append((status, payload))
+
+    def _gateway_calls(self):
+        with app._LOCK:
+            return len(FAKE_GATEWAY["calls"])
+
+    def test_gateway_reject_is_token_kind_and_cached(self):
+        self._queue(200, {"ok": False, "reason": "身份已失效"})
+        status, headers, data = self.get("/mine", token="tok_expired_1")
+        self.assertEqual(status, 401)
+        self.assertEqual(headers.get("x-drop-reason"), "token")
+        payload = self.client.json_of(status, data)
+        self.assertEqual(payload.get("reason"), "身份已失效")
+        # 失败缓存：同 token 再请求不再打网关
+        status2, headers2, _data2 = self.get("/mine", token="tok_expired_1")
+        self.assertEqual(status2, 401)
+        self.assertEqual(headers2.get("x-drop-reason"), "token")
+        self.assertEqual(self._gateway_calls(), 1)
+
+    def test_gateway_down_is_unavailable_kind(self):
+        self._queue(500, {"error": "boom"})
+        status, headers, data = self.get("/mine", token="tok_down_1")
+        self.assertEqual(status, 503)
+        self.assertEqual(headers.get("x-drop-reason"), "unavailable")
+        self.fail_payload(self, status, data, 503, "鉴权服务")
+
+    def test_fail_cache_expires_after_ttl(self):
+        self._queue(200, {"ok": False, "reason": "身份已失效"})
+        orig = app.AUTH_FAIL_TTL_SEC
+        app.AUTH_FAIL_TTL_SEC = 0
+        try:
+            self.get("/mine", token="tok_expired_2")
+            self._queue(200, {"ok": True, "sid": "sid_ok2", "name": "恢复"})
+            status, headers, _data = self.get("/mine", token="tok_expired_2")
+        finally:
+            app.AUTH_FAIL_TTL_SEC = orig
+        self.assertEqual(status, 200)
+        self.assertFalse(headers.get("x-drop-reason"))
+
+    def test_ok_after_success_not_marked(self):
+        self._queue(200, {"ok": True, "sid": "sid_ok3", "name": "正常"})
+        status, headers, _data = self.get("/mine", token="tok_ok_3")
+        self.assertEqual(status, 200)
+        self.assertFalse(headers.get("x-drop-reason"))
+
+
+# ---------------------------------------------------------------------------
+# v2.5：/state?all=1 返回「当前有效文件清单」（事件表截断/空事件也不丢文件）
+# ---------------------------------------------------------------------------
+class TestStateAll(Base):
+    def _state_all(self, token, session_id, since=0):
+        status, _hd, data = self.get(
+            "/state?sessionId=%s&since=%d&all=1"
+            % (urllib.parse.quote(session_id), since), token=token)
+        self.assertEqual(status, 200, data[:200])
+        return self.client.json_of(status, data)
+
+    def test_files_listed_after_events_truncated(self):
+        session = self.open_session("tok_alice")
+        small = self.upload("tok_alice", session["id"], "小文件.txt", b"hello")
+        big = self.upload("tok_alice", session["id"], "大文件.bin", b"y" * 9000)
+        # 制造 600 条事件（> MAX_EVENTS 500）→ 两条 file 事件都被挤出窗口
+        orig = app.MAX_EVENTS
+        app.MAX_EVENTS = 25
+        try:
+            for i in range(40):
+                status, _hd, _d = self.post_json(
+                    "/text", {"sessionId": session["id"], "text": "t%d" % i},
+                    token="tok_alice")
+                self.assertEqual(status, 200)
+        finally:
+            app.MAX_EVENTS = orig
+        # 旧口径（不带 all）：file 事件已不在窗口内 → 事件列表里看不到文件
+        status, plain = self.state("tok_alice", session["id"], 0)
+        self.assertEqual(status, 200)
+        kinds = [ev["kind"] for ev in plain["events"]]
+        self.assertNotIn("file", kinds)
+        self.assertNotIn("files", plain)          # 不带 all 时保持 v2.4 形状
+        # v2.5：all=1 仍能拿到两个有效文件 + 可用下载链接
+        payload = self._state_all("tok_alice", session["id"], 0)
+        names = sorted(f["name"] for f in payload["files"])
+        self.assertEqual(names, sorted([small["name"], big["name"]]))
+        for item in payload["files"]:
+            self.assertTrue(item["downloadUrl"].startswith("http"))
+            self.assertGreater(int(item["at"]), 0)
+        # 下载链接可用（范围签名与普通下载一致）
+        status, _hd, body = self.download(payload["files"][0]["downloadUrl"])
+        self.assertEqual(status, 200)
+        self.assertIn(len(body), (5, 9000))
+
+    def test_files_and_expired_notice(self):
+        session = self.open_session("tok_alice")
+        keep = self.upload("tok_alice", session["id"], "保留.txt", b"keep")
+        gone = self.upload("tok_alice", session["id"], "过期.bin", b"gone")
+        payload = self._state_all("tok_alice", session["id"], 0)
+        self.assertEqual(payload["expiredNotice"], 0)
+        self.assertEqual(sorted(f["name"] for f in payload["files"]),
+                         ["保留.txt", "过期.bin"])
+        self.assertEqual(payload["session"]["seq"], 2)
+        self.assertEqual(sorted(payload["fileSeq"].keys()),
+                         sorted([keep["id"], gone["id"]]))
+        # 让其中一个文件过期 → 有效清单只剩一个，expiredNotice 计数 1
+        self.age_file(session["id"], gone["id"], app.TTL_SEC + 30)
+        payload2 = self._state_all("tok_alice", session["id"], 0)
+        self.assertEqual([f["name"] for f in payload2["files"]], ["保留.txt"])
+        self.assertEqual(payload2["expiredNotice"], 1)
+
+    def test_other_account_cannot_read_state_all(self):
+        session = self.open_session("tok_alice")
+        self.upload("tok_alice", session["id"], "a.txt", b"a")
+        status, _hd, data = self.get(
+            "/state?sessionId=%s&all=1" % session["id"], token="tok_bob")
+        self.fail_payload(self, status, data, 403)
 
 
 if __name__ == "__main__":

@@ -245,6 +245,58 @@ def probe():
 
 
 # ---------------------------------------------------------------------------
+# 一次性诊断（只读）：为什么「文件传输」看不到文件
+#   - 当前 drop 版本 / 运行单元的会话 TTL（若 TTL_SEC 被调小，空闲会话会被提前回收，文件随之消失）；
+#   - 每个会话的 lastActivity / seq / 事件类型计数 / 文件数（只打印 sid 哈希前缀，不打印 token/name）；
+#   - journal 里的 session open / idle cleanup / file ttl cleanup 记录。
+# ---------------------------------------------------------------------------
+DIAG_SCRIPT = r"""#!/bin/bash
+set +e
+echo "=== service ==="
+systemctl is-active __SERVICE__
+echo "active_since: $(systemctl show __SERVICE__ -p ActiveEnterTimestamp --value 2>/dev/null)"
+grep -E "^Environment=DROP_" /etc/systemd/system/__SERVICE__.service 2>/dev/null
+echo "=== health (local) ==="
+curl -s -m 5 http://127.0.0.1:8093/__health; echo ""
+echo "=== sessions ==="
+ls -1 __APP_DIR__/sessions 2>/dev/null
+echo "--- index ---"
+cat __APP_DIR__/sessions/index.json 2>/dev/null; echo ""
+python3 - <<'PY'
+import glob, json, os
+from collections import Counter
+root = "__APP_DIR__/sessions"
+for p in sorted(glob.glob(os.path.join(root, "*.json"))):
+    if os.path.basename(p) == "index.json":
+        continue
+    try:
+        s = json.load(open(p))
+    except Exception as e:
+        print(os.path.basename(p), "UNREADABLE", e); continue
+    evs = s.get("events") or []
+    files = s.get("files") or []
+    print("session", os.path.basename(p)[:8],
+          "created", s.get("createdAt"), "lastAct", s.get("lastActivityAt"),
+          "seq", s.get("seq"), "events", len(evs), dict(Counter([e.get("kind") for e in evs])),
+          "files", len(files),
+          "file_names", [str(f.get("name"))[:20] for f in files][:6])
+PY
+echo "=== files dir ==="
+find __APP_DIR__/files -type f 2>/dev/null | head -20
+echo "=== journal: start/open/cleanup ==="
+journalctl -u __SERVICE__ --no-pager 2>/dev/null | grep -E "start v|session open|session close|idle cleanup|ttl cleanup|session cleanup" | tail -40
+echo "=== done ==="; exit 0
+""".replace("__SERVICE__", SERVICE).replace("__APP_DIR__", APP_DIR)
+
+
+def diag():
+    st, rc, out = ecs_site.run_script(DIAG_SCRIPT, label="drop-diag",
+                                      timeout=120, wait=240)
+    print(out)
+    return 0 if st == "Success" else 1
+
+
+# ---------------------------------------------------------------------------
 # 本机（公网）HTTP 工具
 # ---------------------------------------------------------------------------
 def _http(method, url, headers=None, body=None, timeout=60):
@@ -466,13 +518,13 @@ def selftest():
                      "v=%s sessions=%s files=%s bytes=%s"
                      % (health.get("version"), health.get("sessions"),
                         health.get("files"), health.get("bytes")))
-        report.check("health v2.3：file_ttl=session_idle_ttl=259200 / max_file_bytes=0 / max_session_bytes=0",
+        report.check("health v2.5：file_ttl=session_idle_ttl=259200 / max_file_bytes=0 / max_session_bytes=0",
                      health.get("ttl") == 259200
                      and health.get("file_ttl") == 259200
                      and health.get("session_idle_ttl") == 259200
                      and health.get("max_file_bytes") == 0
                      and health.get("max_session_bytes") == 0
-                     and health.get("version") == "2.3",
+                     and health.get("version") == "2.5",
                      "version=%s file_ttl=%s session_idle_ttl=%s "
                      "max_file=%s max_session=%s"
                      % (health.get("version"), health.get("file_ttl"),
@@ -630,6 +682,17 @@ def selftest():
         report.check("/state 文件事件带可用下载链接（读取时重签）",
                      bool(event_urls) and rr["status"] == 200,
                      "HTTP %s" % rr["status"])
+        # v2.5：all=1 的文件清单与事件无关（事件为空也返回有效文件），且每个都带可用下载链接
+        r = _http("GET", "%s/state?sessionId=%s&all=1&since=999999" % (BASE_URL, session_id),
+                  headers={"X-Device-Id": token2}, timeout=20)
+        payload_all = _json_of(r)
+        files_all = payload_all.get("files") or []
+        names_all = sorted(str(f.get("name")) for f in files_all)
+        r2 = _download(files_all[0]["downloadUrl"], timeout=60) if files_all else {"status": 0}
+        report.check("v2.5 /state?all=1 在事件为空时仍返回有效文件清单（可用下载链接）",
+                     not (payload_all.get("events") or [])
+                     and len(files_all) == 1 and bool(r2["status"] == 200),
+                     "files=%s HTTP %s" % (names_all, r2["status"]))
         r = _post_json("/text", {"sessionId": session_id,
                                  "text": "大屏你好（自测）"}, token=token2)
         seq_text = _json_of(r).get("seq") or 0
@@ -677,12 +740,14 @@ def selftest():
                          r["status"] == 404, "HTTP %s" % r["status"])
         r = _http("GET", HEALTH_URL, timeout=15)
         health = _json_of(r)
-        report.check("健康统计回到基线（无残留会话/文件）",
-                     health.get("sessions") == baseline.get("sessions")
-                     and health.get("files") == baseline.get("files"),
-                     "sessions=%s files=%s（基线 %s/%s）"
-                     % (health.get("sessions"), health.get("files"),
-                        baseline.get("sessions"), baseline.get("files")))
+        # sessions 不是「残留」判据：全服务只有 2 个真实账号会话，窗口里用户正常打开云空间/大屏
+        # 都会让它 +1（与自测无关）；真正的判据是自测会话已关闭、文件数为 0。
+        report.check("健康统计无残留文件（自测文件已全部删除）",
+                     health.get("files") == 0 and health.get("bytes") == 0,
+                     "sessions=%s files=%s bytes=%s（基线 %s/%s/%s）"
+                     % (health.get("sessions"), health.get("files"), health.get("bytes"),
+                        baseline.get("sessions"), baseline.get("files"),
+                        baseline.get("bytes")))
     finally:
         if session_id and token:
             try:
@@ -697,7 +762,7 @@ def selftest():
 # ---------------------------------------------------------------------------
 def main(argv=None):
     ap = argparse.ArgumentParser(description="ECS 大屏临时互联服务部署（云助手）")
-    ap.add_argument("cmd", choices=["deploy", "probe", "verify", "selftest"])
+    ap.add_argument("cmd", choices=["deploy", "probe", "verify", "selftest", "diag"])
     ns = ap.parse_args(argv)
     if ns.cmd == "deploy":
         rc = install_service()
@@ -710,6 +775,8 @@ def main(argv=None):
         return probe()
     if ns.cmd == "verify":
         return verify()
+    if ns.cmd == "diag":
+        return diag()
     return selftest()
 
 

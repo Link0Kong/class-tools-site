@@ -19580,7 +19580,7 @@ function optSaveCanvas(c,o){
      ============================================================ */
   var B2FILE=(function(){
     var CHUNK=8388608, TTL=259200000;
-    var S={session:null,files:[],ups:[],cursor:0,pollT:0,busy:false,err:"",bound:false,loading:false,opened:{}};
+    var S={session:null,files:[],ups:[],cursor:0,pollT:0,busy:false,err:"",errAt:0,auth:"",bound:false,loading:false,opened:{},expired:0};
     var OPEN_KEY="zq_file_opened_v1";
     function el(id){return document.getElementById(id);}
     function base(){
@@ -19590,10 +19590,23 @@ function optSaveCanvas(c,o){
       }catch(e){return "http://121.196.47.2/drop";}
     }
     function token(){try{var h=authHdr();return String(h["X-Device-Id"]||"");}catch(e){return "";}}
+    /* 401/503 分类（drop v2.5：响应头 X-Drop-Reason = token / unavailable）
+       - token       → 身份令牌失效/过期：提示重新登录，不反复轮询；
+       - unavailable → 鉴权服务暂不可用：提示稍后自动重试，并放慢轮询。 */
+    function authKind(r){
+      try{return String((r&&r.headers&&r.headers.get&&r.headers.get("X-Drop-Reason"))||"");}catch(e){return "";}
+    }
+    function failOf(r,fallback){
+      if(r&&r.authKind==="token")return {err:"身份已失效，请重新登录",auth:"token"};
+      if(r&&r.authKind==="unavailable")return {err:"身份服务暂不可用，稍后自动重试",auth:"unavailable"};
+      return {err:(r&&r.reason)||fallback||"服务不可达",auth:""};
+    }
     function jhandled(r){
+      var kind=authKind(r);
       return r.json().catch(function(){return {ok:false,reason:"服务响应异常"};}).then(function(j){
         if(!j||typeof j!=="object")j={ok:false,reason:"服务响应异常"};
         if(!r.ok){j.ok=false;if(!j.reason)j.reason=(r.status===507?"服务器空间不足":("服务错误 "+r.status));}
+        if(kind)j.authKind=kind;
         return j;
       });
     }
@@ -19673,14 +19686,15 @@ function optSaveCanvas(c,o){
     function renderFiles(){
       var box=el("fileList");if(!box)return;
       var live=liveFiles();
-      if(!live.length)box.innerHTML='<div class="file-empty">'+(S.files.length?'文件已过期':'还没有文件')+'</div>';
+      var expiredN=Math.max(0,Number(S.expired)||0,0);
+      if(!live.length)box.innerHTML='<div class="file-empty">'+(expiredN?'文件已过期':'还没有文件')+'</div>';
       else box.innerHTML=live.slice().sort(function(a,b){return Number(b.at||0)-Number(a.at||0);}).map(fileRow).join("");
-      if(S.files.length>live.length){
+      if(expiredN){
         box.innerHTML+='<div class="file-expired" style="margin-top:8px;font-size:11.5px;color:var(--ink3)">'+
-          (S.files.length-live.length)+' 个文件已过期（上传超过 72 小时，已自动删除）</div>';
+          expiredN+' 个文件已过期（上传超过 72 小时，已自动删除）</div>';
       }
       var cnt=el("fileCount");
-      if(cnt)cnt.textContent=live.length?("共 "+live.length+" 个 · "+fmtSize(totalBytes())):(S.files.length?("已过期 "+S.files.length):"");
+      if(cnt)cnt.textContent=live.length?("共 "+live.length+" 个 · "+fmtSize(totalBytes())):(expiredN?("已过期 "+expiredN):"");
       renderStats();
     }
     function upRow(u){
@@ -19720,41 +19734,69 @@ function optSaveCanvas(c,o){
     }
     function refreshState(force){
       if(!S.session)return Promise.resolve(false);
-      return req("/state?sessionId="+encodeURIComponent(String(S.session.id))+"&since="+Number(force?0:(S.cursor||0))).then(function(r){
-        if(!r||!r.ok){S.err=(r&&r.reason)||"连接中断";renderState();return false;}
-        S.err="";
+      /* v2.5：`all=1` 让服务端随事件一并返回**当前有效文件清单**。
+         事件表只保留最近 500 条、且 since 之后没有新事件 ≠ 没有文件——
+         以前只按事件渲染，重新打开/换端/事件被挤出窗口时列表会「看不到文件」。
+         文件 = 会话状态，以服务端 files 为准；事件只用来做增量提示。 */
+      var q="/state?sessionId="+encodeURIComponent(String(S.session.id))+"&all=1&since="+Number(force?0:(S.cursor||0));
+      return req(q).then(function(r){
+        if(!r||!r.ok){
+          var f=failOf(r,"连接中断");
+          S.err=f.err;S.auth=f.auth||"";
+          renderState();return false;
+        }
+        S.err="";S.auth="";
         if(r.session)S.session=r.session;
         if(force){S.files=[];S.ups=S.ups.filter(function(u){return u.state==="up"||u.state==="wait";});}
-        var evs=(r.events instanceof Array)?r.events:[];
-        evs.forEach(function(ev){
-          if(!ev)return;
-          var kind=String(ev.kind);
-          if(kind==="file")addFile(ev.payload,ev.at);
-          else if(kind==="filedel"&&ev.payload)delFileLocal(ev.payload.fileId);
-        });
+        if(r.files instanceof Array){
+          S.files=[];S.expired=Math.max(0,Number(r.expiredNotice)||0);
+          r.files.forEach(function(f){addFile(f,Number(f&&f.at)||0);});
+          S.expired=Math.max(S.expired,0);
+        }else{
+          var evs=(r.events instanceof Array)?r.events:[];
+          evs.forEach(function(ev){
+            if(!ev)return;
+            var kind=String(ev.kind);
+            if(kind==="file")addFile(ev.payload,ev.at);
+            else if(kind==="filedel"&&ev.payload)delFileLocal(ev.payload.fileId);
+          });
+        }
         var cur=Number(r.cursor);
         if(isFinite(cur)&&cur>(S.cursor||0))S.cursor=cur;
         renderFiles();renderState();
         return true;
-      },function(){S.err="服务不可达";renderState();return false;});
+      },function(){S.err="服务不可达";S.auth="";renderState();return false;});
     }
-    function poll(){if(!S.session)return;if(document.hidden)return;refreshState(false);}
+    function poll(){
+      if(!S.session)return;
+      if(document.hidden)return;
+      /* 身份失效：不再空转轮询（重新登录后 enter() 会重新连接）；鉴权服务故障：放慢重试 */
+      if(S.auth==="token")return;
+      if(S.auth==="unavailable"&&(Date.now()-(S.errAt||0))<15000)return;
+      refreshState(false);
+    }
     function startPoll(){stopPoll();S.pollT=setInterval(poll,5000);}
     function stopPoll(){if(S.pollT){clearInterval(S.pollT);S.pollT=0;}}
     function ensureSpace(){
       if(S.busy)return;
       if(S.session){startPoll();refreshState(true);return;}
-      S.busy=true;S.loading=true;S.err="";renderState();
+      S.busy=true;S.loading=true;S.err="";S.auth="";renderState();
+      function fail(r,extra){
+        S.busy=false;S.loading=false;
+        var f=failOf(r,extra);
+        S.err=f.err;S.auth=f.auth||"";S.errAt=Date.now();renderState();
+      }
       req("/mine").then(function(r){
+        if(r&&!r.ok){fail(r,"云空间连接失败");return;}
         if(r&&r.ok&&r.session){
-          S.busy=false;S.loading=false;S.session=r.session;renderAll();startPoll();refreshState(true);return;
+          S.busy=false;S.loading=false;S.session=r.session;S.err="";S.auth="";renderAll();startPoll();refreshState(true);return;
         }
         req("/open",{method:"POST",body:{}}).then(function(r2){
+          if(!r2||!r2.ok){fail(r2,"云空间连接失败");return;}
           S.busy=false;S.loading=false;
-          if(!r2||!r2.ok){S.err=(r2&&r2.reason)||"云空间连接失败";renderState();return;}
-          S.session=r2.session;S.err="";renderAll();startPoll();refreshState(true);
-        },function(){S.busy=false;S.loading=false;S.err="服务不可达";renderState();});
-      },function(){S.busy=false;S.loading=false;S.err="服务不可达";renderState();});
+          S.session=r2.session;S.err="";S.auth="";renderAll();startPoll();refreshState(true);
+        },function(){fail(null,"服务不可达");});
+      },function(){fail(null,"服务不可达");});
     }
     function enter(){loadOpened();bind();renderAll();ensureSpace();}
     function leave(){stopPoll();}
@@ -19766,17 +19808,28 @@ function optSaveCanvas(c,o){
       if(!S.session||!id)return;
       if(!window.confirm('删除「'+(findName(id)||"这个文件")+'」？删除后不可恢复。'))return;
       req("/file/"+encodeURIComponent(String(id))+"?sessionId="+encodeURIComponent(String(S.session.id)),{method:"DELETE"}).then(function(r){
-        if(!r||!r.ok){toast((r&&r.reason)||"删除失败");return;}
+        if(!r||!r.ok){toast(failOf(r,"删除失败").err);try{refreshState(true);}catch(e){}return;}
+        if(r.deleted===false){toast("该文件已不存在（可能已过期或在其他端删除）");refreshState(true);return;}
         delFileLocal(id);renderAll();toast("已删除");
+        refreshState(false);
       },function(){toast("网络不可用");});
     }
     function clearSpace(){
       if(!S.session)return;
       if(!window.confirm("清空云空间？将立即删除全部文件，且不可恢复。"))return;
       var sid=String(S.session.id);
-      S.session=null;S.files=[];S.ups=[];S.cursor=0;S.err="";stopPoll();renderAll();
-      req("/close",{method:"POST",body:{sessionId:sid}}).then(function(){ensureSpace();toast("云空间已清空");},
-        function(){ensureSpace();toast("已清空（网络异常，稍后自动重连）");});
+      req("/close",{method:"POST",body:{sessionId:sid}}).then(function(r){
+        if(!r||!r.ok){
+          /* 删除失败：不假装已清空——保留会话与列表，提示原因后按服务端状态刷新 */
+          var f=failOf(r,"清空失败");
+          if(f.auth)S.auth=f.auth;
+          toast(f.err);
+          refreshState(true);
+          return;
+        }
+        S.session=null;S.files=[];S.ups=[];S.cursor=0;S.err="";S.auth="";S.expired=0;stopPoll();renderAll();
+        ensureSpace();toast("云空间已清空");
+      },function(){toast("网络不可用，清空未完成");refreshState(true);});
     }
     function startUpload(f){
       if(!S.session){toast("云空间连接中，请稍后再选");return;}
@@ -19788,14 +19841,19 @@ function optSaveCanvas(c,o){
       var total=Math.max(1,Math.ceil(item.size/CHUNK));
       req("/upload/init",{method:"POST",body:{sessionId:S.session.id,name:item.name,size:item.size,mime:String(f.type||"application/octet-stream"),totalChunks:total}}).then(function(r){
         if(item.state==="cancel")return;
-        if(!r||!r.ok){item.state="err";item.err=(r&&r.reason)||"初始化失败";renderUps();return;}
+        if(!r||!r.ok){item.state="err";item.err=failOf(r,"初始化失败").err;renderUps();return;}
         var uid=String(r.uploadId||""),cs=Number(r.chunkSize)||CHUNK;
         item.state="up";renderUps();
         var idx=0;
         function finishUpload(){
           req("/upload/finish",{method:"POST",body:{sessionId:S.session.id,uploadId:uid}}).then(function(rr){
             if(item.state==="cancel")return;
-            if(!rr||!rr.ok){item.state="err";item.err=(rr&&rr.reason)||"完成上传失败";renderUps();return;}
+            if(!rr||!rr.ok){
+              var f=failOf(rr,"完成上传失败");
+              item.state="err";item.err=f.err;
+              if(f.auth==="token"){S.auth="token";S.err=f.err;renderState();}
+              renderUps();refreshState(true);return;
+            }
             item.state="done";item.pct=100;item.sent=item.size;renderUps();toast("已上传："+item.name);
             refreshState(true);
           },function(){if(item.state==="cancel")return;item.state="err";item.err="网络中断";renderUps();});
@@ -19809,7 +19867,12 @@ function optSaveCanvas(c,o){
           item.sent=start;
           reqRaw("/upload/chunk?uploadId="+encodeURIComponent(uid)+"&index="+idx,blob,ctrl?ctrl.signal:null).then(function(rr){
             if(item.state==="cancel")return;
-            if(!rr||!rr.ok){item.state="err";item.err=(rr&&rr.reason)||"分片上传失败";renderUps();return;}
+            if(!rr||!rr.ok){
+              var f=failOf(rr,"分片上传失败");
+              item.state="err";item.err=f.err;
+              if(f.auth==="token"){S.auth="token";S.err=f.err;renderState();}
+              renderUps();return;
+            }
             idx++;
             item.sent=Math.min(item.size,end);
             item.pct=item.size>0?Math.min(99,Math.round(item.sent*100/item.size)):99;
@@ -19855,19 +19918,28 @@ function optSaveCanvas(c,o){
         if(!a)return;
         try{e.preventDefault();}catch(x){}
         var fid=String(a.getAttribute("data-fid")||"");
+        /* 先立刻用列表里已有的签名链接打开（列表来自 /state?all=1，链接是刚刚重签的），
+           避免「点下载没反应」；如果链接被拒（30 分钟签名过期）再重拉一次清单重签发。 */
+        function openHref(href){
+          if(!href){toast("文件不存在或已过期");return;}
+          markOpened(fid);renderFiles();
+          try{window.open(href,"_blank","noopener");}catch(x2){try{location.href=href;}catch(y){}}
+        }
+        var cur=null;
+        for(var i=0;i<S.files.length;i++){if(String(S.files[i].id)===fid){cur=S.files[i];break;}}
+        if(cur&&!cur.expired&&cur.downloadUrl){openHref(cur.downloadUrl);return;}
         refreshState(true).then(function(){
           var f=null;
-          for(var i=0;i<S.files.length;i++){if(String(S.files[i].id)===fid){f=S.files[i];break;}}
+          for(var j=0;j<S.files.length;j++){if(String(S.files[j].id)===fid){f=S.files[j];break;}}
           if(!f||f.expired){toast("文件已过期（上传超过 72 小时，已自动删除）");return;}
-          var href=f.downloadUrl||a.getAttribute("href");
-          if(href){markOpened(fid);renderFiles();try{window.open(href,"_blank","noopener");}catch(x2){try{location.href=href;}catch(y){}}}
-          else toast("文件不存在或已过期");
+          openHref(f.downloadUrl||a.getAttribute("href"));
         });
       });
     }
-    return {enter:enter,leave:leave,bind:bind,status:function(){
+    return {enter:enter,leave:leave,bind:bind,reload:function(){if(S.session){startPoll();return refreshState(true);}ensureSpace();},
+      status:function(){
       return {session:S.session?{id:S.session.id}:null,files:liveFiles().length,bytes:totalBytes(),
-        ups:S.ups.map(function(u){return u.state;}),err:S.err};
+        ups:S.ups.map(function(u){return u.state;}),err:S.err,auth:S.auth};
     }};
   })();
   /* ============================================================
@@ -20079,6 +20151,25 @@ function optSaveCanvas(c,o){
       }catch(e){}
       return r;
     };
+  }catch(e){}
+  /* 2026-11-19：身份校验通过后再进入文件传输页时**强制重新拉一次清单**。
+     以前只有切到别的 tab 才会重连，登录态刷新后停留在同一 tab 时可能「已连接」却拿到旧/空列表。 */
+  try{
+    if(typeof afterIdentity==="function"){
+      var _b2AfterIdentity=afterIdentity;
+      afterIdentity=function(){
+        var r=_b2AfterIdentity.apply(null,arguments);
+        try{if(String(typeof CURTAB!=="undefined"?CURTAB:"")==="file")B2FILE.reload();}catch(e){}
+        return r;
+      };
+    }
+  }catch(e){}
+  /* 回到前台（切回 App / 解锁屏幕 / 另一台设备刚传完文件）→ 立即刷新一次清单 */
+  try{
+    document.addEventListener("visibilitychange",function(){
+      if(document.hidden)return;
+      try{if(String(typeof CURTAB!=="undefined"?CURTAB:"")==="file")B2FILE.reload();}catch(e){}
+    });
   }catch(e){}
 
   /* ---------------- 6. hash 路由：#drop → 大屏互联控制器；#file → 临时云空间 ---------------- */
