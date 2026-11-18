@@ -140,7 +140,7 @@ window.__pl={auth:function(){return AUTH;},gotoTab:function(t){gotoTab(t);},
 #   g_until_dead daily until 2026-11-12 → 已结束 → 已过期区「长期安排已结束」
 #   g_month      monthly_weeks 每月前三周周三 17:30 → 下次 11-18 17:30（窗口未开始，无期次）
 #   g_plain      deadline 11-14 18:00 → 主列表 / 待处理
-#   g_info       无任何时间锚点 → 资料/无时间栏
+#   g_info       无真实时间锚点但有 item 时间 → 发布时间卡（进主列表，chip「… 发布」）
 #   g_exp        deadline 11-10 18:00 → 已过期
 FIXTURES = [
     {"id": "g_until", "cat": "军训", "title": "每日07:30前私发导员请假",
@@ -163,8 +163,9 @@ FIXTURES = [
     {"id": "g_plain", "cat": "教务", "title": "11-13 交报名表", "deadline": "2026-11-14T18:00:00+08:00",
      "deadlineAction": "交表", "aiSummary": "11-13 前交报名表",
      "items": [{"kind": "text", "time": "11-12 09:00", "text": "11-13 前交报名表到 1202"}]},
-    {"id": "g_info", "cat": "班级事务", "title": "2026年学生军训实施方案",
+    {"id": "g_info", "cat": "班级事务", "title": "2026年学生军训实施方案", 
      "aiSummary": "详见方案附件", "items": [{"kind": "text", "time": "11-10 08:00", "text": "方案见附件"}]},
+    {"id": "g_info_bare", "cat": "班级事务", "title": "无发布时间兜底资料", "items": []},
     {"id": "g_exp", "cat": "教务", "title": "过期通知 · 材料提交",
      "deadline": "2026-11-10T18:00:00+08:00", "deadlineAction": "提交",
      "items": [{"kind": "text", "time": "11-09 08:00", "text": "11-10 18:00 前提交材料"}]},
@@ -330,7 +331,7 @@ def main():
             expN:document.querySelectorAll('#expiredList .gcard').length,
             expDisp:getComputedStyle(q('#expiredWrap')).display,
             listCount:q('#listCount').textContent};})()""")
-        T("F1 待处理 = 普通待处理 + 期次（1 普通 + 2 期次 = 3）", st["cards"]["open"] == 3 and st["pendingAll"] == 3,
+        T("F1 待处理 = 普通待处理 + 发布卡 + 期次（1 普通 + 1 发布 + 2 期次 = 4）", st["cards"]["open"] == 4 and st["pendingAll"] == 4,
           json.dumps(st["cards"], ensure_ascii=False))
         T("F2 24h 截止 / 7 天内计数正确（夹具 3 / 3）",
           st["cards"]["urgent"] == 3 and st["cards"]["week"] == 3, json.dumps(st["cards"], ensure_ascii=False))
@@ -338,8 +339,8 @@ def main():
           st["cards"]["recur"])
         T("F4 最新发布显示相对发布时间（今天 HH:MM）", bool(re.match(r"^(今天|昨天) \d{2}:\d{2}$", st["cards"]["latest"])),
           st["cards"]["latest"])
-        T("F5 全部视图分区：主列表 3（普通 + 2 期次）/ 资料 1 / 已过期区 2",
-          st["mainN"] == 3 and st["occN"] == 2 and st["dataN"] == 1 and st["expN"] == 2,
+        T("F5 全部视图分区：主列表 4（普通 + 发布 + 2 期次）/ 资料 1（兜底）/ 已过期区 2",
+          st["mainN"] == 4 and st["occN"] == 2 and st["dataN"] == 1 and st["expN"] == 2,
           json.dumps({"main": st["mainN"], "occ": st["occN"], "data": st["dataN"], "exp": st["expN"]}, ensure_ascii=False))
         T("F6 资料/无时间栏默认展开且计数 1 条", st["dataDisp"] == "block" and st["dataOpen"] and st["dataN"] == 1,
           json.dumps({"disp": st["dataDisp"], "open": st["dataOpen"]}, ensure_ascii=False))
@@ -347,7 +348,7 @@ def main():
           st["expDisp"] == "block" and jf("document.querySelector('#expiredWrap').classList.contains('open')") is False
           and jf("document.querySelector('#expiredCount').textContent") == "2 组",
           st["expDisp"])
-        T("F8 列表底部统计 = 主列表条目数（3 组）", st["listCount"] == "3 组", st["listCount"])
+        T("F8 列表底部统计 = 主列表条目数（4 组）", st["listCount"] == "4 组", st["listCount"])
 
         # 5 卡点击筛选 / 再点取消 / 激活态
         jf("document.querySelector('[data-card=\"pending\"]').click()")
@@ -359,14 +360,14 @@ def main():
                   expDisp:getComputedStyle(q('#expiredWrap')).display,
                   leak:W.__zqTest.pendingAll().length!==document.querySelectorAll('#list .gcard').length};})()""")
         T("F9 点「待处理」卡：仅待处理主列表、资料栏隐藏、已过期区保留折叠",
-          c1["on"] and c1["mainN"] == 3 and c1["dataDisp"] == "none" and c1["expDisp"] == "block" and not c1["leak"],
+          c1["on"] and c1["mainN"] == 4 and c1["dataDisp"] == "none" and c1["expDisp"] == "block" and not c1["leak"],
           json.dumps(c1, ensure_ascii=False))
         jf("document.querySelector('[data-card=\"pending\"]').click()")
         time.sleep(0.2)
         c2 = jf("""(function(){var q=function(s){return document.querySelector(s)};
           return {on:q('[data-card=\"pending\"]').classList.contains('on'),mainN:document.querySelectorAll('#list .gcard').length,
                   dataDisp:getComputedStyle(q('#dataWrap')).display};})()""")
-        T("F10 再点一次取消筛选，恢复全部视图", (not c2["on"]) and c2["mainN"] == 3 and c2["dataDisp"] == "block",
+        T("F10 再点一次取消筛选，恢复全部视图", (not c2["on"]) and c2["mainN"] == 4 and c2["dataDisp"] == "block",
           json.dumps(c2, ensure_ascii=False))
 
         for card, lim, want in (("24h", 24 * 3600 * 1000, 3), ("7d", 7 * 86400000, 3)):
@@ -517,7 +518,7 @@ def main():
         jfs("W.GROUPS=[{id:'g_txt',cat:'教务',title:'交材料',items:[{kind:'text',time:'11-12 09:00',text:'11-13 前交材料'}]}];"
             "W.state.card='';W.state.sub='全部';W.state.cat='全部';W.state.done={};W.render({animate:false});")
         time.sleep(0.2)
-        item_txt = jf("(function(){var e=document.querySelector('#dataList .gi-body');return e?e.textContent:''})()")
+        item_txt = jf("(function(){var e=document.querySelector('#list .gi-body');return e?e.textContent:''})()")
         T("T5 原文条目的日期同格式（11-13 → 11月13日（本周五））", "11月13日（本周五）" in (item_txt or ""),
           (item_txt or "")[:80])
 
@@ -552,10 +553,13 @@ def main():
             occExpect:V.occurrences(now).map(function(g){return g.id}),
             statOpen:+q('#statOpen').textContent,statRecur:+q('#statRecur').textContent,
             statLatest:q('#statLatest').textContent,
-            titleHasFmt:[].some.call(document.querySelectorAll('#list .gcard .gtitle'),function(t){return /\d{1,2}月\d{1,2}日（/.test(t.textContent||'')})};})()""")
-        T("R1 真实 board 数据：全部组渲染、主列表与资料栏非空",
-          real["groups"] == len(GROUPS) and real["mainN"] > 0 and real["dataN"] > 0,
-          json.dumps({k: real[k] for k in ("groups", "mainN", "dataN")}, ensure_ascii=False))
+            titleHasFmt:[].some.call(document.querySelectorAll('#list .gcard .gtitle'),function(t){return /\d{1,2}月\d{1,2}日（/.test(t.textContent||'')}),
+            pubN:W.GROUPS.filter(function(g){return V.statusOf(g).key==='published'}).length,
+            pubInMain:W.GROUPS.filter(function(g){return V.statusOf(g).key==='published'}).every(function(g){return !!document.querySelector('#list .gcard[data-gid="'+g.id+'"]')}),
+            dataDisp:getComputedStyle(q('#dataWrap')).display};})()""")
+        T("R1 真实 board 数据：全部组渲染、发布卡进主列表、资料栏为空并隐藏",
+          real["groups"] == len(GROUPS) and real["mainN"] > 0 and real["dataDisp"] == "none" and real["pubN"] > 0 and real["pubInMain"],
+          json.dumps({k: real[k] for k in ("groups", "mainN", "dataN", "dataDisp", "pubN", "pubInMain")}, ensure_ascii=False))
         T("R2 真实数据长期通知计数与筛选清单一致；期次卡与期次算法结果一致",
           real["longtermN"] == real["recurN"] and real["statRecur"] == real["longtermN"]
           and real["occ"] == real["occExpect"],

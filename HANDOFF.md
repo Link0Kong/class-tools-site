@@ -3681,3 +3681,30 @@ sync-repos.cmd "feat: 说明本次改了什么"
 ### 仍待人工（小程序提醒 / OPPO 推送）
 - `notify` 云函数代码已是最新（index.js/scan.js hash 与本地一致），但 timer 触发器未上传：`diag` 实测 `hb.source=flush`、`lastScanAt=0`、75s 不前进。微信限制：必须开发者工具右键 `cloudfunctions/notify/config.json` →「上传触发器」（或云开发控制台新建 `hwReminder` / timer / `0 */1 * * * * *`）。上传后 `hb.source` 应为 `timer`。
 - `oppo-push.log` 今天均「注册设备 token 数: 0」；`push_tokens` 表写入/RLS 已用测试身份验证通过。需 ColorOS 真机打开 beta4 并登录后确认推送注册；若仍 0，再查 OPPO 开放平台包名/签名与推送密钥。
+
+## 2026-11-18 12:45–13:0x · 通知「发布时间统一」（增量 60，网页已上线 OSS+ECS；小程序/安卓源码待用户发布/安装）
+
+> 用户原话：「将通知中不含时间的时间设定为发布时间，动作设为发布，并参与排序等等统一计算」。
+
+### 契约与口径
+- 唯一契约：`通知三端_发布时间统一_契约_20261118.md`（取代 2026-11-14 契约中「资料 / 无时间」栏的展示与统计口径；长期安排/期次/5 卡其余规则不变）。
+- 数据（三端共用）：所有通知组新增 `publishedAt`（ISO +08:00；组内最新消息时间 / updatedAt 的较晚者，与「最新发布」同口径）；「无任何时间锚点且非长期安排」的组新增 `publishAction="发布"`。`sync_notices_cloud.compact_group` 白名单已加两字段。
+- 状态：无真实时间锚点、未过期、非长期安排 → `statusOf` 返回 `{key:'published', label:'<fmtWhen(发布时间)> 发布', cls:'active'}`；无发布时间才保留 `{key:'none', label:'无时间'}`。已过期/长期安排/已处理优先级不变。
+- 分类/排序/统计：发布卡进入主列表（`isTimeGroup` 纳入、`isInfoGroup` 排除）；`orderRank` 档 4、档内按发布时间**倒序**；「资料 / 无时间」栏只留既无锚点又无发布时间的兜底卡（正常 0 条自动隐藏）；待处理按 `actionable !== false` 计入、24h/7 天窗口仍按主显示时间（发布卡不进入）；最新发布用 `publishedAt` 字段。
+- 兼容：旧数据/旧缓存无字段时客户端从 `items[].time`/`updatedAt` 现场推算（`publishedTsOf` 回退），不退回「无时间」。
+
+### 代码位置
+- 管线：`C:\briefdesk\scripts\sync_notices_cloud.py`（compact_group 两字段）；`C:\Users\Ko_Li\.openclaw\workspace\briefdesk-plan\build_notice_board.py`（Python `publish_at_of`/`has_time_anchor` + main 末尾写字段；JS `publishedTsOf`/`statusOf`/`isInfoGroup`/`isTimeGroup`/`orderRank`/`orderGroups`）。
+- 网页模板经 demo → `tools/build_notice_embed.py` 重新嵌入 `tools/index.html`。
+- 小程序：`mp-class-tools/utils/notice.js` 等（另见其提交记录）；安卓：`android-class-tools/.../NoticeStatusMachine.kt` 等（另见其提交记录）。
+
+### 测试（网页，本机实跑）
+- 新增 `tools/tests/v2_notice_publish_check.py` **20/20**。
+- 更新并通过：`v2_notice_period_check` **53/53**、`v2_notice_longterm_check` **27/27**、`v2_notice_live_check` **20/20**；回归 `v2_notice_data_check` 27/27、`v2_notice_dynamic_cat_check` 18/18、`v2_ui_check` 27/27。
+- `tools/tests/overflow_check.py 430` → overflowCount=0；`tools/tests/export_check.py draw` 正常落盘。
+
+### 上线 / 回滚
+- 线上 `tools/index.html` **1,335,115 B / sha256 `610a39dcfc2aad1f8a3d7727a87396a0a6c8a949c15d39e0b76e9dbdb497b46b`**；`oss_object check` MATCH、ECS verify MATCH（gzip 413,620B）。
+- board 页 **14,626,157 B / e603f657…**、data **14,539,363 B**；`sync_notices_cloud` **104/104**；测试身份只读核验：104 组全部带 `publishedAt`、9 组带 `publishAction`。
+- 部署前备份 `tools/_backup/index_online_20261118-1258_prePublishTime.html`（1,333,307 B / `b33d0251296ecc25c26e23dd56137d578874f72b57768c6d589ba4b3dd7ceac0`）；回滚=重传备份（数据新增字段旧模板忽略，可保留）。
+- 小程序需用户上传发布、安卓需重新打包安装后生效（源码与单测已就绪）。

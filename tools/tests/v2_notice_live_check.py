@@ -204,9 +204,11 @@ async function run(){
     T("L10 长期通知卡数字 = 进行中安排条数（真实数据）",
       (function(){try{var w=frame(f).contentWindow,d=frameDoc(f);var v=Number((d.querySelector('#statRecur')||{}).textContent);
         var n=w.GROUPS.filter(function(g){return g.recurrence&&g.recurrence.freq&&w.recurOngoing(g.recurrence,w.__zqTest.nowMs())}).length;return v===n;}catch(e){return false;}})(), "");
-    T("L10b 资料/无时间栏默认展开且非空",
-      (function(){try{var d=frameDoc(f);var w=d&&d.getElementById('dataWrap');if(!w)return false;
-        return frame(f).contentWindow.getComputedStyle(w).display!=='none'&&w.classList.contains('open')&&d.querySelectorAll('#dataList .gcard').length>0;}catch(e){return false;}})(), "");
+    T("L10b 资料/无时间栏：发布时间统一后应为空并隐藏；发布卡进主列表（契约 2026-11-18）",
+      (function(){try{var w=frameDoc(f);var win=frame(f).contentWindow;var wrap=w&&w.getElementById('dataWrap');if(!wrap)return false;
+        var infoN=win.infoGroups().length,pubN=win.GROUPS.filter(function(g){return win.statusOf(g).key==='published'}).length;
+        var pubInMain=win.GROUPS.filter(function(g){return win.statusOf(g).key==='published'}).every(function(g){return !!w.querySelector('#list .gcard[data-gid="'+g.id+'"]')});
+        return infoN===0&&win.getComputedStyle(wrap).display==='none'&&pubN>0&&pubInMain;}catch(e){return false;}})(), "");
     T("L10c 主列表不含长期安排定义卡（长期定义只在长期通知筛选；已结束进过期区）",
       (function(){try{var w=frame(f).contentWindow,d=frameDoc(f);var ids={};w.GROUPS.forEach(function(g){if(g.recurrence&&g.recurrence.freq)ids[g.id]=1});
         return [].every.call(d.querySelectorAll('#list .gcard'),function(c){return !ids[c.getAttribute('data-gid')]});}catch(e){return false;}})(), "");

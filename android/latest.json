@@ -2,9 +2,8 @@
   "versionCode": 87,
   "versionName": "1.0.0-beta4",
   "apkUrl": "http://121.196.47.2/android/classtools-1.0.0-beta4.apk",
-  "notes": "1.0.0-beta4 vc87\n1. 补充 OPPO 账号 OAuth SDK 要求的 Manifest APPID（com.heytap.msp.client.appid），修复部分 ColorOS 设备授权 2020003\n2. OPPO 账号入口仅 ColorOS 显示；快捷登录不依赖学号姓名\n3. 检查更新只弹窗，不自动下载/安装；更新卡片显示版本对比/大小/说明",
+  "notes": "1.0.0-beta4（测试版本）\n1. 按鸿蒙端重做卡片/UI：白色18圆角浅阴影卡、莫奈浅色 hero、分类全部工具、编辑首页\n2. 工作台/我的/身份/工具页统一鸿蒙设计\n3. 保留删除三工具、启动自动更新弹窗、通知数据卡\n4. 其它并行改动随包",
   "force": false,
   "channel": "beta",
-  "sizeBytes": 5787765,
-  "sha256": "cfb5418eda62a987ee99c109a5dd628cfd7e52c7d720d274a8e0a5302981e1ac"
+  "sha256": "63da6827785013f6ca54ad200f408f65f0dd1de1a07448e734d4cfa14a1d948e"
 }

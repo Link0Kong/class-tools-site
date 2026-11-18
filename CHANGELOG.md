@@ -2,6 +2,19 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-18 12:45–13:0x · 通知「发布时间统一」：无时间通知以发布时间入主列表、动作「发布」并统一排序/统计（网页已上线 OSS+ECS；小程序/安卓源码待发）
+
+> 用户原话（2026-11-18 12:45）：「将通知中不含时间的时间设定为发布时间，动作设为发布，并参与排序等等统一计算」。2026-11-14 契约曾把「无任何时间锚点」的通知单独放入「资料 / 无时间」栏、不进主列表/不参与待处理统计；本次改为统一计算。
+
+- **唯一契约**：`通知三端_发布时间统一_契约_20261118.md`（`publishedAt` / `publishAction` 数据字段、状态/分类/排序/统计口径、兼容与回滚）。
+- **数据管线**（`briefdesk-plan/build_notice_board.py` + `C:\briefdesk\scripts\sync_notices_cloud.py`）：所有组写 `publishedAt`（组内最新消息时间/updatedAt 的较晚者，ISO +08:00，与「最新发布」同口径）；无任何时间锚点且非长期安排的组写 `publishAction="发布"`；`compact_group` 白名单新增两字段（云端 body 下发三端）。
+- **网页模板**（`build_notice_board.py` → demo → `build_notice_embed.py`）：新增 `publishedTsOf`（优先字段、旧数据回退推算）；`statusOf` 在「无时间」前新增 `published` 分支（chip `<时间> 发布`）；`isInfoGroup` 排除有发布时间者、`isTimeGroup` 纳入发布卡 → 发布卡进主列表；`orderRank` 档 4 + 档内按发布时间倒序；「资料 / 无时间」栏只保留既无锚点又无发布时间的兜底卡（正常 0 条自动隐藏）；待处理/24h/7 天/最新发布按契约统一计算（发布卡 actionable!==false 计入待处理；主显示时间过去→不进未来窗口）。
+- **测试**：新增 `tools/tests/v2_notice_publish_check.py` **20/20**（状态/chip/主列表/资料栏兜底/排序倒序/待处理统计/最新发布字段优先/真实数据/无溢出）；更新 `v2_notice_period_check.py` **53/53**、`v2_notice_longterm_check.py` **27/27**、`v2_notice_live_check.py` **20/20**（资料栏语义改为发布卡进主列表）；`v2_notice_data_check` 27/27、`v2_notice_dynamic_cat_check` 18/18、`v2_ui_check` 27/27；`overflow_check 430` overflowCount=0、`export_check draw` 正常落盘。
+- **上线**：`tools/index.html` **1,335,115 B / sha256 `610a39dcfc2aad1f8a3d7727a87396a0a6c8a949c15d39e0b76e9dbdb497b46b`**；OSS `sync_tools.py` + ECS `ecs_site.py apply`，`oss_object check`/ECS verify 均 MATCH（gzip 413,620B）；board 页 **14,626,157 B / sha256 e603f657…**、data **14,539,363 B**；notices cloud **104/104**（测试身份只读核验：104 组全部带 publishedAt、9 组带 publishAction）。
+- **部署前备份**：`tools/_backup/index_online_20261118-1258_prePublishTime.html`（1,333,307 B / `b33d0251296ecc25c26e23dd56137d578874f72b57768c6d589ba4b3dd7ceac0`）。
+- **回滚**：重传备份 index（模板恢复旧语义）；`publishedAt`/`publishAction` 为新增字段，旧模板会忽略，可直接保留；board/notices 数据如需彻底回退可重建+重新 sync。
+- **待用户操作**：小程序（`mp-class-tools`）与安卓（`android-class-tools`）源码同步改造完成、单测全绿；小程序需用户上传发布、安卓需重新打包安装后生效。
+
 ## 2026-11-18 10:2x–10:3x · 修复网页通知页「一直加载 / 加载失败」：整表 15MB → lite 0.3MB + 附件按需拉取（网页已上线 OSS+ECS）
 
 > 用户反馈网页/小程序通知页打不开、一直加载或提示「通知加载失败」，同时手机收不到提醒。只读排查：本地通知服务 HTTP 200、云端 `public.notices` 可读，但整表已达 **15,024,643 B / 124 行**（自动通知 body 内嵌图片/文件 data URI）；网页仍用 `notices?select=*` 一次拉全表，手机弱网/微信 WebView 下等同于卡死。小程序 11-17 已有 `class_notices_meta` lite 链路，网页此前未接。

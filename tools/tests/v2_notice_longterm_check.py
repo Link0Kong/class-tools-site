@@ -268,13 +268,16 @@ def main():
             infoN:V.infoGroups().length,
             dataN:document.querySelectorAll('#dataList .gcard').length,
             dataDisp:getComputedStyle(document.querySelector('#dataWrap')).display,
+            pubN:W.GROUPS.filter(function(g){return V.statusOf(g).key==='published'}).length,
+            pubInMain:W.GROUPS.filter(function(g){return V.statusOf(g).key==='published'}).every(function(g){return !!document.querySelector('#list .gcard[data-gid="'+g.id+'"]')}),
             dataOpen:document.querySelector('#dataWrap').classList.contains('open')};})()""")
         T("L3 长期通知卡数字 = 进行中安排条数（真实数据）",
           real["statRecur"] == real["ongoingN"],
           json.dumps(real, ensure_ascii=False))
-        T("L4 资料/无时间栏默认展开且条数 = 资料组数",
-          real["dataDisp"] == "block" and real["dataOpen"] and real["dataN"] == real["infoN"] and real["infoN"] > 0,
-          json.dumps(real, ensure_ascii=False))
+        T("L4 资料/无时间栏：发布时间统一后资料卡为 0 → 隐藏；发布卡进主列表（契约 2026-11-18）",
+          real["infoN"] == 0 and real["dataN"] == 0 and real["dataDisp"] == "none"
+          and real["pubN"] > 0 and real["pubInMain"],
+          json.dumps({k: real[k] for k in ("infoN", "dataN", "dataDisp", "pubN", "pubInMain")}, ensure_ascii=False))
         jf("document.querySelector('[data-card=\"longterm\"]').click()")
         time.sleep(0.3)
         lt = jf("""(function(){var rows=[].map.call(document.querySelectorAll('#list .ltrow'),function(r){
@@ -382,7 +385,9 @@ def main():
         jf("document.querySelector('[data-card=\"longterm\"]').click()")
         time.sleep(0.2)
         T("L17 再点长期通知卡取消筛选（恢复全部视图）",
-          jf("(function(){return document.querySelectorAll('#dataBar .bstat.on').length===0&&document.querySelectorAll('#dataWrap .gcard').length>0;})()") is True, "")
+          jf("(function(){return document.querySelectorAll('#dataBar .bstat.on').length===0"
+             "&&document.querySelectorAll('#list .gcard').length>0"
+             "&&getComputedStyle(document.querySelector('#dataWrap')).display==='none';})()") is True, "")
         jf("document.querySelector('#dataBar [data-card=\"longterm\"]').click()")
         time.sleep(0.2)
         cat = jf("""(function(){var b=document.querySelector('#catRow [data-cat=\"军训\"]');if(!b)return {skip:1};
