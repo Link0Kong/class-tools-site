@@ -24,10 +24,13 @@
    ```
 3. **导入到 `class_tools_cut`（全新库，不影响 staging）**：
    ```
-   python deploy\ecs_pg.py import --db class_tools_cut --artifact C:\briefdesk\data\cloudbase_migration\cutover
-   python deploy\ecs_pg.py verify --db class_tools_cut --expect <manifest.json>
+   python deploy\ecs_pg.py import --db class_tools_cut --artifact C:\briefdesk\data\cloudbase_migration\cutover --reset
+   python deploy\ecs_pg.py verify --db class_tools_cut --expect C:\briefdesk\data\cloudbase_migration\cutover\manifest.json
+   python deploy\ecs_pg.py apply-sql --db class_tools_cut --file deploy\migration\2026-11-18_notice_meta_lite.sql
    ```
-   校验：34 表行数/哈希一致；函数/策略/触发器/索引计数一致；序列值正确。
+   校验：34 表行数/哈希一致；函数/策略/触发器/索引计数一致；序列值正确；
+   应用本地优化 SQL 后 `class_notices_meta` 输出与 CloudBase 现有实现逐字节一致（staging 已验证 sha 相同），
+   且延迟从 221–250ms 降到 75–95ms（ECS 环回，125 行 / 313KB）。
 4. **切换 PostgREST 指向 cut DB**（1 秒重启）：
    ```
    python deploy\ecs_pg.py switch-db --db class_tools_cut
@@ -79,6 +82,28 @@ python deploy\ecs_pg.py switch-db --db class_tools   # 如需把 PostgREST 切�
 - [ ] ECS 定时任务首轮成功；健康行 `cloudbase` ok、`cloud_*` 行有 ECS timer 心跳。
 - [ ] 备份：`pg_dump` 成功且可从备份恢复校验。
 - [ ] 仓库提交并双远端推送（site/index/脚本/文档）。
+
+## 5.1 P4 演练（不切流，2026-11-18 已跑通：40.7MiB 快照 / 导入 4.5min / VERIFY_OK 34 表 / meta sha 一致）
+
+在真正切流前，用**生产只读快照**在 `class_tools_cut` 演练一遍完整 P4（不动生产 Caddy）：
+
+```bat
+set DIR=C:\briefdesk\data\cloudbase_migration\p4-rehearsal
+python deploy\migration\export_schema.py --out %DIR%
+python deploy\migration\export_data.py  --out %DIR%
+python deploy\migration\verify_export.py --out %DIR%
+python deploy\ecs_pg.py import --db class_tools_cut --artifact %DIR% --reset
+python deploy\ecs_pg.py verify --db class_tools_cut --expect %DIR%\manifest.json
+python deploy\ecs_pg.py apply-sql --db class_tools_cut --file deploy\migration\2026-11-18_notice_meta_lite.sql
+python deploy\ecs_pg.py switch-db --db class_tools_cut
+python deploy\ecs_pg.py smoke                 :: 测试账号 staging 契约冒烟
+python deploy\ecs_pg.py probe                 :: db-uri=class_tools_cut
+python deploy\ecs_pg.py switch-db --db class_tools   :: 演练完切回 staging 库
+```
+- 期望：导入 HASH_OK 34/34、verify TABLES_OK 34/34、smoke 全 PASS、staging `/v1/rdb/rest-next/` 200；
+  2026-11-18 实测：导入 4.5min、72MB、HASH_OK 34/34、VERIFY_OK 34、meta sha `20a0346a…` 一致、延迟 87ms；
+- `switch-db` 只改 PostgREST 指向的库（秒级重启），不碰 Caddy；演练后切回 `class_tools` 即恢复原状；
+- 生产切流窗口仍按 §1 执行（cut DB 演练通过后再加 Caddy 切换）。
 
 ## 6. 已知风险
 

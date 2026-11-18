@@ -45,6 +45,41 @@ OSS_BASE = "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com"
 SITE = os.environ.get("SITE_URL") or "https://tool.furina.fun"
 LE_EMAIL = "3299207275@qq.com"
 
+# 生产 API 上游模式（2026-11-18 迁移）：
+#   cloudbase   —— 默认：/v1/rdb/rest/* 仍反代腾讯云 CloudBase 网关（切流前）；
+#   selfhosted  —— P4 切流后：/v1/rdb/rest/* 指 ECS 本地 PostgREST（127.0.0.1:3000，剥 Authorization）。
+# 由 deploy/ecs_cutover.py 在切流/回滚时通过环境变量设置；直接跑 ecs_site.py apply 时默认不变。
+PROD_API_MODES = ("cloudbase", "selfhosted")
+
+
+def prod_api_mode():
+    mode = (os.environ.get("CLASS_API_MODE") or "cloudbase").strip().lower()
+    if mode not in PROD_API_MODES:
+        raise SystemExit("CLASS_API_MODE 只能是 %s，收到：%r" % (PROD_API_MODES, mode))
+    return mode
+
+
+def _prod_api_route():
+    """生成生产 /v1/rdb/rest/* 路由块（含前导 tab 缩进）。"""
+    if prod_api_mode() == "selfhosted":
+        return """	# 自建后端（P4 已切流）：PostgreSQL 18 + PostgREST 13
+	# 客户端仍带 CloudBase publishable JWT -> 自建侧剥掉 Authorization（RLS 靠 X-Device-Id/X-Class-Token）。
+	handle_path /v1/rdb/rest/* {
+		reverse_proxy 127.0.0.1:3000 {
+			header_up -Authorization
+		}
+	}"""
+    return """	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
+	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
+	# 当前访问域名的 Origin（如 ECS IP 调试入口）→ 网关 403，页面报「网络错误」。
+	# 同源请求不需要 CORS，故反代侧去掉 Origin（2026-11-12 修复 IP/临时域名登录失败）。
+	handle /v1/rdb/rest/* {
+		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
+			header_up Host tool-d4gosudok46e0e081.api.tcloudbasegateway.com
+			header_up -Origin
+		}
+	}"""
+
 # ---------------------------------------------------------------- 阿里云调用
 
 
@@ -147,16 +182,7 @@ def _caddy_http():
 			header_up -Authorization
 		}
 	}
-	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
-	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
-	# 当前访问域名的 Origin（如 ECS IP 调试入口）→ 网关 403，页面报「网络错误」。
-	# 同源请求不需要 CORS，故反代侧去掉 Origin（2026-11-12 修复 IP/临时域名登录失败）。
-	handle /v1/rdb/rest/* {
-		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
-			header_up Host tool-d4gosudok46e0e081.api.tcloudbasegateway.com
-			header_up -Origin
-		}
-	}
+	__PROD_API_ROUTE__
 	handle /board* {
 		rewrite * /board.html
 		root * /opt/briefdesk/data
@@ -172,7 +198,7 @@ def _caddy_http():
 	@static path /assets/* /favicon.ico /apple-touch-icon.png /robots.txt
 	header @static Cache-Control "public, max-age=604800"
 }
-"""
+""".replace("__PROD_API_ROUTE__", _prod_api_route())
 
 
 def _caddy_https():
@@ -219,16 +245,7 @@ tool.furina.fun {
 			header_up -Authorization
 		}
 	}
-	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
-	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
-	# 当前访问域名的 Origin（如 ECS IP 调试入口）→ 网关 403，页面报「网络错误」。
-	# 同源请求不需要 CORS，故反代侧去掉 Origin（2026-11-12 修复 IP/临时域名登录失败）。
-	handle /v1/rdb/rest/* {
-		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
-			header_up Host tool-d4gosudok46e0e081.api.tcloudbasegateway.com
-			header_up -Origin
-		}
-	}
+	__PROD_API_ROUTE__
 	handle /board* {
 		rewrite * /board.html
 		root * /opt/briefdesk/data
@@ -284,16 +301,7 @@ tool.furina.fun {
 			header_up -Authorization
 		}
 	}
-	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
-	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
-	# 当前访问域名的 Origin（如 ECS IP 调试入口）→ 网关 403，页面报「网络错误」。
-	# 同源请求不需要 CORS，故反代侧去掉 Origin（2026-11-12 修复 IP/临时域名登录失败）。
-	handle /v1/rdb/rest/* {
-		reverse_proxy https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com {
-			header_up Host tool-d4gosudok46e0e081.api.tcloudbasegateway.com
-			header_up -Origin
-		}
-	}
+	__PROD_API_ROUTE__
 	handle /board* {
 		rewrite * /board.html
 		root * /opt/briefdesk/data
@@ -309,7 +317,8 @@ tool.furina.fun {
 	@static path /assets/* /favicon.ico /apple-touch-icon.png /robots.txt
 	header @static Cache-Control "public, max-age=604800"
 }
-""".replace("__LE_EMAIL__", LE_EMAIL)
+""".replace("__LE_EMAIL__", LE_EMAIL) \
+     .replace("__PROD_API_ROUTE__", _prod_api_route())
 
 
 

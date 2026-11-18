@@ -89,3 +89,17 @@ PostgreSQL 18（class_tools 库：public 29 表 + private 5 表，88 函数、71
 - 2026-11-18 14:00–14:30（P3）：本机管线 `cloud_backend.py` env 覆盖（17 路径；默认 CloudBase 行为不变）、ECS 云函数替代 timer（已安装、disabled）、`web/jwxt/tt_cloud.py`+`ppt/agent.py` env 覆盖；小程序/安卓三档 base 配置 + 网络层优化（mp unit 591/0、安卓 1594/0、`verifyReleaseEndpoints` 通过）；staging 冒烟：mp devtools 9/9、安卓 StagingSmokeTest、pipeline staging 26/26、ECS timer health_probe/power_sync smoke ok。
 - 2026-11-18 14:20–14:45（P2 影子验证）：网页 `?api=next` 真实浏览器 E2E **10/10**（身份门禁/测试账号登录/9 个 staging 请求、0 生产 CloudBase 请求、members=70/meta=125、0 JS 报错，API P50 30ms）；网页已部署 OSS+ECS（1,335,602B/`36be5b2d…`，生产默认行为不变）。staging 后端数据/契约/RLS/性能由 ecs-pg 独立复核通过。
 - 当前状态：**P0/P1/P2/P3 就绪，P4 切流待 ICP 备案 + 域名恢复**（mp/安卓正式版不能走 http/IP）。切流步骤见 `CUTOVER.md`。
+
+## 8. 第二轮进展（2026-11-18 15:xx，P4 工具与优化）
+
+- **P4 切换工具**：`deploy/ecs_cutover.py`（status / validate / switch --to selfhosted|cloudbase，`--confirm` 才执行；
+  远端备份 Caddyfile → validate → reload → 公网复核）+ `ecs_site.py` 新增 `CLASS_API_MODE` 生成生产路由；
+  `validate` 已用远端临时文件验证 selfhosted/cloudbase 两种 Caddy 配置均 `Valid configuration`（active 未动）。
+- **通知列表优化**：`deploy/migration/2026-11-18_notice_meta_lite.sql`（trigger 预计算 + RPC JOIN），
+  staging 实测输出 sha 与旧实现**逐字节一致**（125 行 / 313819B / `20a0346a…`），延迟 **221–250ms → 75–95ms**；
+  `ecs_pg.py apply-sql` 支持导入后应用（P4 切流步骤已写入 CUTOVER.md）。
+- **P4 演练（2026-11-18 14:20–14:34，已完成）**：全新快照 `cutover-dryrun-20261118-1424`（schema 30s + 数据 139s + verify 70s，40.7MiB；drift 仅 class_sessions/agent_keys/diag_analysis 预期 live 写入）→
+  `import --db class_tools_cut --reset`（4.5 分钟，72MB，HASH_OK 34/34）→ `verify` **tables=34 OK** →
+  `apply-sql` notice_meta_lite → `switch-db class_tools_cut` → 测试账号 smoke：members 70（3.6ms）、notices meta **sha 20a0346a… 与旧实现逐字节一致 / 125 行**、延迟 **87ms**、RLS 负例 `[]`；
+  生产公网 `/v1/rdb/rest/` 仍 401（CloudBase 未动）→ `switch-db class_tools` 切回 staging。
+  结论：P4 切流全链路可在 5 分钟内完成；切流窗口按 CUTOVER.md §1 执行（最终快照重跑一次）。

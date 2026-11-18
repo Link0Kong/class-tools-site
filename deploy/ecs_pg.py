@@ -1480,6 +1480,46 @@ def _extract_manifest_rows(obj):
     return out
 
 
+def apply_sql(sql_path, db, dry_run=False):
+    """P4 导入后应用本地 SQL（如 notice_meta_lite 优化）：psql -v ON_ERROR_STOP=1 -d <db>。
+
+    SQL 文件来自仓库 deploy/migration/*.sql（不含密钥）；仅用于 staging/cut 库，生产 CloudBase 不应用。
+    """
+    sql_path = os.path.abspath(sql_path)
+    if not os.path.isfile(sql_path):
+        print("[x] SQL 文件不存在：%s" % sql_path)
+        return 2
+    sql = open(sql_path, "r", encoding="utf-8").read()
+    if not sql.strip():
+        print("[x] SQL 为空：%s" % sql_path)
+        return 2
+    rel = os.path.relpath(sql_path)
+    sha = hashlib.sha256(sql.encode("utf-8")).hexdigest()[:16]
+    print("[apply-sql] %s (%d B, sha256:%s...) -> db=%s" % (rel, len(sql.encode("utf-8")), sha, db))
+    script = r"""#!/bin/bash
+set -euo pipefail
+export LC_ALL=C
+DB="__DB__"
+if [ "$(runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB'")" != "1" ]; then
+  echo "FATAL 目标库不存在: $DB"; exit 2
+fi
+runuser -u postgres -- psql -q -v ON_ERROR_STOP=1 -d "$DB" <<'SQL_APPLY_EOF'
+__SQL__
+SQL_APPLY_EOF
+echo "APPLY_SQL_OK db=$DB"
+""".replace("__DB__", db).replace("__SQL__", sql)
+    if dry_run:
+        print(script)
+        return 0
+    ok, out = _remote(script, "pg-apply-sql", timeout=180, wait=300)
+    print(out)
+    if ok:
+        print("[apply-sql] 成功：%s 已应用到 %s" % (rel, db))
+        return 0
+    print("[apply-sql] 失败（见上方输出）")
+    return 1
+
+
 def switch_db(db):
     """P4 切流：只改 PostgREST 指向的数据库（密码保持不动），不切 Caddy 路由。"""
     script = r"""#!/bin/bash
@@ -1557,6 +1597,11 @@ def main(argv=None):
     pd = sub.add_parser("switch-db", help="P4：只改 PostgREST 指向的库（不切生产 Caddy 路由）")
     pd.add_argument("--db", required=True)
 
+    pa = sub.add_parser("apply-sql", help="P4：导入后执行本地 SQL（如 notice_meta_lite 优化）")
+    pa.add_argument("--file", required=True, help="本地 SQL 文件（deploy/migration/*.sql）")
+    pa.add_argument("--db", default=DB_NAME, help="目标库（默认 class_tools；切流用 class_tools_cut）")
+    pa.add_argument("--dry-run", action="store_true", help="只打印远端脚本")
+
     ns = ap.parse_args(argv)
     if ns.cmd == "provision":
         return provision(dry_run=ns.dry_run)
@@ -1576,6 +1621,8 @@ def main(argv=None):
         return verify_import(ns.expect, ns.db)
     if ns.cmd == "switch-db":
         return switch_db(ns.db)
+    if ns.cmd == "apply-sql":
+        return apply_sql(ns.file, ns.db, dry_run=ns.dry_run)
     return 2
 
 

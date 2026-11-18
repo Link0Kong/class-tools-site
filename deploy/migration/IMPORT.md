@@ -202,6 +202,8 @@ python deploy\ecs_site.py apply   # 生产 /v1/rdb/rest/* 不受影响
 - PostgREST 进程 RSS ≈ 38MB / CPU 0.7%；ECS 内存可用 ≈ 2.7GiB；磁盘 `/` 用 8.1G/40G。
 - 首屏 `class_notices_meta` 的 235ms 主要来自 25MB 通知 body 的轻量化扫描；切流后如仍偏慢，可加派生列/物化缓存（P5 优化项）。
 
+| 2026-11-18 14:20–14:34 | P4 演练 | 全新快照导入 `class_tools_cut`（4.5min/72MB/HASH_OK 34）→ VERIFY_OK 34 → apply-sql → switch-db → smoke（members 70/meta sha 一致/延迟 87ms）→ 切回 staging |
+
 ## 9. 已知限制（如实）
 
 1. 导入按「逐表单事务」提交；中途失败不自动回滚已提交表，重导请用 `--reset` 从零开始。
