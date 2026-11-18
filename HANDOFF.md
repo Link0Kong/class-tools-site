@@ -3795,7 +3795,7 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - **网页**：`visitLog` 带 `client:"web"`；`statsPull` 取 `ts,client`、`order=ts.desc&limit=5000`；`renderStats` 按 `max(ts)` 倒序、`MM/DD HH:mm`、端标签、过滤 `3260799999`/9999 段 QA/匿名；进入统计 tab 重置今天。测试 `tools/tests/stats_check.py` **44/44**（新增默认今天/排序/分钟/端/旧行回退/过滤/client=web）；回归 v2_ui 27/27、v2_port_ui 80/80、v2_ug 56/56、overflow 430=0。
 - **小程序**：`cloud.js` 写 `client:"mp"`、`id=sid|slot|mp`、去重键 `sid+端`；`statsPull` 取 ts/client、limit 5000；`pages/stats` 默认 today/最近登录排序/分钟/端标签/忽略测试；AI `getVisitStats` 同口径。`unit.js 597/0`、`ai_unit_account.js 41/0`、staticcheck/code_quality 0。
 - **Windows**：`VisitItem` 增 ts/client；`VisitsRepository` 按 ts 拉取 + `ReportAsync`（`win`，`Prefer: resolution=ignore-duplicates,return=minimal`）；`SessionService` 恢复/登录后 best-effort 上报；`StatsPage` 默认今天/最近登录/分钟/端/过滤。`dotnet test` 见 Windows 仓库记录。
-- **安卓**：新增 `VisitReporter`（`android`，小时幂等、失败静默），`AppContainer.updateActiveSession` 后上报；无统计页。
+- **安卓**：新增 `VisitReporter`（`android`，小时幂等、失败静默），`AppContainer.updateActiveSession` 后上报；**同日追加管理员统计页**（`ui/screens/stats/StatsScreen.kt` + `data/visits/VisitStats.kt`/`VisitsRepository.kt`，入口 `ToolCatalog.stats` 仅管理员可见；`beta5/vc88`，`testDebugUnitTest 1627/0`，APK 5,804,121B/`6197242E…`）。
 - **鸿蒙**：`VisitsReporter` 行增 `client:"harmony"`，`Visits.test.ets` 断言；干净检出 `382/0`（工作区另有多会话 WIP，未触碰）。
 - **上线**：网页 **1,338,669 B / sha256 `f6f85eb5…`**（OSS MATCH / ECS verify MATCH，gzip 414,969B）；备份 `tools/_backup/index_online_20261118-2135_preStatsLogin.html`（1,337,057B/`139136c4…`）。
 - **回滚**：重传备份；列可保留，彻底回滚 `drop column client`；各端回退源码/安装包。

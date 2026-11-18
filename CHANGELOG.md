@@ -22,7 +22,7 @@
 - **网页 `tools/index.html`**：`visitLog` 写 `client:"web"`；统计查询改 `select=slot,sid,name,ts,client&order=ts.desc&limit=5000`；`renderStats` 按 `max(ts)` 倒序、时间显示 `MM/DD HH:mm`（旧行 ts=0 回退 slot 整点）、账号行显示端标签、过滤官方测试账号 `3260799999` 与 9999 段 10 位 QA 身份；每次进入统计页重置「今天」。
 - **小程序**：`utils/cloud.js` 写 `client:"mp"`、`id=sid|slot|mp`、去重键按 `sid+端` 分开；`statsPull` 取 ts/client、limit 5000；`pages/stats` 默认今天/最近登录排序/分钟/端标签/忽略测试；AI `getVisitStats` 同口径。
 - **Windows**：`VisitItem` 增 ts/client；`VisitsRepository` 按 ts 拉取并新增 `ReportAsync`（client=win，小时幂等）；`SessionService` 恢复/登录后 best-effort 上报；统计页默认今天、最近登录排序、分钟/端标签/忽略测试。
-- **安卓**：新增 `VisitReporter`（client=android，小时幂等、失败静默），`AppContainer.updateActiveSession` 后 best-effort 上报；无统计页变更。
+- **安卓**：新增 `VisitReporter`（client=android，小时幂等、失败静默），`AppContainer.updateActiveSession` 后 best-effort 上报；**同日追加**管理员统计页 `StatsScreen`（`beta5/vc88`，按最近登录/今天/分钟/端/过滤测试，入口仅管理员可见），`testDebugUnitTest 1627/0`，APK **5,804,121B / `6197242E…`**。
 - **鸿蒙**：`VisitsReporter` 行增 `client:"harmony"`。
 - **测试**：网页 `stats_check.py` **44/44**（默认今天/排序/分钟/端/旧行回退/测试过滤/client=web）、`v2_ui_check 27/27`、`v2_port_ui_check 80/80`、`v2_ug_check 56/56`、overflow 430=0；小程序 `unit.js 597/0`、`ai_unit_account.js 41/0`、staticcheck/code_quality 0；Windows/安卓/鸿蒙见各自仓库记录。
 - **上线**：`tools/index.html` **1,338,669 B / sha256 `f6f85eb5fcfc8d67db099283808b040d6c8daa2f5b6c02a7c36433976f357f0b`**；OSS `check` MATCH、ECS verify MATCH（gzip 414,969B）。部署前备份 `tools/_backup/index_online_20261118-2135_preStatsLogin.html`（1,337,057 B / `139136c4…`）。
