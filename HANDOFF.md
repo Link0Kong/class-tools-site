@@ -3800,3 +3800,14 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - **上线**：网页 **1,338,669 B / sha256 `f6f85eb5…`**（OSS MATCH / ECS verify MATCH，gzip 414,969B）；备份 `tools/_backup/index_online_20261118-2135_preStatsLogin.html`（1,337,057B/`139136c4…`）。
 - **回滚**：重传备份；列可保留，彻底回滚 `drop column client`；各端回退源码/安装包。
 
+
+## 2026-11-18 22:3x–22:4x · 统计排序改为「访问次数优先，次数相同按最近访问」（网页已上线；小程序/安卓/Windows 源码同步）
+
+> 用户原话：「把排序设成访问次数排序优先，访问次数相同时按访问时间排序」。契约 `统计多端_最新登录_契约_20261118.md` §2 已更新。
+
+- 网页 `renderStats`：`(b.n-a.n)||(b.last-a.last)`；标题/说明改「按访问次数排序（次数相同按最近访问）」；`stats_check.py` **44/44**。
+- 小程序 `pages/stats`：`count` → `lastTs`；WXML/工具描述/AI `getVisitStats` 同步；`unit.js` 新增次数优先/同次数用例（全量 588/7，7 项为并行会话既有失败）。
+- Windows `VisitStats.Build`：`Count` → `LastTs`；新增同次数按最近访问单测，`dotnet test 66/0`。
+- 安卓 `VisitStats.build`：`count` → `lastTs`；`beta6/vc89`，`testDebugUnitTest 1629/0`，APK 5,804,121B/`DD47A301…`。
+- 上线：网页 **1,338,726 B / sha256 `d6a20cf9…`**（OSS+ECS MATCH，gzip 414,999B）；备份 `tools/_backup/index_online_20261118-2240_preCountSort.html`（1,338,669B/`f6f85eb5…`）。
+- 回滚：重传备份；各端回退上一版源码/安装包。

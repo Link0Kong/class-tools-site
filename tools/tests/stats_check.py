@@ -210,13 +210,13 @@ async function run(){
     var sum=(q(g,"#stSum")||{textContent:""}).textContent;
     T("摘要：访问账号=3 / 访问次数=4 / 今日活跃=3", sum.indexOf("3")>=0&&sum.indexOf("4")>=0, sum.replace(/\s+/g," "));
     T("今天口径下赵六（昨天）不出现", txt.indexOf("赵六")<0, txt.slice(0,120));
-    /* 排序：按最近登录 ts 倒序（王五 12:00 > 张三 11:05 > 李四 10:42） */
+    /* 排序：访问次数优先；次数相同再按最近访问（张三 2 次 > 王五 1 次 12:00 > 李四 1 次 10:42） */
     var names=qa(g,"#stOut .strow .lb").map(function(x){return x.textContent;});
-    T("按最近登录顺序排序（王五→张三→李四）", names.length===3&&names[0].indexOf("王五")>=0&&names[1].indexOf("张三")>=0&&names[2].indexOf("李四")>=0, names.join(" | "));
+    T("按访问次数优先（张三→王五→李四）", names.length===3&&names[0].indexOf("张三")>=0&&names[1].indexOf("王五")>=0&&names[2].indexOf("李四")>=0, names.join(" | "));
     T("时间精确到分钟（11:05 / 10:42，而不是整点）", txt.indexOf("11:05")>=0&&txt.indexOf("10:42")>=0, txt.slice(0,200));
     var clis=qa(g,"#stOut .stcli").map(function(x){return x.textContent;});
-    T("记录具体登录端（Windows/安卓/小程序）", clis.indexOf("Windows")>=0&&clis.indexOf("安卓")>=0&&clis.indexOf("小程序")>=0, clis.join(" | "));
-    T("同一账号取最近登录端（张三最近=安卓）", names.length===3&&names[1].indexOf("张三")>=0&&clis[1]==="安卓", names.join(" | ")+" :: "+clis.join(" | "));
+    T("记录具体登录端（安卓/Windows/小程序）", clis.indexOf("Windows")>=0&&clis.indexOf("安卓")>=0&&clis.indexOf("小程序")>=0, clis.join(" | "));
+    T("同一账号取最近登录端（张三最近=安卓）", names.length===3&&names[0].indexOf("张三")>=0&&clis[0]==="安卓", names.join(" | ")+" :: "+clis.join(" | "));
 
     /* 近 7 天：出现赵六（4 个账号） */
     var week=qa(g,'input[name="strange"]').filter(function(x){return x.value==="week";})[0];

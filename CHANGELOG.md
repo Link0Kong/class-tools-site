@@ -2,6 +2,18 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-18 22:3x–22:4x · 统计排序改为「访问次数优先，次数相同按最近访问」（网页已上线；小程序/安卓/Windows 源码同步）
+
+> 用户原话：「把排序设成访问次数排序优先，访问次数相同时按访问时间排序」。唯一契约 `统计多端_最新登录_契约_20261118.md`（§2 排序口径已更新）。
+
+- **网页** `renderStats`：排序改为 `(b.n-a.n)||(b.last-a.last)`；标题/说明工具卡统一为「按访问次数排序（次数相同按最近访问）」；`stats_check.py` 断言改为 张三（2 次）→ 王五（1 次 12:00）→ 李四（1 次 10:42），**44/44**。
+- **小程序**：`pages/stats` 排序 `count` → `lastTs`；WXML/工具描述/AI `getVisitStats` 同步；`unit.js` 统计页新增次数优先/同次数按最近访问用例。
+- **Windows**：`VisitStats.Build` 改为 `Count` 降序 → `LastTs` 降序；新增同次数按最近访问单测，`dotnet test 66/0`。
+- **安卓**：`VisitStats.build` 改为 `count` → `lastTs`；`beta6/vc89`，`testDebugUnitTest 1629/0`（新增两组排序用例）。
+- **回归**：网页 `v2_ui_check 27/27`、`v2_port_ui_check 80/80`、`v2_ug_check 56/56`、overflow 430=0；小程序 `ai_unit_account.js 41/0`，`unit.js 588 passed / 7 failed`（7 项为并行会话既有失败：合规域名/ko-link/draw/期次/发布，与本改动无关）。
+- **上线**：`tools/index.html` **1,338,726 B / sha256 `d6a20cf9c2e6537bc65c0f7a574e1d6a7568910908fca081008a8aba1e4afc91`**；OSS `check` MATCH、ECS verify MATCH（gzip 414,999B）。部署前备份 `tools/_backup/index_online_20261118-2240_preCountSort.html`（1,338,669 B / `f6f85eb5…`）。
+- **回滚**：重传备份 index；小程序/Windows/安卓回退上一版源码/安装包。
+
 ## 2026-11-18 22:0x · 仓库整理：五端一仓 + 一键双远端提交（无站点字节变更，不需部署）
 
 > 用户要求：「gitee 和 github 仓库只要每个端口留一个即可，而不是按功能做仓库，并且每个端口都应该做好自动提交」。
