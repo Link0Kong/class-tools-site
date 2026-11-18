@@ -56,6 +56,7 @@
 - 关闭 CloudBase 云函数定时器（`tcb fn trigger delete ...`），避免双写；保留 DB 备份。
 - 关闭/回收 OSS 上不再需要的测试资产；确认私有 staging 桶已删。
 - 更新 `AGENTS.md`/`HANDOFF.md`/`CLOUDBASE.md`：新后端为真源，记录 runbook 与版本。
+- 备份/监控：每日 `pg_dump` 保留 14 天 + `ecs_pg.py offsite --keep 8` 私有 OSS 异地备份；`ecs_pg.py monitor` timer 每 10 分钟巡检（详见 `deploy/ECS_DEPLOY.md §9`）。
 - 备份演练：从 `pg_dump` 恢复到临时库并校验。
 
 ## 3. 数据一致性策略
@@ -81,7 +82,8 @@ python deploy\ecs_pg.py switch-db --db class_tools   # 如需把 PostgREST 切�
 - [ ] 34 表行数/哈希 = manifest；`class_sessions` 旧 token 可用。
 - [ ] 网页三端冒烟通过；延迟指标：本机→ECS API P50 < 30ms（对比 CloudBase 80–120ms）。
 - [ ] ECS 定时任务首轮成功；健康行 `cloudbase` ok、`cloud_*` 行有 ECS timer 心跳。
-- [ ] 备份：`pg_dump` 成功且可从备份恢复校验。
+- [ ] 备份：`pg_dump` 成功且可从备份恢复校验；`ecs_pg.py offsite` 已上传首份私有 OSS 备份。
+- [ ] 监控：`ecs_pg.py monitor` = MONITOR_OK；`class-tools-pg-monitor.timer` active；日志无连续 WARN。
 - [ ] 仓库提交并双远端推送（site/index/脚本/文档）。
 
 ## 5.1 P4 演练（不切流，2026-11-18 已跑通：40.7MiB 快照 / 导入 4.5min / VERIFY_OK 34 表 / meta sha 一致）

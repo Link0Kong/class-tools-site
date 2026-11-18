@@ -3756,5 +3756,11 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - PPT 在线预览媒体走 ECS `/pptfiles` 缓存（`resolveMediaUrl`），真实浏览器 E2E 10/10；修复大屏 `PPT.hrefOf` 缺 base 的既有问题。
 - 详见 `deploy/migration/PLAN.md` §8/§9、`CUTOVER.md`、`IMPORT.md`。
 
+**P4 运维与三端体验（2026-11-18 round 3）**
+- 监控：`deploy/ecs_pg.py monitor`（PG/PostgREST/备份年龄/磁盘/连接数/staging 路由），已装 systemd timer `class-tools-pg-monitor.timer`（每 10 分钟，日志 + `/var/lib/class-tools/pg-monitor.json` 状态）；实测 MONITOR_OK。
+- 异地备份：`deploy/ecs_pg.py offsite --keep 8`：本机签名 PUT → ECS 上传最新 `pg_dump` 到私有 OSS `furina-site-logs/pg-backup/`（ECS 不存 AK/SK），首次 42.8MB 成功；建议每周巡检跑一次。
+- 三端 PPT 在线媒体：小程序/安卓已按网页同口径映射 OSS `/ppt/**` → ECS `/pptfiles`（开关可回滚），staging 双端冒烟 PASS（mp 596/0、安卓 1603/0）；证据见 `deploy/migration/CLIENTS.md §3b`。
+- Caddy 对自建 API 响应 zstd/gzip：notices meta 313,819B → 62KB（-80%）。
+
 **P4 待办（门槛：ICP 备案通过 + 域名恢复）**：最终快照导出 → 导入 cut 库 → `ecs_pg.py switch-db` → Caddy 生产路由切自建
 （`CUTOVER.md`）→ 三端发布 → 观察 → 停 CloudBase。备案前不要切生产、不要发布走 http/IP 的正式版。

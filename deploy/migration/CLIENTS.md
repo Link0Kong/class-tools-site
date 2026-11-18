@@ -83,7 +83,7 @@ const ACTIVE_REST_PROFILE = 'cloudbase';   // ← 切流/回滚只改这一行
 | 登录后首屏 `cloudPull` 请求数（旧 base 不回退基线） | 9 | **9** |
 
 复现：`cd C:\Users\Ko_Li\.openclaw\workspace\mp-class-tools-tests; node net_bench.js`。
-回归：`node unit.js` **591/0 全绿**（新增 `net_layer_tests.js` 12 项：三档配置/HTTP2/超时分级/重试/合并/并发/旧配置兼容）。
+回归：`node unit.js` **596/0 全绿**（新增 `net_layer_tests.js` 12 项：三档配置/HTTP2/超时分级/重试/合并/并发/旧配置兼容）。
 
 **首屏请求数评估**（登录/通知）：此前已完成的优化继续生效——通知列表走 `rpc/class_notices_meta`（~0.3MB，按需懒加载 body）、
 `class_members` 单飞（登录后 warmSync + cloudPull 不再重复拉）、marks 5s 内不重复强拉、TTL/30s 轮询退避；
@@ -162,13 +162,94 @@ cd C:\Users\Ko_Li\.openclaw\workspace\android-class-tools
 | 登录请求整体超时档 | 60s（client 默认） | **20s**（失败更快、UI 可提示重试） | `AuthTimeoutTierTest` |
 | 写请求 502 重试次数 | 0 | 0（保持不重试，避免重复写入） | `ApiClientNetOptimizationTest` |
 
-回归：`.\gradlew.bat :app:testDebugUnitTest` **1594 项 / 0 失败 / 1 跳过**（跳过的 1 项 = 需 `CT_STAGING_SMOKE=1` 手动开启的 `StagingSmokeTest`；新增 14 项：`AppNetConfigTest` 3、`ApiClientNetOptimizationTest` 8、
+回归：`.\gradlew.bat :app:testDebugUnitTest` **1603 项 / 0 失败 / 2 跳过**（跳过的 2 项 = 需 `CT_STAGING_SMOKE=1` 手动开启的 `StagingSmokeTest` + `PptStagingMediaSmokeTest`；新增 14 项：`AppNetConfigTest` 3、`ApiClientNetOptimizationTest` 8、
 `NetworkClientsConnectionTest` 2、`AuthTimeoutTierTest` 1）。不改版本号（仍 `1.0.0-beta4` / vc87），不发布/不上传/不构建分发 APK。
 
 ## 3. 网页（Lead 负责，本文件不涉及）
 
 网页 `tools/index.html` 的 `var CB` 字面量保留；运行时在 `tool.furina.fun` / `121.196.47.2` 下走同源 `/v1/rdb/rest/*`
 （Caddy 反代当前 CloudBase，P4 切到本地 PostgREST）。staging 调试入口 `?api=next`（见 CUTOVER.md）。
+
+## 3b. PPT 在线媒体走 ECS `/pptfiles` 缓存（小程序/安卓，2026-11-18）
+
+背景：PPT 媒体（分步图 WebP、缩略图、原样播放 MP4、`media_files` 单独下载音视频、下载包）存放在
+阿里云 OSS 香港 `tool-furina-fun.oss-cn-hongkong.aliyuncs.com/ppt/**`；跨境首访很慢（实测 13.6MB 视频 35s）。
+ECS `/pptfiles`（127.0.0.1:8092 + Caddy `handle /pptfiles/...`，5GiB LRU）命中后 **6–11MB/s**，支持
+GET/HEAD/**Range 206**（视频边下边播可用）。网页端已于 commit `f0a829e` 上线同口径映射（真实 E2E 10/10），
+本小节记录小程序/安卓的等价实现。
+
+### 映射规则（与网页 `pptEcsUrl()/resolveMediaUrl()` 一致）
+
+| 输入 | 输出 |
+|---|---|
+| `https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/ppt/<path>` | ECS 缓存基址 + `/ppt/<path>`（仅此 bucket、仅 `/ppt/` 前缀） |
+| `data:` / `file:` / `content:` / 本地临时路径 / 相对路径 | 原样返回 |
+| 其它域名（CDN/媒体外链）或本桶非 `/ppt/` 路径（如 `/android/...`） | 原样返回 |
+| 已映射的 ECS 地址 | 原样（幂等） |
+
+- 编码路径与 `?query` 原样保留（Caddy 解码后由缓存服务按 OSS pathname 命中；`#fragment` 丢弃，与网页一致）。
+- ECS 缓存基址 = web 基址 + `/pptfiles`：staging/调试期 `http://121.196.47.2/pptfiles`；备案后
+  `https://tool.furina.fun/pptfiles`（Caddy 同源反代，无需新域名/新证书）。
+- 覆盖范围（两端都是"manifest 归一化/解析后统一入口"，因此播放/预览/下载/预加载/缩略图自动复用）：
+  `manifest.base`、`slides[].steps[].img`、`slides[].thumb`、`video.s`、`media_files[].s`、
+  `files.{compat,pdf,source}.s`、`manifest.src`、步内热点 `media[].s`（全局媒体表合并后的 url）。
+
+### 小程序（`mp-class-tools`）
+
+- 实现：`utils/ppt.js` 新增纯函数 `pptEcsUrl()/pptEcsBase()/mediaUrlOf()`；`normStep/normSlide/normManifest
+  (含 src 与热点 url)/normVideo/normFileRow/normMediaFile` 统一走 `mediaUrlOf` → 派生数据
+  （`flatSteps/thumbList/preloadPlan/mediaRows/fileRows/downloadDetailView`）与页面（`pages/pptplay` 图片/视频/
+  预加载/`wx.downloadFile` 降级链、`pages/pptdl` 下载）自动使用映射后地址，无需逐处改。
+- 开关：`utils/cloud-config.js` 的 `pptEcs: { enabled: true, base: '' }`
+  - `base: ''`（默认）= `webBase + '/pptfiles'`（`webBase` 当前 `https://tool.furina.fun`，需备案 + HTTPS）；
+  - devtools/备案前调试：临时设 `base: 'http://121.196.47.2/pptfiles'`（配合「不校验合法域名」）；
+  - 回滚：`enabled: false`（恢复 OSS 直链，旧行为）。
+- 单测：`mp-class-tools-tests/ppt_ecs_unit_tests.js`（5 项，已挂 `unit.js`）：映射/不映射/data:/外域/
+  编码路径+query/自定义 base/回滚开关/manifest 全字段集成。
+- 发布注意：正式版需在微信后台把 `https://tool.furina.fun` 加入 **request 合法域名** 与 **downloadFile
+  合法域名**（图片 `<image>`/视频 `<video>` 网络请求同样受域名校验；devtools 勾「不校验」即可调试 staging）。
+
+### 安卓（`android-class-tools`）
+
+- BuildConfig：`app/build.gradle.kts` 新增 `WEB_BASE_URL`（debug = `http://121.196.47.2`；release =
+  `https://tool.furina.fun`；可用 `-Pct.webBaseUrl=<基址>` 显式覆盖两种 buildType），
+  `verifyReleaseEndpoints` 同步校验 release 的 `WEB_BASE_URL` 不含 121.196.47.2 且为 https。
+- 实现：新增 `features/ppt/PptEcsUrl.kt`（纯函数 `map(url, ecsBase)`，默认基址 = `WEB_BASE_URL + /pptfiles`）；
+  `PptManifest.resolveImage()` 统一入口改为 `PptEcsUrl.map(PptUrl.resolve(base, ref))`，因此
+  `thumbOf/videoUrl/fileUrl/mediaUrl/sourceUrl` 与播放器（`PptPlayerScreen`/`PptVideoPlayer`/`PptImageLoader`）、
+  下载（`PptDownloadLogic`/`PptMediaDownloadLogic` → DownloadManager/OkHttp）全部走 ECS 缓存；Range 由既有
+  MediaPlayer/OkHttp 自动协商（ECS 支持 206）。
+- 回滚：`PptEcsUrl.ENABLED = false` 重新构建（恢复 OSS 直链）；或 `-Pct.webBaseUrl=...` 换回退基址。
+- 单测：`PptEcsUrlTest`（6 项）+ `PptEcsMappingTest`（2 项）：映射/不映射/编码路径/query/自定义基址/
+  回滚开关/BuildConfig 基址/真实 manifest 全字段集成；既有 `PptUrlTest`（纯 URL 解析）不回退。
+
+### 验证证据（2026-11-18）
+
+- ECS 缓存实测（测试账号 + 真实 staging deck `dmwalrdlgevz90l`）：
+  `HEAD /pptfiles/ppt/a/dmwalrdlgevz90l/c0e5834805/s1-1.webp` → 200 `image/webp` 25,174B；
+  `t1.webp` → 200 3,236B；`deck.mp4` → 200 `video/mp4` 13,668,151B；
+  `Range: bytes=0-1023` → **206** 1,024B；中文媒体 `media/本草孝心_…视频1_第7页.mp4` → 200 `video/mp4` 20,158,796B。
+- 网页：Lead 已实跑真实 E2E 10/10（commit `f0a829e`）。
+- **小程序 devtools 冒烟 PASS**（测试账号；临时 `ACTIVE_REST_PROFILE='staging'` + `pptEcs.base='http://121.196.47.2/pptfiles'`
+  → devtools 重开编译 → 真实登录 1123ms → 打开真实 staging deck `dmwalrdlgevz90l` 播放器）：
+  `state=ready mode=video`，首图 `imgA=http://121.196.47.2/pptfiles/ppt/a/dmwalrdlgevz90l/c0e5834805/s1-1.webp`、
+  缩略图 `t1/t2/t3.webp` 同为 `/pptfiles/**`、原样播放视频 `videoUrl=http://121.196.47.2/pptfiles/ppt/a/…/deck.mp4`，
+  `imgErr=false`（图片确实加载成功）；6/6 检查通过、0 exception。存档 `mp-class-tools-tests/staging_smoke_ppt_result.json`。
+- **安卓 debug 构建冒烟 PASS**（`CT_STAGING_SMOKE=1` 跑 `PptStagingMediaSmokeTest`，真实 staging deck）：
+  manifest 16 页；`img=…/pptfiles/ppt/…`、`video=…/pptfiles/ppt/…`；对 ECS 真实请求 **HEAD 200（image/webp）**
+  与 **Range GET 206**（`bytes=0-1023`，video/mp4），输出
+  `PPT_STAGING_MEDIA_SMOKE_OK slides=16 img=http://121.196.47.2/pptfiles/ppt/… video=… range=206 base=http://121.196.47.2`。
+- 工程回归：mp `node unit.js` **596/0 全绿**（新增 `ppt_ecs_unit_tests.js` 5 项）；安卓 `:app:testDebugUnitTest`
+  **1603 项 / 0 失败 / 2 跳过**（新增 `PptEcsUrlTest` 6 + `PptEcsMappingTest` 2 + `PptStagingMediaSmokeTest` 1）。
+- 小程序 devtools / 安卓 debug 构建的 PPT 预览冒烟见 §4.3。
+
+### 已知边界
+
+1. 列表封面 `cover_url`（DB 字段）网页与两端都未映射（网页同样原样用 OSS URL）；如后续要加速列表封面，
+   需在三端渲染层统一再加一次同 helper（当前不影响播放/下载主链路）。
+2. OSS 直链仍是回滚路径；ECS 缓存不可用时切 `pptEcs.enabled=false`/`PptEcsUrl.ENABLED=false` 重新发布。
+3. 小程序正式版需域名白名单（request + downloadFile）；安卓 release 明文策略见 §2.3（ECS http 调试入口只在 debug）。
+4. ECS `/pptfiles` 为 5GiB LRU 单实例缓存；大文件首访仍需回源 OSS（后台预热可提前命中）。
 
 ## 4. staging 冒烟（P1 就绪后；仅 staging、仅测试账号）
 
@@ -219,8 +300,10 @@ cd C:\Users\Ko_Li\.openclaw\workspace\android-class-tools
 |---|---|
 | 小程序 devtools（真实登录 + 读） | **PASS**：`ACTIVE_REST_PROFILE` 临时切 `staging` → devtools 重开编译 → 测试账号真实登录 **1300ms** → `pages/index/index`；名单 **70 人**；首屏同步键 `members/tt/marks/nt/ud/hw/fit`；通知页 `ready` **26 卡**（`云端已同步`、长期 1）；课表 `data` **32 门**（`教务 11/18 07:05`）；作业页 `data`；0 exception；9/9 检查通过。存档 `mp-class-tools-tests/staging_smoke_result.json`，脚本 `staging_smoke_mp.js` |
 | 安卓 debug 构建（真实登录 + 读） | **PASS**：`CT_STAGING_SMOKE=1` 跑 `StagingSmokeTest`（debug BuildConfig = staging，真实网络）：`class_verify` 122ms、`class_members` 26ms（**70 人**）、notices 30ms、homework 23ms、site_assets 24ms；`STAGING_SMOKE_OK base=http://121.196.47.2/v1/rdb/rest-next/ members=70` |
-| 冒烟前置校验（脚本内） | 配置档位必须为 `staging` + staging `class_verify` 200，否则脚本拒绝运行（不可能误连 CloudBase/生产） |
-| 清理 | 冒烟结束清空 devtools 本机 storage；`utils/cloud-config.js` 已改回 `'cloudbase'`；devtools 已退出 |
+| 小程序 devtools（PPT 在线媒体 → /pptfiles，2026-11-18） | **PASS**：`ACTIVE_REST_PROFILE='staging'` + `pptEcs.base='http://121.196.47.2/pptfiles'` → devtools 重开 → 测试账号登录 1123ms → 打开 staging deck `dmwalrdlgevz90l` 播放器：`state=ready mode=video`；首图/缩略图/原样播放视频 URL 均为 `http://121.196.47.2/pptfiles/ppt/a/dmwalrdlgevz90l/c0e5834805/...`；`imgErr=false`；6/6 检查通过。存档 `mp-class-tools-tests/staging_smoke_ppt_result.json`，脚本 `staging_smoke_ppt_mp.js` |
+| 安卓 debug 构建（PPT 媒体 → /pptfiles，2026-11-18） | **PASS**：`PptStagingMediaSmokeTest`（CT_STAGING_SMOKE=1）真实读 staging deck manifest（16 页）→ 映射后对 ECS `/pptfiles` **HEAD 200（image/webp）**、**Range GET 206**（video/mp4）；输出 `PPT_STAGING_MEDIA_SMOKE_OK slides=16 img=…/pptfiles/ppt/… video=… range=206` |
+| 冒烟前置校验（脚本内） | 配置档位必须为 `staging` + staging `class_verify` 200，否则脚本拒绝运行（不可能误连 CloudBase/生产）；PPT 冒烟额外校验 `pptEcs.base` 为 ECS IP |
+| 清理 | 冒烟结束清空 devtools 本机 storage；`utils/cloud-config.js` 已改回 `'cloudbase'` + `pptEcs.base=''`；devtools 已退出 |
 
 复跑命令见 §4.1/§4.2；结果文件：`staging_smoke_result.json`（小程序）、安卓测试 XML 的 `<system-out>`（`STAGING_SMOKE_OK ...`）。
 
@@ -272,4 +355,12 @@ cd C:\Users\Ko_Li\.openclaw\workspace\android-class-tools
   `CloudSpaceTransport.kt`、`NoticeAttachmentFiles.kt`、`UpdateChecker.kt`、`UpdateDownloader.kt`、`UpdateLogic.kt`、
   `ui/screens/map/CampusMapScreen.kt`、`res/xml/network_security_config.xml`、`src/debug/res/xml/network_security_config.xml`（新）；
   测试：`AppNetConfigTest`、`ApiClientNetOptimizationTest`、`NetworkClientsConnectionTest`、`AuthTimeoutTierTest`、`StagingSmokeTest`。
+- **2026-11-18 PPT 在线媒体 ECS `/pptfiles` 映射（task-10）**：
+  - 小程序：`utils/ppt.js`（新增 `pptEcsUrl/pptEcsBase/mediaUrlOf` + `normStep/normSlide/normManifest/normVideo/
+    normFileRow/normMediaFile` 全部映射）、`utils/cloud-config.js`（`pptEcs:{enabled,base}` 开关）、
+    `pages/pptplay/pptplay.js`（注释）；测试：`mp-class-tools-tests/ppt_ecs_unit_tests.js`（5 项，已挂 `unit.js`）、
+    `staging_smoke_ppt_mp.js` + `staging_smoke_ppt_result.json`。
+  - 安卓：`app/build.gradle.kts`（新增 `WEB_BASE_URL` buildType 注入 + `verifyReleaseEndpoints` 校验）、
+    `gradle.properties`（`ct.webBaseUrl` 覆盖说明）、`features/ppt/PptEcsUrl.kt`（新）、`data/ppt/PptModels.kt`
+    （`resolveImage` 统一映射入口）；测试：`PptEcsUrlTest` 6、`PptEcsMappingTest` 2、`PptStagingMediaSmokeTest` 1。
 - 本文件由客户端工程师（client-dev）维护；P1/P4 执行状态变化时更新 §4/§5。

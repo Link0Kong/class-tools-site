@@ -1570,6 +1570,213 @@ echo "SWITCH_OK $(date -Is)"
 
 
 # ------------------------------------------------------------------ main
+MONITOR_SCRIPT = r"""#!/bin/bash
+set -uo pipefail
+export LC_ALL=C
+FAIL=0
+bad(){ echo "WARN $*"; FAIL=1; }
+PG=$(systemctl is-active postgresql 2>/dev/null || true)
+[ "$PG" = "active" ] || bad "postgresql=${PG:-unknown}"
+pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1 || bad "pg_isready=false"
+PR=$(systemctl is-active class-tools-pgrest 2>/dev/null || true)
+[ "$PR" = "active" ] || bad "pgrest=${PR:-unknown}"
+HTTP=$(curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:3000/ 2>/dev/null || echo 000)
+[ "$HTTP" = "200" ] || bad "pgrest_http=$HTTP"
+STG=$(curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1/v1/rdb/rest-next/ 2>/dev/null || echo 000)
+[ "$STG" = "200" ] || bad "staging_http=$STG"
+LATEST=$(ls -1t /opt/class-tools/backup/pg/class_tools-*.dump 2>/dev/null | head -1 || true)
+AGE_H="NA"
+if [ -z "${LATEST:-}" ]; then
+  bad "backup=missing"
+else
+  AGE_H=$(( ( $(date +%s) - $(stat -c %Y "$LATEST") ) / 3600 ))
+  [ "$AGE_H" -le 36 ] || bad "backup_age_h=$AGE_H"
+fi
+USE=$(df -P / | awk 'NR==2{gsub("%","",$5); print $5}')
+[ "${USE:-100}" -le 85 ] || bad "disk_use_pct=$USE"
+CONN=$(runuser -u postgres -- psql -tAc "select count(*) from pg_stat_activity" 2>/dev/null | tr -d ' ')
+[ "${CONN:-999}" -lt 72 ] || bad "connections=$CONN"
+DBSIZE=$(runuser -u postgres -- psql -tAc "select pg_size_pretty(pg_database_size(current_database()))" -d class_tools 2>/dev/null | tr -d ' ')
+BAKCNT=$(ls -1 /opt/class-tools/backup/pg/class_tools-*.dump 2>/dev/null | wc -l)
+PROD_MODE=$(grep -q 'handle_path /v1/rdb/rest/\*' /etc/caddy/Caddyfile 2>/dev/null && echo selfhosted || echo cloudbase)
+mkdir -p /var/lib/class-tools
+python3 - "$PG" "$PR" "$HTTP" "$STG" "${LATEST:-NONE}" "$AGE_H" "$USE" "$CONN" "${DBSIZE:-NA}" "$BAKCNT" "$PROD_MODE" "$FAIL" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+keys = ["pg_active", "pgrest_active", "pgrest_http", "staging_http", "backup_file", "backup_age_h",
+        "disk_use_pct", "connections", "db_size", "backup_count", "prod_mode"]
+d = dict(zip(keys, sys.argv[1:]))
+d["ok"] = str(sys.argv[-1]) == "0"
+d["ts"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+open("/var/lib/class-tools/pg-monitor.json", "w", encoding="utf-8").write(json.dumps(d, ensure_ascii=False))
+PY
+echo "state=/var/lib/class-tools/pg-monitor.json"
+echo "pg_active=$PG pgrest_active=$PR pgrest_http=$HTTP staging_http=$STG"
+echo "backup_file=${LATEST:-NONE} backup_age_h=$AGE_H backup_count=$BAKCNT"
+echo "disk_use_pct=$USE connections=$CONN db_size=${DBSIZE:-NA} prod_mode=$PROD_MODE"
+if [ "$FAIL" = "0" ]; then echo MONITOR_OK; else echo MONITOR_FAIL; fi
+exit "$FAIL"
+"""
+
+MONITOR_TIMER_SCRIPT = r"""#!/bin/bash
+set -euo pipefail
+export LC_ALL=C
+mkdir -p /var/lib/class-tools /var/log
+install -d -o root -g root -m 0755 /var/lib/class-tools
+cat > /usr/local/bin/class-tools-pg-monitor.sh <<'MON'
+__MONITOR_BODY__
+MON
+chmod 755 /usr/local/bin/class-tools-pg-monitor.sh
+cat > /etc/systemd/system/class-tools-pg-monitor.service <<'UNIT'
+[Unit]
+Description=Class tools PostgreSQL monitor (pg/pgrest/backup/disk/connections)
+After=postgresql.service class-tools-pgrest.service
+
+[Service]
+Type=oneshot
+User=root
+Environment=LC_ALL=C
+ExecStart=/usr/local/bin/class-tools-pg-monitor.sh
+StandardOutput=append:/var/log/class-tools-pg-monitor.log
+StandardError=append:/var/log/class-tools-pg-monitor.log
+UNIT
+cat > /etc/systemd/system/class-tools-pg-monitor.timer <<'UNIT'
+[Unit]
+Description=Run class-tools PG monitor every 10 minutes
+
+[Timer]
+OnCalendar=*:0/10
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now class-tools-pg-monitor.timer >/dev/null 2>&1
+sleep 1
+systemctl start class-tools-pg-monitor.service || true
+sleep 1
+echo "monitor_timer=$(systemctl is-active class-tools-pg-monitor.timer)"
+echo "monitor_state=$(systemctl show -p Result --value class-tools-pg-monitor.service 2>/dev/null || echo unknown)"
+tail -5 /var/log/class-tools-pg-monitor.log 2>/dev/null || true
+echo MONITOR_TIMER_OK
+"""
+
+
+def monitor(install_timer=False, json_out=False):
+    """只读监控：PG/PostgREST/备份年龄/磁盘/连接数/staging 路由。失败返回 1。"""
+    ok, out = _remote(MONITOR_SCRIPT, "pg-monitor", timeout=120, wait=240)
+    healthy = "MONITOR_OK" in out
+    if json_out:
+        import json as _json
+        metrics = {}
+        for line in out.splitlines():
+            for part in line.split():
+                if "=" in part:
+                    k, v = part.split("=", 1)
+                    metrics[k] = v
+        print(_json.dumps({"ok": healthy, "metrics": metrics,
+                           "timer": "installed" if install_timer else "not-requested"},
+                          ensure_ascii=False))
+    if install_timer:
+        body = MONITOR_SCRIPT
+        if body.startswith("MONITOR_SCRIPT = r\"\"\""):
+            body = body.split('"""', 2)[1]
+        body = body.rstrip("\n")
+        script = MONITOR_TIMER_SCRIPT.replace("__MONITOR_BODY__", body)
+        ok2, out2 = _remote(script, "pg-monitor-timer", timeout=120, wait=240)
+        healthy = healthy and ok2 and "MONITOR_TIMER_OK" in out2
+    return 0 if healthy else 1
+
+
+LATEST_DUMP_SCRIPT = r"""#!/bin/bash
+set -uo pipefail
+export LC_ALL=C
+LATEST=$(ls -1t /opt/class-tools/backup/pg/class_tools-*.dump 2>/dev/null | head -1 || true)
+if [ -z "${LATEST:-}" ]; then echo "latest=NONE"; exit 4; fi
+echo "latest=$LATEST"
+echo "size=$(stat -c %s "$LATEST")"
+echo "sha=$(sha256sum "$LATEST" | cut -d' ' -f1)"
+echo LATEST_OK
+"""
+
+
+def offsite(keep=8, dry_run=False):
+    """把最新 pg_dump 经短签名 PUT URL 上传到私有 OSS（异地备份），并保留最近 keep 份。
+
+    - 本机生成签名 PUT URL（30 分钟）；ECS 直接 curl PUT，无需在 ECS 存 AK/SK；
+    - 对象在私有桶 `furina-site-logs` 的 `pg-backup/` 前缀（ACL private，不公开）；
+    - 上传后本地 head_object 校验大小；超期对象按 last_modified 删除。
+    """
+    import oss2
+    ok, out = _remote(LATEST_DUMP_SCRIPT, "pg-offsite-latest", timeout=90, wait=180)
+    meta = {}
+    for line in out.splitlines():
+        if "=" in line:
+            k, v = line.split("=", 1)
+            meta[k.strip()] = v.strip()
+    latest = meta.get("latest") or ""
+    if (not ok) or (not latest) or latest == "NONE":
+        print("[x] 远端没有可用备份")
+        return 2
+    size = int(meta.get("size") or 0)
+    sha = meta.get("sha") or ""
+    name = os.path.basename(latest)
+    key = "pg-backup/" + name
+    bucket = _oss_bucket()
+    print("[offsite] 远端备份 %s (%d B sha256:%s…)" % (latest, size, sha[:16]))
+    if dry_run:
+        print("[offsite][dry-run] 将上传到 s3://%s/%s（keep=%d）" % (PRIVATE_BUCKET, key, keep))
+        return 0
+    # 签名 PUT（30 分钟）；Content-Type 固定，避免签名不匹配
+    ctype = "application/octet-stream"
+    put_url = bucket.sign_url("PUT", key, 1800, headers={"Content-Type": ctype})
+    script = r"""#!/bin/bash
+set -uo pipefail
+export LC_ALL=C
+LATEST="__LATEST__"
+URL="__URL__"
+[ -f "$LATEST" ] || { echo "FATAL 备份文件不存在"; exit 2; }
+HTTP=$(curl -sS -m 600 -X PUT -T "$LATEST" -H 'Content-Type: application/octet-stream' "$URL" -o /tmp/offsite_put.out -w '%{http_code}' || echo 000)
+echo "UPLOAD_HTTP=$HTTP"
+echo "UPLOAD_BYTES=$(stat -c %s "$LATEST")"
+cat /tmp/offsite_put.out 2>/dev/null | head -c 300; echo
+rm -f /tmp/offsite_put.out
+[ "$HTTP" = "200" ] || exit 3
+echo OFFSITE_OK
+""".replace("__LATEST__", latest).replace("__URL__", put_url)
+    ok2, out2 = _remote(script, "pg-offsite-upload", timeout=700, wait=900)
+    if not (ok2 and "OFFSITE_OK" in out2):
+        print("[x] 上传失败（见上方输出）")
+        return 1
+    try:
+        head = bucket.head_object(key)
+        remote_size = int(head.content_length)
+    except Exception as exc:  # noqa: BLE001
+        print("[x] 上传后 head_object 失败：%s" % exc.__class__.__name__)
+        return 1
+    if remote_size != size:
+        print("[x] 大小不一致：本机 %d / OSS %d" % (size, remote_size))
+        return 1
+    print("[offsite] 上传成功：oss://%s/%s (%d B)" % (PRIVATE_BUCKET, key, remote_size))
+    # 保留最近 keep 份
+    try:
+        objs = []
+        for o in oss2.ObjectIterator(bucket, prefix="pg-backup/"):
+            if o.key.endswith(".dump"):
+                objs.append(o)
+        objs.sort(key=lambda o: o.last_modified, reverse=True)
+        removed = 0
+        for o in objs[keep:]:
+            bucket.delete_object(o.key)
+            removed += 1
+        print("[offsite] 远端备份共 %d 份，清理旧份 %d（保留 %d）"
+              % (len(objs) - removed, removed, keep))
+    except Exception as exc:  # noqa: BLE001
+        print("[offsite] WARN 清理旧备份失败（不影响本次上传）：%s" % exc.__class__.__name__)
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="ECS PostgreSQL 18 + PostgREST 13（staging，云助手）")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -1597,6 +1804,14 @@ def main(argv=None):
     pd = sub.add_parser("switch-db", help="P4：只改 PostgREST 指向的库（不切生产 Caddy 路由）")
     pd.add_argument("--db", required=True)
 
+    pm = sub.add_parser("monitor", help="只读监控：PG/PostgREST/备份年龄/磁盘/连接数/staging 路由")
+    pm.add_argument("--install-timer", action="store_true", help="安装每 10 分钟运行的 systemd timer（写 /var/log/class-tools-pg-monitor.log）")
+    pm.add_argument("--json", action="store_true", help="以 JSON 输出指标")
+
+    po = sub.add_parser("offsite", help="把最新 pg_dump 上传到私有 OSS 异地备份（保留 N 份）")
+    po.add_argument("--keep", type=int, default=8, help="远端保留份数（默认 8）")
+    po.add_argument("--dry-run", action="store_true", help="只打印目标，不执行")
+
     pa = sub.add_parser("apply-sql", help="P4：导入后执行本地 SQL（如 notice_meta_lite 优化）")
     pa.add_argument("--file", required=True, help="本地 SQL 文件（deploy/migration/*.sql）")
     pa.add_argument("--db", default=DB_NAME, help="目标库（默认 class_tools；切流用 class_tools_cut）")
@@ -1623,6 +1838,10 @@ def main(argv=None):
         return switch_db(ns.db)
     if ns.cmd == "apply-sql":
         return apply_sql(ns.file, ns.db, dry_run=ns.dry_run)
+    if ns.cmd == "monitor":
+        return monitor(install_timer=ns.install_timer, json_out=ns.json)
+    if ns.cmd == "offsite":
+        return offsite(keep=ns.keep, dry_run=ns.dry_run)
     return 2
 
 

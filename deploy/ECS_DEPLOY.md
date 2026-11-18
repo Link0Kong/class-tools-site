@@ -264,3 +264,19 @@ python deploy\ecs_drop.py selftest   # 测试身份真实 E2E（token 不打印/
 - 2C2G 单机共享 CPU/磁盘/带宽：大文件并发上传/下载会与 `/pptfiles` 下载、站点访问争资源；删除超大文件为后台线程同步操作，
   可能持续数秒~数十秒（不阻塞 API 线程）；适合班级内使用。
 - 房间码 `code` 只用于人工配对展示，**不是**鉴权凭据；权限完全等于班级 token（同 sid 即同权限）。
+
+---
+
+## 9. 自建 PostgreSQL 监控与异地备份（2026-11-18 迁移）
+
+> 仅 P4 切流后使用；切流前 staging 也适用同一套命令。
+
+- **监控**：`python deploy\ecs_pg.py monitor [--json] [--install-timer]`
+  - 检查：PostgreSQL/PostgREST active、loopback API 200、staging 路由 200、最新备份年龄 ≤36h、磁盘 ≤85%、连接数 <72；
+  - `--install-timer` 已安装 `class-tools-pg-monitor.timer`（每 10 分钟），日志 `/var/log/class-tools-pg-monitor.log`；
+  - 失败时输出 `MONITOR_FAIL` + WARN 明细，service 状态为 failed，可用 `systemctl status class-tools-pg-monitor.service`/日志定位。
+- **异地备份**：`python deploy\ecs_pg.py offsite --keep 8`
+  - 本机生成 30 分钟签名 PUT URL → ECS curl 上传最新 `pg_dump` 到**私有 OSS** `furina-site-logs/pg-backup/`；
+  - ECS 不留 AK/SK；本机用 `head_object` 校验大小；自动保留最近 8 份；
+  - 建议每周执行一次（本机计划任务/巡检表），与 ECS 本机每日 dump（保留 14 天）互补。
+- 恢复演练：`pg_restore -l <dump>` 可读 + `pg_restore -d <临时库>` 34 表/函数/策略计数与 manifest 对齐。

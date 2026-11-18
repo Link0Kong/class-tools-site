@@ -114,3 +114,11 @@ PostgreSQL 18（class_tools 库：public 29 表 + private 5 表，88 函数、71
 - **测试修复**：`v2_ppt_check` 两处既有静态断言（TOOLS 文案变化、`js_static` 只取第一个 `<script>`）已修；PPT 套件 **92/92 + 100/100 + 65/65**、`v2_ui_check` 27/27。
 - 网页已部署 OSS+ECS：`1,336,988B / sha256 0fee…`（以部署输出为准）；备份 `tools/_backup/index_online_*_prePptMediaCache.html`。
 - 待办：小程序/安卓的在线预览媒体同样映射到 `https://tool.furina.fun/pptfiles`（备案发布时）；切流窗口执行时应用两个优化 SQL。
+
+### 9.1 后端监控与异地备份（2026-11-18 round 3）
+
+- `deploy/ecs_pg.py monitor`：只读检查 PG/PostgREST/备份年龄/磁盘/连接数/staging 路由/生产模式；
+  已安装 systemd timer `class-tools-pg-monitor.timer`（每 10 分钟），日志 `/var/log/class-tools-pg-monitor.log`，失败时 service 状态 success/failed 可被 `systemctl`/巡检发现。当前实测 `MONITOR_OK`（备份 0h、磁盘 23%、连接 15）。
+- `deploy/ecs_pg.py offsite --keep 8`：把最新 `pg_dump` 经短签名 PUT URL 上传到**私有 OSS** `furina-site-logs/pg-backup/`（ECS 不存 AK/SK；本机 head_object 校验大小；保留 8 份）。首次实测 42,831,353B 上传成功。
+- 压缩验收：Caddy 对自建 API 响应启用 zstd/gzip（`notices meta` 313,819B → gzip 62,294B / zstd 61,854B，约 -80%），三端弱网收益明显。
+- 备注：offsite 为手动/周度命令（不由 ECS 自行调度，避免在 ECS 存长期凭据）；建议每周跑一次并记录在巡检表。
