@@ -1,0 +1,26 @@
+# 凭据与运行态，绝对不要提交
+config.json
+config.local.json
+wanxiao_state.json
+*.db
+*.db-wal
+*.db-shm
+*.log
+*.lock
+.lock
+.env
+# 运行产物（含班级房间电量数据，别提交）
+snapshot.json
+dashboard.html
+query.json
+demo_*.json
+demo_*.html
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.idea/
+.vscode/
