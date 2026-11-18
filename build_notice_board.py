@@ -4141,7 +4141,8 @@ def apply_context_overrides(groups):
 # 人工补丁：data/notice-manual-patches.json（人工优先于 AI）
 
 ISO_FIELDS = ("deadline", "eventAt", "expireAt", "signupStart", "signupEnd")
-GROUP_PATCH_FIELDS = ("title", "cat", "summary", "aiSummary", "deadline", "eventAt",
+GROUP_PATCH_FIELDS = ("title", "cat", "summary", "aiSummary", "aiPoints", "aiSegments",
+                      "deadline", "eventAt",
                       "expireAt", "timeLabel", "actionable", "recurrence", "updatedAt",
                       # 契约 §1：人工补丁同样可覆盖时间语义字段，且仍然最后应用（优先级最高）
                       "deadlineAction", "eventAction", "signupStart", "signupEnd")
@@ -6126,6 +6127,39 @@ def has_time_anchor(g):
     return bool(g.get("signupWindows"))
 
 
+# ---------------------------------------------------------------- 2026-11-18 长期安排 × 一次性时间冲突
+# 用户反馈：屏山慢跑补报名（11-17 17:00）所在活动被 AI 判为每日 recurrence，导致
+#   · 卡片显示「本次 11-18 17:00」而不是 11-17 17:00 补报名（时间识别异常）；
+#   · 被归入「长期通知」而不进待处理（分类异常）。
+# 规则：固定日期范围内的活动/打卡（有报名/截止/活动时间）不是「长期安排」；一次性时间锚点优先，
+# 移除 recurrence（活动时段仍保留在摘要/原文里），并恢复可处理状态。
+def resolve_recurrence_conflicts(groups):
+    for g in groups:
+        rec = g.get("recurrence")
+        if not isinstance(rec, dict) or not rec.get("freq"):
+            continue
+        finite = bool(g.get("signupStart") or g.get("signupEnd") or g.get("deadline")
+                     or g.get("eventAt") or g.get("signupWindows"))
+        if not finite:
+            continue
+        # 只有报名开始、没有截止/活动时间时，把报名开放当作一次性事件展示（补报名/报名开始）
+        if not g.get("eventAt") and not g.get("deadline") and g.get("signupStart"):
+            g["eventAt"] = g["signupStart"]
+            if not g.get("eventAction"):
+                corpus = " ".join(str(it.get("text") or it.get("name") or "")
+                                  for it in (g.get("items") or []) if isinstance(it, dict))
+                if re.search(r"补报名|重新报名|重新开放报名", corpus):
+                    g["eventAction"] = "补报名"
+                else:
+                    g["eventAction"] = "报名"
+        g.pop("recurrence", None)
+        # 长期安排此前会被强制 actionable=False；有一次性报名/截止/活动时恢复为可处理
+        if g.get("actionable") is False:
+            g["actionable"] = True
+        print("recurrence->oneoff:", g.get("id"), "|", str(g.get("title") or "")[:40],
+              "|", g.get("eventAt") or g.get("deadline") or g.get("signupStart"))
+
+
 def main():
     groups = build_groups()
     docs = load_docs()
@@ -6218,6 +6252,8 @@ def main():
     # 人工补丁后 final pass：只补缺（null/缺失才写），并用补丁追加的更正文本刷新报名窗口；
     # 人工补丁 set 过的字段不在覆盖范围内（人工优先级最高）。
     groups = normalize_group_times(groups, final=True)
+    # 2026-11-18：长期安排 × 一次性报名/截止/活动时间冲突归一（固定日期活动不是长期安排）
+    resolve_recurrence_conflicts(groups)
     # 统一数据口径：既无截止也无活动时间的通知不带 expireAt/timeLabel，
     # 避免下游把「自动归档时间」误当成「截止时间」显示。
     for g in groups:
