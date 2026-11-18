@@ -56,6 +56,8 @@ MAX_FILE_BYTES = 50 * 1024 * 1024
 MAX_TOTAL_BYTES = 200 * 1024 * 1024
 LOCK_NAME = "sync-repos.lock"
 LOCK_STALE_SECONDS = 15 * 60
+# 网络命令加低速阈值：Gitee 偶发卡死时 60s 内失败重试，而不是挂 10 分钟
+NET_OPTS = ("-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=60")
 GIT_ENV = {
     **os.environ,
     "GIT_TERMINAL_PROMPT": "0",
@@ -255,7 +257,7 @@ def check_sensitive(staged: list[str]) -> None:
 def ls_remote(remote: str, attempts: int = 3) -> str:
     last_error = ""
     for attempt in range(1, attempts + 1):
-        proc = git("ls-remote", remote, f"refs/heads/{BRANCH}", check=False, timeout=120)
+        proc = git(*NET_OPTS, "ls-remote", remote, f"refs/heads/{BRANCH}", check=False, timeout=120)
         if proc.returncode == 0:
             line = proc.stdout.strip()
             return line.split()[0] if line else ""
@@ -270,7 +272,7 @@ def ls_remote(remote: str, attempts: int = 3) -> str:
 
 def push_remote(remote: str, label: str, attempts: int = 3) -> None:
     for attempt in range(1, attempts + 1):
-        proc = git("push", remote, BRANCH, check=False, timeout=600)
+        proc = git(*NET_OPTS, "push", remote, BRANCH, check=False, timeout=600)
         if proc.returncode == 0:
             say(f"    {label} 推送成功")
             return
@@ -293,7 +295,7 @@ def is_ancestor(ancestor: str, descendant: str) -> bool:
 def reconcile(remote: str, label: str, auto: bool) -> None:
     """远端领先或分叉时，自动模式下尝试 rebase；手动模式给出明确提示。"""
     ref = f"refs/remotes/{remote}/{BRANCH}"
-    git("fetch", remote, f"+refs/heads/{BRANCH}:{ref}", check=False, timeout=300)
+    git(*NET_OPTS, "fetch", remote, f"+refs/heads/{BRANCH}:{ref}", check=False, timeout=300)
     fetched = git("rev-parse", "--verify", "--quiet", ref, check=False).stdout.strip()
     if not fetched:
         return
