@@ -3774,5 +3774,8 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - `deploy/migration/cutover_run.py`：rehearsal（默认，安全） / execute --confirm-cutover / rollback --confirm；一条命令完成 快照→cut 库导入→2 个优化 SQL→switch-db→测试账号 smoke→（execute 才）Caddy 切换+生产 smoke；rehearsal finally 自动切回 staging。
 - 实测 rehearsal rc=0 总 **335.3s**（import 311s + verify 7 + SQL 8 + 切换/回切 8 + smoke 1.3），staging 恢复 200、生产仍 401；真正切换窗口可 <1min。
 - `deploy/migration/CUTOVER.md §1` 已推荐用编排命令；手工步骤保留作为回退。
+**P7 切流前置收尾（2026-11-18 round 7）**
+- 回滚编排安全实测 `cutover_run.py rollback --confirm`：rc=0 7.8s，生产 401/staging 200 不误改；备份+异地备份+恢复演练复跑全 PASS（42.98MB，36 表/92 函数/73 策略恢复）。
+- `AGENTS.md §42` 新增迁移架构/切流顺序/红线/已知边界；`CLOUDBASE.md` 顶部加迁移状态。切流前 CloudBase 只读、生产 Caddy 不动。
 **P4 待办（门槛：ICP 备案通过 + 域名恢复）**：最终快照导出 → 导入 cut 库 → `ecs_pg.py switch-db` → Caddy 生产路由切自建
 （`CUTOVER.md`）→ 三端发布 → 观察 → 停 CloudBase。备案前不要切生产、不要发布走 http/IP 的正式版。

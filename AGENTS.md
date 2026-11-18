@@ -180,4 +180,39 @@
 
 
 
-39. **通知「发布时间统一」（2026-11-18，增量 60，网页已上线 / 小程序·安卓源码待用户发布安装）**：用户原话「将通知中不含时间的时间设定为发布时间，动作设为发布，并参与排序等等统一计算」。唯一契约 `通知三端_发布时间统一_契约_20261118.md`。① **数据**：所有组写 `publishedAt`（ISO；组内最新消息时间/updatedAt 较晚者，同「最新发布」口径），无任何时间锚点且非长期安排的组写 `publishAction="发布"`；`sync_notices_cloud.compact_group` 白名单加两字段。② **三端口径**：`statusOf` 在 `none` 前新增 `published` 分支（chip「<时间> 发布」，cls=active）；发布卡从「资料 / 无时间」栏移入主列表（`isInfoGroup` 排除、`isTimeGroup` 纳入）；`orderRank` 档 4、档内按发布时间倒序；待处理统计按 `actionable!==false` 计入、24h/7 天仍按主显示时间（发布卡不进未来窗口）、最新发布用 `publishedAt`；资料栏仅剩「既无锚点又无发布时间」兜底卡（正常 0 条隐藏）。③ **网页**：`build_notice_board.py` JS（`publishedTsOf`/`statusOf`/`isInfoGroup`/`isTimeGroup`/`orderRank`/`orderGroups`）+ Python（`publish_at_of`/`has_time_anchor` + main 末尾写字段）→ demo → `build_notice_embed.py`；新增 `tools/tests/v2_notice_publish_check.py` **20/20**，更新 period **53/53** / longterm **27/27** / live **20/20**，回归 data 27/27、dynamic_cat 18/18、v2_ui 27/27、overflow 430=0、export draw ok。④ **上线**：`tools/index.html` **1,335,115B / sha256 610a39dc…**（OSS+ECS MATCH，gzip 413,620B）；board 页 14,626,157B/`e603f657…`、data 14,539,363B；notices cloud 104/104（测试身份只读：publishedAt 104/104、publishAction 9/9）。备份 `tools/_backup/index_online_20261118-1258_prePublishTime.html`（1,333,307B/`b33d0251…`）。⑤ **已知取舍**：发布卡（资料类通知）若 `actionable!==false` 会计入「待处理」，可点「标记已处理」消除；真正无发布时间的组仍保留「资料 / 无时间」兜底栏（正常为 0）。小程序/安卓需用户上传发布/重新打包安装后生效。
+39. **通知「发布时间统一」（2026-11-18，增量 60，网页已上线 / 小程序·安卓源码待用户发布安装）**：用户原话「将通知中不含时间的时间设定为发布时间，动作设为发布，并参与排序等等统一计算」。唯一契约 `通知三端_发布时间统一_契约_20261118.md`。① **数据**：所有组写 `publishedAt`（ISO；组内最新消息时间/updatedAt 较晚者，同「最新发布」口径），无任何时间锚点且非长期安排的组写 `publishAction="发布"`；`sync_notices_cloud.compact_group` 白名单加两字段。② **三端口径**：`statusOf` 在 `none` 前新增 `published` 分支（chip「<时间> 发布」，cls=active）；发布卡从「资料 / 无时间」栏移入主列表（`isInfoGroup` 排除、`isTimeGroup` 纳入）；`orderRank` 档 4、档内按发布时间倒序；待处理统计按 `actionable!==false` 计入、24h/7 天仍按主显示时间（发布卡不进未来窗口）、最新发布用 `publishedAt`；资料栏仅剩「既无锚点又无发布时间」兜底卡（正常 0 条隐藏）。③ **网页**：`build_notice_board.py` JS（`publishedTsOf`/`statusOf`/`isInfoGroup`/`isTimeGroup`/`orderRank`/`orderGroups`）+ Python（`publish_at_of`/`has_time_anchor` + main 末尾写字段）→ demo → `build_notice_embed.py`；新增 `tools/tests/v2_notice_publish_check.py` **20/20**，更新 period **53/53** / longterm **27/27** / live **20/20**，回归 data 27/27、dynamic_cat 18/18、v2_ui 27/27、overflow 430=0、export draw ok。④ **上线**：`tools/index.html` **1,335,115B / sha256 610a39dc…**（OSS+ECS MATCH，gzip 413,620B）；board 页 14,626,157B/`e603f657…`、data 14,539,363B；notices cloud 104/104（测试身份只读：publishedAt 104/104、publishAction 9/9）。备份 `tools/_backup/index_online_20261118-1258_prePublishTime.html`（1,333,307B/`b33d0251…`）。⑤ **已知取舍**：发布卡（资料类通知）若 `actionable!==false` 会计入「待处理」，可点「标记已处理」消除；真正无发布时间的组仍保留「资料 / 无时间」兜底栏（正常为 0）。小程序/安卓需用户上传发布/重新打包安装后生效。---
+
+## 42. CloudBase→ECS 自建后端迁移（2026-11-18，P0–P6 完成，P4 切流待 ICP 备案）
+
+> **当前状态（2026-11-18）**：自建 **PostgreSQL 18 + PostgREST 13** 已在 ECS `127.0.0.1:3000` 就绪，
+> staging 路由 `http://121.196.47.2/v1/rdb/rest-next/` 可用；**生产 `/v1/rdb/rest/*` 仍反代 CloudBase**（未切）。
+> `tool.furina.fun` 仍 NXDOMAIN（ICP 未过）；CloudBase **2026-12-10 到期**。切流执行前**CloudBase 只读**。
+
+### 42.1 架构与文件
+- ECS：PG18（库 `class_tools` / `class_tools_cut`，角色 `class_tools_owner`(BYPASSRLS 属主) + `anon/authenticated/service_role/authenticator`）+
+  PostgREST 13（`db-anon-role=anon`、`db-extra-search-path=public,private`、无 jwt）→ Caddy 生产路由切自建时 `handle_path /v1/rdb/rest/* → 127.0.0.1:3000` 并 **`header_up -Authorization`**（客户端仍带 CloudBase JWT，必须剥）。
+- 部署/运维脚本：`deploy/ecs_pg.py`（provision/staging/probe/backup/offsite/monitor/smoke/import/verify/switch-db/apply-sql）、
+  `deploy/ecs_cutover.py`（status/validate/switch/rollback（Caddy 生产路由））、`deploy/ecs_cron.py`（云函数替代 timer，切流前 disabled）。
+- 迁移工具：`deploy/migration/{PLAN,CUTOVER,IMPORT,PIPELINE,CLIENTS}.md`、`{tcb_sql,export_schema,export_data,verify_export}.py`、
+  `cutover_run.py`（rehearsal/execute/rollback 总编排）、`e2e_staging_web.py`、`e2e_ppt_media.py`、`e2e_attach_staging.py`、`verify_offsite_backup.py`。
+- 自建库专属优化 SQL（**只导入后应用，绝不应用 CloudBase**）：
+  `deploy/migration/2026-11-18_notice_meta_lite.sql`、`2026-11-18_notice_meta_cache.sql`（通知 meta 221–250ms → 6–9ms，输出 sha 不变）。
+
+### 42.2 红线（后续会话必读）
+1. **切流前 CloudBase 只读**：不得写/删/DDL CloudBase；数据导出只用 `tcb db execute` 只读通道。
+2. 测试只用测试账号 `3260799999/测试账号` 或 9999 段临时 QA；禁止真实账号 token。
+3. **生产切 Caddy 必须显式 `--confirm`**；`cutover_run.py execute` 需要 `--confirm-cutover`；rehearsal 安全但会短暂切 PostgREST 的库（finally 自动切回）。
+4. 切流顺序：快照 → 导入 `class_tools_cut --reset` → verify → 两个优化 SQL → `switch-db cut` → smoke → Caddy switch → 生产 smoke；
+   回滚：`cutover_run.py rollback --confirm`（Caddy 回 CloudBase + switch-db `class_tools`）。
+5. 备份：ECS 每日 03:30 `pg_dump -Fc` 保留 14 天；异地备份 `ecs_pg.py offsite --keep 8`（本机签名 PUT → 私有 OSS `furina-site-logs/pg-backup/`，ECS 不留 AK/SK；建议周度）。
+6. 监控：`ecs_pg.py monitor`（PG/PostgREST/备份≤36h/磁盘≤85%/连接<72/staging 路由）；timer `class-tools-pg-monitor.timer` 每 10 分钟，状态 `/var/lib/class-tools/pg-monitor.json`；
+   `health_probe` 在 staging/selfhosted 模式把 PG 指标并入 `cloudbase` 行（detail/meta.pg，18 行契约不变）。
+7. 切流后：启用 `class-tools-job-*` timer、按 `CUTOVER.md §2` 开 `NOTICE_ATTACH_EXTERNALIZE=1` 回填附件、停 CloudBase 云函数/定时器、保留 CloudBase ≥2 周回滚。
+8. 客户端：网页同源逻辑已就绪；小程序/安卓 base 配置/媒体映射已完成源码但**未发布**（用户上传/打包为准；版本号不要动）。
+   PPT 在线媒体/封面走 ECS `/pptfiles`（开关可回滚：mp `pptEcs.enabled=false`、安卓 `PptEcsUrl.ENABLED=false`）。
+9. 数据/凭据：快照产物在 `C:\briefdesk\data\cloudbase_migration\`（含隐私，**绝不入库**）；ECS 上 `/etc/class-tools/pgrest.conf` 0600 不打印、不复制。
+
+### 42.3 已知边界
+- PG 单机（每日 dump + 私有 OSS 异地备份，无流复制）；PostgREST 单实例；切流窗口建议低峰并提前通知。
+- `class_notices_meta` 缓存写时重建，notices 写语句会多约 90ms（写很少）；迁移后旧客户端只读表行为不变。
+- CloudBase 平台对象（storage/auth 等）不迁移；`pgcrypto` 在 public schema；C locale 建库不可改（排序/唯一语义）。

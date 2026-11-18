@@ -156,3 +156,11 @@ PostgreSQL 18（class_tools 库：public 29 表 + private 5 表，88 函数、71
   步骤：预检 staging →（可选新快照）→ import `class_tools_cut --reset` → verify → apply-sql ×2 → switch-db cut → 测试账号 smoke →（execute 才）Caddy 切 selfhosted + 生产 smoke；rehearsal 在 finally 自动切回 `class_tools`。
 - 实测 rehearsal（复用 `p4-final-20261118-1526`）：**rc=0，总 335.3s**（import 311.4s、verify 7.0s、两个 SQL 7.7s、切换/回切 7.6s、smoke 1.3s），staging 恢复 200；smoke 全 PASS（members 70 / meta 125 / RLS 负例 0）。真正切流窗口只剩「switch-db + Caddy + 生产 smoke」，可 <1 分钟。
 - 修复：子进程统一 `PYTHONIOENCODING=utf-8`（避免 Windows GBK 中文导致编排输出解码崩溃）；mode 默认 rehearsal；失败时 finally 仍恢复 staging。
+
+### 9.6 第七轮（2026-11-18 round 7）：回滚路径实测 + 备份/异地备份复跑 + 文档固化
+
+- **回滚路径安全实测**：`cutover_run.py rollback --confirm`（当前已 cloudbase，Caddy 切换为 no-op 幂等）rc=0 7.8s；
+  生产 401 / staging 200 符合预期，证明回滚编排不会误改生产。
+- **备份闭环复跑**：`ecs_pg.py backup` 生成新 dump（pg_restore -l 419 行可读）→ `offsite --keep 8` 上传私有 OSS（42,984,251B，2 份）→
+  `verify_offsite_backup.py` 下载 sha 一致、恢复临时库 rc=0（36 表/92 函数/73 策略/notices 184，含两个自建优化对象）→ 清理。
+- **文档**：`AGENTS.md §42` 固化迁移架构/切流顺序/红线/已知边界；`CLOUDBASE.md` 顶部加迁移状态块；避免后续会话误写 CloudBase。

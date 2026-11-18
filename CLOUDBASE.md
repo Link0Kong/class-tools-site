@@ -5,6 +5,10 @@
 > 上手顺序：`AGENTS.md` → `HANDOFF.md` → 本文件。
 > **本文件是 2026-10-10 的真实配置结果，已经端到端实测通过。**
 
+> ⚠️ **2026-11-18 自建后端迁移状态**：自建 PostgreSQL 18 + PostgREST 13 已在 ECS staging 就绪（`/v1/rdb/rest-next/`），
+> 生产 `/v1/rdb/rest/*` 仍按本文件走 CloudBase，待 ICP 备案后切流。总计划 `deploy/migration/PLAN.md`、切流 `CUTOVER.md`；
+> **CloudBase 2026-12-10 到期**，切流前保持只读。
+
 ---
 
 ## 0. 2026-11-04 身份系统重构（当前有效）
