@@ -3762,5 +3762,10 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 三端 PPT 在线媒体：小程序/安卓已按网页同口径映射 OSS `/ppt/**` → ECS `/pptfiles`（开关可回滚），staging 双端冒烟 PASS（mp 596/0、安卓 1603/0）；证据见 `deploy/migration/CLIENTS.md §3b`。
 - Caddy 对自建 API 响应 zstd/gzip：notices meta 313,819B → 62KB（-80%）。
 
+**P4 体验/运维收尾（2026-11-18 round 4）**
+- PPT 封面 `cover_url` 三端全部映射 ECS `/pptfiles`（网页 E2E 11/11；mp 597/0、安卓 1605/0，staging 双端冒烟 PASS）。
+- 异地备份可恢复性演练通过：私有 OSS dump 下载 sha256 与 ECS 本机一致、pg_restore 临时库 **34 表/89 函数/73 策略/notices 184**、恢复 rc=0；脚本 `deploy/migration/verify_offsite_backup.py`。
+- PG 监控接入 `health_probe` 的 `cloudbase` 行（`meta.pg`，18 行契约不变；ok=false/缺失/过期只降 warn）；离线 19/19 + ECS smoke 正常/两种降级实测通过；ECS job timer 仍 disabled 等切流启用。
+- 三仓：mp `c316fca`、android `e8f3a31` 已推送；web 见本次提交。
 **P4 待办（门槛：ICP 备案通过 + 域名恢复）**：最终快照导出 → 导入 cut 库 → `ecs_pg.py switch-db` → Caddy 生产路由切自建
 （`CUTOVER.md`）→ 三端发布 → 观察 → 停 CloudBase。备案前不要切生产、不要发布走 http/IP 的正式版。

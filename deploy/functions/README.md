@@ -25,13 +25,18 @@ deploy/functions/
   xgj_sync/index.py               = C:\briefdesk\cloudbase\functions\xgj_sync\index.py
   xgj_sync/xgj_homework.py        = C:\briefdesk\scripts\xgj_homework.py（同源）
   health_probe/index.py           = C:\briefdesk\cloudbase\functions\health_probe\index.py
-  health_probe/health_beat.py     = C:\briefdesk\scripts\health_beat.py（同源）
+  health_probe/health_beat.py     = C:\briefdesk\cloudbase\functions\health_probe\health_beat.py
+                                    ⚠️ P4 起含「PG 监控并入 cloudbase 行」，**不再等于**
+                                    C:\briefdesk\scripts\health_beat.py（本机 watchdog 版保持 P3 行为）
+  tests/test_health_pg_monitor.py P4 PG 监控并入逻辑离线单测（19 项；不上传 ECS）
 ```
 
-**同源规则**：`index.py` 与 `health_beat.py` / `sync_power_cloud.py` / `xjg_homework.py`
-的真源分别在 `C:\briefdesk\cloudbase\functions\` 与 `C:\briefdesk\scripts\`；改真源后
-重新复制到本目录（`cloudbase/deploy.py` 部署 CloudBase 时也会刷新云函数目录里的副本）。
-本目录副本不单独修改，避免两份逻辑漂移。
+**同源规则**：`index.py` / `health_beat.py` / `sync_power_cloud.py` / `xjg_homework.py`
+的真源在 `C:\briefdesk\cloudbase\functions\`（index.py）与 `C:\briefdesk\scripts\`；
+普通变更改真源后重新复制到本目录（`cloudbase/deploy.py` 部署 CloudBase 时也会刷新云函数目录里的副本）。
+**唯一例外（P4）**：`health_probe/health_beat.py` 的 PG 监控并入逻辑只服务 ECS/自建后端，
+按 task-12 要求只落在 `deploy/functions/` 与 `C:\briefdesk\cloudbase\functions\health_probe\` 两份副本，
+本机 `scripts/health_beat.py`（watchdog 本机 10 行）**有意不改**；其余文件仍按同源规则维护。
 
 三个 `index.py` 完全复用原 CloudBase 云函数实现（不改成 ECS 专用代码）：
 `jobs_runner.py` 只负责「换后端地址、调 handler、写心跳、记退出码」。
@@ -64,7 +69,10 @@ python deploy\ecs_cron.py uninstall [--purge]        # 删 unit；--purge 连 en
 - 目标后端：`CB_BASE` / `CB_KEY`（`index.py` 包装层读）、`CLASS_CB_BASE` / `CLASS_CB_KEY`（`scripts/cloud_backend.py` 同源脚本读）；
 - 管理员：`CLASS_ADMIN_SID` / `CLASS_ADMIN_NAME`（`rpc/class_verify` 换 token）、可选 `CLASS_TOKEN`；
 - 学工记：`XGJ_TOKEN` / `XGJ_MEMBER_ID` / `XGJ_EXP` / `XGJ_EXP_TEXT` / `XGJ_CID`；
-- 心跳：`CLASS_JOB_HEARTBEAT=1`、`CLASS_JOBS_STATE=/var/lib/class-tools/jobs/state`、`CLASS_HEALTH_RUNNER=ecs-timer`。
+- 心跳：`CLASS_JOB_HEARTBEAT=1`、`CLASS_JOBS_STATE=/var/lib/class-tools/jobs/state`、`CLASS_HEALTH_RUNNER=ecs-timer`；
+- PG 监控（P4）：`CLASS_PG_MONITOR=/var/lib/class-tools/pg-monitor.json` —— 自建后端模式下
+  `health_probe` 把 round-3 PG 监控并入既有 `cloudbase` 行（detail 追加 PG 指标、`meta.pg` 完整字段），
+  文件缺失/损坏/`ts`>30 分钟时该行降级 warn；**不新增行（18 行契约不变）**；CloudBase 模式不读文件、行为不变。
 
 ## 心跳契约（health_beat.py 读）
 

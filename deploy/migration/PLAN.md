@@ -122,3 +122,14 @@ PostgreSQL 18（class_tools 库：public 29 表 + private 5 表，88 函数、71
 - `deploy/ecs_pg.py offsite --keep 8`：把最新 `pg_dump` 经短签名 PUT URL 上传到**私有 OSS** `furina-site-logs/pg-backup/`（ECS 不存 AK/SK；本机 head_object 校验大小；保留 8 份）。首次实测 42,831,353B 上传成功。
 - 压缩验收：Caddy 对自建 API 响应启用 zstd/gzip（`notices meta` 313,819B → gzip 62,294B / zstd 61,854B，约 -80%），三端弱网收益明显。
 - 备注：offsite 为手动/周度命令（不由 ECS 自行调度，避免在 ECS 存长期凭据）；建议每周跑一次并记录在巡检表。
+
+### 9.2 第四轮（2026-11-18 round 4）
+
+- **PPT 封面 cover_url 三端走 ECS 缓存**：网页列表/播放器首帧、mp 列表/详情/播放器首帧、安卓 `coverDisplayUrl` 全部复用既有映射 helper；
+  网页真实浏览器 E2E **11/11**（含 V2b 列表封面 DOM src 为 `/pptfiles/...`）；mp unit **597/0**、安卓 **1605/0**，staging 双端冒烟 PASS。
+- **异地备份可恢复性演练**：新增 `deploy/migration/verify_offsite_backup.py`（私有 OSS 最新 dump → 下载 → sha256 对比 ECS 本机 dump → `pg_restore` 临时库 → 计数 → 清理）。
+  实测：下载 42,831,353B/55.8s、**SHA256_MATCH**、`restore_rc=0`、**34 表/89 函数/73 策略/notices 184/class_sessions 8374/72MB**，临时库已删。
+- **PG 监控接入诊断页**：`health_probe` 在 staging/selfhosted 模式读取 `/var/lib/class-tools/pg-monitor.json`，把 PG 指标并入既有 `cloudbase` 行
+  （detail + `meta.pg`，**18 行契约不变**）；ok=false/缺失/过期>30min 只降级 warn；CloudBase 默认模式完全不读、行为不变。
+  离线单测 **19/19**；ECS smoke：正常 ok、`backup_age_h=99` → warn、`ts` 35min → warn，finally 恢复 JSON sha256 MATCH；timer 仍 disabled。
+- 三仓：web 本轮提交（含以上改动与文档）；mp **c316fca**、android **e8f3a31** 已双远端推送。

@@ -13233,8 +13233,9 @@ var PPT=(function(){
     var st=statusOf(d);
     var ready=String(d.status||"")==="ready";
     var mine=isMine(d);
-    var cover=d.cover_url
-      ? '<img src="'+esc(d.cover_url)+'" alt="" loading="lazy" decoding="async">'
+    var coverUrl=d.cover_url?pptEcsUrl(String(d.cover_url)):"";
+    var cover=coverUrl
+      ? '<img src="'+esc(coverUrl)+'" alt="" loading="lazy" decoding="async">'
       : '<span class="ppt-cvph">演示</span>';
     /* v1.2 列表便捷：续播徽标（7 天内且未到末尾）+ 原样时长胶囊（本机缓存过 manifest.video，旧 deck 才有预览） */
     var rsm=ready?posOf(d):null;
@@ -15308,7 +15309,7 @@ var PPT=(function(){
         if(dm.resumeNotice){PL.resumeActive=true;}
       }else{
         /* 首帧：cover_url 立即铺底，目标步图到位后 120ms 淡入替换（不出现"加载中"） */
-        var cover=PL.deck&&PL.deck.cover_url?String(PL.deck.cover_url):"";
+        var cover=PL.deck&&PL.deck.cover_url?pptEcsUrl(String(PL.deck.cover_url)):"";
         if(cover){
           try{
             PL.layers[0].style.visibility="visible";

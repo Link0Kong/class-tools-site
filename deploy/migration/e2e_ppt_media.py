@@ -67,6 +67,18 @@ def main():
                           await_promise=True, timeout=60)
         except Exception:  # noqa: BLE001
             pass
+        # V2b：列表封面 cover_url 也应走 /pptfiles（列表在隐藏 tab 里，lazy 图不一定发请求，直接检查 DOM src）
+        try:
+            page.evaluate("(function(){try{PPT.enter();return 1;}catch(e){return 0;}})()")
+            page.sleep(0.6)
+        except Exception:  # noqa: BLE001
+            pass
+        covers = page.evaluate(
+            "(function(){return Array.prototype.slice.call(document.querySelectorAll('#pptList img'))"
+            ".map(function(i){return String(i.getAttribute('src')||'');})"
+            ".filter(function(x){return x.indexOf('/pptfiles/ppt/a/%s/')>=0;}).slice(0,3);})()" % DECK)
+        check("V2b 列表封面走 /pptfiles（DOM src）", bool(covers), covers)
+
         try:
             page.evaluate("(function(){try{PPT.openDetail('%s');return 1;}catch(e){return 0;}})()" % DECK)
             page.sleep(1.2)

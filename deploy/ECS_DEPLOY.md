@@ -280,3 +280,36 @@ python deploy\ecs_drop.py selftest   # 测试身份真实 E2E（token 不打印/
   - ECS 不留 AK/SK；本机用 `head_object` 校验大小；自动保留最近 8 份；
   - 建议每周执行一次（本机计划任务/巡检表），与 ECS 本机每日 dump（保留 14 天）互补。
 - 恢复演练：`pg_restore -l <dump>` 可读 + `pg_restore -d <临时库>` 34 表/函数/策略计数与 manifest 对齐。
+- 异地备份可恢复性：`python deploy\migration\verify_offsite_backup.py`（自动取私有 OSS 最新 dump → 下载 → sha256 对比 ECS 本机 dump → pg_restore 临时库 → 计数 → DROP；实测 34 表/89 函数/73 策略/notices 184）。
+
+### 9.1 诊断页可见字段（P4，health_probe 并入 `cloudbase` 行，2026-11-18）
+
+> 目标不是新增诊断行（仍 18 行），而是让「云端数据库」这一行同时反映 ECS 自建 PG 的健康度。
+> 代码：`deploy/functions/health_probe/health_beat.py`（ECS job 与 CloudBase 云函数同源副本）；
+> 开关：`CLASS_PG_MONITOR`（默认 `/var/lib/class-tools/pg-monitor.json`）。
+
+- **生效范围**：仅当 `CLASS_CB_BASE` 指向自建后端（staging / selfhosted）时读取监控文件；
+  CloudBase 默认模式**完全不读**，`detail/meta` 与 P3 一致（CloudBase 云函数行为不变）。
+- 监控 JSON 由 `class-tools-pg-monitor.timer`（每 10 分钟）写，权限 **644 root:root**（www-data 可读）；
+  job 的 systemd unit `ProtectSystem=strict` 不影响只读访问。
+- **诊断页「云端数据库」行**（`public.service_health` 行 id=`cloudbase`）：
+
+| 场景 | status | detail（页面显示） | meta.pg |
+|---|---|---|---|
+| 监控新鲜、`ok=true` | `ok` | `HTTP 200 · Nms · PG ok · 15 连接 · 23% 磁盘 · 备份 1h` | `status:"ok"`, `ok:true`, `age_min`, `connections`, `disk_use_pct`, `backup_age_h`, `backup_count`, `db_size`, `prod_mode`, `source`, `ts` |
+| 监控 `ok=false`（pg/pgrest 异常、备份>36h、磁盘>85%、连接≥72、staging 路由非 200） | `warn`（原 ok 行降级） | `HTTP 200 · Nms · PG 异常(备份99h)`（原因片段） | `status:"warn"`, `reasons:[...]` |
+| 文件缺失 / 损坏 | `warn` | `… · PG 监控缺失` | `status:"missing"` |
+| `ts` 超过 30 分钟 | `warn` | `… · PG 监控过期 35 分钟` | `status:"stale"` |
+| 本机（Windows，无监控目录）在 staging 模式 | 不变 | 不变 | `{skipped:true, reason:"no-monitor-file-on-host"}` |
+
+- 与既有契约的关系：行 id/名称/分组/状态色/「巡检未更新」15 分钟降级逻辑**均不变**；只扩展
+  `detail` 文案与 `meta`（页面只渲染 status/detail/`meta.paused`，新增字段不影响渲染）。
+- 排障：`systemctl status class-tools-pg-monitor.service`、`tail /var/log/class-tools-pg-monitor.log`、
+  `cat /var/lib/class-tools/pg-monitor.json`；`CLASS_PG_MONITOR_STRICT=1` 可在无监控目录的主机上
+  强制按「缺失→warn」处理（仅排障/单测）。
+- **实测（2026-11-18 15:20–15:26，staging）**：正常 `ok` + detail PG 指标；改 `ok=false/backup_age_h=99`
+  → `warn` + `PG 异常(备份99h)`；改 `ts` 过期 35 分钟 → `warn` + `PG 监控过期 35 分钟`；恢复后 sha256
+  `MATCH`、smoke 回 `ok`；测试账号从 staging `service_health` 读到 `meta.pg.status=ok/connections=15/disk=23%`。
+- **回滚**：`git checkout` 上一版 `deploy/functions/health_probe/health_beat.py` →
+  `python deploy\ecs_cron.py install`（timer 仍禁用）；下一次 health_probe 运行即恢复 P3 行文案，
+  残留 `meta.pg` 不参与页面渲染、无害。PG 监控 timer/JSON 本身不受影响。

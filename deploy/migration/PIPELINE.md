@@ -1,9 +1,10 @@
-# 本机管线 + 云端定时任务切自建后端 · Runbook（P3）
+# 本机管线 + 云端定时任务切自建后端 · Runbook（P3/P4）
 
-> 阶段：**CloudBase → ECS 自建 PostgREST** 迁移 P3（总计划见 [`PLAN.md`](PLAN.md) §3）。
+> 阶段：**CloudBase → ECS 自建 PostgREST** 迁移 P3（本机管线/云函数替代）+ P4（PG 监控并入诊断行）。
+> 总计划见 [`PLAN.md`](PLAN.md) §3。
 > 目标：切流前让**本机数据管线**与**CloudBase 云端定时任务**都支持「ECS 自建后端」，但
 > **默认行为与迁移前完全一致（仍 CloudBase）**；切流时可只改配置/开关，随时可回滚。
-> 记录日期：2026-11-18（P3 本机管线工程师 pipeline-dev）。
+> 记录日期：2026-11-18（P3/P4 本机管线工程师 pipeline-dev）。
 
 ## 0. 一句话结论
 
@@ -12,6 +13,7 @@
 | 本机管线（17 脚本） | 解析 `web/tools/index.html` 的 `var CB` → CloudBase | `secrets\cloud.env` 里加 `CLASS_CB_BASE=`（+可选 `CLASS_CB_KEY=`） | 删除/注释该行 |
 | ECS 定时任务（替代 3 个云函数） | 不安装/已安装但 **systemd timer 全部 disabled** | `deploy\ecs_cron.py enable --confirm` | `disable`（保留文件）或 `uninstall` |
 | 健康/诊断 18 行 | 本机写 local 10 行 + CloudBase `health_probe` 写 cloud 8 行 | ECS `health_probe` job 写 cloud 8 行（`meta.runner=ecs-timer`），本机仍写 local 10 行 | 停 ECS timer、恢复 CloudBase 定时器 |
+| `cloudbase` 行 PG 监控（P4） | 不读监控文件（CloudBase 模式，行为不变） | 自建模式下并入 ECS `pg-monitor.json`（detail+meta.pg；缺失/过期>30min→warn） | 回退 health_probe 副本后 `install`（见 §5.1） |
 | CloudBase | 只读、不动 | P4 切流后才停用 | 定时器/云函数恢复 |
 
 **红线**：本机生产任务默认行为不变；不写 CloudBase；测试只用测试账号；凭据不打印、不入库。
@@ -213,6 +215,36 @@ python deploy\ecs_cron.py uninstall [--purge --confirm]  # 删 unit；--purge �
   定时触发器再 `enable` ECS timer（见 §4.3）。
 - 开关关闭（默认）→ 与迁移前完全一致：按 `public.power.updated_at` / `public.homework.ts` 数据年龄判定。
 
+### 5.1 P4：ECS PostgreSQL 监控并入 `cloudbase` 行（2026-11-18）
+
+round-3 的 `class-tools-pg-monitor.timer`（每 10 分钟）在 ECS 写
+`/var/lib/class-tools/pg-monitor.json`（644 root:root，www-data 可读），字段：
+`pg_active / pgrest_active / pgrest_http / staging_http / backup_file / backup_age_h /
+disk_use_pct / connections / db_size / backup_count / prod_mode / ok / ts`。
+**health_probe job 把它并入既有 `cloudbase` 行（不新增行，18 行契约不变）**：
+
+| 触发条件 | `cloudbase` 行变化 |
+|---|---|
+| `CLASS_CB_BASE` = staging/selfhosted 且监控新鲜、`ok=true` | `detail` = `HTTP 200 · Nms · PG ok · 15 连接 · 23% 磁盘 · 备份 1h`；`meta.pg = {status:"ok", ok:true, age_min, connections, disk_use_pct, backup_age_h, backup_count, db_size, prod_mode, source, ts…}`；status 不变 |
+| 监控 `ok=false`（PG/PGrest 异常、备份>36h、磁盘>85%、连接≥72、staging 路由非 200） | 由 `ok` 降级 `warn`；detail 追加 `PG 异常(备份99h)` 等具体原因；`meta.pg.reasons` |
+| 文件缺失 / 损坏 / `ts` 超过 **30 分钟** | 降级 `warn`；detail 追加 `PG 监控缺失` / `PG 监控过期 35 分钟`；`meta.pg.status=missing/stale` |
+| 本机（Windows，无 `/var/lib/class-tools` 目录）在 staging/selfhosted 模式 | **优雅跳过**：`meta.pg={"skipped":true}`，status/detail 不变 |
+| **CloudBase 默认模式**（未设 `CLASS_CB_BASE` 或指向 CloudBase 网关） | **完全不读文件**：detail/meta 与 P3 完全一致（CloudBase 云函数行为不变） |
+
+- 路径可用 `CLASS_PG_MONITOR` 覆盖（默认 `/var/lib/class-tools/pg-monitor.json`），
+  `CLASS_PG_MONITOR_STRICT=1` 可在无监控目录的主机上强制按「缺失→warn」处理（排障/单测用）。
+- 只读 644 文件；job 以 www-data 运行可读（实测 `setpriv --reuid=www-data head` 通过）。
+- 新代码只落在 **`deploy/functions/health_probe/health_beat.py` 与
+  `C:\briefdesk\cloudbase\functions\health_probe\health_beat.py`**（云函数/ECS 副本）；
+  本机 `C:\briefdesk\scripts\health_beat.py`（watchdog 本机 10 行）**未改**，避免影响本机管线。
+  注意 `cloudbase/deploy.py` 会用 scripts 版覆盖云函数副本——CloudBase 即将退役，且 CloudBase
+  模式行为本来就不变；不要用它重新部署 health_probe 后再指望带 PG 字段（ECS 用 deploy/functions 副本，不受影响）。
+- 单测：`deploy/functions/tests/test_health_pg_monitor.py`（19 项，离线；运行时不在 ECS 上传清单里）。
+- **回滚**：`git checkout` 上一版 `deploy/functions/health_probe/health_beat.py` →
+  `python deploy\ecs_cron.py install`（幂等，timer 仍禁用）→ 下一次 `health_probe` 运行即恢复 P3 行为；
+  无需改 DB/CloudBase（诊断页不渲染未知 meta，残留 `meta.pg` 无害）。
+  应急且不改代码：在 `jobs.env` 设 `CLASS_PG_MONITOR=/nonexistent` 只会让该行 warn，**不是**干净回滚。
+
 ## 6. 测试与验收记录（2026-11-18 实测）
 
 脚本：`C:\briefdesk\scripts\tests\test_cloud_backend.py`（全部离线、不读真实 token）。
@@ -252,6 +284,20 @@ python deploy\ecs_cron.py uninstall [--purge --confirm]  # 删 unit；--purge �
 | `enable`（无 `--confirm`） | 拒绝 | PASS |
 | `uninstall --purge`（无 `--confirm`） | 拒绝 | PASS |
 | `smoke --dry-run` | 打印脚本（只允许 staging 的远端守卫） | PASS |
+
+**P4 PG 监控并入 `cloudbase` 行（2026-11-18 15:20–15:26 实测）**：
+
+| 用例 | 结果 |
+|---|---|
+| 离线单测 `deploy/functions/tests/test_health_pg_monitor.py` | **19/19 PASS**（解析/字符串数字归一/ISO ts；五态 ok/warn/missing/stale/invalid；CloudBase 模式原样返回；本机无目录优雅跳过；staging/selfhosted 合并；降级只降不升；detail ≤60；18 行契约） |
+| ECS `smoke --job health_probe`（正常监控） | job **ok:true rc=0 ms=169**；`cloudbase` 行 `status=ok`、`detail="HTTP 200 · 2ms · PG ok · 15 连接 · 23% 磁盘 · 备份 1h"` |
+| 降级①：临时改 JSON `ok=false, backup_age_h=99` | `cloudbase` 行 **status=warn**、`detail="HTTP 200 · 3ms · PG 异常(备份99h)"`；job 本身仍 ok:true（监控降级不影响 job 退出码） |
+| 降级②：临时改 JSON `ts=35 分钟前` | `cloudbase` 行 **status=warn**、`detail="HTTP 200 · 2ms · PG 监控过期 35 分钟"` |
+| 恢复：`mv` 回原文件 + sha256 | **MATCH**（`e8d5f7eaa3db4432…`，350 B，mode 644，mtime 原样）；恢复后 smoke → status=ok 且 detail 含 `PG ok`；ECS 目录无残留测试文件 |
+| 诊断页数据路径：测试账号读 staging `service_health.cloudbase` | `status=ok`、`detail` 同上；`meta.pg.status=ok, ok=True, connections=15.0, disk_use_pct=23.0, backup_age_h=1.0, age_min=7.9` |
+
+（本轮 4 次 smoke 均手动 runner，`class-tools-job-*.timer` 全程 `disabled/inactive`；
+round-3 `class-tools-pg-monitor.timer` 保持 enabled/active 正常写监控文件。）
 
 **staging 验证（P1 就绪后 2026-11-18 14:15–14:18 实测，全部通过）**：
 
@@ -295,15 +341,17 @@ python deploy\ecs_cron.py uninstall [--purge --confirm]  # 删 unit；--purge �
 | smoke（13:36，staging 未就绪时） | `smoke --job health_probe` → `status=Failed exit=1`，`{"ok":false,"rc":1,"result":{"error":"class_verify failed: HTTP 404 None"}}`；心跳落盘 `ok=false` —— runner/心跳链路正常，失败原因就是当时 P1 staging 404 |
 | smoke（14:15 P1 就绪后） | `health_probe` → **ok:true rc=0 ms=575**（8 行 patched）；`power_sync` → **ok:true rc=0 ms=7073**（17/17 power + 17 history 写 staging）；`health_probe` 二跑 → ok:true ms=1920，`cloud_power_sync.detail=最近同步 12 秒前` |
 | `status` 复核 | 三个 timer 仍 `enabled=disabled active=inactive`（smoke 是手动 runner，不启用 timer）；心跳：`cloud_health_probe` ok / `cloud_power_sync` ok；env 仅键名 |
+| P4 重装（15:19，P4 PG 监控并入） | 8 文件全量重传（`health_probe/health_beat.py` 74,117 B / `jobs_runner.py` 12,504 B）→ `decode-ok` + py_compile；`jobs.env` **15 键**（新增 `CLASS_PG_MONITOR=/var/lib/class-tools/pg-monitor.json`）；`self-check OK`；三个 `class-tools-job-*.timer` 仍 `disabled/inactive`（见 §5.1 实测） |
 
-结论：**ECS 侧已就绪但整体未启用**（timer 全禁用）；staging 冒烟已全部通过，P2 可随时用
-`smoke`/`staging_smoke.py` 做影子验证；P4 切流后 `install --backend live --allow-live` +
+结论：**ECS 侧已就绪但整体未启用**（timer 全禁用）；staging 冒烟与 P4 PG 监控并入已全部通过，
+P2 可随时用 `smoke`/`staging_smoke.py` 做影子验证；P4 切流后 `install --backend live --allow-live` +
 `enable --confirm` 即可（仍保持“安装≠启用”）。
 
 ## 8. 待办 / 后续
 
 - [x] ~~P1 staging 路由就绪后补跑 staging 读链路 + 单条测试写入（测试账号，finally 清理）~~ → 2026-11-18 14:15–14:18 完成，**26/26 PASS**（见 §6）；
 - [x] ~~P1 就绪后重跑 `smoke --job health_probe` 与 `smoke --job power_sync`（staging 库）~~ → 均 ok:true / rc=0（见 §6/§7）；
+- [x] ~~P4：PG 监控并入 `cloudbase` 行（detail/meta，18 行契约不变；缺失/过期>30min 降级 warn；CloudBase 模式不变）~~ → 2026-11-18 15:20–15:26 完成：离线单测 19/19、ECS smoke + 双降级 + 恢复 sha MATCH（见 §5.1/§6/§7）；
 - [ ] `smoke --job xgj_sync`（staging）：依赖外部「班级小管家」Token 有效性，未在本次执行（避免测试期外部账号风险）；P2 若需要再单独跑；
 - [ ] **切流前**：`web/jwxt/tt_cloud.py` 支持自建 base —— Lead 已补 `CLASS_CB_BASE/CLASS_CB_KEY` 覆盖，
       但注意其条件是 `if base and key`（**两个都设才生效**，只设 base 会回退 index.html）；切流时 cloud.env 里
@@ -340,10 +388,15 @@ cloudbase/functions/health_probe/health_beat.py      = scripts 同源刷新
 deploy/functions/README.md
 deploy/functions/jobs.env.example
 deploy/functions/jobs_runner.py
+deploy/functions/health_probe/health_beat.py   ← P4：PG 监控并入 cloudbase 行（仅 ECS/云函数副本）
+deploy/functions/tests/test_health_pg_monitor.py  ← P4 离线单测 19 项
 deploy/functions/{power_sync,xgj_sync,health_probe}/*     ← CloudBase 云函数源码副本（脱敏）
 deploy/ecs_cron.py
 deploy/migration/PIPELINE.md         ← 本文件
+deploy/ECS_DEPLOY.md                 ← §9 增补诊断页可见字段
 ```
+P4 本机副本：`C:\briefdesk\cloudbase\functions\health_probe\health_beat.py` 与 deploy 副本同源
+（**注意**：`C:\briefdesk\scripts\health_beat.py` 本机 watchdog 版未改动，两副本在 P4 阶段有意不完全相同）。
 
 ## 10. 红线自查
 
@@ -358,4 +411,13 @@ deploy/migration/PIPELINE.md         ← 本文件
 - [x] 测试账号唯一化：`staging_smoke.py` 只用 `3260799999/测试账号`（复用 `_test_account.py` 守卫）；
       未使用真实同学/管理员账号做测试；ECS 定时任务冒烟属「生产服务」路径，其内部用服务凭据
       `CLASS_ADMIN_*` 换 token（不用于测试断言、不打印）；
+- [x] **P4 范围**：只改 `deploy/functions/health_probe/health_beat.py` +
+      `C:\briefdesk\cloudbase\functions\health_probe\health_beat.py`（同源）+ `jobs_runner.py`/
+      `ecs_cron.py`/README/env 示例 + `deploy/migration/PIPELINE.md` + `deploy/ECS_DEPLOY.md`；
+      **未改** `web/tools/**`、mp/安卓、Caddy、CloudBase 生产数据、本机 `C:\briefdesk\scripts\**`；
+- [x] **P4 写入面**：只写 ECS 本地 `/var/lib/class-tools/pg-monitor.json`（测试用，finally `mv` 恢复，
+      sha256 `MATCH`、无 `.p4test-bak` 残留）与 staging 的 `service_health`（诊断行）；ECS
+      `class-tools-job-*.timer` 全程 disabled；round-3 `class-tools-pg-monitor.timer` 未动（enabled/active）；
+- [x] **P4 CloudBase 默认模式不变**：离线单测 `detect_cloudbase(CloudBase base)` detail/meta 与 P3 一致
+      且不读监控文件；未重部署 CloudBase 云函数、未写 CloudBase；
 - [x] 未 `git commit`（Lead 统一提交）。

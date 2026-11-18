@@ -34,6 +34,17 @@ P3 自建后端（2026-11-18，默认行为不变）:
         读 ECS timer 心跳 <CLASS_JOBS_STATE>/<row_id>.json → meta.job，上一轮失败降级 warn。
     切换/回滚见 deploy/migration/PIPELINE.md。
 
+P4 ECS PostgreSQL 监控并入 cloudbase 行（2026-11-18，默认行为不变）:
+    round-3 的 class-tools-pg-monitor.timer 每 10 分钟写 ECS 本机
+    /var/lib/class-tools/pg-monitor.json（pg_active/pgrest_active/pgrest_http/staging_http/
+    backup_age_h/disk_use_pct/connections/db_size/backup_count/prod_mode/ok/ts）。
+    **仅当 CLASS_CB_BASE 指向自建后端（staging/selfhosted）**时，health_probe job 读取该文件，
+    把 PG 状态并入既有 `cloudbase` 行：detail 追加「· PG ok · 15 连接 · 23% 磁盘 · 备份 1h」，
+    meta.pg = {ok,status,age_min,connections,disk_use_pct,backup_age_h,...}。
+    **不新增 service_health 行（18 行契约不变）**；文件缺失/损坏/ts 超过 30 分钟 → 该行降级 warn；
+    本机（Windows，无该目录）在 staging 模式下「优雅跳过」不改状态；CloudBase 模式**完全不读文件**，
+    detail/meta 与 P3 完全一致（CloudBase 云函数行为不变）。
+
 写入方式（spec §2）:
     GET  service_health?select=id 拿现有 id 集合 → 存在则逐行 PATCH，不存在则 POST。
     鉴权：Authorization: Bearer <CBK>（publishable key，设计上公开）
@@ -666,6 +677,155 @@ def apply_job_heartbeat(row, heartbeat, row_id=None, max_age_hours=None):
 
 
 # ---------------------------------------------------------------------------
+# P4：ECS PostgreSQL 监控并入 cloudbase 行（仅 staging/selfhosted；CloudBase 默认不读）
+# ---------------------------------------------------------------------------
+# 文件由 round-3 的 class-tools-pg-monitor.timer 每 10 分钟写（ECS 本机）：
+#   {"pg_active":"active","pgrest_active":"active","pgrest_http":"200","staging_http":"200",
+#    "backup_file":"...","backup_age_h":"1","disk_use_pct":"23","connections":"15",
+#    "db_size":"73MB","backup_count":"3","prod_mode":"cloudbase","ok":true,
+#    "ts":"2026-11-18T07:12:42+00:00"}
+# 注意：除 ok(bool)/ts(str) 外字段值是**字符串**，这里统一宽容转数字。
+PG_MONITOR_FILE = os.environ.get("CLASS_PG_MONITOR") or "/var/lib/class-tools/pg-monitor.json"
+PG_MONITOR_STALE_MIN = 30.0
+PG_MONITOR_KEYS = ("pg_active", "pgrest_active", "pgrest_http", "staging_http",
+                   "backup_age_h", "disk_use_pct", "connections", "db_size",
+                   "backup_count", "prod_mode")
+
+
+def _pg_monitor_path(path=None):
+    return path or os.environ.get("CLASS_PG_MONITOR") or PG_MONITOR_FILE
+
+
+def _num(value):
+    """宽容转数字（监控 JSON 数字是字符串）；非法 → None。"""
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    s = str(value).strip().replace("%", "").replace(",", "")
+    if not s:
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def _pg_monitor_expected(path=None):
+    """本机是否「应该」有该监控文件：ECS 上目录 /var/lib/class-tools 存在；Windows 本机不存在 → 跳过。
+
+    显式开关 CLASS_PG_MONITOR_STRICT=1 时强制视为 expected（离线单测/排障用）。
+    """
+    if (os.environ.get("CLASS_PG_MONITOR_STRICT") or "").strip().lower() in (
+            "1", "true", "yes", "on"):
+        return True
+    return os.path.isdir(os.path.dirname(_pg_monitor_path(path)) or ".")
+
+
+def read_pg_monitor(path=None):
+    """读取并归一化 ECS PG 监控 JSON；不存在/损坏 → None。绝不抛出。"""
+    path = _pg_monitor_path(path)
+    try:
+        data = _read_json(path)
+    except Exception:  # noqa: BLE001
+        return None
+    if not isinstance(data, dict):
+        return None
+    ts = _parse_ts(data.get("ts"))
+    rec = {
+        "source": path,
+        "ts": data.get("ts"),
+        "at": (int(ts * 1000) if ts is not None else None),
+        "age_min": (round(max(0.0, (time.time() - float(ts)) / 60.0), 1)
+                    if ts is not None else None),
+        "ok": bool(data.get("ok")),
+    }
+    for key in PG_MONITOR_KEYS:
+        value = data.get(key)
+        if key in ("pg_active", "pgrest_active", "db_size", "prod_mode"):
+            rec[key] = str(value or "")[:40]
+        else:
+            rec[key] = _num(value)
+    backup_file = str(data.get("backup_file") or "")
+    if backup_file:
+        rec["backup_file"] = os.path.basename(backup_file)[:80]  # 只留文件名，不暴露服务器目录
+    return rec
+
+
+def pg_monitor_status(rec):
+    """纯函数：(state, suffix, reasons)。state ∈ ok / warn / missing / stale / invalid。"""
+    if rec is None:
+        return "missing", "PG 监控缺失", []
+    age_min = rec.get("age_min")
+    if age_min is None:
+        return "invalid", "PG 监控时间无效", []
+    if float(age_min) > PG_MONITOR_STALE_MIN:
+        return "stale", "PG 监控过期 %d 分钟" % int(float(age_min)), []
+    if not rec.get("ok"):
+        reasons = []
+        if rec.get("pg_active") and rec["pg_active"] != "active":
+            reasons.append("PG")
+        if rec.get("pgrest_active") and rec["pgrest_active"] != "active":
+            reasons.append("PGrest")
+        backup_age = rec.get("backup_age_h")
+        if backup_age is not None and backup_age > 36:
+            reasons.append("备份%dh" % int(backup_age))
+        disk_pct = rec.get("disk_use_pct")
+        if disk_pct is not None and disk_pct > 85:
+            reasons.append("磁盘%d%%" % int(disk_pct))
+        conns = rec.get("connections")
+        if conns is not None and conns >= 72:
+            reasons.append("连接%d" % int(conns))
+        return "warn", "PG 异常(%s)" % ("/".join(reasons) or "监控 ok=false"), reasons
+    suffix = "PG ok"
+    conns = rec.get("connections")
+    if conns is not None:
+        suffix += " · %d 连接" % int(conns)
+    disk_pct = rec.get("disk_use_pct")
+    if disk_pct is not None:
+        suffix += " · %d%% 磁盘" % int(disk_pct)
+    backup_age = rec.get("backup_age_h")
+    if backup_age is not None:
+        suffix += " · 备份 %dh" % int(backup_age)
+    return "ok", suffix, []
+
+
+def attach_pg_monitor(row, backend, monitor=None, path=None, expected=None):
+    """把 ECS PG 监控并入 cloudbase 行（**仅 staging/selfhosted**；返回新 dict，不改入参）。
+
+    * CloudBase 模式直接原样返回（不读文件，行为与 P3 一致）；
+    * 本机无监控目录（Windows）→ meta.pg={"skipped":true}，状态不变（优雅跳过）；
+    * 文件缺失/损坏/ts 过期(>30min)/监控 ok=false → 该行由 ok 降级 warn，detail 注明原因；
+    * 18 行契约不变：只改既有 cloudbase 行，不新增 id。
+    """
+    if backend not in ("staging", "selfhosted"):
+        return row
+    path = _pg_monitor_path(path)
+    if expected is None:
+        expected = _pg_monitor_expected(path)
+    out = dict(row or {})
+    meta = dict(out.get("meta") or {})
+    if not expected:
+        meta["pg"] = {"skipped": True, "reason": "no-monitor-file-on-host", "source": path}
+        out["meta"] = meta
+        return out
+    rec = read_pg_monitor(path) if monitor is None else monitor
+    state, suffix, reasons = pg_monitor_status(rec)
+    pg = dict(rec or {})
+    pg.update({"status": state, "expected": True})
+    if reasons:
+        pg["reasons"] = reasons
+    meta["pg"] = pg
+    out["meta"] = meta
+    out["detail"] = _clip((out.get("detail") or "") + " · " + suffix, 60)
+    if state != "ok" and out.get("status") == "ok":
+        out["status"] = "warn"
+    if state != "ok":
+        log("pg monitor %s: %s" % (state, suffix))
+    return out
+
+
+# ---------------------------------------------------------------------------
 # 主机信息（开机时长 + QQ/微信进程）—— 一律无窗口
 # ---------------------------------------------------------------------------
 _PS_HOST_SCRIPT = (
@@ -823,8 +983,10 @@ def detect_cloudbase(base: str, key: str, token) -> dict:
     row = _http_status_row("cloudbase", status, ms, err, "HTTP 200",
                            {"url": base + "service_health"})
     # P3：id 保持 cloudbase（页面契约不变），meta 标出当前探测的后端（cloudbase/staging/selfhosted）。
-    row["meta"]["backend"] = backend_info(base)["backend"]
-    return row
+    backend = backend_info(base)["backend"]
+    row["meta"]["backend"] = backend
+    # P4：自建后端模式下并入 ECS PG 监控（CloudBase 模式不读文件，行为与 P3 完全一致）。
+    return attach_pg_monitor(row, backend)
 
 
 def read_site_config(base: str, key: str, token=None) -> dict:

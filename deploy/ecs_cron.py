@@ -124,7 +124,7 @@ UPLOAD_FILES = [
 CHUNK = 8000  # 单条云助手命令里的 base64 分片长度（总命令 base64 后 < 24KB 上限）
 
 # 非机密键：--dry-run 打印时可以显示真实值（后端地址/路径/开关），其余一律 ***
-SAFE_ENV_KEYS = {"CB_BASE", "CLASS_CB_BASE", "CLASS_JOBS_STATE",
+SAFE_ENV_KEYS = {"CB_BASE", "CLASS_CB_BASE", "CLASS_JOBS_STATE", "CLASS_PG_MONITOR",
                  "CLASS_HEALTH_RUNNER", "CLASS_JOB_HEARTBEAT"}
 
 
@@ -281,6 +281,8 @@ def build_env_text(base):
         "CLASS_JOB_HEARTBEAT=" + _q("1"),
         "CLASS_JOBS_STATE=" + _q(STATE_DIR),
         "CLASS_HEALTH_RUNNER=" + _q("ecs-timer"),
+        "# ---- P4：ECS PG 监控状态文件（round-3 class-tools-pg-monitor.timer 写；health_probe 并入 cloudbase 行）----",
+        "CLASS_PG_MONITOR=" + _q("/var/lib/class-tools/pg-monitor.json"),
         "",
     ]
     return "\n".join(lines)

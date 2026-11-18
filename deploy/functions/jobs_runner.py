@@ -31,6 +31,8 @@ systemd：
         CLASS_JOB_HEARTBEAT=1            health_beat 读取 ECS timer 心跳（默认关闭，ecs_cron 安装时打开）
         CLASS_JOBS_STATE=/var/lib/class-tools/jobs/state
         CLASS_HEALTH_RUNNER=ecs-timer    cloud_health_probe.meta.runner
+        CLASS_PG_MONITOR=/var/lib/class-tools/pg-monitor.json
+                                         P4：自建后端模式下 health_probe 把 PG 监控并入 cloudbase 行
 
 退出码：0=成功（心跳 ok=true）；非 0=失败（心跳 ok=false，systemd journal 记录）。
 安全：本脚本只输出任务耗时/行数/HTTP 码，绝不输出 token/key/密码。
@@ -191,7 +193,8 @@ def _setup_path(job: str) -> str:
 def _env_names() -> list:
     keys = ("CB_BASE", "CB_KEY", "CLASS_CB_BASE", "CLASS_CB_KEY", "CLASS_ADMIN_SID",
             "CLASS_ADMIN_NAME", "CLASS_TOKEN", "XGJ_TOKEN", "XGJ_MEMBER_ID", "XGJ_EXP",
-            "XGJ_CID", "CLASS_JOB_HEARTBEAT", "CLASS_JOBS_STATE", "CLASS_HEALTH_RUNNER")
+            "XGJ_CID", "CLASS_JOB_HEARTBEAT", "CLASS_JOBS_STATE", "CLASS_HEALTH_RUNNER",
+            "CLASS_PG_MONITOR")
     return ["%s=%s" % (k, "set" if os.environ.get(k) else "MISSING") for k in keys]
 
 
