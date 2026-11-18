@@ -33,7 +33,7 @@ BASE = "http://127.0.0.1:%d/" % PORT
 
 NONADMIN = {"token": "test-token-stats-nonadmin", "sid": "9999000005", "name": "测试同学",
             "role": "", "badge": "", "is_admin": False, "ts": int(time.time() * 1000)}
-ADMIN = {"token": "test-token-stats-admin", "sid": "3260709998", "name": "测试管理员",
+ADMIN = {"token": "test-token-stats-admin", "sid": "9999000009", "name": "测试管理员",
          "role": "团支书", "badge": "班委", "is_admin": True, "ts": int(time.time() * 1000)}
 
 PREVIEW_NON = "_stats_preview_nonadmin.html"
@@ -51,13 +51,19 @@ try{ Object.defineProperty(window,"indexedDB",{value:undefined,configurable:true
 function d(n){return new Date(Date.now()-n*86400000);}
 function pad2(n){return ("0"+n).slice(-2);}
 function ymd(x){return x.getFullYear()+"-"+pad2(x.getMonth()+1)+"-"+pad2(x.getDate());}
+function at(dayOffset,h,m){
+  var x=d(dayOffset); x.setHours(h,m,0,0); return x.getTime();
+}
 var TODAY=ymd(new Date()), YEST=ymd(d(1));
 var FAKE_VISITS=[
-  {slot:TODAY+"-09",sid:"9000000001",name:"张三",ts:1},
-  {slot:TODAY+"-10",sid:"9000000002",name:"李四",ts:2},
-  {slot:TODAY+"-11",sid:"9000000001",name:"张三",ts:3},
-  {slot:TODAY+"-12",sid:"9000000003",name:"王五",ts:4},
-  {slot:YEST+"-20",sid:"9000000004",name:"赵六",ts:5}
+  {slot:TODAY+"-09",sid:"9000000001",name:"张三",ts:at(0,9,7),client:"web"},
+  {slot:TODAY+"-10",sid:"9000000002",name:"李四",ts:at(0,10,42),client:"mp"},
+  {slot:TODAY+"-11",sid:"9000000001",name:"张三",ts:at(0,11,5),client:"android"},
+  {slot:TODAY+"-12",sid:"9000000003",name:"王五",ts:at(0,12,0),client:"win"},
+  {slot:TODAY+"-12",sid:"3260799999",name:"测试账号",ts:at(0,12,30),client:"web"},
+  {slot:TODAY+"-12",sid:"9999000001",name:"测试同学",ts:at(0,12,40),client:"mp"},
+  {slot:YEST+"-20",sid:"9000000004",name:"赵六",ts:at(1,20,15),client:"harmony"},
+  {slot:YEST+"-08",sid:"9000000005",name:"周八"}   /* 旧行：无 ts/client，回退 slot 整点 + 未记录 */
 ];
 function fake(status,body){return Promise.resolve({ok:status>=200&&status<300,status:status,
   json:function(){return Promise.resolve(body);},text:function(){return Promise.resolve(JSON.stringify(body));}});}
@@ -150,6 +156,7 @@ async function run(){
       var body=[];try{body=JSON.parse(r.body);}catch(e){}
       T("visits body 是数组且 sid=本人", Array.isArray(body)&&body[0]&&body[0].sid===NON_SID, r.body.slice(0,200));
       T("visits slot 形如 YYYY-MM-DD-HH", !!(body[0]&&/^\d{4}-\d{2}-\d{2}-\d{2}$/.test(body[0].slot||"")), body[0]&&body[0].slot);
+      T("visits 记录登录端 client=web", !!(body[0]&&body[0].client==="web"), body[0]&&body[0].client);
       T("visits 响应按成功处理（本地已记录 slot）", !!f.contentWindow.localStorage.getItem("zq_visit_slot_"+NON_SID), f.contentWindow.localStorage.getItem("zq_visit_slot_"+NON_SID));
     }
 
@@ -189,15 +196,27 @@ async function run(){
     if(gp.length){
       T("GET visits 带 X-Device-Id", !!gp[0].headers["x-device-id"], JSON.stringify(gp[0].headers));
       T("GET visits 带 slot 起始过滤", gp[0].url.indexOf("slot=gte.")>=0, gp[0].url);
+      T("GET visits 选取 ts/client", gp[0].url.indexOf("select=slot,sid,name,ts,client")>=0, gp[0].url);
+      T("GET visits 按 ts 倒序", gp[0].url.indexOf("order=ts.desc")>=0, gp[0].url);
+      T("GET visits 上限 5000", gp[0].url.indexOf("limit=5000")>=0, gp[0].url);
     }
     var rows=qa(g,"#stOut .strow");
     T("今天口径：聚合出 3 个账号（张三/李四/王五）", rows.length===3, "rows="+rows.length);
     var txt=q(g,"#stOut")?q(g,"#stOut").textContent:"";
     T("统计按姓名展示", txt.indexOf("张三")>=0&&txt.indexOf("李四")>=0&&txt.indexOf("王五")>=0, txt.slice(0,120));
     T("统计不展示学号", txt.indexOf("9000000")<0&&txt.indexOf("3260")<0, txt.slice(0,120));
+    T("忽略官方测试账号 3260799999", txt.indexOf("测试账号")<0, txt.slice(0,160));
+    T("忽略 9999 段 QA 测试身份", txt.indexOf("测试同学")<0, txt.slice(0,160));
     var sum=(q(g,"#stSum")||{textContent:""}).textContent;
     T("摘要：访问账号=3 / 访问次数=4 / 今日活跃=3", sum.indexOf("3")>=0&&sum.indexOf("4")>=0, sum.replace(/\s+/g," "));
     T("今天口径下赵六（昨天）不出现", txt.indexOf("赵六")<0, txt.slice(0,120));
+    /* 排序：按最近登录 ts 倒序（王五 12:00 > 张三 11:05 > 李四 10:42） */
+    var names=qa(g,"#stOut .strow .lb").map(function(x){return x.textContent;});
+    T("按最近登录顺序排序（王五→张三→李四）", names.length===3&&names[0].indexOf("王五")>=0&&names[1].indexOf("张三")>=0&&names[2].indexOf("李四")>=0, names.join(" | "));
+    T("时间精确到分钟（11:05 / 10:42，而不是整点）", txt.indexOf("11:05")>=0&&txt.indexOf("10:42")>=0, txt.slice(0,200));
+    var clis=qa(g,"#stOut .stcli").map(function(x){return x.textContent;});
+    T("记录具体登录端（Windows/安卓/小程序）", clis.indexOf("Windows")>=0&&clis.indexOf("安卓")>=0&&clis.indexOf("小程序")>=0, clis.join(" | "));
+    T("同一账号取最近登录端（张三最近=安卓）", names.length===3&&names[1].indexOf("张三")>=0&&clis[1]==="安卓", names.join(" | ")+" :: "+clis.join(" | "));
 
     /* 近 7 天：出现赵六（4 个账号） */
     var week=qa(g,'input[name="strange"]').filter(function(x){return x.value==="week";})[0];
@@ -205,18 +224,26 @@ async function run(){
     if(week){ week.click(); await sleep(400);
       var txt2=q(g,"#stOut")?q(g,"#stOut").textContent:"";
       T("近 7 天口径包含昨天账号（赵六）", txt2.indexOf("赵六")>=0, txt2.slice(0,160));
-      var rows2=qa(g,"#stOut .strow");
-      T("近 7 天聚合出 4 个账号", rows2.length===4, "rows="+rows2.length);
+      T("近 7 天聚合出 5 个账号（含旧行）", qa(g,"#stOut .strow").length===5, "rows="+qa(g,"#stOut .strow").length);
+      T("近 7 天显示赵六登录端=鸿蒙", txt2.indexOf("鸿蒙")>=0, txt2.slice(0,200));
+      T("旧行无 client 显示未记录、无 ts 回退整点 08:00", txt2.indexOf("未记录")>=0&&txt2.indexOf("08:00")>=0, txt2.slice(0,240));
     }
+    /* 默认打开今天：切去别的 tab 再进统计，范围回到今天 */
+    var allBtn2=q(g,'#tabsBar button[data-tab="all"]'); if(allBtn2) allBtn2.click(); await sleep(300);
+    var statsBtn2=q(g,'#allCards [data-open="stats"]'); if(statsBtn2) statsBtn2.click(); await sleep(500);
+    var dayRadio=qa(g,'input[name="strange"]').filter(function(x){return x.value==="day";})[0];
+    T("再次进入统计默认回到今天（radio 选中）", !!dayRadio&&dayRadio.checked, dayRadio?String(dayRadio.checked):"missing");
+    T("再次进入统计只显示今天 3 个账号", qa(g,"#stOut .strow").length===3, "rows="+qa(g,"#stOut .strow").length);
     T("管理员页面 0 JS 报错", (w2.__errs||[]).length===0, JSON.stringify(w2.__errs||[]));
     var ext=[];
     [w,w2].forEach(function(win){
       try{ (win.performance.getEntriesByType("resource")||[]).forEach(function(e){
         var u=String(e.name||"");
-        if(!/^https?:\/\/127\.0\.0\.1[:/]/.test(u)&&!/^data:/.test(u)&&!/^blob:/.test(u))ext.push(u);
+        if(!/^https?:\/\/127\.0\.0\.1[:/]/.test(u)&&!/^data:/.test(u)&&!/^blob:/.test(u)
+           &&!/^https?:\/\/121\.196\.47\.2\/drop\/presence/.test(u))ext.push(u);
       }); }catch(e){}
     });
-    T("全程无外部请求（只允许 127.0.0.1 + 被 mock 的云端）", ext.length===0, ext.join(","));
+    T("全程无第三方外部请求（只允许 127.0.0.1 + 被 mock 的云端 + 大屏互联 presence）", ext.length===0, ext.join(","));
   }catch(e){
     R.steps.push({k:"脚本异常",ok:false,note:String((e&&e.message)||e)});
   }

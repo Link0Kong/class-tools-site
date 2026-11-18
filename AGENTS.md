@@ -200,6 +200,7 @@
 
 ### 42.2 红线（后续会话必读）
 1. **切流前 CloudBase 只读**：不得写/删/DDL CloudBase；数据导出只用 `tcb db execute` 只读通道。
+   **唯一例外（2026-11-18）**：`public.visits` 新增 `client` 列 + `ts/slot` 索引（迁移 `deploy/cloudbase/2026-11-18_visits_client.sql`；仅加列/索引、不改数据），已在 CloudBase 与 ECS `class_tools`/`class_tools_cut` 三库同步；最终 P4 快照会带走。除此之外仍严格只读。
 2. 测试只用测试账号 `3260799999/测试账号` 或 9999 段临时 QA；禁止真实账号 token。
 3. **生产切 Caddy 必须显式 `--confirm`**；`cutover_run.py execute` 需要 `--confirm-cutover`；rehearsal 安全但会短暂切 PostgREST 的库（finally 自动切回）。
 4. 切流顺序：快照 → 导入 `class_tools_cut --reset` → verify → 两个优化 SQL → `switch-db cut` → smoke → Caddy switch → 生产 smoke；
@@ -216,3 +217,13 @@
 - PG 单机（每日 dump + 私有 OSS 异地备份，无流复制）；PostgREST 单实例；切流窗口建议低峰并提前通知。
 - `class_notices_meta` 缓存写时重建，notices 写语句会多约 90ms（写很少）；迁移后旧客户端只读表行为不变。
 - CloudBase 平台对象（storage/auth 等）不迁移；`pgcrypto` 在 public schema；C locale 建库不可改（排序/唯一语义）。
+
+## 43. 访问统计：按最新登录排序 + 登录端 + 分钟时间（2026-11-18，网页已上线；小程序/安卓/Windows/鸿蒙源码同步）
+
+> 用户原话：「将所有端的统计工具统一更新为按最新登录顺序排序，默认打开为今天，时间精确到分钟，记录具体登录端，忽略测试账号」。唯一契约 `统计多端_最新登录_契约_20261118.md`。
+
+1. **数据**：`public.visits.client text not null default ''`（web/mp/android/win/harmony；旧行空=「未记录」）；`slot` 仍 `YYYY-MM-DD-HH`（小时去重），`ts` 毫秒；统计显示取 `ts` 到分钟，`ts=0` 才回退 slot 整点。迁移 `deploy/cloudbase/2026-11-18_visits_client.sql` 已应用 CloudBase + ECS 两库（见 §42.2 唯一例外）。
+2. **统计三端统一**（网页 `#s-stats` / 小程序 `pages/stats` / Windows `StatsPage`）：按每账号 `max(ts)` 倒序（次数只作副指标）；每次进入默认「今天」；时间 `MM/DD HH:mm`；按最近一行显示端标签；忽略 `3260799999` 与 9999 段 10 位测试身份及旧匿名行；摘要/按天/按小时按过滤后行计算。
+3. **上报端**：网页 `client:"web"`；小程序 `client:"mp"`、`id=sid|slot|mp`、去重键 `sid+端`；安卓新增 `VisitReporter`（`client:"android"`、`id=sid|slot|android`、`Prefer: resolution=ignore-duplicates,return=minimal`、失败静默）；Windows 新增 `VisitAsync`（`win`，同幂等）；鸿蒙 `client:"harmony"`（保留随机 id 后缀）。同一账号 × 同一端 × 同一小时最多一行，跨端同小时各一行，统计取 ts 最大行。
+4. **改口径必同改**：网页 `stats_check.py`、小程序 `unit.js`/`ai_unit_account.js`/`stats_preview.js`、Windows `VisitStats` 单测、安卓 `VisitReporterTest`、鸿蒙 `Visits.test.ets`；App 版本号/UD v6 不变。
+5. **回滚**：网页重传 `tools/_backup/index_online_20261118-2135_preStatsLogin.html`（1,337,057B/`139136c4…`）；列可保留（旧客户端忽略），彻底回滚 `drop column client`；小程序/安卓/Windows/鸿蒙回退源码。上线对象 **1,338,669B / sha256 `f6f85eb5…`**（OSS+ECS MATCH）。

@@ -2,6 +2,21 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-18 21:2x–21:4x · 统计多端：按最新登录排序 / 默认今天 / 分钟时间 / 记录登录端 / 忽略测试账号（网页已上线；小程序/安卓/Windows/鸿蒙源码同步）
+
+> 用户原话：「将所有端的统计工具统一更新为按最新登录顺序排序，默认打开为今天，时间精确到分钟，记录具体登录端，忽略测试账号」。唯一契约 `统计多端_最新登录_契约_20261118.md`。
+
+- **数据**：`public.visits` 新增 `client text not null default ''`（web/mp/android/win/harmony；旧行为空显示「未记录」）+ `ts/slot` 索引；迁移 `deploy/cloudbase/2026-11-18_visits_client.sql` 已应用（CloudBase + ECS `class_tools`/`class_tools_cut` 三库同步）。旧客户端不传 client 仍可写。
+- **网页 `tools/index.html`**：`visitLog` 写 `client:"web"`；统计查询改 `select=slot,sid,name,ts,client&order=ts.desc&limit=5000`；`renderStats` 按 `max(ts)` 倒序、时间显示 `MM/DD HH:mm`（旧行 ts=0 回退 slot 整点）、账号行显示端标签、过滤官方测试账号 `3260799999` 与 9999 段 10 位 QA 身份；每次进入统计页重置「今天」。
+- **小程序**：`utils/cloud.js` 写 `client:"mp"`、`id=sid|slot|mp`、去重键按 `sid+端` 分开；`statsPull` 取 ts/client、limit 5000；`pages/stats` 默认今天/最近登录排序/分钟/端标签/忽略测试；AI `getVisitStats` 同口径。
+- **Windows**：`VisitItem` 增 ts/client；`VisitsRepository` 按 ts 拉取并新增 `ReportAsync`（client=win，小时幂等）；`SessionService` 恢复/登录后 best-effort 上报；统计页默认今天、最近登录排序、分钟/端标签/忽略测试。
+- **安卓**：新增 `VisitReporter`（client=android，小时幂等、失败静默），`AppContainer.updateActiveSession` 后 best-effort 上报；无统计页变更。
+- **鸿蒙**：`VisitsReporter` 行增 `client:"harmony"`。
+- **测试**：网页 `stats_check.py` **44/44**（默认今天/排序/分钟/端/旧行回退/测试过滤/client=web）、`v2_ui_check 27/27`、`v2_port_ui_check 80/80`、`v2_ug_check 56/56`、overflow 430=0；小程序 `unit.js 597/0`、`ai_unit_account.js 41/0`、staticcheck/code_quality 0；Windows/安卓/鸿蒙见各自仓库记录。
+- **上线**：`tools/index.html` **1,338,669 B / sha256 `f6f85eb5fcfc8d67db099283808b040d6c8daa2f5b6c02a7c36433976f357f0b`**；OSS `check` MATCH、ECS verify MATCH（gzip 414,969B）。部署前备份 `tools/_backup/index_online_20261118-2135_preStatsLogin.html`（1,337,057 B / `139136c4…`）。
+- **回滚**：重传备份 index；`visits.client` 可保留（旧客户端忽略），如需彻底回滚 `alter table public.visits drop column if exists client;`；小程序/安卓/Windows/鸿蒙回退源码/安装包。
+- **迁移备注**：本次为切流前唯一一次 CloudBase schema 增量（仅加列+索引、不改数据），最终 P4 快照会包含；ECS `class_tools`/`class_tools_cut` 已同步应用，之后 CloudBase 恢复只读。
+
 ## 2026-11-18 13:2x–13:4x · 修复屏山慢跑「11-17 补报名」识别：固定日期活动不再判长期安排（网页数据已同步云端）
 
 > 用户反馈：「屏山慢跑打卡11月17日（本周二）补报名的消息识别出现了分组异常和时间识别异常以及通知分类异常等问题，请修复」。

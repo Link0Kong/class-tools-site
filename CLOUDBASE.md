@@ -72,7 +72,7 @@ X-Device-Id: <token>
 | `public.homework` / `notices` | 共享作业/通知；RLS 要求有效 token |
 | `public.marks` / `fitrecs` / `userdata` | 按 sid 读写的个人状态；RLS 只允许本人 |
 | `public.roster` | 旧名单表（保留兼容；前端已改用 `class_members`） |
-| `public.visits` | 访问统计，新增 `sid,name`；按账号聚合，仅管理员可读 |
+| `public.visits` | 访问统计，`sid,name,client`；按账号聚合、按最近登录排序，仅管理员可读；`client=web/mp/android/win/harmony`（旧行空=未记录） |
 | `public.feedback` | 反馈；登录用户可写，管理员可读 |
 
 - 管理员：**陈子麒 / 3260707024**（`is_admin=true`）。
@@ -485,6 +485,10 @@ auth_ok() AND (
 ## 访问统计 / 反馈 RLS：本人行可读（2026-11-04 23:30 修复，已应用）
 
 > 迁移文件：`deploy/cloudbase/2026-11-04_visits_feedback_own_read.sql`
+>
+> 2026-11-18 增列：`deploy/cloudbase/2026-11-18_visits_client.sql` 给 `public.visits` 加
+> `client text not null default ''` + `ts/slot` 索引（统计按最近登录排序、显示登录端；旧行空=未记录）。
+> 已在 CloudBase 与 ECS `class_tools`/`class_tools_cut` 三库应用；RLS/写入策略不变。
 
 ### 问题
 

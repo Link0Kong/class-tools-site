@@ -317,6 +317,7 @@ table.tt .crs-multi .crs i{font-size:clamp(8.5px,calc(var(--dayw)*.125),11.5px)}
 .strow.top .rk{background:#E7F2EC;color:#3F6B58}
 .strow .lb{min-width:0;color:var(--ink);font-weight:650;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .strow .lb small{display:block;font-size:10.5px;font-weight:400;color:var(--ink3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.strow .stcli{display:inline-block;font-style:normal;font-size:9.5px;line-height:1.45;padding:0 5px;border-radius:999px;background:#EEF4F1;color:#4E7A6B;border:1px solid #E1EBE6;vertical-align:1px}
 .strow .vv{text-align:right;font-weight:800;color:var(--cy);font-variant-numeric:tabular-nums}
 .stbar{display:block;background:#F0F2F1;border-radius:999px;height:8px;overflow:hidden;min-width:0}
 .stbar i{display:block;height:100%;background:linear-gradient(90deg,#7FB3A6,var(--cy));border-radius:999px}
@@ -2835,6 +2836,7 @@ html[data-appearance="dark"] .strow,
 html[data-appearance="dark"] .an-next-row,
 html[data-appearance="dark"] .an-foot{border-top:1px solid #313D35}
 html[data-appearance="dark"] .strow .rk{background:#17201B}
+html[data-appearance="dark"] .strow .stcli{background:#1B2621;color:#9DC6B5;border-color:#2C3B34}
 html[data-appearance="dark"] .att-pre{background:#171C17}
 html[data-appearance="dark"] .tabs.drag-over{background:#162621}
 html[data-appearance="dark"] #toast{background:rgba(0,0,0,0.986)}
@@ -3553,7 +3555,7 @@ html[data-appearance="dark"] #noticeHost .notice-empty,html[data-appearance="dar
     <div class="card">
       <div class="lghead" style="margin-bottom:8px">
         <span class="lgico">∑</span>
-        <div><b>访问统计</b><div class="lgsub">仅管理员 · 按姓名聚合，不显示学号</div></div>
+        <div><b>访问统计</b><div class="lgsub">仅管理员 · 按最近登录排序，不显示学号</div></div>
       </div>
       <div class="row" style="margin-top:0">
         <label class="ck"><input type="radio" name="strange" value="day" checked> 今天</label>
@@ -3561,7 +3563,7 @@ html[data-appearance="dark"] #noticeHost .notice-empty,html[data-appearance="dar
       </div>
       <div class="stsum" id="stSum"></div>
       <div id="stOut"><div class="empty">—</div></div>
-      <div class="stnote">只统计完成班级身份验证后的访问；同一账号每小时记一次。</div>
+      <div class="stnote">按最近登录排序；只统计完成班级身份验证后的访问，同一账号同一登录端每小时记一次；已忽略测试账号。</div>
     </div>
   </section>
 
@@ -6372,7 +6374,7 @@ var TOOLS=[
  {k:"nt",n:"通知",d:"班级通知与附件"},
  {k:"ft",n:"体测",d:"体测算分与等级"},
  {k:"roll",n:"点名",d:"点名记录到课、请假"},
- {k:"stats",n:"统计",d:"成员访问统计",admin:true},
+ {k:"stats",n:"统计",d:"按最近登录统计访问",admin:true},
  {k:"diag",n:"诊断",d:"服务与设备诊断"},
  {k:"water",n:"水量",d:"抄表与水费计算"},
  {k:"vote",n:"投票",d:"发起投票与查看结果"},
@@ -6446,7 +6448,12 @@ function gotoTab(k,noScroll){
   if(k==="nt"){renderNoticeFrame();NT.pull();marksPull(true);}
   if(k==="roll"){renderRoll();marksPull(true);}
   if(k==="committee") renderCommittee();
-  if(k==="stats") statsPull();
+  if(k==="stats"){
+    /* 默认打开今天：每次进入统计页都归位（离开再进不沿用上次的 7 天） */
+    ST.range="day";
+    var srd=$('input[name="strange"][value="day"]'); if(srd)srd.checked=true;
+    statsPull();
+  }
   if(k==="diag"){try{if(typeof DIAG!=="undefined")DIAG.enter();}catch(e){}}
   if(k==="all") renderAllCards();
   if(k==="power") POWER.enter();
@@ -11507,7 +11514,7 @@ function visitLog(){
   try{
     var slot=vsSlot(new Date()), key="zq_visit_slot_"+AUTH.sid;
     if(localStorage.getItem(key)===slot)return;
-    cbPostNoRep("visits",{id:AUTH.sid+"|"+slot+"|"+Math.random().toString(36).slice(2,8),slot:slot,sid:AUTH.sid,name:AUTH.name,did:vsDid(),ts:Date.now()})
+    cbPostNoRep("visits",{id:AUTH.sid+"|"+slot+"|"+Math.random().toString(36).slice(2,8),slot:slot,sid:AUTH.sid,name:AUTH.name,did:vsDid(),client:"web",ts:Date.now()})
       .then(function(){try{localStorage.setItem(key,slot);}catch(e){}})
       .catch(function(){});
   }catch(e){}
@@ -11518,25 +11525,42 @@ function statsPull(force){
   if(!force&&ST.fetchedAt&&(Date.now()-ST.fetchedAt<TTL.visits)){renderStats();return;}
   var d=new Date(); d.setDate(d.getDate()-6);
   var from=d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"-00";
-  fetch(CB+"visits?select=slot,sid,name&slot=gte."+from+"&order=slot.desc&limit=2000",{headers:cbH(false),cache:"no-store"})
+  fetch(CB+"visits?select=slot,sid,name,ts,client&slot=gte."+from+"&order=ts.desc&limit=5000",{headers:cbH(false),cache:"no-store"})
     .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();})
     .then(function(list){ST.rows=Array.isArray(list)?list:[];ST.fetchedAt=Date.now();renderStats();})
     .catch(function(){ST.rows=null;ST.fetchedAt=Date.now();renderStats();});
 }
 function stDayKey(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
-function stTimeText(slot){
-  var s=String(slot||""); if(s.length<13)return "";
-  return s.slice(5,10).replace("-","/")+" "+s.slice(11,13)+":00";
+/* 最近登录时间一律取 ts（毫秒）；旧行 ts=0 才回退 slot 的整点 */
+function stTsOf(r){
+  var t=Number(r&&r.ts)||0; if(t>0)return t;
+  var s=String((r&&r.slot)||"");
+  if(s.length>=13){
+    var dt=new Date(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10),+s.slice(11,13),0,0,0);
+    if(!isNaN(dt.getTime()))return dt.getTime();
+  }
+  return 0;
+}
+function stTimeText(ts){
+  var d=new Date(Number(ts)||0); if(!ts||isNaN(d.getTime()))return "";
+  return pad(d.getMonth()+1)+"/"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes());
+}
+var ST_CLIENT={web:"网页",mp:"小程序",android:"安卓",win:"Windows",harmony:"鸿蒙"};
+function stClientLabel(c){return ST_CLIENT[String(c||"").trim().toLowerCase()]||"未记录";}
+/* 测试账号：官方测试身份 3260799999 + 临时 QA 身份 9999 段（10 位） */
+function stIsTestSid(sid){
+  sid=String(sid||"").trim();
+  return sid==="3260799999"||/^9999\d{6}$/.test(sid);
 }
 function stSummary(items){
   return items.map(function(it){return '<div class="s"><b>'+it.v+'</b><span>'+esc(it.t)+'</span></div>';}).join("");
 }
-function stRow(rank,name,sub,pct,count){
+function stRow(rank,name,sub,cli,pct,count){
   return '<div class="strow'+(rank<=3?" top":"")+'"><span class="rk">'+rank+'</span>'+
-    '<span class="lb">'+esc(name)+(sub?'<small>'+esc(sub)+'</small>':'')+'</span>'+
+    '<span class="lb">'+esc(name)+(sub||cli?'<small>'+(cli?'<em class="stcli">'+esc(cli)+'</em> ':'')+esc(sub||"")+'</small>':'')+'</span>'+
     '<span class="stbar"><i style="width:'+pct+'%"></i></span><span class="vv">'+count+'</span></div>';
 }
-/* 访问统计：按姓名聚合（学号只作云端内部键，不展示）；摘要 + 次数排行 + 占比条 */
+/* 访问统计：按最近登录倒序（学号只作云端内部键，不展示）；已过滤测试账号 */
 function renderStats(){
   var box=$("#stOut"), sum=$("#stSum"); if(!box)return;
   var now=new Date(), today=stDayKey(now), week=[];
@@ -11547,6 +11571,7 @@ function renderStats(){
   if(!ST.rows){box.innerHTML='<div class="empty">暂无数据</div>';if(sum)sum.innerHTML="";return;}
   var rows=(ST.rows||[]).filter(function(r){
     if(!r||!r.sid)return false;                  /* 旧匿名行（无学号）不参与统计 */
+    if(stIsTestSid(r.sid))return false;          /* 忽略测试账号 */
     return days.indexOf(String(r.slot||"").slice(0,10))>=0;
   });
   if(!rows.length){
@@ -11556,15 +11581,16 @@ function renderStats(){
   var m={};
   rows.forEach(function(r){
     var sid=String(r.sid).trim(); if(!sid)return;
-    var x=m[sid]||(m[sid]={name:"",n:0,last:"",days:{}});
+    var x=m[sid]||(m[sid]={name:"",n:0,last:0,lastClient:"",days:{}});
     x.n++;
-    var sl=String(r.slot||""); if(sl>x.last)x.last=sl;
-    var day=sl.slice(0,10); if(day)x.days[day]=1;
+    var t=stTsOf(r);
+    if(t>=x.last){x.last=t;x.lastClient=String(r.client||"").trim();}
+    var day=String(r.slot||"").slice(0,10); if(day)x.days[day]=1;
     if(!x.name)x.name=String(r.name||"").trim()||memberNameBySid(sid)||"（未知成员）";
   });
   var arr=Object.keys(m).map(function(k){return m[k];});
   arr.forEach(function(x){x.daysN=Object.keys(x.days).length;});
-  arr.sort(function(a,b){return (b.n-a.n)||(b.last>a.last?1:(b.last<a.last?-1:0));});
+  arr.sort(function(a,b){return (b.last-a.last)||(b.n-a.n);});
   var totalVisits=arr.reduce(function(s,x){return s+x.n;},0);
   var activeToday=arr.filter(function(x){return x.days[today];}).length;
   if(sum)sum.innerHTML=stSummary([
@@ -11579,7 +11605,7 @@ function renderStats(){
     var sub=(range==="week")
       ?("活跃 "+x.daysN+"/7 天 · 最近 "+stTimeText(x.last))
       :("最近 "+stTimeText(x.last));
-    return stRow(i+1,x.name,sub,Math.round(x.n/mx*100),x.n);
+    return stRow(i+1,x.name,sub,stClientLabel(x.lastClient),Math.round(x.n/mx*100),x.n);
   }).join("");
 }
 $$('input[name=strange]').forEach(function(r){r.addEventListener("change",function(){ST.range=this.value;renderStats();});});
@@ -20125,7 +20151,7 @@ var UG=(function(){
     {id:"roll",cat:"study",title:"点名",sub:"叫到一个勾一个，到 / 假可撤销",scene:"people",tone:"violet",
      steps:["选名单或沿用抽签名单","点「到 / 假」记录","已处理的会沉底，再点一次撤销"],
      tip:"名单与到 / 假记录按账号同步"},
-    {id:"stats",cat:"study",title:"统计",sub:"按姓名看访问，仅管理员可见",scene:"chart",tone:"violet",
+    {id:"stats",cat:"study",title:"统计",sub:"按最近登录看访问，仅管理员可见",scene:"chart",tone:"violet",
      steps:["管理员进「全部 → 统计」","看每人访问次数与最近时间","只显示姓名，不显示学号"],
      tip:"普通成员看不到本页，数据不做导出"},
     {id:"power",cat:"life",title:"宿舍电费",sub:"关注宿舍，看余额与用电趋势",scene:"chart",tone:"blue",
