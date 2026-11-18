@@ -70,3 +70,6 @@ activity/browser-profile/
 # Android 更新分发二进制（只上传 OSS/ECS，不入库）
 android/*.apk
 android/*.bin
+
+# 五端自动提交守护的日志 / 锁（本机运行产物）
+tools/repo_ops/_logs/
