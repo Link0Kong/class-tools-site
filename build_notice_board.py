@@ -26,6 +26,49 @@ sys.path.append(r"C:\briefdesk\scripts")
 from notice_filters import is_routine_report  # noqa: E402
 import qq_file_names  # noqa: E402  QQ/微信文件名宽容匹配（与 fetch_qq_files 共用）
 import notice_merge  # noqa: E402  跨源（微信/QQ）同通知判定与合并（task-25）
+try:  # 2026-11-17 用户需求：摘要按「新闻导语」写法（确定性清洗，ai_brief/ai_quality 共用）
+    import notice_style  # noqa: E402
+except Exception:  # noqa: BLE001
+    notice_style = None
+
+
+def _news_summary(text, limit=60):
+    if notice_style is not None:
+        try:
+            return notice_style.clean_summary(text, limit)
+        except Exception:  # noqa: BLE001
+            pass
+    return str(text or "").strip()[:limit]
+
+
+# 2026-11-17 摘要「事实覆盖度」择优（ai_brief vs 质检层摘要都合格时选更全的一条）
+_FACT_CN_DATE = re.compile(r"(?:20\d{2}\s*年\s*)?(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]?")
+# 支持 11-13 / 11.13 / 11‑13（QQ 原文常用点号/不间断连字符）等写法；排除时间范围（17:30-23:00）
+_FACT_MD_DATE = re.compile(
+    r"(?<![\d:])(\d{1,2})\s*[-.\-‑–—/]\s*(\d{1,2})(?![\d:])")
+_FACT_TIME = re.compile(r"(?<![\d:])(\d{1,2})[:：](\d{2})(?!\d)")
+_FACT_COUNT = re.compile(r"(\d{1,3})\s*(名|人|元|个|天|次|节|分)")
+
+
+def _summary_facts(text):
+    """摘要/原文里的关键事实指纹：日期（归一 MM-DD）、时间（HH:MM）、数量（N人/名…）。"""
+    s = str(text or "")
+    out = set()
+    for m in _FACT_CN_DATE.finditer(s):
+        out.add("M%02d-%02d" % (int(m.group(1)), int(m.group(2))))
+    for m in _FACT_MD_DATE.finditer(s):
+        out.add("M%02d-%02d" % (int(m.group(1)), int(m.group(2))))
+    for m in _FACT_TIME.finditer(s):
+        out.add("T%02d:%s" % (int(m.group(1)), m.group(2)))
+    for m in _FACT_COUNT.finditer(s):
+        out.add("N%s%s" % (m.group(1), m.group(2)))
+    return out
+
+
+def _summary_covers(summary, src_facts):
+    if not src_facts:
+        return 0
+    return len(_summary_facts(summary) & src_facts)
 
 BASE = Path(r"C:\Users\Ko_Li\.openclaw\workspace\briefdesk-plan")
 OUT = Path(r"C:\Users\Ko_Li\.openclaw\workspace\web\tools\notice-board-live-demo.html")
@@ -1173,6 +1216,13 @@ function cardAnchorTs(g){
   for(var i=0;i<its.length;i++){if(its[i]&&its[i].time)return its[i].time}
   return (g&&g.time)||'';
 }
+/* 2026-11-18 契约《通知三端_发布时间统一_契约_20261118.md》§1：发布时间。
+   优先数据字段 publishedAt（管线统一计算）；旧缓存/旧数据回退组内最新消息时间 + updatedAt（pubTsOf）。 */
+function publishedTsOf(g){
+  if(!g)return 0;
+  if(g.publishedAt){var t=Date.parse(g.publishedAt);if(!isNaN(t)&&t>0)return t;}
+  return pubTsOf(g);
+}
 var _CN_WD={'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'日':0,'天':0};
 function _relAnchor(refTs){
   var m=/^\s*(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})\s*$/.exec(String(refTs||''));
@@ -1640,7 +1690,12 @@ function statusOf(g){
     var act2=shortAction(g.eventAction||'开始')||'开始';
     return {key:'active',label:fmtWhen(eventAt,now)+' '+act2,cls:'active'};
   }
-  // 7) 既无截止也无活动时间（例如「运动会期间晚自习正常」）：只作知悉
+  // 7) 既无截止也无活动/报名时间（例如「运动会期间晚自习正常」）：
+  //    2026-11-18 契约 §2：以发布时间作为卡片时间，动作=「发布」；没有发布时间才显示「无时间」。
+  var pubTs=publishedTsOf(g);
+  if(pubTs){
+    return {key:'published',label:fmtWhen(pubTs,now)+' '+(g.publishAction||'发布'),cls:'active'};
+  }
   return {key:'none',label:'无时间',cls:'none'};
 }
 function formInfo(g,it){
@@ -1754,10 +1809,11 @@ function segmentHTML(seg){
   return '<div class="seg-fact"><span class="gi-type seg '+cls+'">'+esc(seg.type||'内容')+'</span>'+
     '<div class="seg-txt">'+esc(seg.text||'')+'</div></div>';
 }
-function archiveHTML(a){
+function archiveHTML(a,g,idx){
   if(!a||!a.files||!a.files.length)return '';
-  var rows=a.files.map(function(f){
-    var dl=f.url?'<a class="go sm" href="'+esc(f.url)+'" download="'+esc(f.name)+'">下载</a>':'';
+  var rows=a.files.map(function(f,fi){
+    var dl=f.url?'<a class="go sm" href="'+esc(f.url)+'" download="'+esc(f.name)+'">下载</a>':
+      (f.lazy?'<button class="go sm" type="button" data-act="lazybody" data-lazyact="archive" data-gid="'+esc((g&&g.id)||'')+'" data-idx="'+(idx||0)+'" data-fidx="'+fi+'">加载</button>':'');
     return '<div class="arc-row"><span class="arc-kind">'+esc(f.kind||'文件')+'</span>'+
       '<span class="arc-name" title="'+esc(f.path||f.name||'')+'">'+esc(f.name||'')+'</span>'+
       '<span class="arc-size">'+esc(f.size||'')+'</span>'+dl+'</div>';
@@ -1807,13 +1863,19 @@ function itemHTML(g,it,idx){
          '<div class="lu">'+esc(fnote)+'</div></div>'+
          '<button class="go" data-act="preview" data-gid="'+g.id+'" data-idx="'+idx+'">预览</button>'+
          '<a class="go ghost" href="'+esc(furl)+'" download="'+esc(it.name)+'">下载</a></div>';
-      if(arch&&arch.count) h+=archiveHTML(arch);
+      if(arch&&arch.count) h+=archiveHTML(arch,g,idx);
     } else if(arch&&arch.count){
       /* 压缩包已解压识别：原包可能超过内嵌上限，但已给出包内文件清单/摘要/小文件下载 */
       h+='<div class="linkrow"><span class="ico">包</span><div class="lb"><div class="lt">'+esc(disp(it.name,it.time||cardAnchorTs(g)))+'</div>'+
          '<div class="lu">'+esc(it.note||('压缩包 · 已识别 '+arch.count+' 个文件'))+'</div></div>'+
          '<span class="okbadge">已识别</span></div>';
-      h+=archiveHTML(arch);
+      h+=archiveHTML(arch,g,idx);
+    } else if(it.lazy){
+      /* 2026-11-18 列表轻量化：完整附件字节在单行 body 里，点击时才拉取。 */
+      h+='<div class="linkrow missing" data-act="lazybody" data-lazyact="preview" data-gid="'+g.id+'" data-idx="'+idx+'"><span class="ico">文件</span>'+
+         '<div class="lb"><div class="lt">'+esc(it.name)+'</div>'+
+         '<div class="lu">'+esc(it.note||'附件 · 点击加载')+'</div></div>'+
+         '<span class="missbadge">点击加载</span></div>';
     } else if(arch){
       h+='<div class="linkrow missing" data-act="filemiss" data-gid="'+g.id+'" data-idx="'+idx+'"><span class="ico">包</span>'+
          '<div class="lb"><div class="lt">'+esc(it.name)+'</div>'+
@@ -1835,6 +1897,12 @@ function itemHTML(g,it,idx){
   } else if(it.kind==='img'){
     if(it.src){
       h+='<div class="imgrow" data-act="img" data-gid="'+g.id+'" data-idx="'+idx+'"><img src="'+it.src+'" alt=""></div>';
+    } else if(it.lazy){
+      /* 2026-11-18 列表轻量化：图片 data URI 在单行 body 里，点击时才拉取。 */
+      h+='<div class="imgrow missing" data-act="lazybody" data-lazyact="img" data-gid="'+g.id+'" data-idx="'+idx+'">'+
+         '<div class="ib"><div class="it">'+esc(it.caption||'图片附件')+'</div>'+
+         '<div class="ic">'+esc(it.note||'通知图片 · 点击加载')+'</div></div>'+
+         '<span class="missbadge">点击加载</span></div>';
     } else {
       /* 微信图片 V2 加密 / 未导出字节：保留附件条目，前端显示「待获取」 */
       h+='<div class="imgrow missing" data-act="filemiss" data-gid="'+g.id+'" data-idx="'+idx+'">'+
@@ -1927,12 +1995,15 @@ function isRecurGroup(g){return !!(g&&g.recurrence&&g.recurrence.freq)}
 function isInfoGroup(g){
   if(!g||isRecurGroup(g))return false;
   if(hasTimeAnchor(g))return false;
+  /* 2026-11-18 契约 §3：有发布时间（publishedAt / 可推算）→ 发布卡进主列表，不再进资料栏 */
+  if(publishedTsOf(g))return false;
   var k=statusOf(g).key;
   return !(k==='expired'||k==='extended_past'||k==='alert');
 }
 function isTimeGroup(g){
   if(!g||isRecurGroup(g))return false;
-  if(!hasTimeAnchor(g))return false;
+  /* 2026-11-18 契约 §3：无真实时间锚点但有发布时间 → 同样进主列表参与排序 */
+  if(!hasTimeAnchor(g)&&!publishedTsOf(g))return false;
   return !isExpiredGroup(g);
 }
 /* 兼容旧名称：长期安排定义 + 资料/无时间（二者都不进主列表） */
@@ -2058,6 +2129,7 @@ function orderRank(st,g){
   if(st.key==='extended') return 2;
   if(st.key==='soon'||st.key==='active') return 3;
   if(st.key==='none') return 4;
+  if(st.key==='published') return 4;   /* 2026-11-18 契约 §4：发布卡排 active 之后，档内按发布时间倒序 */
   if(st.key==='extended_past') return 7;
   if(st.key==='expired') return 8;
   return 5;
@@ -2067,7 +2139,13 @@ function orderGroups(arr){
     var ra=orderRank(statusOf(a),a), rb=orderRank(statusOf(b),b);
     if(ra!==rb) return ra-rb;
     var da=expireOf(a), db=expireOf(b);
-    if(ra>=7){
+    if(ra===4){
+      /* 2026-11-18 契约 §4：发布卡按发布时间倒序（新的在上）；无发布时间的 none 兜底排最后 */
+      var pa=publishedTsOf(a), pb=publishedTsOf(b);
+      if(pa&&pb) return pb-pa;
+      if(pa) return -1;
+      if(pb) return 1;
+    } else if(ra>=7){
       if(da&&db) return db-da;
       if(da) return -1;
       if(db) return 1;
@@ -2364,8 +2442,37 @@ function openFileMissing(gid,idx){
     '<div class="missgroup"><span>群名</span><b>'+esc(groupName)+'</b>'+
     '<button class="copybtn" data-act="copyname" data-name="'+esc(enc)+'">复制群名</button></div>');
 }
-function copyText(text){
-  function fallback(){
+/* 2026-11-18 列表轻量化：lite 列表里图片/附件/包内文件的字节在单行 body 中，
+   点击后由父页拉完整 body，再调 __zqHydrate 打开。 */
+function lazyBody(gid,idx,act){
+  if(window.parent&&window.parent!==window){
+    try{window.parent.postMessage({type:'class-notice-need-body',gid:gid,idx:idx||0,act:act||''},'*');return;}catch(e){}
+  }
+  toast('请稍后重试');
+}
+function __zqHydrate(gid,group,idx,act){
+  if(!group)return;
+  var base=String(gid||'').split('@occ:')[0],target=null;
+  for(var i=0;i<GROUPS.length;i++){
+    if(GROUPS[i].id===gid||GROUPS[i].__baseId===gid||GROUPS[i].id===base){target=GROUPS[i];break;}
+  }
+  if(target){
+    /* 期次卡只替换附件数据，保留 __occ/期次时间等字段；基础组直接更新 items。 */
+    target.items=group.items;
+    if(group.attachments!==undefined)target.attachments=group.attachments;
+    target.__full=true;
+  }else{
+    target=group;GROUPS.push(target);
+  }
+  if(act==='img'){openImg(gid,idx);return;}
+  if(act==='preview'){openFile(gid,idx);return;}
+  /* archive / 其它：重渲染让刚加载的下载链接出现，并保持滚动位置 */
+  var y=0;try{y=window.scrollY||window.pageYOffset||0;}catch(e){}
+  render();
+  try{window.scrollTo(0,y);}catch(e){}
+}
+try{window.__zqHydrate=__zqHydrate;}catch(e){}
+function copyText(text){  function fallback(){
     try{
       var ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
       document.body.appendChild(ta);ta.focus();ta.select();
@@ -2569,6 +2676,7 @@ document.addEventListener('click',function(e){
       if(card){card.scrollIntoView({block:'center'});card.classList.add('flash');setTimeout(function(){card.classList.remove('flash')},1600)}
       return;
     }
+    if(act==='lazybody'){lazyBody(gid,idx,el.getAttribute('data-lazyact')||'');return;}
     if(act==='img'){openImg(gid,idx);return;}
     if(act==='preview'){openFile(gid,idx);return;}
     if(act==='original'){openOriginal(gid);return;}
@@ -5322,7 +5430,7 @@ def expand_merged(groups):
                 "id": g.get("id", "g") + "_c" + str(ci),
                 "cat": classify_wechat(text),
                 "title": (c.get("title") or g.get("title") or "通知")[:24],
-                "aiSummary": c.get("summary", ""),
+                "aiSummary": _news_summary(c.get("summary"), 60),
                 "aiPoints": c.get("points", []),
                 "group": g.get("group", ""), "source": g.get("source", ""),
                 "deadline": extract_deadline(text), "actionable": True,
@@ -5342,7 +5450,7 @@ def attach_ai(groups):
         b = data.get(g.get("id"))
         if not isinstance(b, dict):
             continue
-        summary = (b.get("summary") or "").strip()
+        summary = _news_summary(b.get("summary"), 60)
         points = [str(x).strip() for x in (b.get("points") or []) if str(x).strip()]
         title = (b.get("title") or "").strip()
         segments = []
@@ -5493,14 +5601,39 @@ def apply_quality(groups):
         conf = float(r.get("confidence") or 0)
         if r.get("isNotice") is False and conf >= 0.7:
             continue
-        # 2) 可选标题/摘要修正（只在 AI 明确给出时覆盖）
+        # 2) 可选标题修正（只在 AI 明确给出时覆盖）
         title = str(r.get("title") or "").strip()
         if title:
             g["title"] = title[:20]
-        summary = str(r.get("summary") or "").strip()
-        if summary:
-            g["summary"] = summary[:60]
-            g["aiSummary"] = summary[:60]
+        # 摘要：ai_brief 与质检层都按 2026-11-17「新闻导语」口径生成。两条都合格时，
+        # 默认用质检层摘要（它看到全量上下文+附件识别内容，事实通常更全）；
+        # 但若 ai_brief 摘要对原文关键事实（日期/时间/数量）覆盖更多，则保留 ai_brief 摘要。
+        q_summary = _news_summary(r.get("summary"), 60) if r.get("summary") else ""
+        if q_summary and notice_style is not None:
+            try:
+                if notice_style.hard_issues(notice_style.summary_issues(q_summary)):
+                    q_summary = ""
+            except Exception:  # noqa: BLE001
+                pass
+        if q_summary:
+            brief_summary = str(g.get("aiSummary") or "").strip()
+            brief_bad = False
+            if brief_summary and notice_style is not None:
+                try:
+                    brief_bad = bool(notice_style.hard_issues(
+                        notice_style.summary_issues(brief_summary)))
+                except Exception:  # noqa: BLE001
+                    brief_bad = False
+            if brief_summary and not brief_bad:
+                src_text = " ".join(str(it.get("text") or it.get("name") or "")
+                                    for it in (g.get("items") or []))
+                src_facts = _summary_facts(src_text)
+                if src_facts and _summary_covers(brief_summary, src_facts) > \
+                        _summary_covers(q_summary, src_facts):
+                    q_summary = ""  # ai_brief 摘要覆盖更全 → 保留它
+            if q_summary:
+                g["summary"] = q_summary
+                g["aiSummary"] = q_summary
         pts_ai = r.get("points")
         if isinstance(pts_ai, list) and pts_ai:
             g["aiPoints"] = [str(x).strip()[:12] for x in pts_ai if str(x).strip()][:6]
@@ -5932,6 +6065,67 @@ def other_docs_group(docs):
     }
 
 
+# ---------------------------------------------------------------- 2026-11-18 发布时间统一（契约 §1）
+# 用户需求：「将通知中不含时间的时间设定为发布时间，动作设为发布，并参与排序等等统一计算」
+#   · publishedAt：所有组都写 = max(组内最新消息时间 items[].time / messages[].time, updatedAt)；
+#   · publishAction：「发布」仅在「无任何时间锚点且非长期安排」的组上写（chip 动作用）。
+_PUB_ITEM_TIME_RE = re.compile(r"^(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})$")
+_PUB_TIME_ANCHOR_KEYS = ("deadline", "eventAt", "signupStart", "signupEnd")
+
+
+def _pub_dt_from_mmdd(value):
+    """'MM-DD HH:MM' → datetime（当前年；晚于现在 60 天以上视为上一年，与网页 _relAnchor 同口径）。"""
+    m = _PUB_ITEM_TIME_RE.match(str(value or "").strip())
+    if not m:
+        return None
+    try:
+        mo, da, hh, mi = (int(m.group(i)) for i in range(1, 5))
+        now = datetime.now()
+        dt = datetime(now.year, mo, da, hh, mi)
+        if dt > now + timedelta(days=60):
+            dt = datetime(now.year - 1, mo, da, hh, mi)
+        return dt
+    except ValueError:
+        return None
+
+
+def publish_at_of(g):
+    """发布时间（契约 §1）：组内最新一条消息时间与 updatedAt 的较晚者；无任何解析结果 → 空串。"""
+    best = None
+    for it in (g.get("items") or []):
+        if not isinstance(it, dict):
+            continue
+        dt = _pub_dt_from_mmdd(it.get("time"))
+        if dt and (best is None or dt > best):
+            best = dt
+        for msg in (it.get("messages") or []):
+            if not isinstance(msg, dict):
+                continue
+            dt = _pub_dt_from_mmdd(msg.get("time"))
+            if dt and (best is None or dt > best):
+                best = dt
+    raw = str(g.get("updatedAt") or "").strip()
+    if raw:
+        try:
+            dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if dt.tzinfo is not None:
+                dt = dt.astimezone(datetime.now().astimezone().tzinfo).replace(tzinfo=None)
+            if best is None or dt > best:
+                best = dt
+        except Exception:  # noqa: BLE001
+            pass
+    if not best:
+        return ""
+    return best.strftime("%Y-%m-%dT%H:%M:%S+08:00")
+
+
+def has_time_anchor(g):
+    """组内是否有真实时间锚点（与三端 hasTimeAnchor 同口径；发布时间不算）。"""
+    if any(g.get(k) for k in _PUB_TIME_ANCHOR_KEYS):
+        return True
+    return bool(g.get("signupWindows"))
+
+
 def main():
     groups = build_groups()
     docs = load_docs()
@@ -6035,6 +6229,14 @@ def main():
         # 需求 9：长期安排不计入待处理
         if isinstance(g.get("recurrence"), dict) and g["recurrence"].get("freq"):
             g["actionable"] = False
+        # 2026-11-18 契约《通知三端_发布时间统一_契约_20261118.md》§1：
+        # 所有组写 publishedAt；无任何时间锚点且非长期安排的组写 publishAction="发布"（chip 动作用）。
+        pub = publish_at_of(g)
+        if pub:
+            g["publishedAt"] = pub
+        if not has_time_anchor(g) and not (
+                isinstance(g.get("recurrence"), dict) and g["recurrence"].get("freq")):
+            g["publishAction"] = "发布"
     homework = []
     forms = {}
     js = JS.replace("__DATA__", json.dumps(groups, ensure_ascii=False)).replace("__FORMS__", json.dumps(forms, ensure_ascii=False)) \
