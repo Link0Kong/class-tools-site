@@ -2,6 +2,20 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-18 10:2x–10:3x · 修复网页通知页「一直加载 / 加载失败」：整表 15MB → lite 0.3MB + 附件按需拉取（网页已上线 OSS+ECS）
+
+> 用户反馈网页/小程序通知页打不开、一直加载或提示「通知加载失败」，同时手机收不到提醒。只读排查：本地通知服务 HTTP 200、云端 `public.notices` 可读，但整表已达 **15,024,643 B / 124 行**（自动通知 body 内嵌图片/文件 data URI）；网页仍用 `notices?select=*` 一次拉全表，手机弱网/微信 WebView 下等同于卡死。小程序 11-17 已有 `class_notices_meta` lite 链路，网页此前未接。
+
+- **网页 `tools/index.html`**：`fetchFull()` 改为优先 `POST rpc/class_notices_meta`（服务端把 `items[].url/src` 的 data URI 置空并写 `lazy=true`，**实测 306,056 B / 0.57s**；失败/接口不存在才回退旧整表）；新增 `NT.loadBody(gid)` 按 `notices?select=*&id=eq.<rowId>` 拉单条完整 body；`class-notice-need-body` 消息由父页处理并回注 iframe。
+- **通知模板**（`briefdesk-plan/build_notice_board.py` → `notice-board-live-demo.html` → `build_notice_embed.py`）：文件/图片/压缩包内文件空 URL 且 `lazy=true` 时显示「点击加载」占位；新增 `lazyBody` / `__zqHydrate`，点击后才拉单条 body，文件弹层显示真实大小与下载按钮、图片弹层直接渲染；长期安排期次卡按 `__baseId` 回填，不破坏期次字段。
+- **缓存/兼容**：lite 缓存从 15MB 降到 ~0.3MB（IDB 不再超限）；旧缓存（整表）仍可读；无 lite RPC 的旧云端自动回退，功能不丢。
+- **真实浏览器验证**（测试身份，只读 + 本地同源代理）：通知页 **1.3s 内 96 卡**、`nt.fail=false`、0 JS 报错；首次加载仅 `class_notices_meta` 306KB，无 `notices?select=*` 整表请求；点击附件按需拉 170,004B 单行并弹出 121KB 下载；点击图片按需拉 480,325B 并渲染 1237×2199。
+- **回归**：`v2_notice_live_check` **20/20**、`v2_notice_period_check` **53/53**（新增 S5 lite RPC / S6 模板水合静态断言）、`v2_notice_longterm_check` **27/27**、`overflow_check 430` overflow=0、`v2_ui_check` **27/27**；三个通知测试的 fetch mock 增加 `rpc/class_notices_meta` 分支。
+- **上线**：`tools/index.html` **1,333,307 B / sha256 `b33d0251296ecc25c26e23dd56137d578874f72b57768c6d589ba4b3dd7ceac0`**；OSS `sync_tools.py` + ECS `ecs_site.py apply`，`oss_object check`/ECS verify 均 MATCH（gzip 412,824B）。部署前线上备份 `tools/_backup/index_online_20261118-1035_preNoticeLite.html`（1,326,819 B / `8cc6f447…`）。
+- **仍待人工的一步（小程序提醒）**：云函数 `notify` 代码已是 11-15 修复版（本地/云端 index.js、scan.js hash 一致），但 `config.json` 的 `hwReminder` timer 触发器仍未上传——`diag` 实测 `hb.source=flush`、`lastScanAt=0`、等待 75s 心跳不前进（`FAIL_TIMER_STALE_OR_NOT_ADVANCING`）。微信机制限制：CLI/「上传并部署」只传代码，**触发器必须在开发者工具右键 `cloudfunctions/notify/config.json` →「上传触发器」**（或云开发控制台 → 云函数 → notify → 触发器 → 新建 `hwReminder` / timer / `0 */1 * * * * *`）。上传后 `diag.hb.source` 应为 `timer`。
+- **OPPO 推送**：本机 `oppo-push.log` 今天每轮均「注册设备 token 数: 0」；`push_tokens` 表 RLS/写入已用测试身份验证可用（插入→读取→删除通过）。当前没有任何手机上传 RegistrationID，需在 ColorOS 真机打开 beta4 并登录后确认设置页推送状态；若仍为 0，再查 OPPO 开放平台包名/签名与 `oppo.properties` 推送密钥是否匹配。
+- **回滚**：重传备份即可（会同时回退本次模板/脚本；lite RPC 与 DB 不变，旧页面仍可用）。小程序侧无代码回滚（未改）。
+
 ## 2026-11-17 22:4x–23:0x · 安卓 vc87/beta4：补齐 OPPO 账号 OAuth Manifest APPID（修复 2020003 的客户端配置缺失）并发布
 
 > 用户反馈 OPPO 授权仍提示 2020003；仔细核对 OPPO 账号 OAuth SDK 文档后，发现「Manifest 配置 MSP 开放平台 APPID」一步此前缺失。

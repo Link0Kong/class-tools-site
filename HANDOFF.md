@@ -3656,3 +3656,28 @@ sync-repos.cmd "feat: 说明本次改了什么"
 
 ### 回滚
 - 客户端回退 beta3（artifacts/旧桌面包）；更新通道 latest.json 改回 vc86；ECS 删 beta4 APK；网页无需部署。
+
+## 2026-11-18 10:2x–10:3x · 修复网页通知页加载失败（15MB 整表 → 0.3MB lite + 附件按需）
+
+> 用户反馈「网页/小程序通知页打不开、一直加载 / 通知加载失败」+「手机收不到提醒」。本条只记网页修复；小程序提醒触发器与 OPPO 推送见文末。
+
+### 根因与改动
+- `public.notices` 整表 **15,024,643 B / 124 行**；网页 `NT.fetchFull` 仍 `notices?select=*` 一次拉全表，手机弱网/微信 WebView 下超时或内存压力。
+- 小程序 11-17 已有 `rpc/class_notices_meta` lite 契约；网页本次接入：
+  - `tools/index.html`：`cbGetNoticesMeta()`（POST，实测 **306,056 B / 0.57s**）→ `NT.fetchFull` 优先 lite，失败回退 `cbGetNotices()`；`NT.loadBody(gid)` 按 rowId 拉单条完整 body；父页处理 `class-notice-need-body`。
+  - 模板（`briefdesk-plan/build_notice_board.py` → `notice-board-live-demo.html` → `build_notice_embed.py`）：文件/图片/压缩包空 URL + `lazy=true` 显示「点击加载」；`lazyBody`/`__zqHydrate` 在点击后拉单条并打开；期次卡按 `__baseId` 回填。
+  - 缓存：IDB 从 ~15MB 降到 ~0.3MB；旧整表缓存仍可读。
+- 代码位置：`tools/index.html` L4348 附近（`cbGetNoticesMeta`/`cbGetNoticeRow`）、L5114 附近（`noticeGroupOfRow`/`loadBody`）、L5074（消息分支）；模板生成器 `build_notice_board.py` 的 `archiveHTML`/`itemHTML`/`lazyBody`/`__zqHydrate`。
+
+### 验证
+- 真实浏览器（测试身份 + 本地同源代理）：通知页 **1.3s / 96 卡 / 0 JS 错误**；仅 `class_notices_meta` 306KB，无整表请求；文件点击 170,004B → 121KB 下载；图片点击 480,325B → 1237×2199。
+- `v2_notice_live_check` 20/20、`v2_notice_period_check` 53/53（新增 S5/S6）、`v2_notice_longterm_check` 27/27、`overflow_check 430` overflow=0、`v2_ui_check` 27/27。
+- 三个通知测试的 fetch mock 已加 `rpc/class_notices_meta` 分支（否则测试会误判空数据）。
+
+### 上线 / 回滚
+- 线上 **1,333,307 B / sha256 `b33d0251296ecc25c26e23dd56137d578874f72b57768c6d589ba4b3dd7ceac0`**；OSS + ECS 均 MATCH（gzip 412,824B）。
+- 备份 `tools/_backup/index_online_20261118-1035_preNoticeLite.html`（1,326,819 B / `8cc6f447…`）；回滚=重传备份（lite DB/RPC 不变，旧页面仍可用）。
+
+### 仍待人工（小程序提醒 / OPPO 推送）
+- `notify` 云函数代码已是最新（index.js/scan.js hash 与本地一致），但 timer 触发器未上传：`diag` 实测 `hb.source=flush`、`lastScanAt=0`、75s 不前进。微信限制：必须开发者工具右键 `cloudfunctions/notify/config.json` →「上传触发器」（或云开发控制台新建 `hwReminder` / timer / `0 */1 * * * * *`）。上传后 `hb.source` 应为 `timer`。
+- `oppo-push.log` 今天均「注册设备 token 数: 0」；`push_tokens` 表写入/RLS 已用测试身份验证通过。需 ColorOS 真机打开 beta4 并登录后确认推送注册；若仍 0，再查 OPPO 开放平台包名/签名与推送密钥。

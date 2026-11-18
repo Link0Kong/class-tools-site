@@ -114,6 +114,7 @@ window.fetch=function(u,o){
   var s=String((u&&u.url!==undefined)?u.url:u);
   if(s.indexOf('tcloudbasegateway')>=0){
     if(s.indexOf('rpc/class_members')>=0)return ok(DATA.members);
+    if(s.indexOf('rpc/class_notices_meta')>=0)return ok(DATA.notices);
     if(s.indexOf('/notices')>=0)return ok(DATA.notices);
     if(s.indexOf('/marks')>=0)return ok([]);
     if(s.indexOf('/userdata')>=0)return ok([]);

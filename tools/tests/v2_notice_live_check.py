@@ -103,6 +103,7 @@ window.fetch=function(u,o){
   o=o||{};var s=String((u&&u.url!==undefined)?u.url:u);
   if(s.indexOf("tcloudbasegateway")>=0){
     if(s.indexOf("rpc/class_members")>=0)return ok(DATA.members);
+    if(s.indexOf("rpc/class_notices_meta")>=0)return ok(DATA.notices);
     if(s.indexOf("/notices")>=0){
       var payload=s.indexOf("select=id,ts")>=0
         ?DATA.notices.map(function(r){return {id:r.id,ts:r.ts,hidden:!!r.hidden,edited_at:Number(r.edited_at)||0};})

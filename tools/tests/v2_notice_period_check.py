@@ -112,6 +112,7 @@ window.fetch=function(u,o){
   var s=String((u&&u.url!==undefined)?u.url:u);
   if(s.indexOf('tcloudbasegateway')>=0){
     if(s.indexOf('rpc/class_members')>=0)return ok(DATA.members);
+    if(s.indexOf('rpc/class_notices_meta')>=0)return ok(DATA.notices);
     if(s.indexOf('/notices')>=0)return ok(DATA.notices);
     if(s.indexOf('/marks')>=0)return ok([]);
     if(s.indexOf('/userdata')>=0)return ok([]);
@@ -236,6 +237,10 @@ def main():
       "tpl=%d" % len(tpl))
     T("S4 嵌入模板未破坏通知 iframe 固定视口方案",
       "function __noticeHeight(){" in tpl and "zq_nt_scroll_v1" in tpl, "")
+    T("S5 网页通知走 lite RPC（class_notices_meta）且失败回退旧整表",
+      "rpc/class_notices_meta" in src_txt and "cbGetNotices()" in src_txt and "loadBody:function" in src_txt, "")
+    T("S6 模板含按需加载入口 / 水合函数（lite 列表点击附件）",
+      all(k in tpl for k in ('data-act="lazybody"', "function __zqHydrate", "function lazyBody")), "")
 
     tmp = tempfile.mkdtemp(prefix="period_notice_")
     srv = None
