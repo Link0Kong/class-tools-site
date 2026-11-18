@@ -91,6 +91,7 @@
    - 通知页刷新保位：父页只恢复 tab；iframe 内滚动由注入脚本 `zq_nt_scroll_v1` 自存自恢（260ms 落盘 + 加载后重试）；
    - 模板固定定位的弹层/编辑表单在父页渲染（保持）；
    - **不要**改回「父页滚动 + iframe 自适应 20,000px 高度」方案（2026-11-05 晚已因微信内滚动抽搐回退）。
+   - **2026-11-18 列表轻量化（网页/小程序同一契约）**：通知列表统一走 `POST rpc/class_notices_meta`（服务端把 `items[].url/src` 的 data URI 置空并写 `lazy=true`，整表约 0.3MB）；点图片/附件时网页 `NT.loadBody(gid)` 按 `notices?select=*&id=eq.<rowId>` 拉单行完整 body，模板 `lazyBody`/`__zqHydrate` 回填。**不要改回 `notices?select=*` 整表**（2026-11-18 实测整表 15MB，手机通知页会一直加载/失败）；接口不存在时才允许回退整表。
 3. **云端通知管理员覆盖**：`public.notices.override_json / hidden / edited_at / edited_by`（迁移 `deploy/cloudbase/2026-11-05_notice_admin_override.sql`）。
    采集端 `sync_notices_cloud.py` 不得写这 4 列；前端通知签名查询需 `select=id,ts,hidden,edited_at`。
 4. **通知识别（briefdesk）**：`#接龙` 不进入通知；补充通知（supplements）可合并进已有通知（追加 item + 修正时间 + updatedAt）；
