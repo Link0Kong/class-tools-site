@@ -549,7 +549,7 @@ def static_checks():
     m = re.search(r'var TOOLS=\[(.*?)\];', html, re.S)
     tools = m.group(1) if m else ""
     R.add("静态：TOOLS 追加 {k:\"ppt\",n:\"演示\",d:...}",
-          '{k:"ppt",n:"演示",d:"PPT上传自动转换·分步+视频·任意设备流畅播放"}' in re.sub(r"\s+", "", tools),
+          '{k:"ppt",n:"演示",d:"PPT上传、下载与播放"}' in re.sub(r"\s+", "", tools),
           tools[-90:])
     R.add("静态：#s-ppt section 存在且与 TOOLS 对应",
           'id="s-ppt"' in html and "gotoTab" in html and 'k==="ppt"' in flat)
@@ -599,8 +599,8 @@ def static_checks():
 
 
 def js_static(html):
-    m = re.search(r"<script>(.*?)</script>", html, re.S)
-    return m.group(1) if m else ""
+    # 页面有多个 <script>（引导脚本 + 主逻辑），静态检查必须全部拼接；2026-11-18 修复只取第一段导致的误报。
+    return "".join(re.findall(r"<script>(.*?)</script>", html, re.S))
 
 
 # ---------------------------------------------------------------- 会话

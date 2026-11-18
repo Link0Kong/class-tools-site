@@ -3750,5 +3750,11 @@ sync-repos.cmd "feat: 说明本次改了什么"
 4. **P3 客户端/管线**：本机 `scripts/cloud_backend.py`（17 路径 env 覆盖，默认不变）；`deploy/ecs_cron.py` 云函数替代 timer（已安装、disabled）；
    小程序/安卓三档 base + 网络层优化（mp unit 591/0、安卓 1594/0、staging 冒烟 PASS）；`jwxt/tt_cloud.py`/`ppt/agent.py` 支持 CLASS_CB_BASE/KEY。
 
+**P4 切流工具与优化（2026-11-18 round 2）**
+- `deploy/ecs_cutover.py`（status/validate/switch --confirm，一键切/回滚 Caddy 生产路由）+ `ecs_site.py` 的 `CLASS_API_MODE`；P4 演练已在 `class_tools_cut` 全链路跑通（40.7MiB 快照 / 4.5min 导入 / VERIFY_OK 34 / smoke 通过）。
+- 通知列表优化：`2026-11-18_notice_meta_lite.sql` + `2026-11-18_notice_meta_cache.sql`，staging 221–250ms → **6–9ms**（输出 sha 不变）；`ecs_pg.py apply-sql` 用于切流导入后应用。
+- PPT 在线预览媒体走 ECS `/pptfiles` 缓存（`resolveMediaUrl`），真实浏览器 E2E 10/10；修复大屏 `PPT.hrefOf` 缺 base 的既有问题。
+- 详见 `deploy/migration/PLAN.md` §8/§9、`CUTOVER.md`、`IMPORT.md`。
+
 **P4 待办（门槛：ICP 备案通过 + 域名恢复）**：最终快照导出 → 导入 cut 库 → `ecs_pg.py switch-db` → Caddy 生产路由切自建
 （`CUTOVER.md`）→ 三端发布 → 观察 → 停 CloudBase。备案前不要切生产、不要发布走 http/IP 的正式版。

@@ -13152,8 +13152,9 @@ var PPT=(function(){
     });
     return (out.compat||out.pdf||out.source)?out:null;
   }
-  function cacheFiles(id,files){
+  function cacheFiles(id,files,base){
     if(!id||!files)return;
+    try{if(base)files._base=String(base);}catch(e){}
     try{S.hints[String(id)]=files;}catch(e){}
     try{lsSet(LS_FILES+id,files);}catch(e){}
   }
@@ -13550,7 +13551,7 @@ var PPT=(function(){
         if(vm)lsSet(LS_VMETA+id,{dur:vm.dur,q:vm.q});
         else lsDel(LS_VMETA+id);
       }catch(e){}
-      try{var fm=filesMeta(man);if(fm)cacheFiles(id,fm);}catch(e){}
+      try{var fm=filesMeta(man);if(fm)cacheFiles(id,fm,man&&man.base);}catch(e){}
       openPlayer(row,man);
     }).catch(function(){toast("加载失败");});
   }
@@ -13621,6 +13622,27 @@ var PPT=(function(){
      - 仅对 OSS 的 `/ppt/...` 资产路径生效；其它路径（或 data:/blob:、解析失败）→ 回退原 OSS 直链。 */
   var PPT_ECS_BASE="http://121.196.47.2/pptfiles";
   var PPT_OSS_BASE="https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/";
+  /* 在线预览/原样播放的媒体也走 ECS `/pptfiles` 缓存（v2.4，2026-11-18 迁移优化）：
+     OSS 香港→ECS 首访慢（实测 13.6MB 视频 35s），缓存后 6.9MB/s；图片/视频/Range 均由该缓存服务支持。
+     - 仅映射本 OSS Bucket 的 `/ppt/**` 资产；data:/blob:/其它域名原样返回；
+     - http 页面（IP 调试/本地）用固定 ECS 地址；https 页面用同源 `/pptfiles`；
+     - 页面自身在 OSS 域名时（备用入口）不映射，避免混合内容/路径不存在。 */
+  function pptEcsUrl(u){
+    try{
+      u=String(u||"");
+      if(!/^https?:/i.test(u))return u;
+      var x=new URL(u,location.href);
+      if(x.hostname!=="tool-furina-fun.oss-cn-hongkong.aliyuncs.com")return u;
+      if(String(x.pathname||"").indexOf("/ppt/")!==0)return u;
+      if(location.protocol==="https:"){
+        if(location.hostname==="tool-furina-fun.oss-cn-hongkong.aliyuncs.com")return u;
+        return location.origin+"/pptfiles"+x.pathname+x.search;
+      }
+      if(location.protocol==="http:")return PPT_ECS_BASE+x.pathname+x.search;
+    }catch(e){}
+    return u;
+  }
+  function resolveMediaUrl(base,s){return pptEcsUrl(resolveUrl(base,s));}
   function pptDlHref(man,f){
     var oss=resolveUrl(man&&man.base,(f&&f.s)||"");
     try{
@@ -13781,7 +13803,7 @@ var PPT=(function(){
       D.loading=false;
       try{
         var fm=filesMeta(D.man);
-        if(fm)cacheFiles(id,fm);else lsDel(LS_FILES+id);
+        if(fm)cacheFiles(id,fm,(D.man&&D.man.base)||"");else lsDel(LS_FILES+id);
       }catch(e){}
       renderDetail();
     }).catch(function(){
@@ -13842,7 +13864,7 @@ var PPT=(function(){
     if(!hasPreview(man))return;
     var row={id:deck.id,title:deck.title,cover_url:deck.cover_url,source_name:deck.source_name};
     try{var vm=videoMeta(man);if(vm)lsSet(LS_VMETA+deck.id,{dur:vm.dur,q:vm.q});}catch(e){}
-    try{var fm=filesMeta(man);if(fm)cacheFiles(deck.id,fm);}catch(e){}
+    try{var fm=filesMeta(man);if(fm)cacheFiles(deck.id,fm,(man&&man.base)||"");}catch(e){}
     var mid=String(deck.id||"");
     closeDetail();
     try{openPlayer(row,man);}catch(e){toast("播放器打开失败");}
@@ -13892,7 +13914,7 @@ var PPT=(function(){
     return (g&&g.k==="a")?"a":"v";
   }
   function mediaUrl(m){
-    return m?resolveUrl(PL.man&&PL.man.base,m.s):"";
+    return m?resolveMediaUrl(PL.man&&PL.man.base,m.s):"";
   }
   function clearTimers(){
     if(PL.ctlTimer){clearTimeout(PL.ctlTimer);PL.ctlTimer=0;}
@@ -14191,7 +14213,7 @@ var PPT=(function(){
     if(!f)return;
     var slide=PL.slides[f.s]||{};
     var st=(slide.steps&&slide.steps[f.j])||{};
-    var src=resolveUrl(PL.man&&PL.man.base,st.img);
+    var src=resolveMediaUrl(PL.man&&PL.man.base,st.img);
     var inc=1-PL.active;
     var outEl=PL.layers[PL.active],inEl=PL.layers[inc],img=PL.imgs[inc];
     var started=false,failed=false;
@@ -14411,7 +14433,7 @@ var PPT=(function(){
       var f=PL.flat[PL.idx+d];
       if(!f)break;
       var st=PL.slides[f.s]&&PL.slides[f.s].steps&&PL.slides[f.s].steps[f.j];
-      if(st&&st.img)urls.push(resolveUrl(PL.man.base,st.img));
+      if(st&&st.img)urls.push(resolveMediaUrl(PL.man.base,st.img));
     }
     urls.forEach(function(u){
       if(!u||PL.pre[u])return;
@@ -14426,7 +14448,7 @@ var PPT=(function(){
         if(!f2)return;
         var th=slideThumb(PL.slides[f2.s]);
         if(!th)return;
-        var u=resolveUrl(PL.man.base,th);
+        var u=resolveMediaUrl(PL.man.base,th);
         if(PL.pre[u])return;
         PL.pre[u]=1;
         try{var im2=new Image();im2.src=u;}catch(e){}
@@ -14437,7 +14459,7 @@ var PPT=(function(){
     var row=el("pptThumbsRow");
     if(!row)return;
     row.innerHTML=PL.slides.map(function(sl,i){
-      var src=resolveUrl(PL.man&&PL.man.base,slideThumb(sl));
+      var src=resolveMediaUrl(PL.man&&PL.man.base,slideThumb(sl));
       var n=(sl.steps&&sl.steps.length)||1;
       return '<button type="button" class="ppt-thumb" data-thumb="'+i+'" aria-label="第 '+(i+1)+' 页">'+
         (src?'<img src="'+esc(src)+'" alt="" loading="lazy">':'')+
@@ -14621,7 +14643,7 @@ var PPT=(function(){
     showConfirm(true);
   }
   function downloadSrc(){
-    var src=(PL.man&&PL.man.src)?resolveUrl(PL.man.base,PL.man.src):"";
+    var src=(PL.man&&PL.man.src)?resolveMediaUrl(PL.man.base,PL.man.src):"";
     if(!src)return;
     try{
       var a=document.createElement("a");
@@ -14787,7 +14809,7 @@ var PPT=(function(){
     out.sort(function(a,b){return a.t-b.t;});
     return out;
   }
-  function videoUrl(){return (PL.video&&PL.video.s)?resolveUrl(PL.man&&PL.man.base,PL.video.s):"";}
+  function videoUrl(){return (PL.video&&PL.video.s)?resolveMediaUrl(PL.man&&PL.man.base,PL.video.s):"";}
   function dlName(){
     var t=String((PL.deck&&PL.deck.title)||(PL.man&&PL.man.title)||"演示").replace(/[\\/:*?"<>|\s]+/g,"_").slice(0,60);
     return (t||"演示")+".mp4";
@@ -15385,7 +15407,7 @@ var PPT=(function(){
     loaded:function(){return !!S.loaded;},
     err:function(){return S.err;},
     filesOf:function(id){return filesOf(findDeck(id));},
-    hrefOf:function(id,kind){var f=filesOf(findDeck(id));if(!f||!f[kind])return "";return pptDlHref({base:PPT_OSS_BASE},f[kind]);},
+    hrefOf:function(id,kind){var f=filesOf(findDeck(id));if(!f||!f[kind])return "";var base=(f&&f._base)||PPT_OSS_BASE;return pptDlHref({base:base},f[kind]);},
     /* v2.3 探针（测试用）：当前下载详情里「视频单独下载」分组的行数（无分组/未打开=0） */
     mediaRows:function(){var g=document.getElementById('pptMediaFiles');
       return g?g.querySelectorAll('.ppt-mfile').length:0;}};

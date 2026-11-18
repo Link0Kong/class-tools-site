@@ -27,6 +27,7 @@
    python deploy\ecs_pg.py import --db class_tools_cut --artifact C:\briefdesk\data\cloudbase_migration\cutover --reset
    python deploy\ecs_pg.py verify --db class_tools_cut --expect C:\briefdesk\data\cloudbase_migration\cutover\manifest.json
    python deploy\ecs_pg.py apply-sql --db class_tools_cut --file deploy\migration\2026-11-18_notice_meta_lite.sql
+   python deploy\ecs_pg.py apply-sql --db class_tools_cut --file deploy\migration\2026-11-18_notice_meta_cache.sql
    ```
    校验：34 表行数/哈希一致；函数/策略/触发器/索引计数一致；序列值正确；
    应用本地优化 SQL 后 `class_notices_meta` 输出与 CloudBase 现有实现逐字节一致（staging 已验证 sha 相同），
@@ -95,13 +96,14 @@ python deploy\migration\verify_export.py --out %DIR%
 python deploy\ecs_pg.py import --db class_tools_cut --artifact %DIR% --reset
 python deploy\ecs_pg.py verify --db class_tools_cut --expect %DIR%\manifest.json
 python deploy\ecs_pg.py apply-sql --db class_tools_cut --file deploy\migration\2026-11-18_notice_meta_lite.sql
+python deploy\ecs_pg.py apply-sql --db class_tools_cut --file deploy\migration\2026-11-18_notice_meta_cache.sql
 python deploy\ecs_pg.py switch-db --db class_tools_cut
 python deploy\ecs_pg.py smoke                 :: 测试账号 staging 契约冒烟
 python deploy\ecs_pg.py probe                 :: db-uri=class_tools_cut
 python deploy\ecs_pg.py switch-db --db class_tools   :: 演练完切回 staging 库
 ```
 - 期望：导入 HASH_OK 34/34、verify TABLES_OK 34/34、smoke 全 PASS、staging `/v1/rdb/rest-next/` 200；
-  2026-11-18 实测：导入 4.5min、72MB、HASH_OK 34/34、VERIFY_OK 34、meta sha `20a0346a…` 一致、延迟 87ms；
+  2026-11-18 实测：导入 4.5min、72MB、HASH_OK 34/34、VERIFY_OK 34、meta sha `20a0346a…` 一致；lite 优化后 87ms、缓存优化后 6–9ms；
 - `switch-db` 只改 PostgREST 指向的库（秒级重启），不碰 Caddy；演练后切回 `class_tools` 即恢复原状；
 - 生产切流窗口仍按 §1 执行（cut DB 演练通过后再加 Caddy 切换）。
 

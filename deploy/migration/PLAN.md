@@ -103,3 +103,14 @@ PostgreSQL 18（class_tools 库：public 29 表 + private 5 表，88 函数、71
   `apply-sql` notice_meta_lite → `switch-db class_tools_cut` → 测试账号 smoke：members 70（3.6ms）、notices meta **sha 20a0346a… 与旧实现逐字节一致 / 125 行**、延迟 **87ms**、RLS 负例 `[]`；
   生产公网 `/v1/rdb/rest/` 仍 401（CloudBase 未动）→ `switch-db class_tools` 切回 staging。
   结论：P4 切流全链路可在 5 分钟内完成；切流窗口按 CUTOVER.md §1 执行（最终快照重跑一次）。
+
+## 9. 第二轮优化（2026-11-18 goal round 2）
+
+- **通知 meta 二级缓存**：`deploy/migration/2026-11-18_notice_meta_cache.sql`（表 `private.notice_meta_cache` + 语句级触发器重建 + RPC 纯读）。
+  staging 实测：**6–9ms**（此前预计算版 87ms；最初 221–250ms），输出 sha `20a0346a…` 不变；任何 notices 写语句触发一次重建（INSERT 约 +90ms），GET/POST 均可读（避免只读事务写表问题）。
+- **PPT 在线媒体本地缓存**：复用现有 `/pptfiles` ECS 缓存（WebP/MP4 支持 Range/206、LRU 5GiB），网页 `resolveMediaUrl()` 把 OSS `/ppt/**` 媒体映射到 `/pptfiles`；
+  真实浏览器 E2E `deploy/migration/e2e_ppt_media.py` **10/10**：播放器 16 个媒体请求全部走 `/pptfiles`、0 个 OSS 直连、视频 readyState=4、0 JS 报错。
+  同时修复 `PPT.hrefOf` 因 files 缓存缺 base 导致大屏「打开放映」指向 `oss/.../compat.pptx` 的既有问题（`cacheFiles(..., base)` + `filesOf()._base`）。
+- **测试修复**：`v2_ppt_check` 两处既有静态断言（TOOLS 文案变化、`js_static` 只取第一个 `<script>`）已修；PPT 套件 **92/92 + 100/100 + 65/65**、`v2_ui_check` 27/27。
+- 网页已部署 OSS+ECS：`1,336,988B / sha256 0fee…`（以部署输出为准）；备份 `tools/_backup/index_online_*_prePptMediaCache.html`。
+- 待办：小程序/安卓的在线预览媒体同样映射到 `https://tool.furina.fun/pptfiles`（备案发布时）；切流窗口执行时应用两个优化 SQL。
