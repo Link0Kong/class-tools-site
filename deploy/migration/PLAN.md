@@ -171,3 +171,15 @@ PostgreSQL 18（class_tools 库：public 29 表 + private 5 表，88 函数、71
   `--drift` 用只读 SQL 对比 CloudBase 当前行数与最新快照；`--check-remotes` 核对双远端；`--json` 供脚本消费。
 - 2026-11-18 实测：**PASS 10 / WARN 3 / FAIL 0**（WARN：DNS NXDOMAIN 为 ICP 门槛、仓库有未提交改动、快照后 3 张表 live 漂移 class_sessions +48 / notices +1 / power_history +34）。
 - `cutover_run.py execute` 已集成：真正切流前自动跑 `preflight --drift --check-remotes`，有 FAIL 即中止（WARN 不阻断，DNS/ICP 仍需人工确认）。
+
+### 9.8 第九轮（2026-11-18 round 9）：切流后动作编排 `post_cutover.py`
+
+- 新增 `deploy/migration/post_cutover.py`：
+  - `rehearsal`（staging 安全）：启用 ECS jobs timer → 立即触发 `health_probe` → 测试账号读 staging `service_health`
+    **18 行**且 `cloudbase` 行含 PG 指标 → finally 重新禁用 timer；
+  - `apply --confirm`（切流后）：校验生产 200 + 测试账号 members 70 → `ecs_cron.py install --backend live --allow-live` →
+    `enable --confirm` → 触发 health_probe → 生产 `service_health` 18 行/cloudbase 含 PG → `ecs_pg monitor` `prod_mode=selfhosted` →
+    打印附件外置/CloudBase 下线/回滚提醒。
+- 实测 rehearsal：**R1–R4 全 PASS**；health_probe job `ok:true rows=8 patched=8 ms=451`，`cloudbase` detail
+  `HTTP 200 · 3ms · PG ok · 11 连接 · 23% 磁盘 · 备份 0h`；staging `service_health` 18 行；finally timer 恢复 disabled/inactive。
+- 切流日顺序（CUTOVER §2）：`cutover_run execute` → `post_cutover apply --confirm` → 附件外置（人工）→ 三端发布 → CloudBase 保留 2 周。

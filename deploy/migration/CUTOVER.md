@@ -59,6 +59,11 @@
 
 ## 2. 切换后
 
+> **推荐执行**：`python deploy\migration\post_cutover.py apply --confirm`（校验生产自建 200/members 70 → ECS jobs
+> 重装 live 后端 → 启用 timer → 触发 health_probe → 生产 service_health 18 行且 cloudbase 行含 PG 指标 → 打印附件外置/CloudBase 下线提醒）。
+> 切流前可用 `post_cutover.py rehearsal` 在 staging 安全演练（已实测 PASS，finally 自动禁用 timer）。
+
+
 - **附件外置启用（用户已授权的迁移第②步）**：确认三端新版已发布（网页已兼容 URL 形态）后，在本机 `C:\briefdesk\secrets\cloud.env`
   设 `NOTICE_ATTACH_EXTERNALIZE=1` + `ATT_BASE_URL=https://tool.furina.fun`，跑一次 `python scripts\sync_notices_cloud.py` 回填存量附件
   （data URI → ECS 签名 `/att/` URL；失败 fail-open 保留 data URI）。回滚：去掉 env 后重跑一次（已外置的 URL 仍可读，回滚不清存量）。

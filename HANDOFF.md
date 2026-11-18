@@ -3780,5 +3780,9 @@ sync-repos.cmd "feat: 说明本次改了什么"
 **P8 切流日预检（2026-11-18 round 8）**
 - `deploy/migration/preflight_cutover.py`：只读检查 CloudBase 到期、DNS/HTTPS、ECS 站点/staging/生产模式、附件/PPT、PG 监控、备份/异地备份、最新快照、测试账号、仓库状态；`--drift` 对比主表行数漂移。
 - 实测 PASS 10 / WARN 3 / FAIL 0（DNS NXDOMAIN=ICP 门槛；快照后 class_sessions/notices/power_history 有 live 漂移）；`cutover_run execute` 已自动先跑 preflight，FAIL 中止。
+**P9 切流后动作演练（2026-11-18 round 9）**
+- `deploy/migration/post_cutover.py`：rehearsal 在 staging 启用 jobs timer→触发 health_probe→验证 18 行/PG 指标→finally 禁用，实测 R1–R4 全 PASS；
+  apply --confirm 切流后自动重装 live 后端、启用 timer、验证生产健康行与 `prod_mode=selfhosted`，并打印附件外置/CloudBase 下线提醒。
+- 切流日顺序：cutover_run execute → post_cutover apply → 附件外置（人工）→ 三端发布 → CloudBase 保留 2 周。
 **P4 待办（门槛：ICP 备案通过 + 域名恢复）**：最终快照导出 → 导入 cut 库 → `ecs_pg.py switch-db` → Caddy 生产路由切自建
 （`CUTOVER.md`）→ 三端发布 → 观察 → 停 CloudBase。备案前不要切生产、不要发布走 http/IP 的正式版。
