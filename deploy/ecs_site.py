@@ -139,6 +139,14 @@ def _caddy_http():
 		uri strip_prefix /map/api
 		reverse_proxy 127.0.0.1:8095
 	}
+	# 迁移 staging：自建 PostgreSQL 18 + PostgREST 13（仅 staging，生产 /v1/rdb/rest/* 仍走 CloudBase）
+	# 见 deploy/migration/PLAN.md §5 / deploy/ecs_pg.py；P4 切流时才把生产路由改指 127.0.0.1:3000。
+	# 客户端仍带 CloudBase publishable JWT -> 自建侧剥掉 Authorization（RLS 靠 X-Device-Id/X-Class-Token）。
+	handle_path /v1/rdb/rest-next/* {
+		reverse_proxy 127.0.0.1:3000 {
+			header_up -Authorization
+		}
+	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
 	# 当前访问域名的 Origin（如 ECS IP 调试入口）→ 网关 403，页面报「网络错误」。
@@ -203,6 +211,14 @@ tool.furina.fun {
 		uri strip_prefix /map/api
 		reverse_proxy 127.0.0.1:8095
 	}
+	# 迁移 staging：自建 PostgreSQL 18 + PostgREST 13（仅 staging，生产 /v1/rdb/rest/* 仍走 CloudBase）
+	# 见 deploy/migration/PLAN.md §5 / deploy/ecs_pg.py；P4 切流时才把生产路由改指 127.0.0.1:3000。
+	# 客户端仍带 CloudBase publishable JWT -> 自建侧剥掉 Authorization（RLS 靠 X-Device-Id/X-Class-Token）。
+	handle_path /v1/rdb/rest-next/* {
+		reverse_proxy 127.0.0.1:3000 {
+			header_up -Authorization
+		}
+	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带
 	# 当前访问域名的 Origin（如 ECS IP 调试入口）→ 网关 403，页面报「网络错误」。
@@ -259,6 +275,14 @@ tool.furina.fun {
 	handle /map/api/* {
 		uri strip_prefix /map/api
 		reverse_proxy 127.0.0.1:8095
+	}
+	# 迁移 staging：自建 PostgreSQL 18 + PostgREST 13（仅 staging，生产 /v1/rdb/rest/* 仍走 CloudBase）
+	# 见 deploy/migration/PLAN.md §5 / deploy/ecs_pg.py；P4 切流时才把生产路由改指 127.0.0.1:3000。
+	# 客户端仍带 CloudBase publishable JWT -> 自建侧剥掉 Authorization（RLS 靠 X-Device-Id/X-Class-Token）。
+	handle_path /v1/rdb/rest-next/* {
+		reverse_proxy 127.0.0.1:3000 {
+			header_up -Authorization
+		}
 	}
 	# 同源 API 代理（迁移第 3 步就绪；网页切到同源基址后生效）
 	# CloudBase 网关只放行白名单 Origin（tool.furina.fun / 127.0.0.1）；浏览器向同源反代发 POST 会带

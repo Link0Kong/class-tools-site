@@ -3730,3 +3730,25 @@ sync-repos.cmd "feat: 说明本次改了什么"
 ### 回滚
 - 移除 `notice-manual-patches.json` 中该组补丁并重建；或还原 `build_notice_board.py` 的 `resolve_recurrence_conflicts` 与 `notice_merge.py` 文本去重；重新 `sync_notices_cloud`。
 - 客户端无改动，无需发版。
+
+---
+
+## CloudBase → ECS 自建后端迁移（2026-11-18，P0–P3 就绪，P4 待备案）
+
+> 背景：CloudBase env 2026-12-10 到期；ECS 已升级 2C4G / 40GB / 100Mbps。目标：自建 PostgreSQL 18 + PostgREST 13，
+> API 路径保持 `/v1/rdb/rest/`，三端最小改动切流；总计划 `deploy/migration/PLAN.md`，切流 `deploy/migration/CUTOVER.md`，
+> 导入 `deploy/migration/IMPORT.md`，本机管线 `deploy/migration/PIPELINE.md`，客户端 `deploy/migration/CLIENTS.md`。
+
+**已完成（2026-11-18）**
+1. **P0 全量导出**：`deploy/migration/{tcb_sql,export_schema,export_data,verify_export}.py`；产物 34 表 / 19,341 行 / 40.7MiB，
+   结构（762 语句：34 表/270 列/52 自有函数+pgcrypto/73 策略/2 业务触发器/60 索引/4 序列）与数据 SHA 全绿。
+2. **P1 ECS 后端**：`deploy/ecs_pg.py`（provision/staging/backup/smoke/import/verify/switch-db）；
+   `class-tools-pgrest.service`（127.0.0.1:3000，anon 角色，Caddy 剥 Authorization）；数据导入 `HASH_OK 34/34`、`VERIFY_OK`；
+   每日 pg_dump 备份 timer；**staging 路由** `/v1/rdb/rest-next/*`（生产 `/v1/rdb/rest/*` 未动）。
+3. **P2 影子验证**：网页 `?api=next` 真实浏览器 E2E 10/10（测试账号、0 生产 CloudBase 请求、API P50 30ms）；
+   staging 契约/RLS/性能由 ecs-pg 复核；网页已部署（默认行为不变）。
+4. **P3 客户端/管线**：本机 `scripts/cloud_backend.py`（17 路径 env 覆盖，默认不变）；`deploy/ecs_cron.py` 云函数替代 timer（已安装、disabled）；
+   小程序/安卓三档 base + 网络层优化（mp unit 591/0、安卓 1594/0、staging 冒烟 PASS）；`jwxt/tt_cloud.py`/`ppt/agent.py` 支持 CLASS_CB_BASE/KEY。
+
+**P4 待办（门槛：ICP 备案通过 + 域名恢复）**：最终快照导出 → 导入 cut 库 → `ecs_pg.py switch-db` → Caddy 生产路由切自建
+（`CUTOVER.md`）→ 三端发布 → 观察 → 停 CloudBase。备案前不要切生产、不要发布走 http/IP 的正式版。

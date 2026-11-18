@@ -80,7 +80,16 @@ def _read_text(path: str) -> str:
 
 
 def cb_config():
-    """从 web/tools/index.html 解析 (base, key)。失败抛 PublishError。"""
+    """返回 (base, key)。
+
+    2026-11-18 迁移：优先读环境变量 CLASS_CB_BASE / CLASS_CB_KEY（由
+    C:\\briefdesk\\scripts\\cloud_backend.py 同一套约定注入），未设置时回退到
+    web/tools/index.html 的 var CB / var CBK（默认仍是 CloudBase，行为不变）。
+    """
+    base = os.environ.get("CLASS_CB_BASE", "").strip()
+    key = os.environ.get("CLASS_CB_KEY", "").strip()
+    if base and key:
+        return base.rstrip("/") + "/", key
     try:
         text = _read_text(INDEX_PATH)
     except OSError as exc:

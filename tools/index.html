@@ -4327,6 +4327,11 @@ var CBK="eyJhbGciOiJSUzI1NiIsImtpZCI6IjkwMTNkMzBkLWY3NTEtNGE4Yi05OGNlLTlmNTFiMzk
 (function(){try{var h=String(location.hostname||"");
   if(/^(?:[a-z0-9-]+\.)*tool\.furina\.fun$/i.test(h)||h==="121.196.47.2"){CB=location.origin+"/v1/rdb/rest/";}
 }catch(e){}})();
+/* 自建后端 staging 验证（2026-11-18 迁移）：仅当 URL 带 ?api=next 时改走同源
+   /v1/rdb/rest-next/*（ECS PostgreSQL+PostgREST staging）；默认行为完全不变。
+   验证：http://121.196.47.2/?api=next 用测试账号登录。正式切流不靠这个参数，而是
+   Caddy 把 /v1/rdb/rest/* 指到自建 PostgREST。 */
+(function(){try{if(/[?&]api=next(?:&|$|=)/.test(String(location.search||""))){CB=location.origin+"/v1/rdb/rest-next/";}}catch(e){}})();
 function cbH(pref,extra){var h={"Authorization":"Bearer "+CBK,"Content-Type":"application/json"};
   var a=authHdr();for(var k in a)h[k]=a[k];
   if(pref)h["Prefer"]="return=representation";if(extra)for(var k2 in extra)h[k2]=extra[k2];return h;}

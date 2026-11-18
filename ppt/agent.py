@@ -62,7 +62,10 @@ import pptx_xml  # noqa: E402
 WEB_ROOT = os.path.abspath(os.path.join(HERE, ".."))
 WORKSPACE = os.path.abspath(os.path.join(WEB_ROOT, ".."))
 
-CFG_BASE = "https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/"
+# 2026-11-18 迁移：CLASS_CB_BASE 可覆盖（默认仍是 CloudBase，行为不变）；
+# 与 C:\briefdesk\scripts\cloud_backend.py 同一套约定（env > index.html）。
+CFG_BASE = (os.environ.get("CLASS_CB_BASE", "").strip().rstrip("/") + "/") \
+    or "https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/"
 PUBLISH_KEY_FILE = os.path.join(WEB_ROOT, "deploy", "cloudbase", "publish_key.txt")
 TOKEN_FILE = r"C:\briefdesk\secrets\class-token.json"
 CLOUDBASE_RC = r"C:\briefdesk\secrets\cloudbaserc.local.json"
@@ -191,6 +194,11 @@ class CloudError(Exception):
 
 
 def _read_publish_key():
+    # 迁移期：CLASS_CB_KEY 优先（自建 PostgREST 不需要 CloudBase JWT；Caddy 会剥掉 Authorization，
+    # 但客户端仍按旧约定带一个 Bearer 值，传任意非空 key 即可）。
+    env_key = os.environ.get("CLASS_CB_KEY", "").strip()
+    if env_key:
+        return env_key
     try:
         with open(PUBLISH_KEY_FILE, encoding="utf-8") as fh:
             key = fh.read().strip()
