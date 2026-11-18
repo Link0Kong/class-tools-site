@@ -2,6 +2,17 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-18 22:0x · 仓库整理：五端一仓 + 自动提交（无站点字节变更，不需部署）
+
+> 用户要求：「gitee 和 github 仓库只要每个端口留一个即可，而不是按功能做仓库，并且每个端口都应该做好自动提交」。
+
+- **五个端仓库**：`class-tools-site`（本仓）、`class-tools-android`、`class-tools-mp`、`class-tools-harmony`、`class-tools-windows`；不再按功能拆仓库。
+- **并入**（保留完整历史）：`class-tools-briefdesk` → `web/briefdesk/`、`class-tools-power` → `web/power/`、`class-tools-mp-tests` → `mp-class-tools/tests/`；旧本地路径保留 junction（`briefdesk-plan` / `perfect-campus-power` / `mp-class-tools-tests`），旧仓库 GitHub 已归档。
+- **同步工具**：五个端仓库根统一 `sync_repos.py` + `sync-repos.cmd`（自动识别双远端、敏感路径/令牌/大文件检查、远端领先自动 rebase、推两端并核对 SHA）。
+- **自动提交**：本机计划任务 `ClassToolsRepoAutoSync` 每 10 分钟扫描，工作区有改动且空闲 ≥5 分钟时自动提交并推双端；日志 `web/tools/repo_ops/_logs/auto_commit.log`；规则写进各仓 `AGENTS.md` 与工作区 `AGENTS.md`。
+- **验证**：五仓 `sync-repos.cmd --check` 两端 SHA 一致；`node unit.js` 588/7（其中 2 项路径/静态扫描问题已随本次修正，剩余 6 项为 11-14 撤销域名与今日 staging 路由导致的既有过期断言）；`code_quality_check.js` 退出 0、`cloudfunctions/notify.test.js` 35/0。
+- **回滚**：`git revert` 对应合并提交、旧仓库 `gh repo unarchive`；本机目录 junction 可用 `cmd /c rmdir <旧路径>` 删除。
+
 ## 2026-11-18 21:2x–21:4x · 统计多端：按最新登录排序 / 默认今天 / 分钟时间 / 记录登录端 / 忽略测试账号（网页已上线；小程序/安卓/Windows/鸿蒙源码同步）
 
 > 用户原话：「将所有端的统计工具统一更新为按最新登录顺序排序，默认打开为今天，时间精确到分钟，记录具体登录端，忽略测试账号」。唯一契约 `统计多端_最新登录_契约_20261118.md`。
