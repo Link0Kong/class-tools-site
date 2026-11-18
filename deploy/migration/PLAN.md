@@ -133,3 +133,18 @@ PostgreSQL 18（class_tools 库：public 29 表 + private 5 表，88 函数、71
   （detail + `meta.pg`，**18 行契约不变**）；ok=false/缺失/过期>30min 只降级 warn；CloudBase 默认模式完全不读、行为不变。
   离线单测 **19/19**；ECS smoke：正常 ok、`backup_age_h=99` → warn、`ts` 35min → warn，finally 恢复 JSON sha256 MATCH；timer 仍 disabled。
 - 三仓：web 本轮提交（含以上改动与文档）；mp **c316fca**、android **e8f3a31** 已双远端推送。
+
+### 9.3 第五轮（2026-11-18 round 5）
+
+- **附件外置 staging 端到端演练**（`NOTICE_ATTACH_EXTERNALIZE` 产物形态）：新脚本 `deploy/migration/e2e_attach_staging.py`。
+  实测 **8/8 PASS**：管线同源上传 68B PNG 到 ECS `/att/upload` → HMAC 签名 URL 200 → staging 插入带 `/att/` URL 的临时通知 →
+  网页 `?api=next` 测试账号读 `class_notices_meta` 含该通知、页面上下文 fetch 签名 URL **200/字节一致**、0 生产 CloudBase 请求、0 JS 报错；
+  finally 清理临时通知与附件文件（`cleanup_nid=0 cleanup_aid=0`）。结论：附件外置链路三端契约可用，切流后可用 `NOTICE_ATTACH_EXTERNALIZE=1` 开存量回填。
+- **P4 最终演练刷新**：用当前线上快照重新走「导出 → cut 库导入 → 两个优化 SQL → switch-db → smoke → 切回」，验证切流流程与最新优化兼容（结果见 §9.4）。
+
+### 9.4 P4 最终演练刷新（2026-11-18 15:26–15:35）
+
+- 快照 `p4-final-20261118-1526`：schema 29.7s + data 142.4s + verify 68.6s（40.7MiB；drift 仅 class_sessions/agent_keys/diag_analysis 预期 live 写入）。
+- 导入 `class_tools_cut --reset`：4.4 分钟，`VERIFY_OK tables=34`；应用 `notice_meta_lite` + `notice_meta_cache` 两个 SQL 成功。
+- `switch-db class_tools_cut` 后测试账号 smoke：members **70（3.3ms）**、notices meta **6.1–7.5ms / 125 行 / sha `20a0346a…` 不变**、坏 token `[]`、生产路由仍 401（CloudBase 未动）。
+- 切回 `class_tools`，staging 恢复 200。结论：P4 切流脚本 + 最新两个优化 SQL 与当前线上数据兼容；真正切换窗口可控制在 1 分钟内（导出/导入可提前完成）。

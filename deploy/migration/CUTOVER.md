@@ -52,6 +52,12 @@
 
 ## 2. 切换后
 
+- **附件外置启用（用户已授权的迁移第②步）**：确认三端新版已发布（网页已兼容 URL 形态）后，在本机 `C:\briefdesk\secrets\cloud.env`
+  设 `NOTICE_ATTACH_EXTERNALIZE=1` + `ATT_BASE_URL=https://tool.furina.fun`，跑一次 `python scripts\sync_notices_cloud.py` 回填存量附件
+  （data URI → ECS 签名 `/att/` URL；失败 fail-open 保留 data URI）。回滚：去掉 env 后重跑一次（已外置的 URL 仍可读，回滚不清存量）。
+  演练证据：`deploy/migration/e2e_attach_staging.py` 8/8 PASS（staging）。
+
+
 - CloudBase **不要立刻退订**：保留 ≥2 周只读回滚窗口（旧版小程序/安卓仍可能在用旧网关）。
 - 关闭 CloudBase 云函数定时器（`tcb fn trigger delete ...`），避免双写；保留 DB 备份。
 - 关闭/回收 OSS 上不再需要的测试资产；确认私有 staging 桶已删。
