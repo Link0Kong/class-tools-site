@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<title>班级通知整合方案 · Briefdesk + 微信人工转发 + QQ 群自动采集</title>
+<!-- 单文件报告：零外部请求，双击即可打开 -->
+<style>
+:root {
+  --bg: #F7F8F8;
+  --ink: #22302E;
+  --muted: #647572;
+  --line: #E2E8E6;
+  --card: #FFFFFF;
+  --teal: #4E9082;
+  --blue: #6E8CA8;
+  --sand: #B98F63;
+  --teal-soft: #EAF1EF;
+  --warn-soft: #FBF7F0;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, -apple-system, sans-serif;
+  font-size: 15.5px;
+  line-height: 1.78;
+  -webkit-font-smoothing: antialiased;
+}
+.page { max-width: 1000px; margin: 0 auto; padding: 34px 20px 60px; }
+
+/* ── Hero ── */
+.hero {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 34px 38px 30px;
+  box-shadow: 0 1px 2px rgba(34,48,46,.04), 0 10px 30px rgba(34,48,46,.05);
+  border: 1px solid var(--line);
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+  background: linear-gradient(180deg, var(--teal), var(--blue) 55%, var(--sand));
+}
+.eyebrow {
+  font-size: 12px; letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--teal); font-weight: 600; margin-bottom: 12px;
+}
+.hero h1 {
+  margin: 0 0 14px; font-size: 30px; line-height: 1.35; font-weight: 700;
+  letter-spacing: .3px; color: #1C2A28;
+}
+.hero h1 span { color: var(--teal); }
+.hero .sub { margin: 0 0 18px; color: var(--muted); font-size: 14.5px; line-height: 1.7; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-block; padding: 3px 12px; border-radius: 99px;
+  background: var(--teal-soft); color: #35645B; font-size: 12.5px; font-weight: 500;
+}
+.chip.alt { background: #EFF3F7; color: #4C657E; }
+.chip.warm { background: var(--warn-soft); color: #8A6A44; }
+
+/* ── Content ── */
+.content { margin-top: 26px; }
+.content h2 {
+  font-size: 22px; line-height: 1.4; margin: 42px 0 14px; padding: 2px 0 2px 14px;
+  border-left: 4px solid var(--teal); color: #1C2A28; scroll-margin-top: 16px;
+}
+.content h3 { font-size: 17px; margin: 26px 0 10px; color: #2C403C; }
+.content h4 { font-size: 15px; margin: 18px 0 8px; color: #2C403C; }
+.content p { margin: 10px 0; }
+.content ul, .content ol { margin: 10px 0; padding-left: 24px; }
+.content li { margin: 4px 0; }
+.content hr { border: 0; border-top: 1px solid var(--line); margin: 34px 0; }
+.content a { color: #3A7A6E; text-decoration: none; border-bottom: 1px solid #BFD8D2; }
+.content a:hover { border-bottom-color: var(--teal); }
+.content strong { color: #1B2B28; }
+
+/* 表格 */
+.table-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.content table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 760px; }
+.content th, .content td { word-break: break-word; }
+.content td:first-child { min-width: 92px; }
+.content th {
+  background: #EEF4F2; color: #2B4A44; text-align: left; font-weight: 600;
+  padding: 10px 14px; border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+.content td { padding: 10px 14px; border-bottom: 1px solid #EDF1F0; vertical-align: top; line-height: 1.65; }
+.content tr:last-child td { border-bottom: 0; }
+.content tbody tr:nth-child(even) td { background: #FBFCFC; }
+
+/* 代码 */
+.content pre {
+  background: #F2F6F5; border: 1px solid #E1E9E7; border-left: 4px solid var(--teal);
+  border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 14px 0;
+  font-size: 13px; line-height: 1.65;
+}
+.content pre code { background: none; padding: 0; border: 0; color: #23403A; font-size: 13px; }
+.content code {
+  font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+  background: #EDF3F1; color: #2F5D54; padding: 1px 6px; border-radius: 5px; font-size: 13px;
+}
+
+/* 引用 / 提示 */
+.content blockquote {
+  margin: 18px 0; padding: 14px 18px; background: var(--warn-soft);
+  border-left: 4px solid var(--sand); border-radius: 10px; color: #5B5044;
+}
+.content blockquote p { margin: 4px 0; }
+
+/* TOC */
+.toc {
+  background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+  padding: 20px 26px 22px; margin: 0 0 8px;
+  box-shadow: 0 1px 2px rgba(34,48,46,.03);
+}
+.toc-title {
+  font-size: 11.5px; letter-spacing: 2px; color: var(--teal); font-weight: 600; margin-bottom: 12px;
+}
+.toc-list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: 1fr 1fr; column-gap: 34px; row-gap: 2px;
+  counter-reset: toc;
+}
+.toc-list li { break-inside: avoid; counter-increment: toc; }
+.toc-list li a {
+  display: flex; gap: 8px; align-items: baseline; color: #3D5A54; font-size: 13.5px;
+  text-decoration: none; border-bottom: 0; padding: 3px 0;
+}
+.toc-list li a::before {
+  content: counter(toc, decimal-leading-zero); color: #9DB8B2; font-size: 11px;
+  font-family: Consolas, monospace; flex: 0 0 22px;
+}
+.toc-list li a span { border-bottom: 1px solid transparent; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toc-list li a:hover span { border-bottom-color: #BFD8D2; }
+@media (max-width: 760px) { .toc-list { grid-template-columns: 1fr; } }
+
+/* 架构图 */
+.arch {
+  margin: 26px 0; padding: 22px 24px 16px; background: var(--card);
+  border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: 0 6px 22px rgba(34,48,46,.04);
+}
+.arch-title { font-size: 13px; font-weight: 600; color: var(--teal); letter-spacing: 1px; margin-bottom: 16px; }
+.arch-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.arch-card {
+  flex: 1 1 200px; min-width: 170px; border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 15px; background: #FBFCFC;
+}
+.arch-card h4 { margin: 0 0 4px; font-size: 14px; color: #1F3330; }
+.arch-card p { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+.arch-card .tag {
+  display: inline-block; margin-top: 7px; font-size: 11px; padding: 1px 9px;
+  border-radius: 99px; background: var(--teal-soft); color: #35645B;
+}
+.arch-card.wechat { border-top: 3px solid var(--teal); }
+.arch-card.qq { border-top: 3px solid var(--blue); }
+.arch-card.svc { border-top: 3px solid var(--sand); background: #FDFBF8; }
+.arch-card.core {
+  flex: 1 1 100%; margin: 0; background: linear-gradient(100deg, #EDF5F3, #F6FAF9 60%, #FBF7F0);
+  border-color: #C8DCD6;
+}
+.arch-card.core h4 { font-size: 15px; color: #234741; }
+.arch-card.core p { color: #3E5B55; font-size: 13px; }
+.arch-card.out { border-top: 3px solid #9CB3A9; min-width: 150px; }
+.arch-card.site { border-top: 3px solid var(--teal); background: #F7FCFA; }
+.arch-card.channel { border-top: 3px solid var(--blue); background: #F8FAFD; }
+.arch-arrow { text-align: center; color: #7E9A93; font-size: 12px; letter-spacing: 1px; padding: 9px 0; }
+.arch figcaption { margin-top: 14px; font-size: 12px; color: #8A9A96; text-align: center; }
+
+/* 页脚 */
+.footer {
+  margin-top: 44px; padding: 22px 0 0; border-top: 1px solid var(--line);
+  color: #8A9A96; font-size: 12.5px; display: flex; justify-content: space-between;
+  flex-wrap: wrap; gap: 6px;
+}
+
+@media (max-width: 760px) {
+  .page { padding: 18px 12px 40px; }
+  .hero { padding: 24px 22px; }
+  .hero h1 { font-size: 23px; }
+  .content h2 { font-size: 19px; margin-top: 32px; }
+  .toc ul { columns: 1; }
+  .arch-card { flex-basis: 100%; }
+  .content table { font-size: 13px; }
+}
+
+@media print {
+  body { background: #fff; font-size: 12pt; }
+  .page { max-width: 100%; padding: 0; }
+  .toc { display: none; }
+  .hero, .arch, .table-wrap, .content pre { box-shadow: none; }
+  .content h2 { break-after: avoid; }
+  .content h3, .content h4 { break-after: avoid; }
+  .content pre, .content table, .arch { break-inside: avoid; }
+  .content a { color: inherit; border-bottom: none; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="hero">
+    <div class="eyebrow">BRIEFDESK · 班级通知整合</div>
+    <h1>微信人工转发 + QQ 群自动采集<br><span>班级通知整合方案</span></h1>
+    <p class="sub">基于 Briefdesk（简报台）的本地化班级信息中枢 · 单机部署 · 零软件成本 · 数据默认不出本机 · 可整合进班级工具站与 QQ 频道</p>
+    <div class="meta">
+      <span class="chip">v1.1</span>
+      <span class="chip alt">2026-11-03</span>
+      <span class="chip alt">Windows 11 · 单机</span>
+      <span class="chip warm">微信 4.1.15 · QQ NT 9.9.31</span>
+      <span class="chip alt">工具站 · QQ 频道 · 富媒体</span>
+    </div>
+  </header>
+  <main class="content">
+<nav class="toc"><div class="toc-title">目录 · CONTENTS</div><ol class="toc-list"><li><a href="#0-tldr"><span>0. 结论先行（TL;DR）</span></a></li><li><a href="#1"><span>1. 需求与设计边界</span></a></li><li><a href="#2"><span>2. 本机现状（已验证 / 待验证）</span></a></li><li><a href="#3"><span>3. 总体架构</span></a></li><li><a href="#4"><span>4. 采集方案</span></a></li><li><a href="#5-briefdesk"><span>5. Briefdesk 配置与改造</span></a></li><li><a href="#57-toolfurinafun"><span>5.7 与班级工具站（tool.furina.fun）整合</span></a></li><li><a href="#58-qq"><span>5.8 同步发布到 QQ 频道</span></a></li><li><a href="#59"><span>5.9 富媒体通知适配（小程序 / 公众号 / 腾讯文档 / 文件 / 图片）</span></a></li><li><a href="#510"><span>5.10 示例网页（本次已交付）</span></a></li><li><a href="#6"><span>6. 部署与运维</span></a></li><li><a href="#7"><span>7. 隐私、合规与风险</span></a></li><li><a href="#8"><span>8. 实施路线</span></a></li><li><a href="#9"><span>9. 成本估算</span></a></li><li><a href="#10-7"><span>10. 需要你拍板的 7 件事</span></a></li><li><a href="#a"><span>附录 A：命令速查</span></a></li><li><a href="#benv-cbriefdeskappenv"><span>附录 B：.env 模板（关键行，复制到 C:\briefdesk\app\.env）</span></a></li><li><a href="#c"><span>附录 C：参考资料</span></a></li><li><a href="#d"><span>附录 D：本方案已核实 / 未核实清单</span></a></li></ol></nav><blockquote>
+<p><strong>微信人工转发私聊 + QQ 群自动采集 → 班级工具站 + QQ 频道</strong> ｜ v1.1 ｜ 2026-11-03</p>
+<p>目标：把班级分散在 QQ 群、微信群、私聊里的通知，汇成一份<strong>自动分类、去重、带截止时间、可检索</strong>的班级简报；完善后<strong>整合进班级工具站（tool.furina.fun）</strong>，重要简报可<strong>同步发布到 QQ 频道相关板块</strong>，并尽量兼容通知里常见的<strong>公众号文章、小程序卡片、腾讯文档收集表</strong>等富媒体内容。
+适用对象：福建中医药大学 2026 级信管 · 班委（副团支书）陈子麒 · 单机本地部署。
+本次同时交付<strong>示例网页</strong>：<code>web/tools/notice-demo.html</code>（见 §5.10），先把「最终长什么样」定下来。</p>
+</blockquote>
+<hr />
+<h2 id="0-tldr">0. 结论先行（TL;DR）</h2>
+<ol>
+<li><strong>用 Briefdesk（简报台）做中枢。</strong> 它已经内置了「多消息源采集 → 图片 OCR → AI 分类 → 语义去重 → 同话题合并 → SQLite → 网页卡片/日历/提醒/问答」整条链路，属于<strong>配置即用</strong>，不需要重写应用。</li>
+<li><strong>QQ 侧全自动（主力）。</strong> 本机 QQ NT 登录班级群 → <code>qqflow-server</code> 只读解密本地 <code>nt_msg.db</code> → Briefdesk 的 <code>qqflow</code> 插件采集。<strong>不需要群机器人、不需要群主授权、不需要企业资质</strong>，群消息全量可读（含非 @ 消息与历史）。</li>
+<li><strong>微信侧以「人工转发」为主。</strong> 私聊通知由你（或班委）手动转发进一个<strong>收件箱会话</strong>，再由采集链路自动读走：
+   - 方案 A（进阶）：<code>weflow-server</code> 只读本机微信 4.x 本地库，收件箱用微信「文件传输助手」，<strong>一键转发后全自动</strong>；
+   - 方案 B（零风险，默认起步）：微信内容人工复制/截图到 <strong>QQ「班级简报收件箱」群</strong>，由 QQ 链路自动采集。
+   - <strong>唯一硬门槛</strong>：方案 A 需要一次性提取微信数据库密钥（外部工具，微信 4.1+ 需 passphrase 派生）。<strong>拿不到就退回方案 B，QQ 侧完全不受影响。</strong></li>
+<li><strong>AI 默认跑本机 Ollama</strong>（qwen3:14b + nomic-embed-text）：零成本、消息不出本机、实测 JSON 分类可用。云端模型只作为可选加速通道（换成任意 OpenAI 兼容端点即可），不绑定具体厂商。</li>
+<li><strong>最终形态：整合进班级工具站 + QQ 频道同步发布。</strong> Briefdesk 在本地完成采集与加工 → 人工确认 → 精选通知写入 CloudBase <code>notices</code> 表 → <strong>tool.furina.fun 通知板块</strong>自动展示；每日简报/重要通知可同步到 <strong>QQ 频道的公告栏 / 学习互助 / 活动报名</strong>（§5.7、§5.8）。</li>
+<li><strong>富媒体通知尽量可用</strong>：公众号文章、腾讯文档收集表可直接展示与打开；小程序卡片、群文件、图片 OCR、通用链接都有<strong>展示 + 降级</strong>方案，不追求 100% 还原微信卡片，保证「信息可读、入口可点、关键内容不丢」（§5.9）。</li>
+<li><strong>成本与周期</strong>：软件 0 元；P0 半天内看到第一张真实卡片；完整落地约 2–3 天（不含观察期）；常开电费约 20–30 元/月。</li>
+<li><strong>最大不确定性</strong>：微信 4.1.15.13 与密钥提取工具的兼容性。给它半天时间盒，失败立即走 Plan B。</li>
+</ol>
+
+<figure class="arch">
+  <div class="arch-title">系统总览 · 数据从哪来、到哪去</div>
+  <div class="arch-row">
+    <div class="arch-card wechat">
+      <h4>微信 4.1.15</h4>
+      <p>班级群 / 学院群<br>私聊通知</p>
+      <span class="tag">私聊 → 人工转发收件箱</span>
+    </div>
+    <div class="arch-card qq">
+      <h4>QQ NT 9.9.31</h4>
+      <p>班级群 / 学院通知群 / 课程群</p>
+      <span class="tag">全量自动 · 含非 @ 消息</span>
+    </div>
+  </div>
+  <div class="arch-arrow">↓ 本机只读解密 · 不注入 · 不联网上传</div>
+  <div class="arch-row">
+    <div class="arch-card svc">
+      <h4>weflow-server :5033</h4>
+      <p>微信 4.x 本地库只读（可选）</p>
+    </div>
+    <div class="arch-card svc">
+      <h4>qqflow-server :5032</h4>
+      <p>QQ NT 本地库只读</p>
+    </div>
+  </div>
+  <div class="arch-arrow">↓ HTTP / SSE</div>
+  <div class="arch-card core">
+    <h4>Briefdesk 简报台 :3000</h4>
+    <p>消息源插件 → 入口过滤 → 图片 OCR → AI 分类 → 语义去重 → 同话题合并 → 富媒体解析（公众号/小程序/文档）→ SQLite</p>
+    <span class="tag">AI 默认本机 Ollama（qwen3:14b）· 数据不出本机</span>
+  </div>
+  <div class="arch-arrow">↓ 网页实时推送</div>
+  <div class="arch-row">
+    <div class="arch-card out"><h4>网页卡片</h4><p>备忘录 / 忽略 / 改分类</p></div>
+    <div class="arch-card out"><h4>日历 · 提醒</h4><p>多截止时间 / 到期</p></div>
+    <div class="arch-card out"><h4>问一问 RAG</h4><p>「这周有什么作业」</p></div>
+    <div class="arch-card out"><h4>每日简报（新增）</h4><p>邮件 / 微信推送</p></div>
+  </div>
+  <div class="arch-arrow">↓ 人工确认 · 只同步精选（不走原始聊天）</div>
+  <div class="arch-row">
+    <div class="arch-card site"><h4>班级工具站 tool.furina.fun</h4><p>通知板块 · CloudBase notices · 同学可见</p><span class="tag">P2 整合</span></div>
+    <div class="arch-card channel"><h4>QQ 频道</h4><p>公告栏 / 学习互助 / 活动报名</p><span class="tag">P2 同步发布</span></div>
+  </div>
+  <figcaption>实线 = P0/P1 必做；「工具站 / QQ 频道」= 完善后的对外通道（P2）。所有采集服务只监听 127.0.0.1。</figcaption>
+</figure>
+
+<hr />
+<h2 id="1">1. 需求与设计边界</h2>
+<h3 id="11">1.1 要做的事</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>需求</th>
+<th>Briefdesk 对应能力</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>汇总</strong>：QQ 班级群 / 学院通知群 / 课程群；微信群（可选）；私聊通知（人工转发）</td>
+<td>多消息源插件（qqflow / weflow）+ 群聊筛选</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>分类</strong>：教务、团务、作业、考试、活动、缴费、班级事务……</td>
+<td>AI 分类（类别/提示词/颜色可自定义）</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>去重合并</strong>：同一条通知在多个群转发，只留一张卡并标注多来源</td>
+<td>语义去重 + 同话题合并</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>时间</strong>：自动识别截止时间，进日历、到期提醒</td>
+<td>中文时间解析（temporal）+ 日历 + 提醒</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>检索</strong>：问「这周有什么作业」「哪天交表」</td>
+<td>RAG 问答（基于嵌入向量）</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>推送（可选）</strong>：每天一份简报 → 手机</td>
+<td>需新增 Web 插件（方案见 §5.6）</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>对外展示</strong>：完善后整合进班级工具站（tool.furina.fun）通知板块</td>
+<td>CloudBase <code>notices</code> 表 + 静态站现有通知渲染（§5.7）</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>频道同步</strong>：重要简报/通知同步到 QQ 频道相关板块</td>
+<td>频道机器人 API（§5.8）</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>富媒体</strong>：公众号文章、小程序卡片、腾讯文档收集表、群文件、截图</td>
+<td>已有部分 + 新增解析/降级（§5.9，示例页已演示）</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="12">1.2 不做的（红线）</h3>
+<ul>
+<li>❌ 不自动回复、不自动群发、不代替你在群里发言。</li>
+<li>❌ 不监控无关私聊；不采集与班级无关的群。</li>
+<li>❌ 不把聊天数据放公网 / 云端（AI 默认本地）。</li>
+<li>❌ 不用协议机器人（NapCat/LLOneBot 等）登录微信 / QQ——封号风险高，且违反平台协议。</li>
+<li>❌ <strong>工具站/QQ 频道只发「确认过的精选通知或简报」</strong>，不把原始聊天记录整段推上去；含同学个人信息的内容不上公网。</li>
+</ul>
+<h3 id="13">1.3 决定方案形状的现实约束</h3>
+<ul>
+<li><strong>微信没有官方群消息 API</strong>；hook / 协议端风险高 → 只能「本地库只读」或「人工转发」。</li>
+<li><strong>QQ 官方机器人</strong>虽然 2026-10 起支持「接收所有消息」全量模式，但需要<strong>企业资质 + 群主在机器人后台开启 + 逐群添加机器人</strong>，学生身份不现实；本地库只读是唯一低成本全量路径。</li>
+<li><strong>Briefdesk 只监听 <code>127.0.0.1</code></strong>，且有 Host/Origin 白名单（<code>server/middleware.py</code>）→ 手机直接访问局域网 IP 会 400，需要反代（§5.6）。</li>
+<li><strong>采集依赖本机登录态</strong>：微信 / QQ 必须在本机保持登录；本机关机或客户端掉线期间的消息，只能靠客户端重新登录后同步到的部分补齐——所以建议常开 + 看门狗。</li>
+</ul>
+<hr />
+<h2 id="2">2. 本机现状（已验证 / 待验证）</h2>
+<h3 id="21-2026-11-03">2.1 环境盘点（2026-11-03 实测）</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>组件</th>
+<th>版本 / 状态</th>
+<th>结论</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Windows 11 专业版</td>
+<td>x64</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>微信</td>
+<td><strong>4.1.15.13</strong>（已安装，当前未运行）</td>
+<td>✅ 满足 4.x；与 weflow-server 的兼容性<strong>待验证</strong>（作者实测 4.1.12）</td>
+</tr>
+<tr>
+<td>QQ NT</td>
+<td><strong>9.9.31.49919</strong>（已安装，当前未运行）</td>
+<td>✅ 满足 QQ NT；与 qqflow-server 兼容性<strong>待验证</strong></td>
+</tr>
+<tr>
+<td>Python</td>
+<td>3.12</td>
+<td>✅ 满足 Briefdesk 要求（≥3.12）</td>
+</tr>
+<tr>
+<td>Ollama</td>
+<td>运行中：<code>qwen3:14b</code>、<code>nomic-embed-text</code></td>
+<td>✅ 实测 chat JSON 分类 + embedding（768 维）可用</td>
+</tr>
+<tr>
+<td>Briefdesk</td>
+<td>0.1.0，本机 venv 安装并启动成功</td>
+<td>✅ <code>http://localhost:3000</code> 正常，插件列表齐全</td>
+</tr>
+<tr>
+<td>weflow-server</td>
+<td>v0.10.0（2026-10-24），Windows x64 zip 8.56 MB</td>
+<td>✅ 有预编译二进制，未下载</td>
+</tr>
+<tr>
+<td>qqflow-server</td>
+<td>v0.10.0（2026-10-24），Windows x64 zip 8.1 MB</td>
+<td>✅ 有预编译二进制，未下载</td>
+</tr>
+<tr>
+<td>班级工具站</td>
+<td><code>web/tools/index.html</code>（单文件静态站，CloudBase 通知/作业已上云）</td>
+<td>✅ 现有结构已摸清（§5.7）</td>
+</tr>
+<tr>
+<td>示例网页</td>
+<td><code>web/tools/notice-demo.html</code></td>
+<td>✅ 本次已产出（§5.10）</td>
+</tr>
+<tr>
+<td>内存 / 磁盘</td>
+<td>32 GB DDR5</td>
+<td>✅ 跑 qwen3:14b（8.4 GB）无压力</td>
+</tr>
+</tbody>
+</table></div>
+<blockquote>
+<p><strong>已实际验证</strong>：Briefdesk 0.1.0 在本机可安装、启动，<code>/api/status</code>、<code>/api/plugins</code>、UI 均正常；Ollama 的 <code>qwen3:14b</code> 在 <code>reasoning_effort=none</code> 下 <strong>1–3 秒</strong>返回分类 JSON。
+<strong>待验证</strong>：微信 key 提取工具兼容性、QQ key 提取、两个 server 与客户端版本对接、OCR 安装后的 CPU 占用。</p>
+</blockquote>
+<h3 id="22-briefdesk">2.2 Briefdesk 已有能力（不用写代码）</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>能力</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>多消息源</td>
+<td>weflow（微信 4.x）/ weflow-legacy（WeFlow）/ qqflow（QQ NT）可多源共存</td>
+</tr>
+<tr>
+<td>增量同步</td>
+<td>启动回填（<code>BACKFILL_HOURS</code>，默认 24h）+ 每会话水位增量轮询 + SSE 实时</td>
+</tr>
+<tr>
+<td>AI 分类</td>
+<td>内置 13 类、默认启用 5 类；类别名称/提示词/颜色/启停可改</td>
+</tr>
+<tr>
+<td>图片 OCR</td>
+<td>可选安装 <code>briefdesk[ocr]</code>（RapidOCR + ONNX，CPU 推理）</td>
+</tr>
+<tr>
+<td>去重 / 合并</td>
+<td>语义去重（同消息跨群合并、标注多来源）+ 同会话同话题片段合并</td>
+</tr>
+<tr>
+<td>时间与日历</td>
+<td>中文时间解析（多截止时间点）+ 日历视图 + 卡片提醒</td>
+</tr>
+<tr>
+<td>检索问答</td>
+<td>RAG 插件（需嵌入模型；本机 nomic-embed-text 可满足）</td>
+</tr>
+<tr>
+<td>导出 / 备份</td>
+<td><code>/api/export/items</code>（CSV）、<code>/api/backup</code>、<code>/api/restore</code></td>
+</tr>
+<tr>
+<td>插件体系</td>
+<td>消息源 / 管道阶段 / Web 插件三层，<code>PLUGIN_PATH</code> 可加载本地开发插件</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="23-briefdesk">2.3 Briefdesk 的缺口（需要补的部分）</h3>
+<ol>
+<li><strong>没有外发推送</strong>：提醒只在网页内，手机不打开就看不到 → 需「每日简报 + 推送」插件，以及工具站 / QQ 频道两条对外通道（§5.6–5.8）。</li>
+<li><strong>只监听 localhost + Host 白名单</strong>：手机访问需反代（P2，Caddy + Tailscale，不改代码）。</li>
+<li><strong>没有「手动粘贴/截图」入口</strong>：方案 B 依靠 QQ 收件群绕开；若要更顺，可写收件箱插件（P2 可选）。</li>
+<li><strong>默认分类是偏「校园综合信息」</strong>（活动/社团/学术/交易/实习），班级通知场景要自定义类别与提示词（P1）。</li>
+<li><strong>富媒体解析不全</strong>：公众号文章已支持，但<strong>小程序卡片、腾讯文档收集表、通用链接卡片</strong>需要新增解析/展示（§5.9，工作量为 1 个 enrich 插件 + 前端卡片）。</li>
+</ol>
+<hr />
+<h2 id="3">3. 总体架构</h2>
+<p>三层：<strong>采集层 → 服务层 → 处理层 → 应用层</strong>。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>层</th>
+<th>组件</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>采集</td>
+<td>微信（本机登录）+ weflow-server（可选）</td>
+<td>读微信群 / 文件传输助手（只读）</td>
+</tr>
+<tr>
+<td>采集</td>
+<td>QQ NT（本机登录）+ qqflow-server</td>
+<td>读班级 QQ 群（只读）</td>
+</tr>
+<tr>
+<td>采集</td>
+<td>人工转发</td>
+<td>私聊通知 → 收件箱会话</td>
+</tr>
+<tr>
+<td>服务</td>
+<td>Briefdesk 消息源插件</td>
+<td>轮询 + SSE 接入，会话级水位</td>
+</tr>
+<tr>
+<td>处理</td>
+<td>OCR → AI 分类 → 语义去重 → 同话题合并</td>
+<td>全部可插拔，失败保留待回填</td>
+</tr>
+<tr>
+<td>应用</td>
+<td>Web UI / 日历 / 提醒 / RAG / 每日简报（新增）</td>
+<td>阅读、处理、检索、推送</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>数据流</strong>：<code>本机聊天库（加密）→ 只读解密服务 → HTTP/SSE → Briefdesk 管道 → SQLite → 浏览器</code>。
+除「切云端 AI 时的脱敏正文」与「推送出去的简报文本」外，数据不出本机。</p>
+<hr />
+<h2 id="4">4. 采集方案</h2>
+<h3 id="41-qq">4.1 QQ 群（自动采集，主力）</h3>
+<p><strong>推荐路径：qqflow-server（本地库只读）。</strong></p>
+<p><strong>原理</strong>：QQ NT 把消息写进本机 <code>Documents\Tencent Files\&lt;QQ号&gt;\nt_qq\nt_db\nt_msg.db</code>（SQLCipher 加密）。<code>qqflow-server</code> 用你提供的 16 字节库密钥<strong>只读解密</strong>、建内存索引，通过 HTTP/SSE 输出。它不修改 QQ、不发消息、只监听 <code>127.0.0.1:5032</code>。</p>
+<p><strong>前置条件</strong>：</p>
+<ul>
+<li>QQ NT 在本机登录（账号已在班级群内）；<strong>群消息全量可读（含非 @、他人发言），但只管「本地库里已有的」——QQ 不会把入群前的历史补给你</strong>；</li>
+<li>一次性提取 QQ 本地库密钥（16 字节可打印 ASCII）。官方脚本：QQBackup 的 <code>qq-win-db-key</code>（<code>scripts/windows/ntqq/windows_ntqq_get_key.ps1</code>），社区确认可用版本 QQ <strong>9.9.32-51246</strong>，本机 9.9.31.49919 大概率可用但<strong>需实测</strong>；不要 <code>irm | iex</code> 直接跑远程脚本，先下载读一遍。</li>
+<li>token 在 Windows 凭据管理器（service <code>qqflow-server</code> / user <code>http-api-token</code>），用 <code>qqflow-server token</code> 取（Briefdesk 插件注释里说的 <code>token.txt</code> 已过时）。</li>
+<li>若 QQ 数据不在默认 <code>Documents\Tencent Files</code>（如 OneDrive 重定向），注册时<strong>必须显式传 <code>db_path</code></strong>；<code>db_path</code> 留空时服务端只能扫默认路径，且要求<strong>先登录 QQ 再启动服务</strong>，否则注册报 <code>unknown_qq</code>。</li>
+</ul>
+<p><strong>实施步骤（PowerShell）</strong>：</p>
+<pre><code class="language-powershell"># 1) 下载并校验 qqflow-server v0.10.0（GitHub Releases）
+New-Item -ItemType Directory -Force C:\briefdesk\bin\qqflow-server | Out-Null
+Set-Location C:\briefdesk\bin\qqflow-server
+$ver='0.10.0'; $zip=&quot;qqflow-server-$ver-x86_64-pc-windows-msvc.zip&quot;
+$base=&quot;https://github.com/ren-yc/qqflow-server/releases/download/v$ver&quot;
+Invoke-WebRequest &quot;$base/$zip&quot; -OutFile $zip
+Invoke-WebRequest &quot;$base/SHA256SUMS&quot; -OutFile SHA256SUMS
+$want=((Select-String SHA256SUMS -Pattern ([regex]::Escape($zip))).Line -split '\s+')[0]
+$got=(Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
+if ($got -ne $want) { throw &quot;sha256 mismatch&quot; }
+Expand-Archive $zip -DestinationPath .
+
+# 2) 提取 QQ 库密钥（用 QQBackup/QQDecrypt 的 NTQQ Windows 脚本，16 字节 ASCII）
+#    把结果保存到 C:\briefdesk\secrets\qqflow.json（收紧 NTFS 权限，不进仓库/网盘）
+
+# 3) 启动服务（长期运行由看门狗托管）
+.\qqflow-server.exe --port 5032 --log info 2&gt; C:\briefdesk\logs\qqflow.log
+# 另开窗口取 token
+.\qqflow-server.exe token
+
+# 4) 注册账号（token 用变量，不要写进命令行历史）
+$tok = (.\qqflow-server.exe token).Trim()
+$body = @{ qq='&lt;你的QQ号&gt;'; key='&lt;16字节ASCII库密钥&gt;'; db_path='C:\Users\Ko_Li\Documents\Tencent Files\&lt;QQ号&gt;\nt_qq\nt_db\nt_msg.db' } | ConvertTo-Json -Compress
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5032/api/v1/accounts `
+  -Headers @{ Authorization = &quot;Bearer $tok&quot; } -ContentType 'application/json' -Body $body
+
+# 5) 轮询到 ready，验证会话与消息
+do { Start-Sleep 2; $a = Invoke-RestMethod -Uri http://127.0.0.1:5032/api/v1/accounts -Headers @{ Authorization = &quot;Bearer $tok&quot; }; $row = $a.accounts | Where-Object { $_.qq -eq '&lt;你的QQ号&gt;' } } until ($row.state -in 'ready','error')
+Invoke-RestMethod -Uri &quot;http://127.0.0.1:5032/api/v1/sessions?limit=20&quot; -Headers @{ Authorization = &quot;Bearer $tok&quot; }
+</code></pre>
+<p><strong>能力边界</strong>：</p>
+<ul>
+<li>✅ 群消息<strong>全量</strong>可读（含非 @、含历史，取决于本机库里存了多久）；一个进程服务一个 QQ 号。</li>
+<li>⚠️ QQ 退出登录 / 换号后需重新注册；QQ 大版本升级可能改变库结构（锁定版本 + 关注 release）。</li>
+<li>⚠️ <strong>PC 关机 / QQ 未登录期间</strong>：消息只靠 QQ 客户端登录后同步到本地的部分补齐 → 建议常开 + 保持登录。</li>
+</ul>
+<p><strong>QQ 采集四条路对比</strong>：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>方案</th>
+<th style="text-align: center;">全量群消息</th>
+<th style="text-align: center;">历史回填</th>
+<th style="text-align: center;">群主配合</th>
+<th style="text-align: center;">封号风险</th>
+<th>结论</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>qqflow-server 本地库只读</strong></td>
+<td style="text-align: center;">✅ 本地库内全量（含非 @、他人）</td>
+<td style="text-align: center;">✅ 本地库已有（无服务器回填）</td>
+<td style="text-align: center;">不需要</td>
+<td style="text-align: center;">低（只读）；key 提取工具是唯一灰区</td>
+<td><strong>推荐</strong></td>
+</tr>
+<tr>
+<td>QQ 官方机器人「全量模式」</td>
+<td style="text-align: center;">✅ 开启后每条（<code>GROUP_MESSAGE_CREATE</code>）</td>
+<td style="text-align: center;">❌ 无历史 API，只能在线实时收</td>
+<td style="text-align: center;"><strong>需要</strong>：群主加 bot + 群设置开「获取群内全部消息」+ 平台审核/上线（沙箱群 ≤20 人且须自己当群主）</td>
+<td style="text-align: center;">低（官方）</td>
+<td>备选（门槛高、无历史）</td>
+</tr>
+<tr>
+<td>协议端 NapCat / LLOneBot / Lagrange</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅ 可拉服务器历史</td>
+<td style="text-align: center;">不需要</td>
+<td style="text-align: center;"><strong>高</strong>（非官方协议/注入）</td>
+<td>不推荐</td>
+</tr>
+<tr>
+<td>QQ 群机器人 webhook</td>
+<td style="text-align: center;">❌ 只能发</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">无</td>
+<td>仅可作推送通道</td>
+</tr>
+</tbody>
+</table></div>
+<blockquote>
+<p><strong>为什么不用现成的 OpenClaw QQ 机器人？</strong> 你本机已有 <code>qqbot</code>（appId 1903774459）。核实结论：它的连接被 OpenClaw Gateway 占用，且定位是 Agent 对话通道（非 @ 消息只进 <code>historyLimit</code> 上下文缓冲，不落采集库、无历史回填）。<strong>不能当采集器</strong>；若走官方 bot 路线，得另建一个应用 + 群主配合，且拿不到历史。所以 QQ 采集用 qqflow-server。</p>
+</blockquote>
+<h3 id="42">4.2 微信（人工转发为主，自动为进阶）</h3>
+<p>先明确目标：微信侧<strong>不是</strong>全量监控私聊，而是「把需要进简报的内容送进来」——这既是隐私边界，也是规避风险的设计。</p>
+<h4 id="a-weflow-server">方案 A（进阶：一键转发后全自动）—— weflow-server 读本机微信库</h4>
+<ul>
+<li><strong>原理</strong>：<code>weflow-server</code> 只读解密 <code>Documents\xwechat_files\&lt;wxid&gt;\db_storage</code>（微信 4.x，SQLCipher），HTTP/SSE 输出，与 QQ 链路同构。</li>
+<li><strong>收件箱</strong>：微信「<strong>文件传输助手</strong>」。收到私聊通知 → 长按 → 转发 → 文件传输助手（一键），weflow 自动读出，Briefdesk 只勾选这一个「私聊」会话 + 相关微信群。</li>
+<li><strong>验证点（P0 必验）</strong>：文件传输助手要能在「设置 → 群聊筛选」的会话列表里以「私聊」类型出现并被勾选；若 weflow 的 <code>sessionType</code> 映射异常，退化为「建一个 3 人群当收件箱」（自己 + 小号/班委）。</li>
+<li><strong>关键坑（必看）</strong>：<code>IGNORE_SELF=true</code>（默认）会过滤掉<strong>你自己发的</strong>消息——而文件传输助手里全是你自己发的转发。<strong>必须设 <code>IGNORE_SELF=false</code></strong>，否则一条都进不来。</li>
+<li><strong>硬门槛</strong>：微信 4.x 每库独立 64-hex 密钥，需外部工具从微信进程内存提取；<strong>4.1+ 明文 raw key 不再常驻内存</strong>，需先取 passphrase 再做 PBKDF2 派生（工具需支持对应版本）。候选工具（<strong>均需自行验证，不作推荐背书</strong>）：<code>wechat-decrypt</code>（内存扫描）、<code>wcdb-key-tool</code>（passphrase 派生）、<code>chatlog_alpha</code>（社区验证到 4.1.5.30）。图片还需单独提取 <code>img_aes_key</code> / <code>img_xor_key</code>，否则「文本正常、图片坏」。</li>
+<li><strong>备选路线</strong>：WeFlow 桌面版（对应 Briefdesk 的 <code>weflow-legacy</code> 插件，HTTP API :5031）。但它当前<strong>同样要求自备第三方原生解密组件</strong>，绕不开 key，还多一个常开 GUI 应用——不作为首选。</li>
+<li><strong>风险</strong>：工具读内存，可能被杀软拦截；可能触发微信风控（概率低但非零）；微信升级 / 重登可能轮换 key，需重新提取。</li>
+<li><strong>成功后的收益</strong>：微信群自动采集 + 私聊一键转发全自动，体验最好。</li>
+</ul>
+<h4 id="b-qq-qqflow">方案 B（零风险，纯人工转发）—— 微信 → QQ 收件群 → qqflow 自动采集</h4>
+<ul>
+<li>建一个 QQ 群「<strong>班级简报收件箱</strong>」（自己 + 小号 / 可靠舍友，凑够 QQ 建群人数下限即可）；</li>
+<li>把微信通知<strong>复制文字 / 发截图</strong>到该群；qqflow 自动读，Briefdesk 勾选该群；</li>
+<li>完全不碰微信数据库、不需要微信 key；代价是每条通知多 2–3 步（复制 → 切 QQ → 粘贴/发图）。</li>
+<li>与方案 A 的收件箱规范完全兼容：将来拿到 key，可无缝切到「文件传输助手」。</li>
+</ul>
+<h4 id="c-openclaw">方案 C（备选观察）—— OpenClaw 微信通道桥接</h4>
+<p>你已有 OpenClaw 的微信通道（<code>openclaw-weixin</code>）。若机器人账号能接收好友私聊转发，可加一个小桥接把手动转发喂给 Briefdesk。<strong>但通道对群聊/转发的支持未核实、维护成本不低</strong>，仅在 A/B 都不满意时评估。</p>
+<h4 id="_1">微信三方案对比</h4>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>方案</th>
+<th>自动化程度</th>
+<th>依赖</th>
+<th>风险</th>
+<th>维护</th>
+<th>建议</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A weflow-server</td>
+<td>群自动 + 私聊一键转发</td>
+<td>微信 key 提取</td>
+<td>中</td>
+<td>微信升级需重取 key</td>
+<td>进阶首选</td>
+</tr>
+<tr>
+<td>B 微信→QQ 收件群</td>
+<td>全人工转发，之后自动</td>
+<td>QQ 链路</td>
+<td>极低</td>
+<td>低</td>
+<td><strong>默认起步</strong></td>
+</tr>
+<tr>
+<td>C OpenClaw 桥</td>
+<td>半自动</td>
+<td>通道能力未核实</td>
+<td>低</td>
+<td>中</td>
+<td>观察</td>
+</tr>
+</tbody>
+</table></div>
+<blockquote>
+<p><strong>决策规则</strong>：P0 阶段给方案 A 的 key 提取 <strong>≤30 分钟</strong>；成功 → 用 A；失败或不放心 → 用 B。QQ 侧不受影响。</p>
+</blockquote>
+<h3 id="43">4.3 收件箱与转发规范（人机协议）</h3>
+<blockquote>
+<p>这是「人工转发」能不能好用的关键，比代码重要。</p>
+</blockquote>
+<ul>
+<li><strong>收件箱位置</strong>：方案 A = 微信「文件传输助手」；方案 B = QQ「班级简报收件箱」群。</li>
+<li><strong>只做单条转发</strong>。微信的「合并转发（聊天记录）」生成的是特殊卡片，不保证被解析；多条请逐条转发，或截图走 OCR。</li>
+<li><strong>文字优先</strong>：能复制文字就别截图；截图会被 OCR，但可能错字/漏行。</li>
+<li><strong>每条加一行来源</strong>：<code>【来源：辅导员私聊 11-03】</code>、<code>【来源：计算机导论课程群】</code>。因为 Briefdesk 卡片只显示会话名（收件箱里全是"文件传输助手"），来源前缀能救命。</li>
+<li><strong>隐私先过一遍</strong>：手机号 / 学号 / 宿舍号不需要进简报的删掉；Briefdesk 会自动脱敏手机号/身份证/邮箱，但姓名、群名不脱敏。</li>
+<li><strong>语音 / 视频不处理</strong>：重要语音先转文字或截图。</li>
+<li><strong>群公告告知</strong>：在班级群 / 收件群说明「消息会被汇总到我的本地简报，仅自己使用、不外传」。</li>
+</ul>
+<h3 id="44">4.4 采集范围清单（建议）</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>来源</th>
+<th style="text-align: center;">是否接入</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QQ 班级群</td>
+<td style="text-align: center;">✅</td>
+<td>主战场</td>
+</tr>
+<tr>
+<td>QQ 学院 / 年级通知群</td>
+<td style="text-align: center;">✅</td>
+<td>通知密集</td>
+</tr>
+<tr>
+<td>QQ 课程群</td>
+<td style="text-align: center;">✅</td>
+<td>作业/考试信息</td>
+</tr>
+<tr>
+<td>QQ 社团 / 活动群</td>
+<td style="text-align: center;">按需</td>
+<td>太多会稀释简报，建议先不接</td>
+</tr>
+<tr>
+<td>微信班级群 / 学院群</td>
+<td style="text-align: center;">方案 A 时 ✅</td>
+<td>方案 B 不接（避免重复采集）</td>
+</tr>
+<tr>
+<td>微信「文件传输助手」</td>
+<td style="text-align: center;">方案 A 时 ✅</td>
+<td>私聊通知收件箱（<code>IGNORE_SELF=false</code>）</td>
+</tr>
+<tr>
+<td>QQ「班级简报收件箱」</td>
+<td style="text-align: center;">方案 B 时 ✅</td>
+<td>私聊通知收件箱（<code>IGNORE_SELF=false</code>）</td>
+</tr>
+<tr>
+<td>其他私聊 / 公众号 / 私人小群</td>
+<td style="text-align: center;">❌</td>
+<td>红线：不监控</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="5-briefdesk">5. Briefdesk 配置与改造</h2>
+<h3 id="51-editable">5.1 安装（推荐源码 / editable 模式）</h3>
+<blockquote>
+<p>为什么不用 <code>pip install briefdesk</code>：wheel 模式<strong>不读</strong>项目 <code>.env</code>（<code>briefdesk/paths.py:99-129</code>），配置只能走环境变量或设置页，运维麻烦；源码 / editable 模式才读项目根 <code>.env</code>。</p>
+</blockquote>
+<pre><code class="language-powershell"># 目录规划
+# C:\briefdesk\
+# ├─ app\        git clone briefdesk（源码）
+# ├─ venv\       Python 虚拟环境
+# ├─ bin\        weflow-server / qqflow-server
+# ├─ secrets\    密钥配置（收紧 ACL，不进 Git / 网盘）
+# ├─ logs\
+# └─ scripts\    start-all / watchdog / backup
+
+git clone https://github.com/ren-yc/briefdesk C:\briefdesk\app
+python -m venv C:\briefdesk\venv
+C:\briefdesk\venv\Scripts\python -m pip install -U pip
+C:\briefdesk\venv\Scripts\pip install -e &quot;C:\briefdesk\app[ocr]&quot;   # OCR 建议装（截图通知多）
+Copy-Item C:\briefdesk\app\.env.example C:\briefdesk\app\.env
+</code></pre>
+<p>首次启动（前台验证）：<code>cd C:\briefdesk\app; C:\briefdesk\venv\Scripts\python -m briefdesk</code> → 浏览器 <code>http://localhost:3000</code>。</p>
+<h3 id="52-env">5.2 关键配置（<code>.env</code> 摘要）</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>变量</th>
+<th>建议值</th>
+<th>作用 / 为什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PLUGINS</code></td>
+<td><code>["qqflow"]</code> 起步；A 成功后 <code>["qqflow","weflow","ocr"]</code></td>
+<td>显式启用可选插件</td>
+</tr>
+<tr>
+<td><strong><code>IGNORE_SELF</code></strong></td>
+<td><strong><code>false</code></strong></td>
+<td><strong>关键</strong>：收件箱里的转发是你自己发的，默认 <code>true</code> 会全部过滤</td>
+</tr>
+<tr>
+<td><code>BACKFILL_HOURS</code></td>
+<td>首次 <code>168</code>，稳定后 <code>24</code></td>
+<td>首次拉 7 天历史；<code>-1</code> = 全量（慎用，AI 调用量激增）</td>
+</tr>
+<tr>
+<td><code>POLL_INTERVAL_SECONDS</code></td>
+<td><code>600</code></td>
+<td>SSE 断线兜底，每 10 分钟补一次</td>
+</tr>
+<tr>
+<td><code>MERGE_WINDOW_MINUTES</code></td>
+<td><code>10</code>（默认）</td>
+<td>同会话同话题片段合并窗口</td>
+</tr>
+<tr>
+<td><code>AI_API_BASE</code></td>
+<td><code>http://127.0.0.1:11434/v1</code></td>
+<td>本地 Ollama（OpenAI 兼容）</td>
+</tr>
+<tr>
+<td><code>AI_MODEL</code></td>
+<td><code>qwen3:14b</code></td>
+<td>本机已有模型</td>
+</tr>
+<tr>
+<td><code>AI_API_KEY</code></td>
+<td><code>ollama</code>（任意非空）</td>
+<td>Ollama 不校验</td>
+</tr>
+<tr>
+<td><strong><code>AI_REASONING_EFFORT</code></strong></td>
+<td><strong><code>off</code></strong></td>
+<td>qwen3 思考会吃掉输出 token；off 后 1–3 秒返回 JSON</td>
+</tr>
+<tr>
+<td><code>AI_MAX_CONCURRENCY</code></td>
+<td><code>1</code></td>
+<td>本地模型建议 1，避免排队</td>
+</tr>
+<tr>
+<td><code>AI_JSON_MODE</code></td>
+<td><code>auto</code></td>
+<td>Ollama 端点自动走 json_object</td>
+</tr>
+<tr>
+<td><code>EMBED_API_BASE</code></td>
+<td><code>http://127.0.0.1:11434/v1</code></td>
+<td>嵌入（去重 + RAG）</td>
+</tr>
+<tr>
+<td><code>EMBED_MODEL</code></td>
+<td><code>nomic-embed-text</code></td>
+<td>本机已有，768 维</td>
+</tr>
+<tr>
+<td><code>SERVER_PORT</code></td>
+<td><code>3000</code></td>
+<td>网页端口</td>
+</tr>
+<tr>
+<td><code>DB_PATH</code></td>
+<td>不填（默认 <code>%LOCALAPPDATA%\briefdesk\data\briefdesk.sqlite</code>）</td>
+<td>通用覆盖入口；默认位置便于备份</td>
+</tr>
+<tr>
+<td><code>LOG_LEVEL</code></td>
+<td><code>INFO</code></td>
+<td>排错时临时 <code>DEBUG</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>密钥不写 <code>.env</code></strong>，走系统钥匙串（Windows 凭据管理器）：</p>
+<pre><code class="language-powershell">C:\briefdesk\venv\Scripts\briefdesk secrets set WEFLOW_API_TOKEN      # 方案 A
+C:\briefdesk\venv\Scripts\briefdesk secrets set WEFLOW_WXID
+C:\briefdesk\venv\Scripts\briefdesk secrets set WEFLOW_DB_KEYS        # 整份 JSON，自动分片
+C:\briefdesk\venv\Scripts\briefdesk secrets set QQFLOW_API_TOKEN
+C:\briefdesk\venv\Scripts\briefdesk secrets set QQFLOW_QQ
+C:\briefdesk\venv\Scripts\briefdesk secrets set QQFLOW_KEY
+</code></pre>
+<p>也可在网页「设置 → 启动配置 → 密钥区」录入，效果相同（不回显明文）。</p>
+<h3 id="53-ai-openai">5.3 AI 通道（默认本地，可换任意 OpenAI 兼容端点）</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>通道</th>
+<th>配置</th>
+<th>优点</th>
+<th>代价</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>本地 Ollama</strong>（默认）</td>
+<td><code>AI_API_BASE=http://127.0.0.1:11434/v1</code>，<code>AI_MODEL=qwen3:14b</code>，<code>AI_REASONING_EFFORT=off</code></td>
+<td>0 元、隐私最好、无配额</td>
+<td>分类慢一些（热态 1–3s/次）、质量中等</td>
+</tr>
+<tr>
+<td>可选云端</td>
+<td><code>AI_API_BASE</code> / <code>AI_MODEL</code> / <code>AI_API_KEY</code> 指向任意 OpenAI 兼容服务（如 DeepSeek 官方）</td>
+<td>快、质量高</td>
+<td>需自己的 Key；正文离开本机</td>
+</tr>
+</tbody>
+</table></div>
+<blockquote>
+<p>建议：P0 用本地 Ollama 跑通全链路（零成本、零外部依赖）；如果日后觉得分类慢/质量不够，再换云端——只改 <code>.env</code> 里 3 行、重启即可。<strong>不绑定任何具体厂商。</strong></p>
+</blockquote>
+<h3 id="54">5.4 分类方案（把默认口径改成班级口径）</h3>
+<p>Briefdesk 内置 13 类，<strong>默认只启用 5 类</strong>（活动通知 / 社团招新 / 学术 / 交易 / 实习），偏「校园综合信息」。班级通知场景建议在「设置 → 信息分类」里改成：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>类别</th>
+<th>收录</th>
+<th>排除</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>教务通知</strong></td>
+<td>选课、调课、考试安排、成绩、学籍、教学检查</td>
+<td>社团活动</td>
+</tr>
+<tr>
+<td><strong>团务党建</strong></td>
+<td>团日活动、青年大学习、团员发展、材料上报、评优</td>
+<td>普通班会通知</td>
+</tr>
+<tr>
+<td><strong>作业与实验</strong></td>
+<td>课后作业、实验报告、小组任务、提交方式与要求</td>
+<td>考试安排</td>
+</tr>
+<tr>
+<td><strong>考试与竞赛</strong></td>
+<td>期中期末、补考、竞赛报名、考场安排</td>
+<td>日常作业</td>
+</tr>
+<tr>
+<td><strong>班级事务</strong></td>
+<td>班会、班委、值日、班费、评奖评优、体检</td>
+<td>学院级通知</td>
+</tr>
+<tr>
+<td><strong>活动与讲座</strong></td>
+<td>讲座、志愿服务、文体活动、报名</td>
+<td>收费培训</td>
+</tr>
+<tr>
+<td><strong>缴费与补贴</strong></td>
+<td>学费/班费/考试费、助学、报销、补贴</td>
+<td>商品交易</td>
+</tr>
+<tr>
+<td><strong>失物招领</strong></td>
+<td>捡到/丢失物品、认领方式</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>其他</strong></td>
+<td>兜底（建议低优先级、不置顶）</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div>
+<p>提示词写法参考 Briefdesk 内置类别：每类写两段「收录：…；排除：…；判别：…」，越具体越准。<strong>先启用 5–6 类跑 3 天，再按误判调整</strong>，不要一次上 10 类。</p>
+<h3 id="55">5.5 会话筛选（只勾要的，别全选）</h3>
+<p>「设置 → 群聊筛选 → 发现新群聊」后勾选：</p>
+<ul>
+<li>QQ：班级群、学院/年级通知群、课程群；</li>
+<li>微信（方案 A）：文件传输助手（类型=私聊）+ 班级微信群；</li>
+<li>方案 B：QQ「班级简报收件箱」；</li>
+<li><strong>其他私聊 / 公众号 / 私人小群一律不勾</strong>。</li>
+</ul>
+<p>保存后触发一次性回填（按 <code>BACKFILL_HOURS</code>）。之后可在顶栏点「同步消息」手动补。</p>
+<h3 id="56">5.6 可选增强（按优先级，不阻塞主线）</h3>
+<h4 id="p1">P1 每日简报 + 推送（最有价值的新增）</h4>
+<ul>
+<li><strong>目的</strong>：每天 21:30 生成「今日必看 / 我要做的事（含截止时间）/ 明日提醒」→ 推到你手机。</li>
+<li><strong>实现</strong>：新增 Web 插件 <code>digest</code>（约 300–500 行）：
+  1. 定时任务（asyncio）查最近 24h 的 items；
+  2. <code>ctx.ai.chat(...)</code> 生成三段式简报（无 AI 时降级为规则列表）；
+  3. 存表 <code>digest</code>，<code>GET /api/digest/today</code> 给前端；
+  4. 侧边栏加「简报」视图（<code>registerPluginView</code>）；
+  5. 推送通道先做<strong>邮件</strong>（QQ 邮箱 SMTP + 授权码），后续可接企业微信群机器人 / OpenClaw。</li>
+<li><strong>不写代码的替代</strong>：每天点「导出 CSV」或直接看日历页；但手机体验差。</li>
+</ul>
+<h4 id="p1-briefdesk">P1 手机访问（不改 Briefdesk 代码）</h4>
+<ul>
+<li><strong>问题</strong>：Briefdesk 只监听 <code>localhost</code>，且中间件校验 Host 必须是 <code>localhost/127.0.0.1/::1</code>（<code>server/middleware.py:14,54-58</code>）→ 手机访问 <code>http://PC-IP:3000</code> 会返回 400。</li>
+<li><strong>方案</strong>：本机跑 Caddy 反代，把 Host 重写成 <code>127.0.0.1:3000</code>、Origin 同步重写（这样同源校验也能过），再通过 <strong>Tailscale</strong>（免费、无公网暴露）访问：</li>
+</ul>
+<pre><code class="language-caddyfile"># C:\briefdesk\Caddyfile
+:8080 {
+    reverse_proxy 127.0.0.1:3000 {
+        header_up Host 127.0.0.1:3000
+        header_up Origin http://127.0.0.1:3000
+    }
+}
+</code></pre>
+<p>手机装 Tailscale 加入同一 tailnet → 访问 <code>http://&lt;PC 的 Tailscale IP&gt;:8080</code>。
+<strong>不要</strong>把 3000 端口直接映射公网（无鉴权、聊天数据敏感）。</p>
+<h4 id="p2-ics">P2 待办 / 日历导出（.ics）</h4>
+<p>从 <code>/api/items</code> 的时间点生成 <code>.ics</code>，手机日历订阅；不做也行（日历插件已能在网页看）。</p>
+<h4 id="p2-b">P2 手动收件箱插件（方案 B 的体验升级）</h4>
+<p>手机浏览器打开一个页面，粘贴文字 / 上传截图 → 直接进 Briefdesk 管道，省掉 QQ 中转。需要写一个新插件（SourcePlugin/WebPlugin，约 1–2 天），<strong>非必需</strong>。</p>
+<h4 id="p2-openclaw">P2 OpenClaw 心跳巡检</h4>
+<p>在 <code>HEARTBEAT.md</code> 加检查项：三个服务健康 + 最近同步时间 + 昨日卡片数；异常时让芙宁娜发微信 / QQ 提醒。你已有的 heartbeat 机制直接复用。</p>
+<hr />
+<h2 id="57-toolfurinafun">5.7 与班级工具站（tool.furina.fun）整合</h2>
+<p><strong>定位</strong>：Briefdesk 是「本地加工厂」，工具站是「对外展示 / 协作窗口」。不把整段聊天推上公网，只同步<strong>确认过的精选通知</strong>。</p>
+<h3 id="571">5.7.1 工具站现状（已摸清）</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>项</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>代码</td>
+<td><code>web/tools/index.html</code>（单文件、零依赖、原生 JS，五格切换：抽签/课表/作业/通知/体测）</td>
+</tr>
+<tr>
+<td>部署</td>
+<td>阿里云 OSS Bucket <code>tool-furina-fun</code>，<code>deploy/sync_tools.py</code> 同步；<code>https://tool.furina.fun/</code></td>
+</tr>
+<tr>
+<td>云端</td>
+<td>CloudBase PostgreSQL + PostgREST：<code>https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/</code></td>
+</tr>
+<tr>
+<td>表</td>
+<td><code>public.notices</code>（通知）、<code>public.homework</code>（作业）；前端用匿名 pub key + RLS，<code>archived=eq.false</code> 过滤</td>
+</tr>
+<tr>
+<td>notices 字段</td>
+<td><code>id / title / body / pin / imp / author / owner / attachments(JSON，图片≤5MB 压缩、文件≤2MB、最多2个) / ts / archived</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="572">5.7.2 推荐整合方式（不动静态站架构）</h3>
+<pre><code>Briefdesk（本地）→ 人工确认/精选 → 桥接脚本（采集机 Python，任意时段手动或定时）
+   → POST {CloudBase}/notices（复用现有 pub key）→ tool.furina.fun 通知 tab 自动可见
+</code></pre>
+<ol>
+<li><strong>桥接脚本</strong>：读 Briefdesk SQLite 里状态为「已确认/已收藏」的 items（或调 <code>/api/items</code>），映射成 notices 行后 POST；<strong>只同步精选</strong>，默认每天 ≤ 5 条。</li>
+<li><strong>字段映射</strong>（现有字段可先跑）：</li>
+</ol>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Briefdesk item</th>
+<th>notices 现有字段</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>标题</td>
+<td><code>title</code></td>
+<td>直接</td>
+</tr>
+<tr>
+<td>摘要 + 原文要点</td>
+<td><code>body</code></td>
+<td>手工/生成的干净文案，不带群昵称</td>
+</tr>
+<tr>
+<td>分类</td>
+<td><code>body</code> 首行 <code>【分类】</code> 或新增列 <code>cat</code></td>
+<td>建议新增列，见下</td>
+</tr>
+<tr>
+<td>截止时间</td>
+<td>正文注明 或 新增列 <code>deadline</code></td>
+<td>同上</td>
+</tr>
+<tr>
+<td>来源群</td>
+<td><code>author</code> 填「简报台 · 来源：26信管1班群」</td>
+<td>不暴露同学身份</td>
+</tr>
+<tr>
+<td>原文/文档链接</td>
+<td>正文 或 新增列 <code>link</code></td>
+<td>公众号/腾讯文档可点</td>
+</tr>
+<tr>
+<td>附件</td>
+<td><code>attachments</code></td>
+<td>复用现有 ≤2MB / 2 个限制</td>
+</tr>
+</tbody>
+</table></div>
+<ol start="3">
+<li><strong>建议新增 4 列</strong>（<strong>按红线，先征得你同意再改 CloudBase schema</strong>）：<code>cat text</code>、<code>src text</code>、<code>deadline timestamptz</code>、<code>rich jsonb</code>（存公众号/小程序/腾讯文档卡片元数据）。不加列也能用，只是富媒体展示退化。</li>
+<li><strong>反向</strong>：工具站「发布通知」保持现状；Briefdesk <strong>不反向拉取</strong>，避免重复入库。</li>
+<li><strong>可选的展示增强</strong>：通知 tab 顶部加「来源：简报台」筛选与「今日简报」入口；这与示例页 <code>notice-demo.html</code> 的样式一致。</li>
+</ol>
+<h3 id="573">5.7.3 风险与边界</h3>
+<ul>
+<li>notices 表是<strong>公开可读</strong>的（现有设计），所以只能放班级级、无个人隐私的通知；手机号/学号/身份证/宿舍号一律不入库。</li>
+<li>匿名 pub key 本来就能写（现状如此），桥接脚本用同一把 key；不要额外暴露 Briefdesk 或聊天原文。</li>
+<li>附件走现有 base64 方案，大文件别传；必要时只存链接。</li>
+</ul>
+<hr />
+<h2 id="58-qq">5.8 同步发布到 QQ 频道</h2>
+<p><strong>目标</strong>：同一份简报/通知，按板块同步到班级 QQ 频道，不重复搬运。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>通知类别</th>
+<th>频道板块</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>教务、团务、缴费、班级事务、重要通知</td>
+<td><strong>公告栏</strong></td>
+</tr>
+<tr>
+<td>作业、考试、课程资料</td>
+<td><strong>学习互助</strong></td>
+</tr>
+<tr>
+<td>讲座、志愿、文体活动</td>
+<td><strong>活动报名</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>官方能力（QQ 频道机器人）</strong>：</p>
+<ul>
+<li>在 <code>bot.q.qq.com</code> 开放平台创建<strong>频道机器人</strong>（注意：和 OpenClaw 里那个 QQ 群 bot 是两套体系，别复用）；</li>
+<li>频道主/管理员把机器人拉进频道，并授予目标子频道「发送消息」权限；</li>
+<li>发布接口：<code>POST /channels/{channel_id}/messages</code>（带 <code>Authorization: Bot &lt;token&gt;</code>）；</li>
+<li>频控：<strong>主动消息默认每子频道 20 条/天</strong>（可在频道设置里调整），每子频道 <strong>1 秒 ≤ 5 条</strong>；支持文本 / Markdown / 图片 / Ark。</li>
+</ul>
+<p><strong>发布策略（推荐）</strong>：</p>
+<ol>
+<li>每天最多 1 条「今日简报」+ 0–2 条重要单条通知，聚合为主，避免刷屏；</li>
+<li>格式：<code>标题</code> + <code>3 行摘要</code> + <code>截止时间</code> + <code>原链接</code>（工具站 / 公众号 / 腾讯文档）；</li>
+<li><strong>AI 生成 → 你在示例页/简报台点「同步发布」→ 才发</strong>，不自动发布；</li>
+<li>备选（零门槛）：生成「待发布文案」，手动粘贴到频道——先跑通流程，再上机器人自动化。</li>
+</ol>
+<p><strong>待办</strong>：申请频道机器人 → 记录 <code>guild_id</code> / 各板块 <code>channel_id</code> → 写约 100 行发布脚本 → 用示例页同款「板块选择 + 预览」交互。</p>
+<hr />
+<h2 id="59">5.9 富媒体通知适配（小程序 / 公众号 / 腾讯文档 / 文件 / 图片）</h2>
+<blockquote>
+<p>原则：<strong>不追求 100% 还原微信卡片</strong>，目标是「信息可读 + 入口可点 + 关键内容不丢」。示例页已演示所有形态。</p>
+</blockquote>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>来源形态</th>
+<th>Briefdesk 现状</th>
+<th>做法</th>
+<th>展示 / 降级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>公众号文章</strong></td>
+<td><code>&lt;msg&gt;&lt;appmsg&gt;</code> XML（mmreader 多图文）</td>
+<td>✅ 已支持：<code>plugins/_common/article_parser.py</code> 拆条、卡片带 <code>article_url</code></td>
+<td>直接用</td>
+<td>标题 / 公众号 / 摘要 / 「打开原文」</td>
+</tr>
+<tr>
+<td><strong>小程序卡片</strong></td>
+<td>appmsg XML（type 33/36：title/des/appid/path/thumb）</td>
+<td>❌ 无专门解析（会退化成 XML/占位）</td>
+<td>新增 enrich 阶段插件 <code>richcards</code>：解析 XML → 存 <code>rich</code> 元数据</td>
+<td>卡片（图标/名称/描述/appid）+「复制路径 / 微信内打开」提示 + OCR/截图兜底</td>
+</tr>
+<tr>
+<td><strong>腾讯文档收集表</strong></td>
+<td>链接（<code>docs.qq.com/form</code> / <code>doc</code> / <code>sheet</code>）</td>
+<td>⚠️ 只当普通文字/链接</td>
+<td>URL 识别 + 卡片；收集进度需登录态，默认展示链接 + 截止时间</td>
+<td>标题 / 收集人 / 截止 / 「打开收集表」；可一键加待办</td>
+</tr>
+<tr>
+<td><strong>QQ 群文件</strong></td>
+<td>rich XML（<code>m_fileName</code> + <code>m_resid</code>，qqflow 已解析部分）</td>
+<td>✅ 文件名/大小 + 媒体代理</td>
+<td>前端卡片 + 下载/打开</td>
+<td>文件名 / 大小 / 打开（大文件只记链接）</td>
+</tr>
+<tr>
+<td><strong>图片通知</strong></td>
+<td>截图（image）</td>
+<td>✅ OCR（需 <code>briefdesk[ocr]</code>）</td>
+<td>OCR 文本入库 + 原图缩略</td>
+<td>「OCR 已识别 N 字」+ 提取文字</td>
+</tr>
+<tr>
+<td><strong>通用链接</strong></td>
+<td>群内转发的网页</td>
+<td>❌</td>
+<td>白名单域名抓 <code>og:title/description</code>（防 SSRF，仅 <code>mp.weixin.qq.com</code>、<code>docs.qq.com</code> 等）</td>
+<td>链接卡片</td>
+</tr>
+<tr>
+<td><strong>语音 / 视频</strong></td>
+<td>voice / video</td>
+<td>⚠️ 无下游</td>
+<td>不转写（可选接 whisper）</td>
+<td>提示「需在原 App 查看」</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>落地顺序</strong>：P1 先把「公众号 + 图片 OCR + 腾讯文档链接」跑通（成本最低、收益最大）；P2 再做 <code>richcards</code> 插件覆盖小程序 / 文件 / 通用链接。</p>
+<hr />
+<h2 id="510">5.10 示例网页（本次已交付）</h2>
+<ul>
+<li>文件：<code>web/tools/notice-demo.html</code>（工具站同目录；单文件、零外部请求、双击即开）；桌面副本 <code>班级通知整合_示例网页_20261103.html</code>。</li>
+<li>内容：</li>
+<li>工具站原生五格导航 + 「通知」板块新形态；</li>
+<li><strong>今日简报</strong>：AI 摘要 + 4 条待办（含截止时间）+「同步到 QQ 频道」；</li>
+<li><strong>分类 / 内容类型筛选</strong>（教务/团务/考试/缴费/活动 + 图文/公众号/小程序/腾讯文档/文件/图片）、只看待办；</li>
+<li><strong>7 条示例通知</strong>覆盖：多来源合并图文、公众号文章、腾讯文档收集表、小程序卡片、图片 OCR、QQ 群文件、人工转发；</li>
+<li>卡片操作：标记已办、详情、单条同步频道；</li>
+<li><strong>QQ 频道同步弹层</strong>：板块多选、频道内预览、发布（发布后卡片显示「已同步」状态）。</li>
+<li>用途：先定「最终长什么样」，同时验证富媒体卡片的展示方案；后续按此把真实数据接进 <code>index.html</code> 的通知 tab（P2）。</li>
+</ul>
+<hr />
+<h2 id="6">6. 部署与运维</h2>
+<h3 id="61">6.1 主机与常开策略</h3>
+<ul>
+<li><strong>主力 PC 即可</strong>：微信 + QQ 常驻登录，Briefdesk + 两个 server 常驻。</li>
+<li>电源计划：接通电源时「从不睡眠」；关闭硬盘休眠；屏幕可关。24/7 电费约 20–30 元/月。</li>
+<li><strong>可选</strong>：二手迷你主机 / 旧笔记本专职采集（300–600 元），主 PC 可关机；但微信/QQ 多端登录、多机部署更复杂，<strong>初期不建议</strong>。</li>
+</ul>
+<h3 id="62">6.2 启动顺序（登录后自动）</h3>
+<ol>
+<li>微信 / QQ（应用自带开机启动 + 自动登录）；</li>
+<li><code>weflow-server.exe --port 5033</code>（方案 A）；</li>
+<li><code>qqflow-server.exe --port 5032</code>；</li>
+<li>Briefdesk（venv <code>python -m briefdesk</code>，cwd = <code>C:\briefdesk\app</code>）；</li>
+<li>看门狗（<code>pythonw.exe</code>，隐藏窗口，每 60s 健康检查）。</li>
+</ol>
+<p><strong>计划任务</strong>（用户态、登录触发；用 <code>pythonw</code> 承载避免黑框——沿用现有 gateway-watchdog 的经验）：</p>
+<ul>
+<li>任务名 <code>BriefdeskStack</code>；动作 <code>pythonw.exe C:\briefdesk\scripts\watchdog.py</code>；</li>
+<li>触发器：登录时 + 每 5 分钟；<code>StartWhenAvailable=true</code>。</li>
+</ul>
+<h3 id="63">6.3 看门狗与健康检查</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>检查</th>
+<th>端点</th>
+<th>判定</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>qqflow-server</td>
+<td><code>http://127.0.0.1:5032/health</code></td>
+<td>200 且账号 <code>ready</code></td>
+</tr>
+<tr>
+<td>weflow-server（A）</td>
+<td><code>http://127.0.0.1:5033/health</code></td>
+<td>200 且账号 <code>ready</code></td>
+</tr>
+<tr>
+<td>Briefdesk</td>
+<td><code>http://127.0.0.1:3000/api/status</code></td>
+<td>200 且 <code>lastSync</code> 距今 &lt; 2h（有消息时）</td>
+</tr>
+</tbody>
+</table></div>
+<p>异常处理：重启对应进程 → 写日志 → 可选通知（OpenClaw 心跳 / 邮件）。</p>
+<h3 id="64">6.4 备份与恢复</h3>
+<ul>
+<li><strong>每日 03:00</strong> 调 <code>GET http://127.0.0.1:3000/api/backup</code> 下载 SQLite 到 <code>G:\Backup\briefdesk\YYYYMMDD.sqlite</code>，保留 14 天。</li>
+<li>每周把 <code>.env</code> / <code>secrets\</code> / 配置备份到本地加密位置（<strong>不要放公网网盘</strong>）。</li>
+<li>恢复：网页 <code>/api/restore</code> 上传 → 重启生效（原库自动保留 <code>.pre-restore</code>）。</li>
+</ul>
+<h3 id="65">6.5 升级与密钥轮换</h3>
+<ul>
+<li><strong>锁版本</strong>：weflow-server / qqflow-server 固定 v0.10.0；不自动升级。</li>
+<li><strong>微信/QQ 客户端自动更新建议关闭</strong>；升级前先备份 keys，升级后验证；key 可能轮换。</li>
+<li>微信重登 / 升级后若 Briefdesk 报「key 过期 / 图片坏」→ 重新提取 key → 更新钥匙串 → 重启。</li>
+<li>Briefdesk 升级：先备份 DB + 记录当前版本；升级后 smoke（<code>/api/status</code>、同步、分类各一次）。</li>
+</ul>
+<h3 id="66">6.6 排错速查</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>原因</th>
+<th>处置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Briefdesk 显示「无消息源」</td>
+<td><code>PLUGINS</code> 未启用 / 服务未启动</td>
+<td>检查 <code>PLUGINS</code> 与 5032/5033</td>
+</tr>
+<tr>
+<td>同步后 0 张卡片</td>
+<td>会话没勾选 / <code>IGNORE_SELF</code> 把转发过滤了</td>
+<td>勾选会话；收件箱场景设 <code>IGNORE_SELF=false</code></td>
+</tr>
+<tr>
+<td>qqflow 一直 503</td>
+<td>账号没注册好 / 还在 indexing</td>
+<td>查 <code>/api/v1/accounts</code> 的 <code>state</code></td>
+</tr>
+<tr>
+<td>注册 400 <code>invalid_key</code></td>
+<td>key 错 / 不是 16 字节 ASCII / 账号不匹配</td>
+<td>重新提取</td>
+</tr>
+<tr>
+<td>微信注册 400「页 1 HMAC 校验失败」</td>
+<td>key 错 / 不是该 wxid 的库</td>
+<td>重新提取；确认 wxid 与目录</td>
+</tr>
+<tr>
+<td>文本正常、图片坏</td>
+<td>微信图片密钥缺失（A）</td>
+<td>补 <code>WEFLOW_IMG_AES_KEY</code> / <code>WEFLOW_IMG_XOR_KEY</code></td>
+</tr>
+<tr>
+<td>AI 分类报模型不存在</td>
+<td>模型名/端点不对</td>
+<td>用 Ollama 时确认 <code>qwen3:14b</code> 已 pull</td>
+</tr>
+<tr>
+<td>qwen3 返回空 JSON</td>
+<td>思考模式吃光 token</td>
+<td><code>AI_REASONING_EFFORT=off</code></td>
+</tr>
+<tr>
+<td>手机访问 400 Invalid Host</td>
+<td>Briefdesk 的 Host 白名单</td>
+<td>用 Caddy 反代重写 Host（§5.6）</td>
+</tr>
+<tr>
+<td>页面卡 / 分类慢</td>
+<td>本地模型并发 1、批量回填大</td>
+<td>降低 <code>BACKFILL_BATCH_MAX_COUNT</code>；或切云端 AI</td>
+</tr>
+<tr>
+<td>qqflow 注册报 <code>unknown_qq</code></td>
+<td><code>db_path</code> 留空且启动时 QQ 未登录</td>
+<td>显式传 <code>db_path</code>，或先登录 QQ 再启动服务</td>
+</tr>
+<tr>
+<td>qqflow 找不到 token.txt</td>
+<td>Briefdesk 插件注释过时</td>
+<td>token 在 Windows 凭据管理器，用 <code>qqflow-server token</code> 取</td>
+</tr>
+<tr>
+<td>QQ 群消息没进 Briefdesk</td>
+<td>会话未在「群聊筛选」启用；或 <code>BACKFILL_HOURS</code> 只覆盖 24h</td>
+<td>勾选群；首次设 <code>BACKFILL_HOURS=168</code></td>
+</tr>
+<tr>
+<td>QQ 服务 <code>state=error</code></td>
+<td>key 被轮换 / 库路径不对 / 解密失败</td>
+<td>重新提取 key；核对 <code>db_path</code> 指向原始活库</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="7">7. 隐私、合规与风险</h2>
+<h3 id="71">7.1 数据流向</h3>
+<pre><code>本机聊天库（加密）→ 本机服务（只读解密）→ Briefdesk SQLite → AI（默认本机 Ollama）→ 浏览器
+                                              │
+                                              └─ 人工确认/精选 ─→ CloudBase notices ─→ tool.furina.fun 通知板块（同学可见）
+                                                                  └─ 可选 ─→ QQ 频道公告栏 / 学习互助 / 活动报名
+</code></pre>
+<p><strong>离开本机的只有</strong>：</p>
+<ol>
+<li>切云端 AI 时，<strong>脱敏后</strong>的消息正文（手机号/身份证/邮箱会打码，姓名/群名不会）；</li>
+<li><strong>精选通知的标题/摘要/链接</strong> → 公开的工具站通知板块（班级可见，不含原始聊天记录与个人信息）；</li>
+<li><strong>每日简报/重要通知</strong> → QQ 频道对应板块（需人工点「同步发布」）；</li>
+<li>推送出去的邮件简报文本；手机访问时的内网 / Tailscale 流量（不出公网）。</li>
+</ol>
+<h3 id="72">7.2 群公告模板（发到班级群 / 收件群）</h3>
+<blockquote>
+<p>同学们好，我在做一个班级通知汇总的小工具，会把本群和我收到的班级通知整理成一份<strong>本地简报</strong>，只用于我自己的班级事务提醒，<strong>不外传、不公开、不用于任何商业用途</strong>。如果不想自己的发言被收录，请私聊告诉我，我会把它排除。</p>
+</blockquote>
+<h3 id="73">7.3 风险清单</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>风险</th>
+<th style="text-align: center;">概率</th>
+<th>影响</th>
+<th>对策</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>微信 key 提取失败 / 工具不兼容 4.1.15.13</td>
+<td style="text-align: center;">中</td>
+<td>方案 A 搁浅</td>
+<td>时间盒 30 分钟，失败立即转方案 B</td>
+</tr>
+<tr>
+<td>微信升级 / 重登导致 key 轮换</td>
+<td style="text-align: center;">中</td>
+<td>微信采集断</td>
+<td>重新提取；或长期用方案 B</td>
+</tr>
+<tr>
+<td>PC 关机 / 掉线 / 微信 QQ 退出</td>
+<td style="text-align: center;">中</td>
+<td>漏采窗口期消息</td>
+<td>常开 + 看门狗 + 重要通知班委转发兜底</td>
+</tr>
+<tr>
+<td>微信 / QQ 风控</td>
+<td style="text-align: center;">低</td>
+<td>账号异常</td>
+<td>只读、不自动发言、不用协议端、尽量用小号</td>
+</tr>
+<tr>
+<td>服务停止 / 端口冲突</td>
+<td style="text-align: center;">低</td>
+<td>采集断</td>
+<td>看门狗 + 告警</td>
+</tr>
+<tr>
+<td>AI 误分类 / 漏收录</td>
+<td style="text-align: center;">中</td>
+<td>漏重要通知</td>
+<td>每日简报人工过目 + 手动改分类 + 关键类别调提示词</td>
+</tr>
+<tr>
+<td>数据泄露</td>
+<td style="text-align: center;">低</td>
+<td>隐私</td>
+<td>不公网暴露；手机走 Tailscale；备份加密；密钥进钥匙串</td>
+</tr>
+<tr>
+<td>上游仓库停更 / 兼容性退化</td>
+<td style="text-align: center;">中</td>
+<td>升级即坏</td>
+<td>锁版本 + 保留人工兜底路径</td>
+</tr>
+<tr>
+<td>DB key / API token 泄露</td>
+<td style="text-align: center;">低</td>
+<td>他人可读本机聊天</td>
+<td>不写 <code>.env</code> / 不贴聊天 / 文件 ACL</td>
+</tr>
+<tr>
+<td>本机端口被误暴露</td>
+<td style="text-align: center;">低</td>
+<td><strong>token 泄露 = 全部聊天记录泄露</strong>（qqflow 无会话级 ACL，只要 token 就能读该账号全部会话）</td>
+<td>保持默认 <code>127.0.0.1</code>；防火墙限制；不装反代到公网</td>
+</tr>
+<tr>
+<td>工具站公开通知泄露个人信息</td>
+<td style="text-align: center;">中</td>
+<td>同学隐私</td>
+<td>只发精选、去标识；证件照/名单类不上公网；同步前人工过目</td>
+</tr>
+<tr>
+<td>QQ 频道误发 / 刷屏</td>
+<td style="text-align: center;">低</td>
+<td>打扰同学、显得不专业</td>
+<td>人工确认后再发；每日上限（1 条简报 + ≤2 条重要）；板块映射固定</td>
+</tr>
+<tr>
+<td>CloudBase 增列 / 桥接脚本出错</td>
+<td style="text-align: center;">低</td>
+<td>通知板块异常</td>
+<td>改 schema 前备份；只增列不删列；桥接脚本先 dry-run</td>
+</tr>
+<tr>
+<td>富媒体解析随微信/QQ 更新失效</td>
+<td style="text-align: center;">中</td>
+<td>卡片降级</td>
+<td>统一降级为「原文/截图 + 链接」，不阻断主流程</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="74">7.4 红线</h3>
+<ul>
+<li>只解密<strong>自己的</strong>数据；不导出、不传播他人聊天内容。</li>
+<li>不把服务暴露公网；不把 token / key 写进仓库、聊天、截图。</li>
+<li>不做自动回复 / 群发 / 抢红包等任何<strong>写操作</strong>。</li>
+</ul>
+<hr />
+<h2 id="8">8. 实施路线</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>内容</th>
+<th>耗时</th>
+<th>验收标准</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>P0 打通</strong></td>
+<td>QQ key 提取 + qqflow-server + Briefdesk + 本地 Ollama；勾 1 个群；发测试消息；微信 key 可行性试提取（限时 30 分钟）</td>
+<td>半天</td>
+<td>Briefdesk 出现<strong>真实卡片</strong>；状态栏无错误；电脑可看</td>
+</tr>
+<tr>
+<td><strong>P1 全量</strong></td>
+<td>方案 A 或 B 落地；分类定制；OCR；首次 7 天回填；多群勾选；公众号文章 / 腾讯文档链接 / 图片通知跑通；连续观察 3 天</td>
+<td>1–2 天</td>
+<td>连续 24h 抽查不漏采；去重/合并正常；截止时间进日历；三类富媒体至少各验证一条</td>
+</tr>
+<tr>
+<td><strong>P2 对外</strong></td>
+<td>每日简报插件 + 邮件推送；手机访问（Caddy + Tailscale）；<strong>工具站整合</strong>（notices 增列 + 桥接脚本 + 示例页样式合入 <code>index.html</code>）；<strong>QQ 频道机器人发布</strong>；富媒体 <code>richcards</code> 插件（小程序/文件/通用链接）；OpenClaw 心跳巡检；.ics 导出</td>
+<td>1–2 周按需</td>
+<td>每天 21:30 收到简报；手机可看可操作；精选通知能在 tool.furina.fun 看到；简报能发到 QQ 频道指定板块；异常有告警</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>建议顺序</strong>：先做 QQ（确定可行）→ 再做微信（有不确定性）→ 做工具站/频道（对外价值最高）→ 最后补富媒体与推送细节（锦上添花）。</p>
+<hr />
+<h2 id="9">9. 成本估算</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>费用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>软件（Briefdesk / weflow-server / qqflow-server / Ollama）</td>
+<td><strong>0 元</strong>（MIT / 开源 / 本地）</td>
+</tr>
+<tr>
+<td>AI（本地 qwen3:14b）</td>
+<td><strong>0 元</strong>（已有硬件）</td>
+</tr>
+<tr>
+<td>AI（云端可选，任意 OpenAI 兼容，需自己的 Key）</td>
+<td>按量，估计 &lt; 5 元/月</td>
+</tr>
+<tr>
+<td>电费（PC 常开，40–60W）</td>
+<td>约 20–30 元/月</td>
+</tr>
+<tr>
+<td>可选：迷你主机 / 旧笔记本</td>
+<td>300–600 元（非必需）</td>
+</tr>
+<tr>
+<td>时间</td>
+<td>P0 半天；P1 1–2 天；P2 1–2 周按需</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="10-7">10. 需要你拍板的 7 件事</h2>
+<ol>
+<li><strong>微信侧</strong>：先花 30 分钟试方案 A 的 key 提取，还是直接走方案 B（纯人工转发）？→ <strong>建议先试</strong>，失败立即转 B。</li>
+<li><strong>QQ 用主号还是小号</strong>？主号省事（已在所有群）；小号更隔离，但要重新加群、可能被当成小号限制。</li>
+<li><strong>群清单</strong>：把要接的 QQ 群 / 微信群列一下（群名 + 作用）→ 我按清单配置，避免漏接或误接。</li>
+<li><strong>要不要每日推送</strong>？推到哪里（QQ 邮箱 / 微信 / 企业微信）？</li>
+<li><strong>AI 默认用本地 qwen3:14b</strong>（慢但不出本机）可以吗？以后若接云端模型，有偏好的服务商吗？（不接也完全够用）</li>
+<li><strong>工具站整合</strong>：是否同意给 CloudBase <code>notices</code> 表<strong>增 4 列</strong>（<code>cat/src/deadline/rich</code>）？不增列也能先用基础字段跑，但富媒体展示会退化。</li>
+<li><strong>QQ 频道</strong>：你那个频道是私域还是公开？是否愿意走「频道机器人申请 + 频道主授权」？还是先用「生成文案手动粘贴」的过渡方案？</li>
+</ol>
+<hr />
+<h2 id="a">附录 A：命令速查</h2>
+<pre><code class="language-powershell"># —— 环境 ——
+python -m venv C:\briefdesk\venv
+C:\briefdesk\venv\Scripts\pip install -e &quot;C:\briefdesk\app[ocr]&quot;
+
+# —— qqflow-server ——
+C:\briefdesk\bin\qqflow-server\qqflow-server.exe --port 5032 --log info
+C:\briefdesk\bin\qqflow-server\qqflow-server.exe token
+# 注册：POST /api/v1/accounts {qq,key,db_path}；查：GET /api/v1/accounts
+# 会话：GET /api/v1/sessions?limit=20
+
+# —— weflow-server（方案 A）——
+C:\briefdesk\bin\weflow-server\weflow-server.exe --port 5033 --log info
+C:\briefdesk\bin\weflow-server\weflow-server.exe token
+# 注册：POST /api/v1/accounts {wxid,keys,db_path,img_aes_key?,img_xor_key?}
+# 健康：GET /health；会话：GET /api/v1/sessions
+
+# —— Briefdesk ——
+cd C:\briefdesk\app
+C:\briefdesk\venv\Scripts\python -m briefdesk
+# 打开 http://localhost:3000
+
+# —— 验证 ——
+Invoke-RestMethod http://127.0.0.1:5032/health
+Invoke-RestMethod http://127.0.0.1:5033/health
+Invoke-RestMethod http://127.0.0.1:3000/api/status
+</code></pre>
+<h2 id="benv-cbriefdeskappenv">附录 B：<code>.env</code> 模板（关键行，复制到 <code>C:\briefdesk\app\.env</code>）</h2>
+<pre><code class="language-ini"># 消息源（方案 B 起步；方案 A 验证成功后再加 weflow）
+PLUGINS=[&quot;qqflow&quot;,&quot;ocr&quot;]
+
+# 关键：收件箱里的转发是你自己发的，必须关掉「过滤自己」
+IGNORE_SELF=false
+
+# 首次回填 7 天，稳定后改回 24
+BACKFILL_HOURS=168
+POLL_INTERVAL_SECONDS=600
+
+# 本地 AI（Ollama）
+AI_API_BASE=http://127.0.0.1:11434/v1
+AI_MODEL=qwen3:14b
+AI_API_KEY=ollama
+AI_REASONING_EFFORT=off
+AI_MAX_CONCURRENCY=1
+
+# 嵌入（去重 + RAG）
+EMBED_API_BASE=http://127.0.0.1:11434/v1
+EMBED_MODEL=nomic-embed-text
+
+# 服务
+SERVER_PORT=3000
+LOG_LEVEL=INFO
+</code></pre>
+<blockquote>
+<p>密钥（<code>QQFLOW_API_TOKEN</code> / <code>QQFLOW_QQ</code> / <code>QQFLOW_KEY</code>，方案 A 再加 <code>WEFLOW_*</code>）不要写进 <code>.env</code>，用 <code>briefdesk secrets set</code> 或网页设置页录入。</p>
+</blockquote>
+<h2 id="c">附录 C：参考资料</h2>
+<ul>
+<li>Briefdesk（简报台）：<a href="https://github.com/ren-yc/briefdesk">https://github.com/ren-yc/briefdesk</a> ｜ PyPI：<a href="https://pypi.org/project/briefdesk/">https://pypi.org/project/briefdesk/</a></li>
+<li>weflow-server（微信 4.x 只读 HTTP/SSE）：<a href="https://github.com/ren-yc/weflow-server">https://github.com/ren-yc/weflow-server</a></li>
+<li>qqflow-server（QQ NT 只读 HTTP/SSE）：<a href="https://github.com/ren-yc/qqflow-server">https://github.com/ren-yc/qqflow-server</a></li>
+<li>WeFlow（微信聊天记录导出，桌面版）：<a href="https://github.com/hicccc77/WeFlow">https://github.com/hicccc77/WeFlow</a></li>
+<li>QQBackup / QQDecrypt（QQ NT 密钥提取与解密文档）：<a href="https://github.com/QQBackup/QQDecrypt">https://github.com/QQBackup/QQDecrypt</a></li>
+<li>QQ 频道机器人（发送子频道消息）：<a href="https://bot.q.qq.com/wiki/develop/api-v2/server-inter/channel/message/send.html">https://bot.q.qq.com/wiki/develop/api-v2/server-inter/channel/message/send.html</a></li>
+<li>Ollama：<a href="https://ollama.com">https://ollama.com</a></li>
+</ul>
+<h2 id="d">附录 D：本方案已核实 / 未核实清单</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>项</th>
+<th>状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Briefdesk 0.1.0 本机可安装、可启动、API/UI 正常</td>
+<td>✅ 已核实</td>
+</tr>
+<tr>
+<td>Ollama qwen3:14b 分类 JSON、nomic-embed-text 嵌入可用</td>
+<td>✅ 已核实</td>
+</tr>
+<tr>
+<td>示例网页已产出并通过桌面/窄屏自检（<code>web/tools/notice-demo.html</code>）</td>
+<td>✅ 已核实</td>
+</tr>
+<tr>
+<td>工具站现有通知链路（CloudBase <code>notices</code> + 匿名 key + 静态渲染）</td>
+<td>✅ 已核实（读代码 + CLOUDBASE.md）</td>
+</tr>
+<tr>
+<td>QQ 频道机器人发布接口存在（<code>POST /channels/{channel_id}/messages</code>，主动消息限额）</td>
+<td>✅ 文档已核实；申请/授权<strong>待办</strong></td>
+</tr>
+<tr>
+<td>weflow-server / qqflow-server v0.10.0 有 Windows 预编译 zip</td>
+<td>✅ 已核实</td>
+</tr>
+<tr>
+<td>微信 4.1.15.13 与 weflow-server 兼容</td>
+<td>⚠️ 待验证（作者实测 4.1.12）</td>
+</tr>
+<tr>
+<td>微信「文件传输助手」能在 weflow 会话列表中以私聊类型出现并被 Briefdesk 勾选</td>
+<td>⚠️ 待验证（不行则改用 3 人群收件箱）</td>
+</tr>
+<tr>
+<td>微信 db key 提取工具兼容性 / 风控</td>
+<td>⚠️ 待验证（唯一硬门槛）</td>
+</tr>
+<tr>
+<td>QQ 9.9.31 与 qqflow-server 兼容、群消息全量可读</td>
+<td>⚠️ 待验证</td>
+</tr>
+<tr>
+<td>OCR 在本机 CPU 的速度</td>
+<td>⚠️ 待验证（安装后实测）</td>
+</tr>
+<tr>
+<td>小程序卡片 / 腾讯文档卡片的解析与展示</td>
+<td>⚠️ 方案已定，待实现 <code>richcards</code> 插件</td>
+</tr>
+<tr>
+<td>CloudBase <code>notices</code> 增列（<code>cat/src/deadline/rich</code>）</td>
+<td>⚠️ 待你确认后再改 schema</td>
+</tr>
+<tr>
+<td>两台客户端常驻登录的稳定性（掉线/自动重连）</td>
+<td>⚠️ 观察期验证</td>
+</tr>
+</tbody>
+</table></div>
+  </main>
+  <footer class="footer">
+    <span>Briefdesk 班级通知整合方案 · 芙宁娜整理</span>
+    <span>生成于 2026-11-03 · 单文件 HTML</span>
+  </footer>
+</div>
+</body>
+</html>
