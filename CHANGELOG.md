@@ -10,7 +10,7 @@
 - **并入**（保留完整历史）：`class-tools-briefdesk` → `web/briefdesk/`、`class-tools-power` → `web/power/`、`class-tools-mp-tests` → `mp-class-tools/tests/`；旧本地路径保留 junction（`briefdesk-plan` / `perfect-campus-power` / `mp-class-tools-tests`），旧仓库 GitHub 已归档。
 - **同步工具**：五个端仓库根统一 `sync_repos.py` + `sync-repos.cmd`（自动识别双远端、敏感路径/令牌/大文件检查、远端领先自动 rebase、推两端并核对 SHA）。
 - **自动提交**：本机计划任务 `ClassToolsRepoAutoSync` 每 10 分钟扫描，工作区有改动且空闲 ≥5 分钟时自动提交并推双端；日志 `web/tools/repo_ops/_logs/auto_commit.log`；规则写进各仓 `AGENTS.md` 与工作区 `AGENTS.md`。
-- **验证**：五仓 `sync-repos.cmd --check` 两端 SHA 一致；`node unit.js` 588/7（其中 2 项路径/静态扫描问题已随本次修正，剩余 6 项为 11-14 撤销域名与今日 staging 路由导致的既有过期断言）；`code_quality_check.js` 退出 0、`cloudfunctions/notify.test.js` 35/0。
+- **验证**：五仓 `sync-repos.cmd --check` 两端 SHA 一致；`node unit.js` 588/7（tests/ 误扫与相对路径问题已随本次修正；剩余 7 项为 11-14 撤销域名、今日 staging 路由与通知期次/发布逻辑的既有过期断言，需另行跟进）；`code_quality_check.js` 退出 0、`cloudfunctions/notify.test.js` 35/0。
 - **回滚**：`git revert` 对应合并提交、旧仓库 `gh repo unarchive`；本机目录 junction 可用 `cmd /c rmdir <旧路径>` 删除。
 
 ## 2026-11-18 21:2x–21:4x · 统计多端：按最新登录排序 / 默认今天 / 分钟时间 / 记录登录端 / 忽略测试账号（网页已上线；小程序/安卓/Windows/鸿蒙源码同步）
