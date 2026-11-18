@@ -1,6 +1,7 @@
 # 班级工具站 · 仓库地图（一端一仓）
 
-> 2026-11-18 用户要求：**GitHub / Gitee 每个端只留一个仓库，不按功能拆仓库；每个端都要能自动提交。**
+> 2026-11-18 用户要求：**GitHub / Gitee 每个端只留一个仓库，不按功能拆仓库；每个端的改动都要能一键提交双远端。**
+> 同日明确：**不设计划任务、不跑后台守护**，提交由 agent 改完后主动执行。
 > 2026-11-16 全量核对：所有仓库均为**私有**，GitHub + Gitee 双远端，分支统一 `master`。
 > 仓库含个人信息、服务器配置，**不要改为公开**。
 
@@ -47,14 +48,9 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 每个端仓库根都有一份同一内容的 `sync_repos.py` + `sync-repos.cmd`：安全检查 → 提交 → 推两端 → 核对 SHA。
 - 核对：`sync-repos.cmd --check`（本地与两个远端 SHA 三行一致）。
 - 手动 `git add -A` + 分两次 `git push` 的旧做法不再需要；**不要只推一个远端**。
+- **不设计划任务、不跑后台守护**：agent 改完必须主动执行上面命令（用户 2026-11-18 要求）。
 
-## 四、自动提交
-
-- 计划任务 `ClassToolsRepoAutoSync`：每 10 分钟扫描五个端仓库；工作区有改动且空闲 ≥5 分钟时自动提交并推双端。
-- 日志：`web/tools/repo_ops/_logs/auto_commit.log`；实现与开关见 `web/tools/repo_ops/README.md`。
-- agent 完成改动仍应主动跑 `sync-repos.cmd`，自动提交只是兜底。
-
-## 五、不入库
+## 四、不入库
 
 - 站点：`deploy/creds.env`、`tools/cert/`、`*.pem` / `*.key` / `*.env`、线上备份 `tools/_backup/`。
 - 小程序：`1.keystore`、`project.private.config.json`、`node_modules/`、`tests/` 运行产物。
@@ -63,7 +59,7 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - Windows：`bin/`、`obj/`、`artifacts/`。
 - 通知管线 / 电费：`src/config.json`、电量快照、SQLite 台账、日志（各自 `.gitignore` 已排除）。
 
-## 六、回滚
+## 五、回滚
 
 - 合并提交：`web` 历史里的 `chore: 并入通知管线 …`、`chore: 并入电费工具包 …`，小程序仓的 `chore: 并入小程序测试仓库 …`；
   需要撤销时 `git revert -m 1 <sha>`，再把目录移回、恢复旧仓库即可。

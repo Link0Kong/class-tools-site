@@ -4,7 +4,7 @@
 
 用法（在任一端仓库根目录执行）：
     python sync_repos.py "feat: 说明本次改了什么"   # 提交并同时推送两个远端
-    python sync_repos.py --auto                     # 自动生成提交说明（计划任务用）
+    python sync_repos.py --auto                     # 自动生成提交说明（批量/脚本调用用）
     python sync_repos.py --check                    # 只核对本地与两个远端是否一致
     python sync_repos.py --status                   # 只看工作区是否有改动
     sync-repos.cmd "feat: 说明"                     # Windows 推荐入口

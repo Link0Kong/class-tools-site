@@ -29,7 +29,7 @@
    - 只推一个远端 / 不写说明 / 写 `update`、`同步` 这类笼统说明 = **未完成交付**；失败按 `SYNC.md` 排障后重跑（不会产生空提交）。
    - 两个仓库均为私有（含个人信息 / 服务器配置），不要改为公开；凭据文件仍按第 1 条永不入库。
    - **一端一仓（2026-11-18 用户要求）**：五个端各一个仓库——`class-tools-site`（网页/部署，本仓）、`class-tools-android`、`class-tools-mp`、`class-tools-harmony`、`class-tools-windows`。原 `briefdesk`、`power`、`mp-tests` 三个按功能拆的仓库已分别并入本仓 `briefdesk/`、`power/` 与小程序仓 `tests/`（保留完整历史），旧仓归档。**不要再按功能新建仓库**；仓库地图与旧路径 junction 见 `REPOS.md`。
-   - **自动提交**：五个端仓库根目录都有同一份 `sync_repos.py` + `sync-repos.cmd`；本机计划任务 `ClassToolsRepoAutoSync` 每 10 分钟扫描，工作区有改动且空闲 ≥5 分钟时自动提交并推双端（日志 `tools/repo_ops/_logs/auto_commit.log`）。agent 完成改动仍应**主动**跑一次 `sync-repos.cmd`，不要依赖兜底。
+   - **自动提交**：五个端仓库根目录都有同一份 `sync_repos.py` + `sync-repos.cmd`；**完成改动后由 agent 主动执行** `sync-repos.cmd "feat: 说明"`（这是"自动提交"的唯一方式）。**不设计划任务、不跑后台守护**（2026-11-18 用户明确要求），不要依赖任何定时兜底。
 
 7. **测试账号唯一化（2026-11-11 用户明确要求：「以后测试统一用测试账号，不要再用任何真实账号了」）**：
    - 所有测试 / 验收 / 自动化脚本**只允许使用测试账号**：① 官方测试身份 `3260799999 / 测试账号`（`private.class_ids.is_test=true`，公开凭据）；② 脚本自行创建、`finally` 删除的**临时 QA 测试身份**（`is_test=true`、学号 **9999 段**，如 `9999000001…`，仅测试期存在，绝不长期保留）。

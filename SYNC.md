@@ -1,6 +1,7 @@
 # 仓库同步说明（五个端各一个仓库 · GitHub + Gitee 双远端）
 
-2026-11-18 用户要求：**按端建仓，不按功能建仓；每个端都要能自动提交。**
+2026-11-18 用户要求：**按端建仓，不按功能建仓；每个端的改动都要能一键提交双远端。**
+**不设计划任务、不跑后台守护**（用户同日明确要求），提交由 agent 在改完后主动执行。
 
 ## 一、仓库地图
 
@@ -43,37 +44,16 @@ sync-repos.cmd "feat: 本次改动一句话说明"
 sync-repos.cmd --check
 ```
 
-## 三、自动提交（兜底）
+**没有后台兜底**：agent 改完必须自己跑这一条，不要等定时任务（本机没有 `ClassToolsRepoAutoSync` 之类的任务）。
 
-- 计划任务 `ClassToolsRepoAutoSync`：每 **10 分钟**扫描五个端仓库；
-  工作区有改动、且最近 **5 分钟**没有新写入（避免提交写一半的文件）时，
-  自动执行该仓库的 `sync_repos.py --auto`（提交说明自动汇总改动目录）并推双端。
-- 日志：`web/tools/repo_ops/_logs/auto_commit.log`（只在本机，不入库）。
-- 实现：`web/tools/repo_ops/auto_commit_all.py`；手动跑一轮：
-
-```cmd
-python web\tools\repo_ops\auto_commit_all.py --dry-run   # 只看会提交什么
-python web\tools\repo_ops\auto_commit_all.py             # 真正执行
-```
-
-- 暂停 / 恢复 / 删除：
-
-```cmd
-schtasks /Change /TN ClassToolsRepoAutoSync /DISABLE
-schtasks /Change /TN ClassToolsRepoAutoSync /ENABLE
-schtasks /Delete /TN ClassToolsRepoAutoSync /F
-```
-
-- **agent 仍应在完成改动时主动跑一次 `sync-repos.cmd`**，自动提交只是兜底，不替代说明。
-
-## 四、说明怎么写
+## 三、说明怎么写
 
 - 前缀：`feat:` 新功能 / `fix:` 修 bug / `docs:` 文档 / `test:` 测试 / `chore:` 杂务 / `refactor:` 重构 / `perf:` 性能 / `revert:` 回滚；没有前缀时脚本自动补 `chore: `。
 - 必须写清「改了什么」；`update`、`fix`、`同步`、`修改` 这类笼统说明会被脚本拒绝。
 - 中文可以；**不要 emoji**（Gitee 提交列表会乱码）。
 - 站点上线类改动，另在 `CHANGELOG.md` 记一条（时间 / 内容 / 回滚点）；重要架构变动补 `HANDOFF.md`。
 
-## 五、验证（任何时候都可查）
+## 四、验证（任何时候都可查）
 
 ```cmd
 git rev-parse HEAD
@@ -83,7 +63,7 @@ git ls-remote gitee refs/heads/master
 
 三行 SHA 相同即两端同步完成；也可以 `sync-repos.cmd --check` 一键核对。
 
-## 六、凭据与 .gitignore 约定
+## 五、凭据与 .gitignore 约定
 
 - GitHub 走 `gh auth`（Windows 凭据管理器 keyring）；Gitee 走 `credential.helper=store`（`C:\Users\Ko_Li\.git-credentials`，只在本机）。
   **不要读取、复制、粘贴这些凭据文件的内容。**
@@ -93,7 +73,7 @@ git ls-remote gitee refs/heads/master
   `tools/tests/frozen/` 仅保留既有基线冻结副本，新生成的不入库。
 - 注：`tools/tt.json` 由本机计划任务 `JwxtTimetableSync`（每日 07:00）自动更新；出现改动时随下一次提交入库。
 
-## 七、旧仓库归档
+## 六、旧仓库归档
 
 - GitHub：已用 `gh repo archive` 归档 `class-tools-briefdesk`、`class-tools-power`、`class-tools-mp-tests`。
 - Gitee：无可用 API 凭据，需在网页「仓库设置 → 归档」手动归档同名的三个仓库；
