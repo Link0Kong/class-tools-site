@@ -1,10 +1,10 @@
 {
-  "versionCode": 92,
-  "versionName": "1.0.0-beta9",
-  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta9.apk.bin",
-  "notes": "1.0.0-beta9：按鸿蒙间隔参数统一 16/24/32vp 屏幕边距、12vp 卡片、16/8vp 元素、2/8vp 文本；电费下拉/高度变化时曲线与游标不漂移",
+  "versionCode": 93,
+  "versionName": "1.0.0-beta10",
+  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta10.apk.bin",
+  "notes": "1.0.0-beta10：宿舍人数 1–6 自选（取消 23A/23B 固定四人间）；同步间隔参数与电费曲线修复",
   "force": false,
   "channel": "beta",
-  "sha256": "23d0f4aff38cc9a60b6ad8891cfe60a627487102968abd1fdc55bdcb24c3aad6",
-  "sizeBytes": 5820537
+  "sha256": "31b09d78833cb718736594ef76b008b210827282b80513170163f505e4834a53",
+  "sizeBytes": 5820541
 }

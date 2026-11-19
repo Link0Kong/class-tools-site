@@ -3812,6 +3812,17 @@ sync-repos.cmd "feat: 说明本次改了什么"
 - 上线：网页 **1,338,726 B / sha256 `d6a20cf9…`**（OSS+ECS MATCH，gzip 414,999B）；备份 `tools/_backup/index_online_20261118-2240_preCountSort.html`（1,338,669B/`f6f85eb5…`）。
 - 回滚：重传备份；各端回退上一版源码/安装包。
 
+## 2026-11-19 18:0x · 宿舍人数 1–6 自选（网页已上线，五端同步）
+
+> 用户要求：「优化宿舍人数为 6 人以下自选」。原实现只允许 4/6，且 23A/23B 固定四人间；现全部放开为 1–6。
+
+- **网页**：`RULES.personsOpts=[1..6]`；新增 `WATER.normPersons()`；水量下拉 1–6；`setPersons` / 云端 `water_room` / `water` 行 / `#wtCmp` 全部按 1–6 归一；`fixed4()` 恒 false（23A/23B 不再强制 4）。
+- **数据库**：`deploy/cloudbase/2026-11-19_water_persons_1_6.sql` 已应用，`water.persons` / `water_room.persons` CHECK 均为 1–6（pg_constraint 已回读确认）。
+- **小程序**：`utils/water.js` 的 `personsOpts` / `normPersons` / `isFixed4`；水量页 1–6 chips；23A/23B 锁移除。单测 `water 14/14`、`task7 24/24`；`unit 613/7`（7 项为既有失败）。
+- **安卓 / 鸿蒙 / Windows**：`PERSONS_OPTIONS=1..6`；水量页 chips / ComboBox 1–6；远端 `p` 归一 1–6；免费额度 1–6。
+- **上线**：网页 **1,354,731 B / sha256 `dd7be3aa…`**（OSS MATCH / ECS verify MATCH；gzip 421,985B）；备份 `tools/_backup/index_online_20261119-1802_prePersons16.html`（1,354,501B/`146d3179…`）。
+- **安卓**：beta10/vc93（5,820,541B / `31B09D78…`）已自动上传 ECS+OSS；小程序/鸿蒙/Windows 源码待对应发布。
+
 ## 2026-11-19 12:0x · 网页电费曲线/采集刻度 + 大屏卡片/设置卡 + 通知修复（网页已上线）
 
 > 用户 14 条反馈中的网页/数据部分。网页线上 **1,354,501 B / sha256 `146d3179…`**（OSS `check` MATCH、ECS verify MATCH；gzip 421,943B）；备份 `tools/_backup/index_online_20261119-1208_prePowerNoticeSettings.html`（1,343,096B/`2b6dc8c4…`）。

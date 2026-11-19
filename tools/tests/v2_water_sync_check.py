@@ -63,8 +63,8 @@ SID_A = W.SID_A
 SID_B = W.SID_B
 RV321 = W.RV321
 RV330 = W.RV330
-# 契约变更（2026-11-11，反馈6）：23A/23B 固定 4 人间 → 4↔6 人重算/人数同步改用 13 号楼房间；
-# 6 人间恢复/隔离类场景改用 16 号楼房间
+# 2026-11-19：取消固定四人间；23A/23B 也可 1–6 自选，以下仍用 13/16 号楼做多档重算场景。
+# 6 人间恢复/隔离类场景用 16 号楼房间
 RV13 = "1-13---324"
 RV16 = "1-16---306"
 ATW_SEED = 1762300800000        # 云端 water at 种子（2025-11 附近，早于当前）
@@ -365,12 +365,11 @@ def sc_a_local(cdp):
     T("A14 删除后 at.water 继续递增", isinstance(at3, (int, float)) and isinstance(at2, (int, float)) and at3 > at2,
       "%s -> %s" % (at2, at3))
 
-    # 契约变更（2026-11-11，反馈6）：23A/23B 固定 4 人、人数选择器禁用；
-    # 4↔6 人切换改到 13 号楼（1-13---324）验证（旧场景在 23A 房间设 6 人已不合契约）。
+    # 2026-11-19：取消 23A/23B 固定 4 人间，所有宿舍 1–6 自选。
     W.set_select(cdp, "#wtPersons", "6")
     disp = W.jval(cdp, "#wtPersons")
     fixed = bool(ev(cdp, "(function(){var e=document.getElementById('wtPersons');return !!e&&!!e.disabled;})()"))
-    T("A15 23A 房间人数固定 4（选择器禁用、6 人被拒绝）", disp == "4" and fixed,
+    T("A15 23A 房间人数 1–6 自选（6 人可生效、选择器可用）", disp == "6" and not fixed,
       "val=%s disabled=%s" % (disp, fixed))
     W.select_water_room(cdp, RV13)
     time.sleep(0.4)
@@ -391,8 +390,8 @@ def sc_a_local(cdp):
     last = last_blob(cdp)
     rwL = wroom(last or {}, RV13)
     roomsL = ((last.get("water") or {}).get("rooms") or {})
-    T("A17 等 >1.3s 后最后一次 POST 终态：324 p=6 / 321 p=4 / 记录保留",
-      last is not None and rwL.get("p") == 6 and wroom(last or {}, RV321).get("p") == 4
+    T("A17 等 >1.3s 后最后一次 POST 终态：324 p=6 / 321 p=6 / 记录保留",
+      last is not None and rwL.get("p") == 6 and wroom(last or {}, RV321).get("p") == 6
       and len(roomsL.keys()) >= 2 and [x.get("m") for x in (rwL.get("recs") or [])] == [W.M3],
       json.dumps(roomsL, ensure_ascii=False)[:260])
     T("A18 最后一次 POST 仍为 14 键契约", key_order(last) == CONTRACT_KEYS, key_order(last))
@@ -436,7 +435,7 @@ def sc_b_restore(cdp):
     cache = cache_read(cdp, SID_A) or {}
     T("B08 UD 基线 at.water = 云端种子时间戳", ((cache.get("at") or {}).get("water")) == ATW_SEED,
       str((cache.get("at") or {}).get("water")))
-    # 切到 16 号楼 306：人数/记录跟随该宿舍（23A/23B 固定 4 人，不能再用 330 验证 6 人）
+    # 切到 16 号楼 306：人数/记录跟随该宿舍（23A/23B 已允许 1–6，但 16 号楼场景保留）
     W.set_select(cdp, "#wtSel", RV16)
     time.sleep(0.6)
     row4 = W.row_text(cdp, "2025-04")

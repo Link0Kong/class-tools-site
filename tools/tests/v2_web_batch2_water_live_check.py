@@ -4,7 +4,7 @@
 流程：
   headless Edge 打开本机临时通道（deploy/local_channel.py，同源代理 CloudBase）→
   测试身份（3260799999 / 测试账号）真实登录 → 全部页 → 水量页 →
-  选 23B 423（固定 4 人）→ 填 2099-07 / 123.45 保存 → 真实 API 校验 water 行 →
+  选 23B 423（1–6 自选，本次用 5 人）→ 填 2099-07 / 123.45 保存 → 真实 API 校验 water 行 →
   清本机缓存后重载 → 界面从云端恢复该记录 → 界面删除 → 真实 API 校验已删 →
   finally 清理 2099-xx 测试行。
 云端写保护：仅放行 GET/HEAD/OPTIONS、POST /rpc/class_verify|class_members、以及
@@ -39,7 +39,7 @@ import _cdp  # noqa: E402
 REST = "https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/"
 KEY = open(os.path.join(WEB, "deploy", "cloudbase", "publish_key.txt"), encoding="utf-8").read().strip()
 TEST_SID, TEST_NAME = "3260799999", "测试账号"
-RV = "4-23B---423"          # 23B（固定 4 人间）
+RV = "4-23B---423"          # 23B（1–6 自选，本次用 5 人）
 MONTH = "2099-07"
 SHOTS = os.path.join(HERE, "_shots_web_batch2")
 os.makedirs(SHOTS, exist_ok=True)
@@ -234,10 +234,13 @@ def main():
         click(pg, '#allCards [data-open="water"]')
         T("进入水量页", pg.wait_for("document.getElementById('s-water').classList.contains('on')", 15))
 
-        # ---- 选择 23B 423（固定 4 人）----
+        # ---- 选择 23B 423（1–6 自选，本次用 5 人）----
         set_val(pg, "#wtSel", RV)
         pg.sleep(0.8)
-        T("23B 房间人数固定 4 且不可改", ev(pg, "(function(){var e=document.getElementById('wtPersons');return e.value==='4'&&!!e.disabled;})()"))
+        T("23B 房间人数默认 4 且选择器可用", ev(pg, "(function(){var e=document.getElementById('wtPersons');return e.value==='4'&&!e.disabled;})()"))
+        set_val(pg, "#wtPersons", "5")
+        pg.sleep(0.5)
+        T("23B 房间可切换为 5 人间", ev(pg, "(function(){var e=document.getElementById('wtPersons');return e.value==='5'&&!e.disabled;})()"))
         # ---- 保存一条 2099-07 抄表（真实云端） ----
         set_val(pg, "#wtMonth", MONTH)
         set_val(pg, "#wtReading", "123.45")
@@ -248,8 +251,8 @@ def main():
             ev(pg, "(function(){try{return JSON.stringify(window.__B2.water.status());}catch(e){return 'na';}})()"),
             guard.get("water_urls"), guard.get("blocked_urls")))
         ok_w, st, row = wait_water_row(token, lambda r: isinstance(r, dict) and float(r.get("reading")) == 123.45
-                                       and int(r.get("persons")) == 4)
-        T("真实云端已写入 water 行（2099-07 / 123.45 / persons=4）", ok_w,
+                                       and int(r.get("persons")) == 5)
+        T("真实云端已写入 water 行（2099-07 / 123.45 / persons=5）", ok_w,
           "status=%s row=%s" % (st, row))
         T("界面水费预览/历史已更新", MONTH in text_of(pg, "#wtList") and "123.45" in text_of(pg, "#wtList"))
         # ---- 清本机缓存后重载：从云端恢复（换设备语义） ----

@@ -384,14 +384,14 @@ def main():
         set_select(p, "#wtSel", RV23A)
         time.sleep(1.0)
         s = snap(p)
-        T("B6a 23A 房间：人数强制 4", s["persons"] == "4", s["persons"])
-        T("B6b 23A 房间：人数选择器 disabled", s["personsDisabled"] is True, s["personsDisabled"])
+        T("B6a 23A 房间：人数默认 4 且可自选", s["persons"] == "4", s["persons"])
+        T("B6b 23A 房间：人数选择器不再 disabled", s["personsDisabled"] is False, s["personsDisabled"])
         wr = [r for r in s["wreq"] if r["api"] == "water_room" and r["method"] == "POST" and '"' + RV23A + '"' in (r["body"] or "")]
-        T("B6c 23A 首次进入自动 upsert water_room persons=4", bool(wr), [r["body"] for r in s["wreq"] if r["api"] == "water_room"])
+        T("B6c 23A 同步 water_room 为当前人数 4（合法，不再强制）", bool(wr) and all('"persons":4' in (r["body"] or "") for r in wr), [r["body"] for r in s["wreq"] if r["api"] == "water_room"])
         set_select(p, "#wtSel", RV13)
         time.sleep(0.8)
         s = snap(p)
-        T("B6d 13 号楼可 4/6（选择器可用）", s["personsDisabled"] is False, s["personsDisabled"])
+        T("B6d 13 号楼可 1–6（选择器可用）", s["personsDisabled"] is False, s["personsDisabled"])
         set_select(p, "#wtPersons", "6")
         wait_for(lambda: any(r.get("api") == "water_room" and r.get("method") == "POST" and '"' + RV13 + '"' in (r.get("body") or "")
                             for r in (snap(p)["wreq"] or [])), 8)
@@ -412,8 +412,8 @@ def main():
     p = new_page()
     open_water(p)
     s = snap(p)
-    T("C1 #wtPersons 选项只有「4 人间」「6 人间」（无免费吨数）",
-      s["opts"] == ["4 人间", "6 人间"], s["opts"])
+    T("C1 #wtPersons 选项为「1 人间」…「6 人间」（无免费吨数）",
+      s["opts"] == ["1 人间", "2 人间", "3 人间", "4 人间", "5 人间", "6 人间"], s["opts"])
     water_norm = "".join((s["waterText"] or "").split())
     T("C2 水量页无「每月免费」「免费 N 吨水」字样",
       "每月免费" not in water_norm and "免费8吨" not in water_norm and "免费12吨" not in water_norm,

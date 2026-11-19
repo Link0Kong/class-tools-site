@@ -3685,7 +3685,7 @@ html[data-appearance="dark"] #noticeHost .notice-empty,html[data-appearance="dar
         </div>
         <div class="wt-pick">
           <label class="f" for="wtPersons">宿舍人数</label>
-          <div class="pw-selwrap"><select class="pw-select" id="wtPersons"><option value="4">4 人间</option><option value="6">6 人间</option></select></div>
+          <div class="pw-selwrap"><select class="pw-select" id="wtPersons"><option value="1">1 人间</option><option value="2">2 人间</option><option value="3">3 人间</option><option value="4">4 人间</option><option value="5">5 人间</option><option value="6">6 人间</option></select></div>
         </div>
         <div class="wt-last">
           <div class="wt-last-l">上次抄表</div>
@@ -7129,7 +7129,7 @@ var PW_RANGE_KEY="zq_power_range_v1", PW_HCACHE_TTL=5*60*1000;
 /* 计费规则（福建中医药大学学生公寓，见 web/_water_rules/research.md）：
    电 0.58 元/度、水 3.03 元/吨；免费定额 2 吨水 + 5 度电/人/月（当年有效、每学年 10 个月）；
    无阶梯、无额外加价；水费从电费账户扣（折合扣电 = 水费 ÷ 0.58）。 */
-var RULES={elec:0.58,water:3.03,waterFreePP:2,elecFreePP:5,personsDef:4,personsOpts:[4,6],
+var RULES={elec:0.58,water:3.03,waterFreePP:2,elecFreePP:5,personsDef:4,personsOpts:[1,2,3,4,5,6],
   src:"福建中医药大学后勤基建处 2025-09-05 说明 / 学生公寓管理规定（2021）"};
 /* 短时大幅下跌识别：dq > max(minDeg, factor×U) 视为非用电扣减（疑似水费从电费账户扣）；
    U = 窗口内正常单段用电中位数；水量记录折合扣电误差 ≤ waterMatch（或 2 度）时标注为水费扣除。 */
@@ -8324,7 +8324,7 @@ try{window.__POWER_CHART=function(){var c=POWER._chart;return c?{coords:c.coords
   dot:{left:$("#pwDetailDot")?$("#pwDetailDot").style.left:"",top:$("#pwDetailDot")?$("#pwDetailDot").style.top:""}}:null;};}catch(e){}
 /* ============================================================
    宿舍水量（手动抄表 · 自动对比 · 计费规则）：
-   - 与电费共用「关注宿舍」（POWER.sel / UD.power.sel）；每间可设 4/6 人间；
+   - 与电费共用「关注宿舍」（POWER.sel / UD.power.sel）；每间可设 1–6 人间；
    - 每次抄表 = 月份 + 水表读数（吨）；本期用量 = 本次读数 − 上一次读数；
    - 水费 = max(0, 用量 − 2×人数) × 3.03；折合扣电 = 水费 ÷ 0.58（水费从电费账户扣）；
    - 数据 D.d.water.rooms[roomverify]={p,recs[]}，随 UD water section 跨端同步；
@@ -8348,10 +8348,14 @@ var WATER={
     if(!(r.recs instanceof Array))r.recs=[];
     return r;
   },
+  /* 人数归一：1–6 人间均可自选（2026-11-19 用户要求），非法值回落默认 4。 */
+  normPersons:function(v){
+    var n=Math.round(Number(v));
+    return (isFinite(n)&&n>=1&&n<=6)?n:RULES.personsDef;
+  },
   persons:function(){
     var r=WATER.room(WATER.sel());
-    var p=Number(r&&r.p);
-    return (p===6)?6:RULES.personsDef;
+    return WATER.normPersons(r&&r.p);
   },
   freeWater:function(){return RULES.waterFreePP*WATER.persons();},
   freeElec:function(){return RULES.elecFreePP*WATER.persons();},
@@ -8377,7 +8381,7 @@ var WATER={
     if(out.length>120)out=out.slice(out.length-120);
     return out;
   },
-  /* water section 归一：rooms 逐间 {p:4|6, recs:[...]}；坏房间/非法月份/超量记录全部清洗
+  /* water section 归一：rooms 逐间 {p:1..6, recs:[...]}；坏房间/非法月份/超量记录全部清洗
      （远端不可信 + 本机旧缓存也可能脏；渲染与推流共用同一归一，避免把脏数据回写云端） */
   normWater:function(w){
     var out={rooms:{}},src=null,rv,r;
@@ -8387,7 +8391,7 @@ var WATER={
         if(!src.hasOwnProperty(rv))continue;
         r=src[rv];
         if(!r||typeof r!=="object"||r instanceof Array)continue;
-        out.rooms[String(rv)]={p:(Number(r.p)===6)?6:RULES.personsDef,recs:WATER.normRecs(r.recs)};
+        out.rooms[String(rv)]={p:WATER.normPersons(r.p),recs:WATER.normRecs(r.recs)};
       }
     }
     return out;
@@ -8398,7 +8402,7 @@ var WATER={
   },
   /* 用量与水费：usage=null 表示无上次记录；p=宿舍人数 */
   cost:function(usage,p){
-    p=(Number(p)===6)?6:RULES.personsDef;
+    p=WATER.normPersons(p);
     var free=RULES.waterFreePP*p;
     if(usage==null||!isFinite(usage)){
       return {usage:null,excess:null,fee:null,deg:null,free:free,within:false};
@@ -8667,7 +8671,7 @@ var WATER={
     box.innerHTML=h;
   },
   setPersons:function(v){
-    var p=(Number(v)===6)?6:RULES.personsDef;
+    var p=WATER.normPersons(v);
     var rv=WATER.sel();
     if(!rv){toast("先选择关注宿舍");return;}
     var room=WATER.room(rv,true);
@@ -16737,7 +16741,7 @@ function optSaveCanvas(c,o){
       var n=0,persons=0,withRec=0,noPrev=0,usageSum=0,feeSum=0,excessN=0;
       keys.forEach(function(k){
         var recs=WATER.recs(k); if(!recs||!recs.length)return;
-        withRec++; var r=rooms[k]||{}; var pp=(Number(r.p)===6)?6:RULES.personsDef;
+        withRec++; var r=rooms[k]||{}; var pp=WATER.normPersons(r.p);
         n++; persons+=pp;
         if(recs.length<2){ noPrev++; return; }
         var last=recs[recs.length-1], prev=recs[recs.length-2];
@@ -19417,8 +19421,9 @@ function optSaveCanvas(c,o){
       var a=pendList();a.push(op);if(a.length>80)a=a.slice(-80);pendSet(a);
     }
     function pendRemove(pred){pendSet(pendList().filter(function(x){return !pred(x);}));}
-    function fixed4(rv){return /^4-23A---/.test(String(rv||""))||/^4-23B---/.test(String(rv||""));}
-    function personsOf(rv){var r=null;try{r=WATER.room(rv);}catch(e){}var p=Number(r&&r.p);return p===6?6:RULES.personsDef;}
+    /* 2026-11-19：取消 23A/23B 固定四人间，所有宿舍均可自选 1–6 人间。 */
+    function fixed4(rv){return false;}
+    function personsOf(rv){var r=null;try{r=WATER.room(rv);}catch(e){}return WATER.normPersons(r&&r.p);}
     function rowsNorm(rows){
       var out=[];
       (rows instanceof Array?rows:[]).forEach(function(x){
@@ -19520,7 +19525,7 @@ function optSaveCanvas(c,o){
         .then(function(){online=true;lastOk=Date.now();renderStatus();return true;},function(){online=false;pendAdd({k:"del",rv:rv,m:m,at:Date.now()});renderStatus();return false;});
     }
     function persons(rv,p){
-      var want=fixed4(rv)?4:(Number(p)===6?6:RULES.personsDef);
+      var want=WATER.normPersons(p);
       pendRemove(function(x){return x&&x.k==="room"&&x.rv===rv;});
       return postJSON("water_room?on_conflict=roomverify",{roomverify:rv,persons:want})
         .then(function(){online=true;lastOk=Date.now();renderStatus();return true;},function(){online=false;pendAdd({k:"room",rv:rv,p:want,at:Date.now()});renderStatus();return false;});
@@ -19535,7 +19540,7 @@ function optSaveCanvas(c,o){
           mergeRowsIntoRoom(rv,rows,true);
           return fetchJSON("water_room?select=roomverify,persons&roomverify=eq."+rv).then(function(rs){
             var got=null;try{if(rs&&rs[0]&&rs[0].persons!=null)got=Number(rs[0].persons);}catch(e){}
-            var want=fixed4(rv)?4:personsOf(rv);
+            var want=personsOf(rv);
             if(got==null||Number(got)!==Number(want)){
               return postJSON("water_room?on_conflict=roomverify",{roomverify:rv,persons:want}).then(function(){
                 var room=null;try{room=WATER.room(rv);}catch(e){}
@@ -19563,7 +19568,7 @@ function optSaveCanvas(c,o){
           if(!hit)merged.push(c.rows[i]);
         }
         room.recs=WATER.normRecs(merged);
-        if(fixed4(rv))room.p=4;else if(c.persons)room.p=(Number(c.persons)===6?6:RULES.personsDef);
+        if(c.persons)room.p=WATER.normPersons(c.persons);
         D.save();
         if(typeof CURTAB!=="undefined"&&CURTAB==="water"){try{WATER.render();}catch(e){}}
       }catch(e){}

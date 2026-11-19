@@ -695,11 +695,11 @@ def static_checks():
            "pwDeduct", "pwBill"]
     miss = [i for i in ids if ('id="%s"' % i) not in src]
     ck("契约 DOM id 齐全（15 个）", not miss, "缺少 " + ",".join(miss))
-    ck("RULES 常量（0.58/3.03/2 / 5 / 4 人 / [4,6]）",
+    ck("RULES 常量（0.58/3.03/2 / 5 / 4 人 / 1-6）",
        bool(re.search(r"elec:\s*0\.58", src)) and bool(re.search(r"water:\s*3\.03", src))
        and bool(re.search(r"waterFreePP:\s*2\b", src)) and bool(re.search(r"elecFreePP:\s*5\b", src))
        and bool(re.search(r"personsDef:\s*4\b", src))
-       and bool(re.search(r"personsOpts:\s*\[\s*4\s*,\s*6\s*\]", src)))
+       and bool(re.search(r"personsOpts:\s*\[\s*1\s*,\s*2\s*,\s*3\s*,\s*4\s*,\s*5\s*,\s*6\s*\]", src)))
     ck("PW_DEDUCT 常量（minDeg:5 / factor:4 / waterMatch:0.1）",
        bool(re.search(r"PW_DEDUCT\s*=\s*\{[^}]*minDeg:\s*5[^}]*factor:\s*4[^}]*waterMatch:\s*0?\.10?[^}]*\}", src)))
     ck("UD_KEYS 末尾追加 water（11 section）",
@@ -837,7 +837,7 @@ def sc_b_water_basics(cdp):
         persons = ev(cdp, "(function(){var e=document.getElementById('wtPersons');return e?Array.prototype.slice.call(e.options).map(function(o){return o.value;}):[];})()") or []
     except Exception:
         pass
-    T("B11 #wtPersons 选项 = 4/6 人且默认 4", persons == ["4", "6"] and jval(cdp, "#wtPersons") == "4",
+    T("B11 #wtPersons 选项 = 1–6 人且默认 4", persons == ["1", "2", "3", "4", "5", "6"] and jval(cdp, "#wtPersons") == "4",
       str(persons) + " val=" + jval(cdp, "#wtPersons"))
     T("B12 规则卡 #wtRuleBody 有内容", len(norm(jtext(cdp, "#wtRuleBody"))) > 10,
       norm(jtext(cdp, "#wtRuleBody"))[:80])
@@ -957,18 +957,17 @@ def sc_c_records(cdp):
     order = [r["m"] for r in rows_of(cdp)]
     T("C18 历史列表按月份倒序", order == [M1, M2, M3, M4], ",".join(order))
 
-    # 契约变更（2026-11-11，反馈6）：23A/23B 固定 4 人、人数选择器禁用。
-    # 先在 23A 房间验证固定 4，再切 13 号楼（1-13---324）用同样读数验证 4↔6 人重算。
+    # 2026-11-19：取消 23A/23B 固定 4 人间，所有宿舍 1–6 自选。
     set_select(cdp, "#wtPersons", "6")
     sleep(0.3)
-    fixed4_ok = (jval(cdp, "#wtPersons") == "4" and
-                 bool(ev(cdp, "(function(){var e=document.getElementById('wtPersons');return !!e&&!!e.disabled;})()")))
-    T("C18b 23A 房间（4-23A---321）固定 4 人间：选择器禁用、不能改 6", fixed4_ok,
+    free6_ok = (jval(cdp, "#wtPersons") == "6" and
+                not bool(ev(cdp, "(function(){var e=document.getElementById('wtPersons');return !!e&&!!e.disabled;})()")))
+    T("C18b 23A 房间（4-23A---321）1–6 自选：6 人可生效", free6_ok,
       "val=%s" % jval(cdp, "#wtPersons"))
     rv13_ok = select_water_room(cdp, RV13)
     sleep(0.4)
     en13 = wait_until(cdp, "(function(){var e=document.getElementById('wtSave');return !!e&&!e.disabled;})()", 10)
-    T("C18c 13 号楼可切换关注宿舍（人数 4/6 可选）",
+    T("C18c 13 号楼可切换关注宿舍（人数 1–6 可选）",
       rv13_ok and en13 and not ev(cdp, "(function(){var e=document.getElementById('wtPersons');return !!e&&!!e.disabled;})()"),
       "sel=%s" % jval(cdp, "#wtSel"))
     save_record(cdp, M4, "100.00")
@@ -999,6 +998,9 @@ def sc_c_records(cdp):
     # 切回原 23A 房间（后续 C24+ 断言仍在 321 上）
     select_water_room(cdp, RV321)
     sleep(0.4)
+    # 23A 的 6 人选择沿用；C24+ 的 4 人口径先切回 4，避免影响后续断言。
+    set_select(cdp, "#wtPersons", "4")
+    sleep(0.3)
 
     # 删除 M3（confirm 确认）→ M2 用量重算为 20.00 / 36.36
     try:
