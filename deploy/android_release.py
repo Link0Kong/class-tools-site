@@ -127,9 +127,6 @@ def main(argv=None):
     import shutil
     shutil.copy2(apk, local_apk)
     shutil.copy2(apk, local_bin)
-    with open(os.path.join(ANDROID_DIR, "latest.json"), "w", encoding="utf-8") as f:
-        f.write(raw.decode("utf-8"))
-
     # 1) OSS：先 APK，后 JSON
     if not args.skip_oss:
         b = oss_bucket()
@@ -181,6 +178,10 @@ def main(argv=None):
             remote = json.loads(body.decode("utf-8"))
             if str(remote.get("sha256")) != digest or int(remote.get("versionCode") or 0) != int(args.version_code):
                 raise SystemExit("验证失败：%s 内容与发布不一致" % label)
+
+    # 只有公网双通道都验证通过后才写本地 latest.json（失败时下次不会被幂等跳过）
+    with open(os.path.join(ANDROID_DIR, "latest.json"), "w", encoding="utf-8") as f:
+        f.write(raw.decode("utf-8"))
 
     print("== 发布完成：%s / vc%s / %s ==" % (args.version_name, args.version_code, digest))
     print("  客户端主入口：http://%s/android/latest.json" % ECS_IP)
