@@ -2,7 +2,7 @@
   "versionCode": 92,
   "versionName": "1.0.0-beta9",
   "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta9.apk.bin",
-  "notes": "1.0.0-beta9（测试版本）\n1. UI/动效向鸿蒙端对齐\n2. 隐私政策 / 用户协议全文\n3. 通知轻量 meta + 按需详情\n4. 网络与更新渠道优化",
+  "notes": "1.0.0-beta9：按鸿蒙间隔参数统一 16/24/32vp 屏幕边距、12vp 卡片、16/8vp 元素、2/8vp 文本；电费下拉/高度变化时曲线与游标不漂移",
   "force": false,
   "channel": "beta",
   "sha256": "23d0f4aff38cc9a60b6ad8891cfe60a627487102968abd1fdc55bdcb24c3aad6",
