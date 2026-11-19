@@ -136,9 +136,10 @@ def main(argv=None):
         b = oss_bucket()
         b.put_object_from_file("android/" + oss_name, apk, headers={
             "Content-Type": "application/octet-stream", "Cache-Control": "no-cache"})
-        b.put_object_from_file("android/latest.json", os.path.join(ANDROID_DIR, "latest.json"),
-                               headers={"Content-Type": "application/json; charset=utf-8",
-                                        "Cache-Control": "no-cache"})
+        # 关键：必须上传本次生成的 raw，而不是本地 latest.json（本地只在全部校验通过后才更新，
+        # 否则会把上一版 JSON 传到 OSS，出现 ECS/OSS 版本分裂）。
+        b.put_object("android/latest.json", raw, headers={
+            "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache"})
         print("  OSS 上传完成：android/%s + android/latest.json" % oss_name)
 
     # 2) ECS：从 OSS 拉 APK（云助手脚本只含固定 OSS URL / sha / origin），再写 latest.json

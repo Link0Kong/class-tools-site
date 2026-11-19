@@ -397,7 +397,7 @@ def run_phase_a(cdp):
       "≥30" in l1["days"] and l1["refText"] == "" and "6.3" in l1["tile2"],
       json.dumps({"days": l1["days"], "tile2": l1["tile2"]}, ensure_ascii=False))
     T("L1.3 更新时间仍用 updated_at（现状：11-06 06:42）", l1["upd"] == "更新 11-06 06:42", l1["upd"])
-    T("L1.4 实时房折线（无阶梯 H/V）、无变化点圆点", "L" in l1["pathD"] and "H" not in l1["pathD"] and l1["cdotN"] == 0,
+    T("L1.4 实时房折线（无阶梯 H/V）、无变化点圆点", "M" in l1["pathD"] and "H" not in l1["pathD"] and "V" not in l1["pathD"] and l1["cdotN"] == 0,
       json.dumps({"path": l1["pathD"][:90], "cdots": l1["cdotN"]}, ensure_ascii=False))
     T("L1.5 实时房选择 → 恰好 2 个 history 窗口（现状）", l1["hist"] - n_l0 == 2, "%s->%s" % (n_l0, l1["hist"]))
     T("L1.6 截图实时房 390 宽", shot(cdp, "cadence_live_390.png"), "")

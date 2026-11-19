@@ -171,6 +171,19 @@ def run(p, shots):
     T("A6b 平滑曲线穿过每个真实采样点（C 段终点=采样坐标）", curve and curve["ends"] == curve["n"] and curve["maxd"] <= 0.25, json.dumps(curve, ensure_ascii=False))
     T("A6c 游标圆点与曲线同坐标（百分比定位，缩放不漂移）", curve and curve["dx"] <= 1.2 and curve["dy"] <= 1.2, json.dumps(curve, ensure_ascii=False))
     T("A6d 详情层与绘图区同宽（圆点 x 与曲线同源）", curve and abs(curve["detailW"] - curve["plotW"]) <= 1.5, json.dumps(curve, ensure_ascii=False))
+    # 模拟移动端地址栏收起/下拉回弹：只改高度不改宽度，曲线与游标应同步缩放、不漂移。
+    p.set_device(390, 760, dpr=2.0, mobile=True, touch=True)
+    time.sleep(0.45)
+    curve_h = p.evaluate("""(function(){
+      var ch=window.__POWER_CHART&&window.__POWER_CHART(),svg=document.querySelector('#pwTrend svg'),dot=document.querySelector('#pwDetailDot');
+      if(!ch||!svg||!dot)return null;var dr=dot.getBoundingClientRect(),sr=svg.getBoundingClientRect();
+      var c=ch.coords[ch.detail]||ch.coords[0];
+      var ex=sr.left+c[0]/ch.W*sr.width,ey=sr.top+c[1]/ch.H*sr.height;
+      return {dx:+Math.abs((dr.left+dr.right)/2-ex).toFixed(2),dy:+Math.abs((dr.top+dr.bottom)/2-ey).toFixed(2)};
+    })()""")
+    T("A6e 高度变化（下拉/地址栏）后圆点仍贴曲线", curve_h and curve_h["dx"] <= 1.2 and curve_h["dy"] <= 1.2, json.dumps(curve_h, ensure_ascii=False))
+    p.set_device(390, 900, dpr=2.0, mobile=True, touch=True)
+    time.sleep(0.35)
     T("A7 固定位置：气泡在绘图区上方（不放在图内）", st["tip"]["b"] <= st["plot"]["t"] + 0.5,
       "tip.b=%s plot.t=%s" % (st["tip"]["b"], st["plot"]["t"]))
     T("A8 右对齐卡片内容右缘（趋势图右上角）", abs(st["tip"]["r"] - (st["card"]["r"] - 16)) <= 2.5,

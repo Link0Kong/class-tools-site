@@ -3814,12 +3814,13 @@ sync-repos.cmd "feat: 说明本次改了什么"
 
 ## 2026-11-19 12:0x · 网页电费曲线/采集刻度 + 大屏卡片/设置卡 + 通知修复（网页已上线）
 
-> 用户 14 条反馈中的网页/数据部分。网页线上 **1,353,739 B / sha256 `5152faf6…`**（OSS `check` MATCH、ECS verify MATCH；gzip 421,525B）；备份 `tools/_backup/index_online_20261119-1208_prePowerNoticeSettings.html`（1,343,096B/`2b6dc8c4…`）。
+> 用户 14 条反馈中的网页/数据部分。网页线上 **1,354,501 B / sha256 `146d3179…`**（OSS `check` MATCH、ECS verify MATCH；gzip 421,943B）；备份 `tools/_backup/index_online_20261119-1208_prePowerNoticeSettings.html`（1,343,096B/`2b6dc8c4…`）。
 
 - **电费（1–3）**：`powerSmoothPath()` 单调三次 Hermite（Fritsch–Carlson）曲线严格穿过真实采样点；游标竖线/圆点改为百分比定位（随 SVG 拉伸同步缩放，修复圆点偏离）；`normHist()` 按北京时间 30 分钟刻度吸附去重（旧 :01/:46 双源不再造成锯齿），电量值/真实采样时间保留用于统计；`power_history` 采集脚本改为整点/半点统一 `slot_at`，本机计划任务 `ClassPowerSync` 改为每 30 分钟（12:00/12:30 实测），CloudBase `power_sync` 部署同源脚本后按 slot 去重（12:05 手动回包 `existing=17/17, skip gateway`）。
 - **大屏/设置（4–6）**：大屏改为「全部」页独立工具卡片（管理员，`stage`），打开覆盖层；移除可见的「大屏 / 大屏互联」底部按钮行，仅保留全隐藏兼容节点 + `[hidden]` CSS 兜底；新增「设置」工具卡片/页面，外观、数据备份、隐私政策、用户协议集中；身份页增加协议同意文案与链接。旧 `optim_v2`/`v2_stage_drop_session` 仍通过（隐藏兼容节点保留）。
 - **通知（7–9）**：lite 列表图片改为 IntersectionObserver 进入视口自动拉单行 body 直接显示（`lazyimg` + `autoPreviewImages`，不再必须点击）；badge 默认值改为只认 `class-members` 显式字段（修复普通同学被标班委）；人工补丁新增 `mergeInto`/`dropImages`；毛毛雨组移除 4 张无关图、军训方案时间改 11-09、`aiSegments` 同步修正；军训心得 11-22 组并入「军训心得与鉴定表提交」，保留班级 11-19 / 学校 11-22 两个时间点。
 - **网络（13）**：网页所有 PostgREST 读请求（GET/只读 RPC）统一 30s AbortController 超时（大表 45s），轮询 8s 单飞、离线不轮询；小程序/安卓/鸿蒙/Windows 的 meta/单行 body 与超时收口见各仓。
 - **安卓发布（2026-11-19 追加）**：`app/build.gradle.kts` 的 `publishUpdateChannel` 由 `assembleRelease` finalizer 自动执行；统一走 `web/deploy/android_release.py` 上传 APK/latest.json 到 ECS+OSS 并回读 sha；默认开启，`-Pct.skipUpdateChannel=true` 仅编译。当前已发布 **1.0.0-beta8 / vc91**（APK 5,820,537B / `4e01872e…`）。
+- **追加（用户反馈）**：电费游标层改为与绘图区同父同尺寸，百分比随 SVG 缩放；`reflowDetail` 仅宽度变化重绘，地址栏/下拉导致的高度变化不再重绘；MP 下拉刷新在回弹结束后重新量宽/重绘，避免 canvas 曲线与轴漂移。
 - **测试**：`power_check` 155/155、`v2_power_tip_fixed_check` 24/24（含曲线穿点/圆点贴合）、`v2_notice_data_check` 27/27、`v2_notice_publish_check` 20/20、`v2_notice_fix_check` 11/11、`v2_notice_auto_preview_check` 8/8、`v2_settings_stage_check` 20/20、`overflow_check 430` 0、`v2_drag_check` 69/69、`optim_v2_check` GREEN、`v2_stage_drop_session_check` 24/24、`v2_notice_period_check` 53/53、`v2_notice_longterm_check` 27/27。
 - **回滚**：重传备份；云函数回滚上一版代码；`ClassPowerSync` 计划改回 1 小时；数据补丁从 `notice-manual-patches.json` 删除后重建。**已知**：CloudBase 旧 12:01 历史行未物理删除，前端按半小时去重；小程序/安卓/鸿蒙/Windows 同步项见各仓记录。

@@ -1,10 +1,10 @@
 {
-  "versionCode": 91,
-  "versionName": "1.0.0-beta8",
-  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta8.apk.bin",
-  "notes": "1.0.0-beta8：UI/动效鸿蒙对齐、隐私与用户协议全文、通知轻量 meta、网络与更新渠道优化",
+  "versionCode": 92,
+  "versionName": "1.0.0-beta9",
+  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta9.apk.bin",
+  "notes": "1.0.0-beta9（测试版本）\n1. UI/动效向鸿蒙端对齐\n2. 隐私政策 / 用户协议全文\n3. 通知轻量 meta + 按需详情\n4. 网络与更新渠道优化",
   "force": false,
   "channel": "beta",
-  "sha256": "4e01872e79ba786afbc32254b4cfa937b400ebfd7cae186f6fd212660e549d58",
+  "sha256": "23d0f4aff38cc9a60b6ad8891cfe60a627487102968abd1fdc55bdcb24c3aad6",
   "sizeBytes": 5820537
 }

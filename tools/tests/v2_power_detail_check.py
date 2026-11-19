@@ -216,7 +216,7 @@ def run(cdp):
       json.dumps(d1, ensure_ascii=False))
     rr1 = tip_rects(cdp)
     T("A5 游标线/圆点有位置，气泡固定显示在绘图区上方（区间行右侧，不在图内）",
-      d1["line"].endswith("px") and d1["dot"].endswith("px") and d1["on"]
+      d1["line"].endswith(("%","px")) and d1["dot"].endswith(("%","px")) and d1["on"]
       and bool(rr1["tip"]) and rr1["tip"]["w"] > 0 and rr1["tip"]["b"] <= rr1["plot"]["t"] + 0.5,
       json.dumps({"line": d1["line"], "dot": d1["dot"], "tip": rr1["tip"], "plotT": rr1["plot"]["t"]}, ensure_ascii=False)[:360])
     d2 = click_x(cdp, 0.503)  # 相邻 3px 内应 snap 到同一点

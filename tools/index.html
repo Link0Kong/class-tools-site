@@ -944,7 +944,7 @@ body.rst-lock{overflow:hidden}
 .pw-trend-scroll{flex:1;min-width:0;margin-bottom:20px;overflow:hidden;touch-action:pan-y;cursor:crosshair;
   -webkit-user-select:none;user-select:none;position:relative}
 /* 曲线详细查看：竖线 + 命中点（气泡固定在趋势图右上角上部，不浮在图内） */
-.pw-detail{position:absolute;left:0;right:46px;top:0;bottom:20px;pointer-events:none;z-index:8;display:none}
+.pw-detail{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none;z-index:8;display:none}
 .pw-detail.on{display:block}
 .pw-detail-line{position:absolute;top:0;bottom:0;width:1px;background:var(--cy);opacity:.75;transform:translateX(-.5px)}
 .pw-detail-dot{position:absolute;width:9px;height:9px;border-radius:50%;background:var(--cy);border:2px solid #fff;
@@ -3651,15 +3651,18 @@ html[data-appearance="dark"] #noticeHost .notice-empty,html[data-appearance="dar
             <div class="pw-trend-scroll" id="pwTrendScroll">
               <div class="pw-trend-canvas" id="pwTrendCanvas">
                 <div class="pw-trend" id="pwTrend"></div>
+                <!-- 游标层与 #pwTrend 同父同尺寸（不放进 #pwTrend，避免被 renderTrend 的
+                     innerHTML 重绘清掉）；窗口/pull-to-refresh 导致容器高度变化时，竖线/圆点
+                     随 SVG 同步缩放，不会与曲线漂移。 -->
+                <div class="pw-detail" id="pwDetail" aria-hidden="true">
+                  <span class="pw-detail-line" id="pwDetailLine"></span>
+                  <span class="pw-detail-dot" id="pwDetailDot"></span>
+                </div>
               </div>
             </div>
             <div class="pw-trend-note" id="pwTrendNote" hidden></div>
             <div class="pw-xaxis" id="pwXAxis"></div>
             <div class="pw-yaxis" id="pwYAxis"></div>
-            <div class="pw-detail" id="pwDetail" aria-hidden="true">
-              <span class="pw-detail-line" id="pwDetailLine"></span>
-              <span class="pw-detail-dot" id="pwDetailDot"></span>
-            </div>
           </div>
           <div class="pw-legend" id="pwLegend"></div>
         </div>
@@ -7663,8 +7666,15 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
   },
   /* viewport 变化：按新几何重绘趋势，并保持选中点（气泡固定在右上角，与绘图几何无关） */
   reflowDetail:function(idx){
-    var di=(idx==null)?POWER._detail:idx;
-    if(!POWER._chart)return;
+    var di=(idx==null)?POWER._detail:idx,ch=POWER._chart,sc=$("#pwTrendScroll");
+    if(!ch)return;
+    /* 只有宽度变化才需要重算坐标/重绘。高度变化（地址栏收起、iOS 下拉回弹、pull-to-refresh
+       触发 visual viewport resize）交给 SVG preserveAspectRatio=none 与百分比游标层自适应，
+       避免每帧重绘导致曲线看起来“漂移”。 */
+    if(sc&&Math.abs((sc.clientWidth||0)-ch.W)<=1){
+      if(di>=0&&di<ch.pts.length)POWER.detailSelect(di);
+      return;
+    }
     POWER.renderTrend();
     if(di>=0&&POWER._chart&&di<POWER._chart.pts.length)POWER.detailSelect(di);
   },
