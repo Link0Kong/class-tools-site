@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """通知附件外置 · 本机客户端（上传 + 生成签名 URL）。
 
-被本机数据管线调用（例如 C:\\briefdesk\\scripts\\sync_notices_cloud.py），
+被本机数据管线调用（例如 G:\\ClassTools\\briefdesk\\scripts\\sync_notices_cloud.py），
 把通知 items 里的 base64 `data:` URI 换成签名 URL；失败时保留原 data URI（fail-open）。
 
 凭据：
-  - 上传令牌 `CLOUD_SYNC_TOKEN`：环境变量优先，否则读 `C:\\briefdesk\\secrets\\cloud.env`
+  - 上传令牌 `CLOUD_SYNC_TOKEN`：环境变量优先，否则读 `G:\\ClassTools\\briefdesk\\secrets\\cloud.env`
     （与 push_to_cloud.py / briefdesk-board 共用，不打印、不落日志）。
   - 签名 key = sha256(token + "|att-v1")（见 common.py），服务端同样从 SYNC_TOKEN 推导。
 
 用法（本机）：
-  python attachments\\client.py --scan C:\\briefdesk\\data\\board-data.json
+  python attachments\\client.py --scan G:\\ClassTools\\briefdesk\\data\\board-data.json
   python attachments\\client.py --url <id>          # 打印一个 30 天测试 URL（不给 token）
 """
 import argparse
@@ -50,7 +50,7 @@ def load_sync_token():
     tok = os.environ.get("CLOUD_SYNC_TOKEN", "").strip()
     if tok:
         return tok
-    p = os.environ.get("BRIEFDESK_CLOUD_ENV", r"C:\briefdesk\secrets\cloud.env")
+    p = os.environ.get("BRIEFDESK_CLOUD_ENV", r"G:\ClassTools\briefdesk\secrets\cloud.env")
     try:
         with open(p, "r", encoding="utf-8") as f:
             for line in f:

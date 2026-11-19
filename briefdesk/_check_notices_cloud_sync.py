@@ -4,17 +4,17 @@
 只读云端；输出：总行数/auto 行/本地 43 组匹配情况、body 内附件（items）统计、
 mergedSources/crossSource 下发、管理员列（override_json/hidden/edited_at/edited_by）现状。
 
-跑法：C:\\briefdesk\\venv\\Scripts\\python.exe -X utf8 C:\\Users\\Ko_Li\\.openclaw\\workspace\\briefdesk-plan\\_check_notices_cloud_sync.py
+跑法：G:\\ClassTools\\briefdesk\\venv\\Scripts\\python.exe -X utf8 G:\\ClassTools\\web\\briefdesk\\_check_notices_cloud_sync.py
 """
 import json
 import sys
 import urllib.parse
 from pathlib import Path
 
-sys.path.insert(0, r"C:\briefdesk\scripts")
+sys.path.insert(0, r"G:\ClassTools\briefdesk\scripts")
 import sync_power_cloud as sp  # noqa: E402
 
-BOARD = Path(r"C:\briefdesk\data\board-data.json")
+BOARD = Path(r"G:\ClassTools\briefdesk\data\board-data.json")
 PREFIX = "[[CLASS_NOTICE_V1]]"
 
 

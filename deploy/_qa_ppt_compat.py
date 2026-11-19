@@ -17,9 +17,9 @@ import urllib.request
 import zipfile
 from urllib.parse import quote
 
-PUB = open(r"C:\Users\Ko_Li\.openclaw\workspace\web\deploy\cloudbase\publish_key.txt", encoding="utf-8").read().strip()
+PUB = open(r"G:\ClassTools\web\deploy\cloudbase\publish_key.txt", encoding="utf-8").read().strip()
 BASE = "https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/"
-ADM = json.load(open(r"C:\briefdesk\secrets\class-token.json", encoding="utf-8"))["token"]
+ADM = json.load(open(r"G:\ClassTools\briefdesk\secrets\class-token.json", encoding="utf-8"))["token"]
 R = {}
 
 

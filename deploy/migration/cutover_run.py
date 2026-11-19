@@ -9,7 +9,7 @@
 用法（web 仓库根目录，系统 python；需要 aliyunsdkcore + oss2）::
 
     python deploy\\migration\\cutover_run.py --dry-run
-    python deploy\\migration\\cutover_run.py rehearsal --artifact C:\\briefdesk\\data\\cloudbase_migration\\p4-final-20261118-1526
+    python deploy\\migration\\cutover_run.py rehearsal --artifact G:\\ClassTools\\briefdesk\\data\\cloudbase_migration\\p4-final-20261118-1526
     python deploy\\migration\\cutover_run.py execute --artifact <dir> --confirm-cutover
     python deploy\\migration\\cutover_run.py rollback --confirm
 
@@ -162,7 +162,7 @@ def fresh_snapshot(out_dir):
 def rehearsal(artifact, skip_snapshot, with_e2e=False):
     log("\n########## P4 REHEARSAL（不切生产 Caddy） ##########")
     if not artifact:
-        artifact = os.path.join(r"C:\briefdesk\data\cloudbase_migration",
+        artifact = os.path.join(r"G:\ClassTools\briefdesk\data\cloudbase_migration",
                                 "cutover-rehearsal-" + time.strftime("%Y%m%d-%H%M"))
     if skip_snapshot:
         if not os.path.isfile(os.path.join(artifact, "manifest.json")):
@@ -216,7 +216,7 @@ def execute(artifact, skip_snapshot, confirm):
     if pf_rc != 0:
         raise SystemExit("[x] preflight 存在 FAIL，已中止切流（见上方输出）")
     if not artifact:
-        artifact = os.path.join(r"C:\briefdesk\data\cloudbase_migration",
+        artifact = os.path.join(r"G:\ClassTools\briefdesk\data\cloudbase_migration",
                                 "cutover-" + time.strftime("%Y%m%d-%H%M"))
     if not skip_snapshot:
         artifact = fresh_snapshot(artifact)
@@ -275,7 +275,7 @@ def main(argv=None):
     ap.add_argument("--dry-run", action="store_true", help="只打印将执行的步骤/命令，不执行")
     ns = ap.parse_args(argv)
 
-    LOG_PATH = os.path.join(r"C:\briefdesk\data\cloudbase_migration",
+    LOG_PATH = os.path.join(r"G:\ClassTools\briefdesk\data\cloudbase_migration",
                             "cutover-run-%s-%s.log" % (ns.mode, time.strftime("%Y%m%d-%H%M%S")))
     os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
     log("=== cutover_run %s start %s ===" % (ns.mode, time.strftime("%Y-%m-%dT%H:%M:%S")))

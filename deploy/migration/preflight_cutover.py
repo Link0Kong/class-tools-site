@@ -29,7 +29,7 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.dirname(os.path.dirname(HERE))
-DATA_ROOT = r"C:\briefdesk\data\cloudbase_migration"
+DATA_ROOT = r"G:\ClassTools\briefdesk\data\cloudbase_migration"
 ECS = "http://121.196.47.2"
 STAGING = ECS + "/v1/rdb/rest-next/"
 PROD = ECS + "/v1/rdb/rest/"

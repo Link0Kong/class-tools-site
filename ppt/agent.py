@@ -25,9 +25,9 @@
     python agent.py --deck <deckId> --video-only            # v1.2 补 deck.mp4
     python agent.py --scheduled            # ≡ --once
 
-身份：管理员 token 读 ``C:\\briefdesk\\secrets\\class-token.json``；
+身份：管理员 token 读 ``G:\\ClassTools\\briefdesk\\secrets\\class-token.json``；
 过期提前 1h 用 ``rpc/class_verify``（PUBLISHABLE KEY）刷新并写回；
-管理员 sid/name 读 ``C:\\briefdesk\\secrets\\cloudbaserc.local.json`` 的
+管理员 sid/name 读 ``G:\\ClassTools\\briefdesk\\secrets\\cloudbaserc.local.json`` 的
 ``functions[].envVariables.CLASS_ADMIN_SID/CLASS_ADMIN_NAME``。
 **日志/输出绝不打印 token、AK/SK。**
 
@@ -63,12 +63,12 @@ WEB_ROOT = os.path.abspath(os.path.join(HERE, ".."))
 WORKSPACE = os.path.abspath(os.path.join(WEB_ROOT, ".."))
 
 # 2026-11-18 迁移：CLASS_CB_BASE 可覆盖（默认仍是 CloudBase，行为不变）；
-# 与 C:\briefdesk\scripts\cloud_backend.py 同一套约定（env > index.html）。
+# 与 G:\ClassTools\briefdesk\scripts\cloud_backend.py 同一套约定（env > index.html）。
 CFG_BASE = (os.environ.get("CLASS_CB_BASE", "").strip().rstrip("/") + "/") \
     or "https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/"
 PUBLISH_KEY_FILE = os.path.join(WEB_ROOT, "deploy", "cloudbase", "publish_key.txt")
-TOKEN_FILE = r"C:\briefdesk\secrets\class-token.json"
-CLOUDBASE_RC = r"C:\briefdesk\secrets\cloudbaserc.local.json"
+TOKEN_FILE = r"G:\ClassTools\briefdesk\secrets\class-token.json"
+CLOUDBASE_RC = r"G:\ClassTools\briefdesk\secrets\cloudbaserc.local.json"
 
 # 管理员身份兜底（与 diag_agent.py 一致；非密钥）
 FALLBACK_ADMIN_SID = "3260707024"

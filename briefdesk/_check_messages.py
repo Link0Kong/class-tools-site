@@ -13,8 +13,8 @@ import sys
 from pathlib import Path
 
 EDGE = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
-DEMO = Path(r"C:\Users\Ko_Li\.openclaw\workspace\web\tools\notice-board-live-demo.html")
-OUT = Path(r"C:\briefdesk\data\_v2_template_check")
+DEMO = Path(r"G:\ClassTools\web\tools\notice-board-live-demo.html")
+OUT = Path(r"G:\ClassTools\briefdesk\data\_v2_template_check")
 
 PARENT = r"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <style>html,body{margin:0}iframe{width:1100px;height:800px;border:0}</style></head>

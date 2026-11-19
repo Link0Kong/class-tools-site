@@ -11,7 +11,7 @@
      非法 / 早于 startAt）、时间补零。
 
 运行（任选）：
-  C:\\briefdesk\\venv\\Scripts\\python.exe C:\\Users\\Ko_Li\\.openclaw\\workspace\\briefdesk-plan\\tests\\test_notice_threads_quality.py
+  C:\\briefdesk\\venv\\Scripts\\python.exe G:\\ClassTools\\web\\briefdesk\\tests\\test_notice_threads_quality.py
   python -m unittest briefdesk-plan\\tests\\test_notice_threads_quality.py -v
 
 全部用临时文件 mock（不读写真实 AI 数据、不跑主线）。
@@ -23,7 +23,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-BASE = Path(r"C:\Users\Ko_Li\.openclaw\workspace\briefdesk-plan")
+BASE = Path(r"G:\ClassTools\web\briefdesk")
 sys.path.insert(0, str(BASE))
 sys.path.append(r"C:\briefdesk\scripts")
 

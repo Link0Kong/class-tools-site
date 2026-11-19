@@ -6,7 +6,7 @@ build_notice_embed.main()（不触碰真实 index.html），分别从「临时�
 「真实 index」解码 NOTICE_TPL_B64 并比较 sha256。
 若一致 → 纯数据变化，无需重新 embed/部署；不一致 → 打印差异信息，交 Lead 重新 embed。
 
-跑法：C:\\briefdesk\\venv\\Scripts\\python.exe -X utf8 C:\\Users\\Ko_Li\\.openclaw\\workspace\\briefdesk-plan\\_check_template_embed_match.py
+跑法：G:\\ClassTools\\briefdesk\\venv\\Scripts\\python.exe -X utf8 G:\\ClassTools\\web\\briefdesk\\_check_template_embed_match.py
 """
 import base64
 import hashlib
@@ -17,11 +17,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-WEB = Path(r"C:\Users\Ko_Li\.openclaw\workspace\web")
+WEB = Path(r"G:\ClassTools\web")
 INDEX = WEB / "tools" / "index.html"
 DEMO = WEB / "tools" / "notice-board-live-demo.html"
 EMBED = WEB / "tools" / "build_notice_embed.py"
-TMPROOT = Path(r"C:\briefdesk\data\_v2_template_check")
+TMPROOT = Path(r"G:\ClassTools\briefdesk\data\_v2_template_check")
 
 
 def extract_b64(text):

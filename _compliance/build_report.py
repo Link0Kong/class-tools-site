@@ -8,7 +8,7 @@ import pathlib
 
 import markdown
 
-BASE = pathlib.Path(r"C:\Users\Ko_Li\.openclaw\workspace\web\_compliance")
+BASE = pathlib.Path(r"G:\ClassTools\web\_compliance")
 SRC = BASE / "implementation_plan.md"
 OUT = pathlib.Path(r"C:\Users\Ko_Li\OneDrive\桌面\班级工具站_合规备案落地实施方案_20261105.html")
 

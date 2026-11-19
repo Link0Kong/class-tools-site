@@ -3,8 +3,8 @@
 
 - 代码：`deploy/account_app.py` → `/opt/class-tools/account/app.py`
 - 密钥：publish key（`deploy/cloudbase/publish_key.txt`）、管理员班级 token
-  （`C:\\briefdesk\\secrets\\class-token.json`）、OPPO 账号服务凭证
-  （`C:\\briefdesk\\secrets\\oppo-account.json`，缺失时写空 {}，服务 configured=false）
+  （`G:\\ClassTools\\briefdesk\\secrets\\class-token.json`）、OPPO 账号服务凭证
+  （`G:\\ClassTools\\briefdesk\\secrets\\oppo-account.json`，缺失时写空 {}，服务 configured=false）
 - 服务：systemd `class-tools-account.service`，127.0.0.1:8094，Python 标准库
 - 路由：`deploy/ecs_site.py` 的 Caddy 配置提供 `/account/*` 反代（strip_prefix）
 
@@ -26,8 +26,8 @@ import ecs_site  # noqa: E402
 
 APP_LOCAL = os.path.join(HERE, "account_app.py")
 PUBLISH_LOCAL = os.path.join(HERE, "cloudbase", "publish_key.txt")
-ADMIN_TOKEN_LOCAL = r"C:\briefdesk\secrets\class-token.json"
-OPPO_ACCOUNT_LOCAL = r"C:\briefdesk\secrets\oppo-account.json"
+ADMIN_TOKEN_LOCAL = r"G:\ClassTools\briefdesk\secrets\class-token.json"
+OPPO_ACCOUNT_LOCAL = r"G:\ClassTools\briefdesk\secrets\oppo-account.json"
 SERVICE = "class-tools-account"
 APP_DIR = "/opt/class-tools/account"
 BASE_URL = "http://%s/account" % ecs_site.ECS_IP

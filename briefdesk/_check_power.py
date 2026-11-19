@@ -4,7 +4,7 @@
 只读云端 power/power_history + 只读网关实时值；不写云端、不改前端。
 输出：对照表（采样数/变化次数/最长相同段/网关 vs 云端/映射交叉验证）。
 
-跑法：C:\\briefdesk\\venv\\Scripts\\python.exe -X utf8 "C:\\Users\\Ko_Li\\.openclaw\\workspace\\briefdesk-plan\\_check_power.py"
+跑法：G:\\ClassTools\\briefdesk\\venv\\Scripts\\python.exe -X utf8 "G:\\ClassTools\\web\\briefdesk\\_check_power.py"
 """
 import json
 import sys
@@ -13,7 +13,7 @@ import urllib.parse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-sys.path.insert(0, r"C:\briefdesk\scripts")
+sys.path.insert(0, r"G:\ClassTools\briefdesk\scripts")
 import sync_power_cloud as sp  # noqa: E402
 
 CN = timezone(timedelta(hours=8))
@@ -149,7 +149,7 @@ def main():
     out["mapping"] = mapping_probe()
     print(json.dumps(out, ensure_ascii=False, indent=1))
     # 保存到文件便于复盘（不含隐私）
-    p = Path(r"C:\briefdesk\data\_power_diag.json")
+    p = Path(r"G:\ClassTools\briefdesk\data\_power_diag.json")
     p.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     print("written:", p)
     return 0

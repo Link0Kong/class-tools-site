@@ -4,7 +4,7 @@
 不依赖当前 weflow 班级群消息可读性：mock weflow REST 响应 + 真实本地明文微信文件，
 覆盖 wechat_media → ai_triage 结构 → builder 注入 → 模板渲染 全链路。
 
-跑法：C:\\briefdesk\\venv\\Scripts\\python.exe -X utf8 briefdesk-plan\\_check_wechat_attach.py
+跑法：G:\\ClassTools\\briefdesk\\venv\\Scripts\\python.exe -X utf8 briefdesk-plan\\_check_wechat_attach.py
 """
 import json
 import re
@@ -15,7 +15,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, r"C:\briefdesk\scripts")
+sys.path.insert(0, r"G:\ClassTools\briefdesk\scripts")
 EDGE = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
 CN = timezone(__import__("datetime").timedelta(hours=8))
 FAILED = []
@@ -216,7 +216,7 @@ def test_template_render(tmp, manifest):
                     "--screenshot=" + str(shot), probe_file.as_uri()], capture_output=True, timeout=120)
     if shot.exists():
         import shutil
-        keep = Path(r"C:\briefdesk\data\_v2_template_check")
+        keep = Path(r"G:\ClassTools\briefdesk\data\_v2_template_check")
         keep.mkdir(parents=True, exist_ok=True)
         shutil.copy2(shot, keep / "wechat_attach.png")
         print("  screenshot ->", keep / "wechat_attach.png")

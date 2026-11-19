@@ -5,7 +5,7 @@
 （plpgsql 函数会报 syntax error / 只有最后一条生效）。原始 ExecutePGSql API 接受完整 SQL 字符串。
 
 用法（PowerShell）：
-    cd C:/Users/Ko_Li/.openclaw/workspace/web/deploy/cloudbase
+    cd G:/ClassTools/web/deploy/cloudbase
     python apply_sql_api.py 2026-11-08_diag_login.sql
     python apply_sql_api.py 2026-11-08_diag_login.sql --dry-run
 """

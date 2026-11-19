@@ -10,9 +10,9 @@ import sys
 from pathlib import Path
 
 EDGE = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
-DEMO = Path(r"C:\Users\Ko_Li\.openclaw\workspace\web\tools\notice-board-live-demo.html")
-BOARD = Path(r"C:\briefdesk\data\board-data.json")
-OUT = Path(r"C:\briefdesk\data\_v2_template_check")
+DEMO = Path(r"G:\ClassTools\web\tools\notice-board-live-demo.html")
+BOARD = Path(r"G:\ClassTools\briefdesk\data\board-data.json")
+OUT = Path(r"G:\ClassTools\briefdesk\data\_v2_template_check")
 
 
 def main():

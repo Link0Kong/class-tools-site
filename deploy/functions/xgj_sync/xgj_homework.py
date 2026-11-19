@@ -16,7 +16,7 @@
     返回项字段：_id / title / subject / text_content / end_day / create_at / update_at /
                is_feedback（本人已提交）/ creator_name / atype。
 
-用法（PowerShell，建议用 C:\\briefdesk\\venv\\Scripts\\python.exe）:
+用法（PowerShell，建议用 G:\\ClassTools\\briefdesk\\venv\\Scripts\\python.exe）:
 
     python xgj_homework.py --status                 # 看 token / 上次采集状态
     python xgj_homework.py --refresh                # 检查 token；失效时打开 Edge 等扫码
@@ -60,9 +60,9 @@ except Exception:  # noqa: BLE001
     websocket = None
 
 # ----------------------------------------------------------------------------- 配置
-DATA = Path(r"C:\briefdesk\data")
-LOGS = Path(r"C:\briefdesk\logs")
-SECRETS = Path(r"C:\briefdesk\secrets")
+DATA = Path(r"G:\ClassTools\briefdesk\data")
+LOGS = Path(r"G:\ClassTools\briefdesk\logs")
+SECRETS = Path(r"G:\ClassTools\briefdesk\secrets")
 
 OUT = DATA / "xgj-homework.json"           # 归一化后的英语作业
 STATUS = DATA / "xgj-collect-status.json"  # 最近一次采集状态

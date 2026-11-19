@@ -5,9 +5,9 @@ import re
 import sys
 from pathlib import Path
 
-DATA = Path(r"C:\briefdesk\data")
+DATA = Path(r"G:\ClassTools\briefdesk\data")
 BOARD = DATA / "board-data.json"
-DEMO = Path(r"C:\Users\Ko_Li\.openclaw\workspace\web\tools\notice-board-live-demo.html")
+DEMO = Path(r"G:\ClassTools\web\tools\notice-board-live-demo.html")
 
 
 def main():

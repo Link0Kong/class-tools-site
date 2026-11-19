@@ -14,7 +14,7 @@
 
 鉴权（密钥零泄漏）：
     * CB/CBK 从 web/tools/index.html 的 var CB / var CBK 解析（publishable key，设计上公开）；
-    * 管理员班级 token 只从 C:\\briefdesk\\secrets\\class-token.json 读取；过期/被拒时用
+    * 管理员班级 token 只从 G:\\ClassTools\\briefdesk\\secrets\\class-token.json 读取；过期/被拒时用
       rpc/class_verify 自动刷新（管理员身份常量与 sync_power_cloud.py 同源）。
     * 绝不打印/写日志 token 或 key；错误信息只保留状态码/字节数/文案。
 
@@ -47,7 +47,7 @@ WEB_ROOT = os.environ.get("BRIEFDESK_WEB_ROOT") or DEFAULT_WEB_ROOT
 INDEX_PATH = os.path.join(WEB_ROOT, "tools", "index.html")
 DEFAULT_TT = os.path.join(WEB_ROOT, "tools", "tt.json")
 
-TOKEN_FILE = os.environ.get("CLASS_TOKEN_FILE") or r"C:\briefdesk\secrets\class-token.json"
+TOKEN_FILE = os.environ.get("CLASS_TOKEN_FILE") or r"G:\ClassTools\briefdesk\secrets\class-token.json"
 
 # class_verify 用的管理员身份（与 scripts/sync_power_cloud.py 同源；仅在进程内存使用，绝不打印）
 ADMIN_SID = "3260707024"
@@ -83,7 +83,7 @@ def cb_config():
     """返回 (base, key)。
 
     2026-11-18 迁移：优先读环境变量 CLASS_CB_BASE / CLASS_CB_KEY（由
-    C:\\briefdesk\\scripts\\cloud_backend.py 同一套约定注入），未设置时回退到
+    G:\\ClassTools\\briefdesk\\scripts\\cloud_backend.py 同一套约定注入），未设置时回退到
     web/tools/index.html 的 var CB / var CBK（默认仍是 CloudBase，行为不变）。
     """
     base = os.environ.get("CLASS_CB_BASE", "").strip()

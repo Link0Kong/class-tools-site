@@ -4,16 +4,17 @@
 > 同日明确：**不设计划任务、不跑后台守护**，提交由 agent 改完后主动执行。
 > 2026-11-16 全量核对：所有仓库均为**私有**，GitHub + Gitee 双远端，分支统一 `master`。
 > 仓库含个人信息、服务器配置，**不要改为公开**。
+> **2026-11-19 硬盘规范化**：本机所有端仓库已统一迁到 `G:\ClassTools\`；旧 `~\workspace\...` 路径保留 junction，历史脚本继续可用。下表的「本地目录」为本机新路径，仓库内相对路径不变。
 
 ## 一、五个端仓库
 
 | 端 | 本地目录 | GitHub（origin） | Gitee（gitee） | 内容 |
 |---|---|---|---|---|
-| 网页 / 部署 | `web/` | https://github.com/Link0Kong/class-tools-site | https://gitee.com/ko_Link/class-tools-site | 单文件站点 `tools/index.html`、`deploy/`、`tools/tests/`、文档、**通知管线 `briefdesk/`**、**电费工具包 `power/`** |
-| 小程序 | `mp-class-tools/` | https://github.com/Link0Kong/class-tools-mp | https://gitee.com/ko_Link/class-tools-mp | 原生小程序 v25 / 2.0.0，**`tests/`（原 mp-tests 仓库）** |
-| Android | `android-class-tools/` | https://github.com/Link0Kong/class-tools-android | https://gitee.com/ko_Link/class-tools-android | Kotlin + Compose；另有 `feat/background-notify` 分支的第二个工作副本 `android-class-tools-notify/`（同一仓库） |
-| HarmonyOS | `harmony-class-tools/` | https://github.com/Link0Kong/class-tools-harmony | https://gitee.com/ko_Link/class-tools-harmony | ArkTS + ArkUI，1.0.6 / M79 |
-| Windows | `windows-class-tools/` | https://github.com/Link0Kong/class-tools-windows | https://gitee.com/ko_Link/class-tools-windows | WinUI 3 / .NET 10，里程碑开发中 |
+| 网页 / 部署 | `G:\ClassTools\web` | https://github.com/Link0Kong/class-tools-site | https://gitee.com/ko_Link/class-tools-site | 单文件站点 `tools/index.html`、`deploy/`、`tools/tests/`、文档、**通知管线 `briefdesk/`**、**电费工具包 `power/`** |
+| 小程序 | `G:\ClassTools\mp-class-tools` | https://github.com/Link0Kong/class-tools-mp | https://gitee.com/ko_Link/class-tools-mp | 原生小程序 v25 / 2.0.0，**`tests/`（原 mp-tests 仓库）** |
+| Android | `G:\ClassTools\android-class-tools` | https://github.com/Link0Kong/class-tools-android | https://gitee.com/ko_Link/class-tools-android | Kotlin + Compose；另有 `feat/background-notify` 分支的第二个工作副本 `G:\ClassTools\android-class-tools-notify`（同一仓库） |
+| HarmonyOS | `G:\ClassTools\harmony-class-tools` | https://github.com/Link0Kong/class-tools-harmony | https://gitee.com/ko_Link/class-tools-harmony | ArkTS + ArkUI，1.0.6 / M79 |
+| Windows | `G:\ClassTools\windows-class-tools` | https://github.com/Link0Kong/class-tools-windows | https://gitee.com/ko_Link/class-tools-windows | WinUI 3 / .NET 10，里程碑开发中 |
 
 - **不要再按功能新建仓库**：新功能落在所属端的仓库里；跨端功能在各端仓库分别提交。
 - 原按功能拆的三个仓库已合并（保留完整历史）并归档：
@@ -29,9 +30,18 @@
 旧路径保留 Windows 目录 junction，内容只有一份（都在仓库里），不存在副本漂移：
 
 ```text
-~\workspace\briefdesk-plan          → ~\workspace\web\briefdesk
-~\workspace\perfect-campus-power    → ~\workspace\web\power
-~\workspace\mp-class-tools-tests    → ~\workspace\mp-class-tools\tests
+~\.openclaw\workspace\briefdesk-plan          → G:\ClassTools\web\briefdesk
+~\.openclaw\workspace\perfect-campus-power    → G:\ClassTools\web\power
+~\.openclaw\workspace\mp-class-tools-tests    → G:\ClassTools\mp-class-tools\tests
+~\.openclaw\workspace\class-tools-icons       → G:\ClassTools\web\assets\app-icon
+
+# 5 个端仓库（2026-11-19 迁移后）
+~\.openclaw\workspace\web                      → G:\ClassTools\web
+~\.openclaw\workspace\mp-class-tools           → G:\ClassTools\mp-class-tools
+~\.openclaw\workspace\android-class-tools      → G:\ClassTools\android-class-tools
+~\.openclaw\workspace\harmony-class-tools      → G:\ClassTools\harmony-class-tools
+~\.openclaw\workspace\windows-class-tools      → G:\ClassTools\windows-class-tools
+C:\briefdesk                                   → G:\ClassTools\briefdesk（子目录 junction 兼容壳）
 ```
 
 - 旧 `.git` 已移到 `~\workspace\_repo_git_archive\`，确认无碍后可删。
@@ -41,7 +51,7 @@
 ## 三、同步命令（五个端都一样）
 
 ```cmd
-cd /d C:\Users\Ko_Li\.openclaw\workspace\<仓库目录>
+cd /d G:\ClassTools\<仓库目录>
 sync-repos.cmd "feat: 说明本次改了什么"
 ```
 

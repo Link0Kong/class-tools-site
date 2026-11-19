@@ -22,7 +22,7 @@ from openpyxl import Workbook
 # 通知识别过滤器：与微信采集器共用同一份规则（例行汇报不算通知，如舍长群每晚
 # 「308 已全员在寝室（赖荣恒请假）」）。append 而非 insert(0)，避免 scripts 目录
 # 里的同名文件遮蔽标准库模块。
-sys.path.append(r"C:\briefdesk\scripts")
+sys.path.append(r"G:\ClassTools\briefdesk\scripts")
 from notice_filters import is_routine_report  # noqa: E402
 import qq_file_names  # noqa: E402  QQ/微信文件名宽容匹配（与 fetch_qq_files 共用）
 import notice_merge  # noqa: E402  跨源（微信/QQ）同通知判定与合并（task-25）
@@ -70,37 +70,37 @@ def _summary_covers(summary, src_facts):
         return 0
     return len(_summary_facts(summary) & src_facts)
 
-BASE = Path(r"C:\Users\Ko_Li\.openclaw\workspace\briefdesk-plan")
-OUT = Path(r"C:\Users\Ko_Li\.openclaw\workspace\web\tools\notice-board-live-demo.html")
-DOCS_JSON = Path(r"C:\briefdesk\data\docs-detected.json")
-WECHAT_INBOX = Path(r"C:\briefdesk\data\wechat-inbox.jsonl")
-WECHAT_NOTICES = Path(r"C:\briefdesk\data\wechat-notices.json")
-AI_BRIEFS = Path(r"C:\briefdesk\data\ai-briefs.json")
-AI_MERGED = Path(r"C:\briefdesk\data\ai-merged.json")
-AI_CATEGORIES = Path(r"C:\briefdesk\data\ai-categories.json")
-AI_QUALITY = Path(r"C:\briefdesk\data\ai-quality.json")
-QQ_MERGED = Path(r"C:\briefdesk\data\qq-merged.json")
-QQ_TEXT = Path(r"C:\briefdesk\data\qq-text-notices.json")
-QQ_IMAGE_TEXT = Path(r"C:\briefdesk\data\qq-image-notices.json")
-QQ_FILE_TEXT = Path(r"C:\briefdesk\data\qq-file-notices.json")
-QQ_CONTEXT = Path(r"C:\briefdesk\data\qq-context-overrides.json")
-AI_TRIAGE = Path(r"C:\briefdesk\data\ai-triage-notices.json")
-AI_SUPPLEMENTS = Path(r"C:\briefdesk\data\ai-supplements.json")
-MANUAL_PATCHES = Path(r"C:\briefdesk\data\notice-manual-patches.json")
+BASE = Path(r"G:\ClassTools\web\briefdesk")
+OUT = Path(r"G:\ClassTools\web\tools\notice-board-live-demo.html")
+DOCS_JSON = Path(r"G:\ClassTools\briefdesk\data\docs-detected.json")
+WECHAT_INBOX = Path(r"G:\ClassTools\briefdesk\data\wechat-inbox.jsonl")
+WECHAT_NOTICES = Path(r"G:\ClassTools\briefdesk\data\wechat-notices.json")
+AI_BRIEFS = Path(r"G:\ClassTools\briefdesk\data\ai-briefs.json")
+AI_MERGED = Path(r"G:\ClassTools\briefdesk\data\ai-merged.json")
+AI_CATEGORIES = Path(r"G:\ClassTools\briefdesk\data\ai-categories.json")
+AI_QUALITY = Path(r"G:\ClassTools\briefdesk\data\ai-quality.json")
+QQ_MERGED = Path(r"G:\ClassTools\briefdesk\data\qq-merged.json")
+QQ_TEXT = Path(r"G:\ClassTools\briefdesk\data\qq-text-notices.json")
+QQ_IMAGE_TEXT = Path(r"G:\ClassTools\briefdesk\data\qq-image-notices.json")
+QQ_FILE_TEXT = Path(r"G:\ClassTools\briefdesk\data\qq-file-notices.json")
+QQ_CONTEXT = Path(r"G:\ClassTools\briefdesk\data\qq-context-overrides.json")
+AI_TRIAGE = Path(r"G:\ClassTools\briefdesk\data\ai-triage-notices.json")
+AI_SUPPLEMENTS = Path(r"G:\ClassTools\briefdesk\data\ai-supplements.json")
+MANUAL_PATCHES = Path(r"G:\ClassTools\briefdesk\data\notice-manual-patches.json")
 # 契约 §1.4：AI 管线（notice_threads.py）产出的「更新/更正通知合并」结果
-NOTICE_THREADS = Path(r"C:\briefdesk\data\notice-threads.json")
+NOTICE_THREADS = Path(r"G:\ClassTools\briefdesk\data\notice-threads.json")
 
 # 非学校群（商业培训/平台）来源的通知一律不上板
 NON_SCHOOL_GROUP_PATTERNS = ("冲刺班", "二级Ms", "二级MS", "志愿者网站系统")
-CLASS_ROSTER = Path(r"C:\briefdesk\data\class-members.json")
+CLASS_ROSTER = Path(r"G:\ClassTools\briefdesk\data\class-members.json")
 # 契约 §5：网名/昵称 → 真实姓名 + 职务（class-identities 聚合 QQ/微信身份，class-aliases 昵称→学号）
-CLASS_IDENTITIES = Path(r"C:\briefdesk\data\class-identities.json")
-CLASS_ALIASES = Path(r"C:\briefdesk\data\class-aliases.json")
-QQ_FILES = Path(r"C:\briefdesk\data\qq-files")
-HOMEWORK_STATIC = Path(r"C:\briefdesk\data\homework-static.json")
-BOARD_DATA = Path(r"C:\briefdesk\data\board-data.json")
-IMAGE_MANIFEST = Path(r"C:\briefdesk\data\images-manifest.json")
-REAL_QR = Path(r"C:\briefdesk\data\qr_guests.jpg")
+CLASS_IDENTITIES = Path(r"G:\ClassTools\briefdesk\data\class-identities.json")
+CLASS_ALIASES = Path(r"G:\ClassTools\briefdesk\data\class-aliases.json")
+QQ_FILES = Path(r"G:\ClassTools\briefdesk\data\qq-files")
+HOMEWORK_STATIC = Path(r"G:\ClassTools\briefdesk\data\homework-static.json")
+BOARD_DATA = Path(r"G:\ClassTools\briefdesk\data\board-data.json")
+IMAGE_MANIFEST = Path(r"G:\ClassTools\briefdesk\data\images-manifest.json")
+REAL_QR = Path(r"G:\ClassTools\briefdesk\data\qr_guests.jpg")
 
 SCHEDULE = [
     {"day": "周一", "periods": "1-3", "course": "思政课", "room": "1202", "note": "11/02 起调至周二 6-8 节"},
@@ -4543,7 +4543,7 @@ _NOTICE_TIME_MODULE = []
 
 
 def _notice_time_module():
-    """pipeline 提供的 notice_time.py（C:\\briefdesk\\scripts，已在 sys.path）；无则返回 None。"""
+    """pipeline 提供的 notice_time.py（G:\\ClassTools\\briefdesk\\scripts，已在 sys.path）；无则返回 None。"""
     if not _NOTICE_TIME_MODULE:
         try:
             import notice_time  # noqa: E402
@@ -5201,8 +5201,8 @@ def qq_file_uri(name):
 # ---------------------------------------------------------------- v2.0.0 微信附件
 # 用户反馈「微信通知附件未识别」：ai_triage 现在会为微信图片/文件消息生成带 mediaKey 的
 # items；wechat_media.py 负责把字节落地（微信文件在 msg/file 是明文；图片 V2 加密需密钥）。
-WECHAT_MEDIA_MANIFEST = Path(r"C:\briefdesk\data\wechat-media.json")
-ARCHIVE_CONTENTS = Path(r"C:\briefdesk\data\archive-contents.json")
+WECHAT_MEDIA_MANIFEST = Path(r"G:\ClassTools\briefdesk\data\wechat-media.json")
+ARCHIVE_CONTENTS = Path(r"G:\ClassTools\briefdesk\data\archive-contents.json")
 _ARCHIVE_MAP = None
 _WECHAT_MEDIA = None
 

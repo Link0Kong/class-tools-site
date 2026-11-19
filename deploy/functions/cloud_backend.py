@@ -12,7 +12,7 @@
 
 优先级（高 → 低）：
     1. 进程环境变量 `CLASS_CB_BASE` / `CLASS_CB_KEY`（非空才生效）；
-    2. `C:\\briefdesk\\secrets\\cloud.env` 里的同名键（KEY=VALUE；可选路径用
+    2. `G:\\ClassTools\\briefdesk\\secrets\\cloud.env` 里的同名键（KEY=VALUE；可选路径用
        `CLASS_CB_CONFIG` 覆盖，测试用）；
     3. `web/tools/index.html` 的 `var CB` / `var CBK` 字面量（CloudBase，默认）。
 
@@ -53,7 +53,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.environ.get("BRIEFDESK_ROOT") or os.path.dirname(HERE)
 SECRETS = os.path.join(ROOT, "secrets")
 
-WEB_ROOT = os.environ.get("BRIEFDESK_WEB_ROOT") or r"C:\Users\Ko_Li\.openclaw\workspace\web"
+WEB_ROOT = os.environ.get("BRIEFDESK_WEB_ROOT") or r"G:\ClassTools\web"
 DEFAULT_INDEX = os.path.join(WEB_ROOT, "tools", "index.html")
 
 ENV_BASE = "CLASS_CB_BASE"
@@ -279,7 +279,7 @@ def _emit(text: str) -> None:
 
 def _env_example() -> str:
     return (
-        "# ---- ECS 自建后端切换（追加到 C:\\briefdesk\\secrets\\cloud.env；不打印任何 key）----\n"
+        "# ---- ECS 自建后端切换（追加到 G:\\ClassTools\\briefdesk\\secrets\\cloud.env；不打印任何 key）----\n"
         "# staging（P2 影子验证，写 staging 库；默认不启用）：\n"
         "CLASS_CB_BASE=http://121.196.47.2/v1/rdb/rest-next/\n"
         "# 切流后（P4，Caddy /v1/rdb/rest/* 改指向自建 PostgREST）：\n"

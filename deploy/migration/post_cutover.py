@@ -255,7 +255,7 @@ def apply(confirm):
         check("A7 monitor prod_mode=selfhosted", False, type(exc).__name__)
     log("""
 [下一步人工确认]
-1) 附件外置（用户已授权第②步）：本机 C:\\briefdesk\\secrets\\cloud.env 设
+1) 附件外置（用户已授权第②步）：本机 G:\\ClassTools\\briefdesk\\secrets\\cloud.env 设
    NOTICE_ATTACH_EXTERNALIZE=1 与 ATT_BASE_URL=https://tool.furina.fun，跑一次 sync_notices_cloud.py 回填存量；
    演练证据 deploy/migration/e2e_attach_staging.py 8/8 PASS。
 2) 小程序/安卓：发布使用 https://tool.furina.fun/v1/rdb/rest/ 的新版（备案+HTTPS 后）。
@@ -272,7 +272,7 @@ def main(argv=None):
     ap.add_argument("--confirm", action="store_true", help="apply 必须显式确认")
     ap.add_argument("--dry-run", action="store_true", help="只打印步骤")
     ns = ap.parse_args(argv)
-    LOG_PATH = os.path.join(r"C:\briefdesk\data\cloudbase_migration",
+    LOG_PATH = os.path.join(r"G:\ClassTools\briefdesk\data\cloudbase_migration",
                             "post-cutover-%s-%s.log" % (ns.mode, time.strftime("%Y%m%d-%H%M%S")))
     os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
     log("=== post_cutover %s start %s ===" % (ns.mode, time.strftime("%Y-%m-%dT%H:%M:%S")))

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import markdown
 
-BASE = Path(r"C:\Users\Ko_Li\.openclaw\workspace\briefdesk-plan")
+BASE = Path(r"G:\ClassTools\web\briefdesk")
 MD_PATH = BASE / "班级通知整合方案.md"
 OUT_PATH = BASE / "班级通知整合方案.html"
 

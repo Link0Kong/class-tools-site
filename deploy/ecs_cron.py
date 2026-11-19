@@ -66,7 +66,7 @@ FUNCS_DIR = os.path.join(HERE, "functions")
 REPO_ROOT = os.path.dirname(HERE)
 TOOLS_INDEX = os.path.join(REPO_ROOT, "tools", "index.html")
 
-BRIEFDESK_ROOT = os.environ.get("BRIEFDESK_ROOT") or r"C:\briefdesk"
+BRIEFDESK_ROOT = os.environ.get("BRIEFDESK_ROOT") or r"G:\ClassTools\briefdesk"
 BD_SCRIPTS = os.path.join(BRIEFDESK_ROOT, "scripts")
 BD_SECRETS = os.path.join(BRIEFDESK_ROOT, "secrets")
 

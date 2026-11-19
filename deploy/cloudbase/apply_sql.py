@@ -8,7 +8,7 @@
   → 正确姿势：逐条语句，用 Python 直接调用 node + cloudbase CLI 入口（不经过 .ps1 包装）。
 
 用法（PowerShell）：
-    cd C:/Users/Ko_Li/.openclaw/workspace/web/deploy/cloudbase
+    cd G:/ClassTools/web/deploy/cloudbase
     python apply_sql.py 2026-11-08_diag_login.sql            # 逐条应用（幂等）
     python apply_sql.py 2026-11-08_diag_login.sql --dry-run
 """

@@ -12,12 +12,12 @@ r"""同步班级 17 间宿舍的剩余电量到 CloudBase public.power。
 
 权限：读取 public.power 需有效班级 token；写入仅管理员 token。
       token 走 web/tools/index.html 的 var CB / var CBK + rpc/class_verify，
-      缓存于 C:\briefdesk\secrets\class-token.json（仅本机）。
+      缓存于 G:\ClassTools\briefdesk\secrets\class-token.json（仅本机）。
 
 隐私：任何输出/日志都不含姓名、学号、手机号；本表只有楼栋/房间号/电量/时间。
 
 每次成功写 power 后追加一条 power_history 采样（页面趋势/指标用）；历史保留 30 天。
-日志：C:\briefdesk\logs\power-sync.log（超过 1MB 轮转为 .1）
+日志：G:\ClassTools\briefdesk\logs\power-sync.log（超过 1MB 轮转为 .1）
 用法：
   python  sync_power_cloud.py               # 正常同步一次（写 power + power_history）
   pythonw sync_power_cloud.py               # 计划任务（无窗口）
@@ -37,9 +37,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # ---------------- 路径 / 常量 ----------------
-INDEX = Path(r"C:\Users\Ko_Li\.openclaw\workspace\web\tools\index.html")
-TOKEN_FILE = Path(r"C:\briefdesk\secrets\class-token.json")
-LOG_FILE = Path(r"C:\briefdesk\logs\power-sync.log")
+INDEX = Path(r"G:\ClassTools\web\tools\index.html")
+TOKEN_FILE = Path(r"G:\ClassTools\briefdesk\secrets\class-token.json")
+LOG_FILE = Path(r"G:\ClassTools\briefdesk\logs\power-sync.log")
 LOG_MAX_BYTES = 1024 * 1024
 
 try:  # 后端基址/匿名 key 统一入口（默认仍解析 index.html → CloudBase，行为不变）

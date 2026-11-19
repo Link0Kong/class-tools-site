@@ -22,7 +22,7 @@ CloudBase 环境 ``tool-d4gosudok46e0e081``（PG 17.11）只提供 CLI 通道：
 - 只允许单条 ``select`` / ``with`` / ``show`` 语句；拒绝 DML/DDL/TCL 关键字、多语句；
   所有导出动作对 CloudBase 都是只读的。
 - 不在任何日志/异常里打印行内容（可能含隐私）；只打印列名/行数/耗时。
-- 不读 ``C:\\briefdesk\\secrets\\**``。
+- 不读 ``G:\\ClassTools\\briefdesk\\secrets\\**``。
 
 用法
 ====
@@ -563,7 +563,7 @@ class TcbSqlClient:
 # 私有产物根目录：含真实数据，**绝不进仓库**（AGENTS.md 红线：不进 git、不打印正文）
 DEFAULT_OUTPUT_ROOT = Path(
     os.environ.get("CB_MIGRATION_ROOT")
-    or r"C:\briefdesk\data\cloudbase_migration"
+    or r"G:\ClassTools\briefdesk\data\cloudbase_migration"
 )
 MANIFEST_FILES = ("schema_manifest.json", "data_manifest.json", "manifest.json")
 

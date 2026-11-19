@@ -3,7 +3,7 @@
 把 web\\tools 里的静态文件同步到独立 Bucket -> https://tool.furina.fun/
 
 用法：
-    python C:\\Users\\Ko_Li\\.openclaw\\workspace\\web\\deploy\\sync_tools.py
+    python G:\\ClassTools\\web\\deploy\\sync_tools.py
 可只同步指定文件：
     python sync_tools.py index.html
 

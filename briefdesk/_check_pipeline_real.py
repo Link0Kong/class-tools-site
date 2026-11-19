@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """v2.0.0 真实数据 e2e 冒烟（不覆盖正式产物）：builder 全流程 + 微信媒体采集空转。
 
-跑法：C:\\briefdesk\\venv\\Scripts\\python.exe -X utf8 briefdesk-plan\\_check_pipeline_real.py
+跑法：G:\\ClassTools\\briefdesk\\venv\\Scripts\\python.exe -X utf8 briefdesk-plan\\_check_pipeline_real.py
 """
 import json
 import sys
@@ -9,7 +9,7 @@ import tempfile
 import time
 from pathlib import Path
 
-sys.path.insert(0, r"C:\briefdesk\scripts")
+sys.path.insert(0, r"G:\ClassTools\briefdesk\scripts")
 FAILED = []
 
 

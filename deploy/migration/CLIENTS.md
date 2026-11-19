@@ -82,7 +82,7 @@ const ACTIVE_REST_PROFILE = 'cloudbase';   // ← 切流/回滚只改这一行
 | 8 个并发请求峰值并发（上限 2 时） | 8 | **2** |
 | 登录后首屏 `cloudPull` 请求数（旧 base 不回退基线） | 9 | **9** |
 
-复现：`cd C:\Users\Ko_Li\.openclaw\workspace\mp-class-tools-tests; node net_bench.js`。
+复现：`cd G:\ClassTools\mp-class-tools\tests; node net_bench.js`。
 回归：`node unit.js` **597/0 全绿**（新增 `net_layer_tests.js` 12 项：三档配置/HTTP2/超时分级/重试/合并/并发/旧配置兼容）。
 
 **首屏请求数评估**（登录/通知）：此前已完成的优化继续生效——通知列表走 `rpc/class_notices_meta`（~0.3MB，按需懒加载 body）、
@@ -277,7 +277,7 @@ $cli = "C:\Program Files (x86)\Tencent\微信web开发者工具\cli.bat"
 & $cli auto --project $mp --auto-port 9420 --trust-project
 
 # 2) 运行冒烟（脚本先校验配置档位 + staging class_verify 200，否则拒绝运行；结束清空 devtools storage）
-cd C:\Users\Ko_Li\.openclaw\workspace\mp-class-tools-tests
+cd G:\ClassTools\mp-class-tools\tests
 node staging_smoke_mp.js
 
 # 3) 收尾：把 ACTIVE_REST_PROFILE 改回 'cloudbase'，并关闭 devtools

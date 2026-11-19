@@ -2,7 +2,7 @@
 """builder 数据侧单测：时间归一（契约 §1/§4）+ 发送者身份映射（契约 §5）。
 
 运行：
-  C:\\briefdesk\\venv\\Scripts\\python.exe C:\\Users\\Ko_Li\\.openclaw\\workspace\\briefdesk-plan\\tests\\test_build_normalize.py
+  C:\\briefdesk\\venv\\Scripts\\python.exe G:\\ClassTools\\web\\briefdesk\\tests\\test_build_normalize.py
 
 只读产品数据（class-*.json / notice-manual-patches.json / ai-triage-notices.json），
 临时文件写在 tests 目录内并清理。
@@ -13,7 +13,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-BASE = Path(r"C:\Users\Ko_Li\.openclaw\workspace\briefdesk-plan")
+BASE = Path(r"G:\ClassTools\web\briefdesk")
 sys.path.insert(0, str(BASE))
 sys.path.append(r"C:\briefdesk\scripts")
 

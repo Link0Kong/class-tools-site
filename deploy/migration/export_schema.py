@@ -18,7 +18,7 @@
 ====
 - **只读**：所有远端操作都是 ``select``（经 ``tcb_sql.TcbSqlClient`` 白名单校验）。
 - 结构计数与 catalog 不一致时**直接报错**，绝不产出半可信 schema.sql。
-- 产物目录私有（默认 ``C:\\briefdesk\\data\\cloudbase_migration\\<YYYYMMDD-HHMM>\\``），
+- 产物目录私有（默认 ``G:\\ClassTools\\briefdesk\\data\\cloudbase_migration\\<YYYYMMDD-HHMM>\\``），
   **不进仓库、不打印数据**；本脚本只打印对象计数。
 
 用法::

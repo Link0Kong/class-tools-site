@@ -2,7 +2,7 @@
 """依赖服务健康心跳 —— 班级工具站「诊断」页的数据源（采集主机 + 云端巡检）。
 
 契约（唯一标准）:
-    C:\\Users\\Ko_Li\\.openclaw\\workspace\\web\\tools\\tests\\dns_pause_tt_health_spec.md §4
+    G:\\ClassTools\\web\\tools\\tests\\dns_pause_tt_health_spec.md §4
     （原 13 行契约见 health_monitor_spec.md；2026-11-07 起扩为 18 行，新增 5 行均 kind=cloud）
 
 18 个服务行 = 本机 local 10 行（本机 health_beat 写）+ 云端 cloud 8 行（云函数 health_probe 写）:
@@ -54,7 +54,7 @@ P4 ECS PostgreSQL 监控并入 cloudbase 行（2026-11-18，默认行为不变�
 安全与稳健:
     * 纯标准库（urllib / ssl / subprocess / ctypes / socket），不依赖第三方包；
     * 所有子进程（Windows PowerShell / tasklist）一律 CREATE_NO_WINDOW，无可见窗口；
-    * 任何异常都只写 C:\\briefdesk\\logs\\health-beat.log，不向调用方抛出；
+    * 任何异常都只写 G:\\ClassTools\\briefdesk\\logs\\health-beat.log，不向调用方抛出；
     * 日志单文件轮转（>1MB 保留尾部 300 行），日志内容只有状态码/耗时/文案，无 token。
 """
 
@@ -86,7 +86,7 @@ PAUSE = os.path.join(ROOT, "watchdog.pause")
 SECRETS = os.path.join(ROOT, "secrets")
 TOKEN_FILE = os.path.join(SECRETS, "class-token.json")
 
-WEB_ROOT = os.environ.get("BRIEFDESK_WEB_ROOT") or r"C:\Users\Ko_Li\.openclaw\workspace\web"
+WEB_ROOT = os.environ.get("BRIEFDESK_WEB_ROOT") or r"G:\ClassTools\web"
 INDEX = os.path.join(WEB_ROOT, "tools", "index.html")
 TT_JSON = os.path.join(WEB_ROOT, "tools", "tt.json")
 

@@ -4,7 +4,7 @@
 覆盖：真实 5.18MB 样本识别 + 安全边界（zip-slip/绝对路径/超大/坏包/嵌套）+ hash 缓存 +
 builder 注入 + 模板渲染（包内文件清单/摘要/小文件下载）。
 
-跑法：C:\\briefdesk\\venv\\Scripts\\python.exe -X utf8 briefdesk-plan\\_check_archive.py
+跑法：G:\\ClassTools\\briefdesk\\venv\\Scripts\\python.exe -X utf8 briefdesk-plan\\_check_archive.py
 """
 import json
 import re
@@ -16,9 +16,9 @@ import time
 import zipfile
 from pathlib import Path
 
-sys.path.insert(0, r"C:\briefdesk\scripts")
+sys.path.insert(0, r"G:\ClassTools\briefdesk\scripts")
 EDGE = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
-REAL_ZIP = Path(r"C:\briefdesk\data\qq-files\第十一届全国大学生预防艾滋病知识竞赛暨校园健康行动通知附件.zip")
+REAL_ZIP = Path(r"G:\ClassTools\briefdesk\data\qq-files\第十一届全国大学生预防艾滋病知识竞赛暨校园健康行动通知附件.zip")
 REAL_SHA = "8e14c71d4092"
 FAILED = []
 
@@ -79,7 +79,7 @@ def test_safety(tmp):
 
 def test_real_sample():
     import archive_scan
-    real = json.loads(Path(r"C:\briefdesk\data\archive-contents.json").read_text(encoding="utf-8"))
+    real = json.loads(Path(r"G:\ClassTools\briefdesk\data\archive-contents.json").read_text(encoding="utf-8"))
     rec = next((v for v in (real.get("items") or {}).values()
                 if str(v.get("file") or "").startswith("第十一届")), None)
     check("真实样本已有识别记录", rec is not None)
@@ -176,7 +176,7 @@ def test_builder_and_template(tmp):
                     "--user-data-dir=" + str(tmp / "edge2"), "--window-size=1280,900",
                     "--screenshot=" + str(shot), focus_file.as_uri()], capture_output=True, timeout=120)
     if shot.exists():
-        keep = Path(r"C:\briefdesk\data\_v2_template_check")
+        keep = Path(r"G:\ClassTools\briefdesk\data\_v2_template_check")
         keep.mkdir(parents=True, exist_ok=True)
         shutil.copy2(shot, keep / "archive_card.png")
         print("  screenshot ->", keep / "archive_card.png")
