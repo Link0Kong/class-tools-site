@@ -1,9 +1,10 @@
 {
-  "versionCode": 87,
-  "versionName": "1.0.0-beta4",
-  "apkUrl": "http://121.196.47.2/android/classtools-1.0.0-beta4.apk",
-  "notes": "1.0.0-beta4（测试版本）\n1. 按鸿蒙端重做卡片/UI：白色18圆角浅阴影卡、莫奈浅色 hero、分类全部工具、编辑首页\n2. 工作台/我的/身份/工具页统一鸿蒙设计\n3. 保留删除三工具、启动自动更新弹窗、通知数据卡\n4. 其它并行改动随包",
+  "versionCode": 91,
+  "versionName": "1.0.0-beta8",
+  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta8.apk.bin",
+  "notes": "1.0.0-beta8：UI/动效鸿蒙对齐、隐私与用户协议全文、通知轻量 meta、网络与更新渠道优化",
   "force": false,
   "channel": "beta",
-  "sha256": "63da6827785013f6ca54ad200f408f65f0dd1de1a07448e734d4cfa14a1d948e"
+  "sha256": "4e01872e79ba786afbc32254b4cfa937b400ebfd7cae186f6fd212660e549d58",
+  "sizeBytes": 5820537
 }
