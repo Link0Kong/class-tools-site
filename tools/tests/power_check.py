@@ -358,7 +358,7 @@ async function run(){
     T("环 aria-label 含剩余电量与 ≥30 天估算", (q(f,"#pwGauge")||{}).getAttribute?/剩余 382/.test(q(f,"#pwGauge").getAttribute("aria-label")||"")&&/≥30 天/.test(q(f,"#pwGauge").getAttribute("aria-label")||""):"", (q(f,"#pwGauge")||{}).getAttribute?q(f,"#pwGauge").getAttribute("aria-label"):"");
     T("趋势区渲染内联 SVG 折线", !!q(f,"#pwTrend svg")&&!!q(f,"#pwTrend path.pw-trend-line"), "");
     var td=(q(f,"#pwTrend path.pw-trend-line")||{}).getAttribute?q(f,"#pwTrend path.pw-trend-line").getAttribute("d"):"";
-    T("趋势折线含 ≥5 个采样点", (td.match(/[ML]/g)||[]).length>=5, (td.match(/[ML]/g)||[]).length);
+    T("趋势曲线含 ≥5 个采样点（平滑后为 C 段）", (td.match(/[MLC]/g)||[]).length>=5, (td.match(/[MLC]/g)||[]).length);
     T("趋势端点用 DOM 圆点（非拉伸 SVG 椭圆）", !!q(f,"#pwTrend .pw-tdot")&&!q(f,"#pwTrend svg circle"), "");
     var lg=txt(f,"#pwLegend");
     T("趋势图例含起点/当前/近 24h 下降", lg.indexOf("起点")>=0&&lg.indexOf("当前")>=0&&lg.indexOf("近 24h 下降")>=0, lg.replace(/\s+/g," "));

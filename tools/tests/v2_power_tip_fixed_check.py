@@ -151,6 +151,26 @@ def run(p, shots):
     T("A6 竖线/圆点在绘图区内（仍对准采样点）",
       bool(st["dot"]) and bool(st["line"]) and st["plot"]["l"] - 1 <= st["dot"]["l"] <= st["plot"]["r"] + 1,
       json.dumps({"dot": st["dot"]}, ensure_ascii=False))
+    curve = p.evaluate("""(function(){
+      var ch=window.__POWER_CHART&&window.__POWER_CHART(),svg=document.querySelector('#pwTrend svg'),path=svg&&svg.querySelector('path.pw-trend-line');
+      if(!ch||!path)return null;
+      var d=path.getAttribute('d')||'',nums=(d.match(/-?\d+(?:\.\d+)?/g)||[]).map(Number);
+      var ends=[[nums[0],nums[1]]],i,maxd=0;
+      for(i=2;i+5<nums.length;i+=6){ends.push([nums[i+4],nums[i+5]]);}
+      for(i=0;i<Math.min(ends.length,ch.coords.length);i++){
+        maxd=Math.max(maxd,Math.abs(ends[i][0]-ch.coords[i][0]),Math.abs(ends[i][1]-ch.coords[i][1]));
+      }
+      var dot=document.querySelector('#pwDetailDot'),dr=dot.getBoundingClientRect(),sr=svg.getBoundingClientRect();
+      var c=ch.coords[ch.detail]||ch.coords[0];
+      var ex=sr.left+c[0]/ch.W*sr.width,ey=sr.top+c[1]/ch.H*sr.height;
+      var dx=Math.abs((dr.left+dr.right)/2-ex),dy=Math.abs((dr.top+dr.bottom)/2-ey);
+      var pr=document.querySelector('#pwDetail').getBoundingClientRect(),tr=document.querySelector('#pwTrend').getBoundingClientRect();
+      return {n:ch.coords.length,ends:ends.length,maxd:+maxd.toFixed(3),dx:+dx.toFixed(2),dy:+dy.toFixed(2),
+              detailW:+pr.width.toFixed(1),plotW:+tr.width.toFixed(1)};
+    })()""")
+    T("A6b 平滑曲线穿过每个真实采样点（C 段终点=采样坐标）", curve and curve["ends"] == curve["n"] and curve["maxd"] <= 0.25, json.dumps(curve, ensure_ascii=False))
+    T("A6c 游标圆点与曲线同坐标（百分比定位，缩放不漂移）", curve and curve["dx"] <= 1.2 and curve["dy"] <= 1.2, json.dumps(curve, ensure_ascii=False))
+    T("A6d 详情层与绘图区同宽（圆点 x 与曲线同源）", curve and abs(curve["detailW"] - curve["plotW"]) <= 1.5, json.dumps(curve, ensure_ascii=False))
     T("A7 固定位置：气泡在绘图区上方（不放在图内）", st["tip"]["b"] <= st["plot"]["t"] + 0.5,
       "tip.b=%s plot.t=%s" % (st["tip"]["b"], st["plot"]["t"]))
     T("A8 右对齐卡片内容右缘（趋势图右上角）", abs(st["tip"]["r"] - (st["card"]["r"] - 16)) <= 2.5,

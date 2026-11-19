@@ -1898,11 +1898,13 @@ function itemHTML(g,it,idx){
     if(it.src){
       h+='<div class="imgrow" data-act="img" data-gid="'+g.id+'" data-idx="'+idx+'"><img src="'+it.src+'" alt=""></div>';
     } else if(it.lazy){
-      /* 2026-11-18 列表轻量化：图片 data URI 在单行 body 里，点击时才拉取。 */
-      h+='<div class="imgrow missing" data-act="lazybody" data-lazyact="img" data-gid="'+g.id+'" data-idx="'+idx+'">'+
+      /* 2026-11-18 列表轻量化：图片 data URI 在单行 body 里；2026-11-19 用户要求
+         图片直接显示预览而不是点击才加载 → 由 IntersectionObserver 进入视口时自动
+         拉取该卡完整 body，占位文案改成「图片预览加载中…」，点击仍保留兜底。 */
+      h+='<div class="imgrow missing lazyimg" data-act="lazybody" data-lazyact="img" data-gid="'+g.id+'" data-idx="'+idx+'">'+
          '<div class="ib"><div class="it">'+esc(it.caption||'图片附件')+'</div>'+
-         '<div class="ic">'+esc(it.note||'通知图片 · 点击加载')+'</div></div>'+
-         '<span class="missbadge">点击加载</span></div>';
+         '<div class="ic">'+esc(it.note||'通知图片 · 预览加载中…')+'</div></div>'+
+         '<span class="missbadge">预览加载中</span></div>';
     } else {
       /* 微信图片 V2 加密 / 未导出字节：保留附件条目，前端显示「待获取」 */
       h+='<div class="imgrow missing" data-act="filemiss" data-gid="'+g.id+'" data-idx="'+idx+'">'+
@@ -2403,6 +2405,7 @@ function render(opts){
     b.classList.toggle('on',!state.card&&(b.getAttribute('data-sub')||'全部')===state.sub);
   });
   renderHidden();
+  try{autoPreviewImages();}catch(e){}
   RENDER_SIG=noticeSig();
 }
 /* 弹层：嵌入网页时交给父页面渲染（父页磨砂暗层 + 原页面背景），单独打开时用内置弹层。 */
@@ -2472,6 +2475,33 @@ function __zqHydrate(gid,group,idx,act){
   try{window.scrollTo(0,y);}catch(e){}
 }
 try{window.__zqHydrate=__zqHydrate;}catch(e){}
+
+/* 图片预览自动加载（2026-11-19 用户要求）：lite 列表只为图片保留了 lazy 占位，
+   进入视口就向父页请求该卡完整 body，回填后直接显示图片；不必再点「点击加载」。
+   每张卡只请求一次，最多自动回填 18 张卡；超出/失败的仍可手动点击。 */
+var AUTO_PREVIEW={io:null,n:0,max:18};
+function autoPreviewImages(){
+  try{
+    var nodes=[].slice.call(document.querySelectorAll('.imgrow.lazyimg[data-gid]'));
+    if(!nodes.length){if(AUTO_PREVIEW.io){AUTO_PREVIEW.io.disconnect();AUTO_PREVIEW.io=null;}return;}
+    function request(el){
+      if(!el||el.getAttribute('data-autoload')==='1'||AUTO_PREVIEW.n>=AUTO_PREVIEW.max)return;
+      el.setAttribute('data-autoload','1');AUTO_PREVIEW.n++;
+      lazyBody(el.getAttribute('data-gid'),Number(el.getAttribute('data-idx'))||0,'inline');
+    }
+    if(!('IntersectionObserver' in window)){
+      var vh=window.innerHeight||document.documentElement.clientHeight||800,todo=[];
+      nodes.forEach(function(el){var r=el.getBoundingClientRect();if(r.top<vh+180&&r.bottom>-180)todo.push(el);});
+      todo.slice(0,2).forEach(request);
+      return;
+    }
+    if(AUTO_PREVIEW.io)AUTO_PREVIEW.io.disconnect();
+    AUTO_PREVIEW.io=new IntersectionObserver(function(entries){
+      entries.forEach(function(en){if(en.isIntersecting){request(en.target);try{AUTO_PREVIEW.io.unobserve(en.target);}catch(e){}}});
+    },{root:null,rootMargin:'200px 0px',threshold:0.01});
+    nodes.forEach(function(el){if(el.getAttribute('data-autoload')!=='1')AUTO_PREVIEW.io.observe(el);});
+  }catch(e){}
+}
 function copyText(text){  function fallback(){
     try{
       var ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
@@ -3682,10 +3712,12 @@ def load_roster():
         key = _person_clean(nm)
         if not key:
             continue
+        # 2026-11-19 修复：badge 只认 class-members 的显式字段；此前空 badge 默认成
+        # 「班委」，导致普通同学（张誉权/范进平/杨培琪等）也被标班委气泡。
         role_map[key] = {
             "name": nm,
             "role": str(m.get("role") or "").strip(),
-            "badge": str(m.get("badge") or "").strip() or "班委",
+            "badge": str(m.get("badge") or "").strip(),
         }
     if not role_map:
         # 没 class-members 时至少用 class-identities 的 members 兜底
@@ -3694,7 +3726,7 @@ def load_roster():
                 role_map[_person_clean(m.get("name") or "")] = {
                     "name": str(m.get("name") or "").strip(),
                     "role": str(m.get("role") or "").strip(),
-                    "badge": str(m.get("badge") or "").strip() or "班委",
+                    "badge": str(m.get("badge") or "").strip(),
                 }
 
     raw_map, clean_map = {}, {}
@@ -3728,7 +3760,7 @@ def load_roster():
             info = {
                 "name": nm,
                 "role": str(m.get("role") or "").strip(),
-                "badge": str(m.get("badge") or "").strip() or "班委",
+                "badge": str(m.get("badge") or "").strip(),
             }
             if info["name"]:
                 role_map[_person_clean(info["name"])] = info
@@ -4451,18 +4483,41 @@ def load_manual_patches():
 
 
 def apply_manual_patches(groups):
-    """人工补丁（最后应用）：按通知组 id 覆盖字段 / 追加 items / updatedAt。
+    """人工补丁（最后应用）：按通知组 id 覆盖字段 / 追加 items / 合并重复组 / updatedAt。
 
     人工补丁是最终保障：药膳报名时间修正、g_dorm 长期安排都在
     data/notice-manual-patches.json 里维护，重建后不会丢。
+    2026-11-19 扩展：
+      - mergeInto: 把 id 指向的重复/局部组并入目标组（保留目标组身份，去重追加 items）；
+      - dropImages: 删除该组所有图片 item（用户反馈「底部图片与通知内容无关」的兜底）。
     """
     patches = load_manual_patches()
     if not patches:
         return groups
     for p in patches:
-        target = _find_group(groups, str(p.get("id") or ""), str(p.get("titleFallback") or ""))
+        src = _find_group(groups, str(p.get("id") or ""), str(p.get("titleFallback") or ""))
+        target = src
+        if p.get("mergeInto"):
+            dst = _find_group(groups, str(p.get("mergeInto") or ""), "")
+            if not dst:
+                continue
+            target = dst
+            if src and src is not dst:
+                kept = []
+                for it in (src.get("items") or []):
+                    if not isinstance(it, dict):
+                        continue
+                    # [image] 是旧解析占位，不是真实内容，不并入
+                    if it.get("kind") == "text" and str(it.get("text") or "").strip() in ("[image]", "[图片]"):
+                        continue
+                    kept.append(it)
+                _append_items(dst, kept)
+                groups = [g for g in groups if g is not src]
         if not target:
             continue
+        if p.get("dropImages"):
+            target["items"] = [it for it in (target.get("items") or [])
+                               if not (isinstance(it, dict) and it.get("kind") == "img")]
         added = _append_items(target, p.get("appendItems") or [])
         _apply_patch_to_group(target, p.get("set") or {}, appended=added,
                               updated_at=str(p.get("updatedAt") or ""))
