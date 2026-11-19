@@ -115,9 +115,13 @@ def main(argv=None):
             old = json.load(f)
     except Exception:  # noqa: BLE001
         old = None
-    if not args.force and old and int(old.get("versionCode") or 0) == int(args.version_code) \
-            and str(old.get("sha256") or "") == digest:
-        print("  渠道已是该版本与该 sha，跳过上传（--force 可重传）")
+    if not args.force and old and int(old.get("versionCode") or 0) == int(args.version_code):
+        if str(old.get("sha256") or "") == digest:
+            print("  渠道已是该版本与该 sha，跳过上传（--force 可重传）")
+        else:
+            # 同 versionCode 但构建产物不同：不允许静默覆盖渠道；发新版本必须 bump versionCode。
+            print("  渠道已有同 versionCode（%s）但 sha 不同；请 bump versionCode 后再发布（--force 可强制覆盖）"
+                  % args.version_code)
         return 0
 
     os.makedirs(ANDROID_DIR, exist_ok=True)
