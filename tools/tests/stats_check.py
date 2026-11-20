@@ -56,14 +56,14 @@ function at(dayOffset,h,m){
 }
 var TODAY=ymd(new Date()), YEST=ymd(d(1));
 var FAKE_VISITS=[
-  {slot:TODAY+"-09",sid:"9000000001",name:"张三",ts:at(0,9,7),client:"web"},
-  {slot:TODAY+"-10",sid:"9000000002",name:"李四",ts:at(0,10,42),client:"mp"},
-  {slot:TODAY+"-11",sid:"9000000001",name:"张三",ts:at(0,11,5),client:"android"},
-  {slot:TODAY+"-12",sid:"9000000003",name:"王五",ts:at(0,12,0),client:"win"},
-  {slot:TODAY+"-12",sid:"3260799999",name:"测试账号",ts:at(0,12,30),client:"web"},
-  {slot:TODAY+"-12",sid:"9999000001",name:"测试同学",ts:at(0,12,40),client:"mp"},
-  {slot:YEST+"-20",sid:"9000000004",name:"赵六",ts:at(1,20,15),client:"harmony"},
-  {slot:YEST+"-08",sid:"9000000005",name:"周八"}   /* 旧行：无 ts/client，回退 slot 整点 + 未记录 */
+  {slot:TODAY+"-09",sid:"9000000001",name:"张三",ts:at(0,9,7),client:"web",ver:"2.0.0",dev:"Windows · Edge 131",did:"d100000000000001"},
+  {slot:TODAY+"-10",sid:"9000000002",name:"李四",ts:at(0,10,42),client:"mp",ver:"2.0.0",dev:"Apple iPhone 15 · iOS 18.1",did:"d100000000000002"},
+  {slot:TODAY+"-11",sid:"9000000001",name:"张三",ts:at(0,11,5),client:"android",ver:"1.0.0-beta14",dev:"Xiaomi 23127PN0CC · Android 15",did:"d100000000000003"},
+  {slot:TODAY+"-12",sid:"9000000003",name:"王五",ts:at(0,12,0),client:"win",ver:"0.1.0",dev:"Windows 11 · x64",did:"d100000000000004"},
+  {slot:TODAY+"-12",sid:"3260799999",name:"测试账号",ts:at(0,12,30),client:"web",ver:"2.0.0",dev:"Windows · Edge 131"},
+  {slot:TODAY+"-12",sid:"9999000001",name:"测试同学",ts:at(0,12,40),client:"mp",ver:"2.0.0",dev:"Apple iPhone 15 · iOS 18.1"},
+  {slot:YEST+"-20",sid:"9000000004",name:"赵六",ts:at(1,20,15),client:"harmony",ver:"1.0.8",dev:"Mate 60 · HarmonyOS 5.0.0",did:"d100000000000005"},
+  {slot:YEST+"-08",sid:"9000000005",name:"周八"}   /* 旧行：无 ts/client/ver/dev，回退 slot 整点 + 未记录 */
 ];
 function fake(status,body){return Promise.resolve({ok:status>=200&&status<300,status:status,
   json:function(){return Promise.resolve(body);},text:function(){return Promise.resolve(JSON.stringify(body));}});}
@@ -157,6 +157,9 @@ async function run(){
       T("visits body 是数组且 sid=本人", Array.isArray(body)&&body[0]&&body[0].sid===NON_SID, r.body.slice(0,200));
       T("visits slot 形如 YYYY-MM-DD-HH", !!(body[0]&&/^\d{4}-\d{2}-\d{2}-\d{2}$/.test(body[0].slot||"")), body[0]&&body[0].slot);
       T("visits 记录登录端 client=web", !!(body[0]&&body[0].client==="web"), body[0]&&body[0].client);
+      T("visits 记录应用版本 ver", !!(body[0]&&/^\d+\.\d+\.\d+/.test(String(body[0].ver||""))), body[0]&&body[0].ver);
+      T("visits 记录设备 dev（≤48，不含姓名/学号）", !!(body[0]&&String(body[0].dev||"").length>0&&String(body[0].dev||"").length<=48)
+        && String(body[0].dev).indexOf(NON_SID)<0&&String(body[0].dev).indexOf("测试同学")<0, body[0]&&body[0].dev);
       T("visits 响应按成功处理（本地已记录 slot）", !!f.contentWindow.localStorage.getItem("zq_visit_slot_"+NON_SID), f.contentWindow.localStorage.getItem("zq_visit_slot_"+NON_SID));
     }
 
@@ -197,6 +200,7 @@ async function run(){
       T("GET visits 带 X-Device-Id", !!gp[0].headers["x-device-id"], JSON.stringify(gp[0].headers));
       T("GET visits 带 slot 起始过滤", gp[0].url.indexOf("slot=gte.")>=0, gp[0].url);
       T("GET visits 选取 ts/client", gp[0].url.indexOf("select=slot,sid,name,ts,client")>=0, gp[0].url);
+      T("GET visits 选取 ver/dev/did", gp[0].url.indexOf("select=slot,sid,name,ts,client,ver,dev,did")>=0, gp[0].url);
       T("GET visits 按 ts 倒序", gp[0].url.indexOf("order=ts.desc")>=0, gp[0].url);
       T("GET visits 上限 5000", gp[0].url.indexOf("limit=5000")>=0, gp[0].url);
     }
@@ -209,6 +213,7 @@ async function run(){
     T("忽略 9999 段 QA 测试身份", txt.indexOf("测试同学")<0, txt.slice(0,160));
     var sum=(q(g,"#stSum")||{textContent:""}).textContent;
     T("摘要：访问账号=3 / 访问次数=4 / 今日活跃=3", sum.indexOf("3")>=0&&sum.indexOf("4")>=0, sum.replace(/\s+/g," "));
+    T("摘要四格含访问设备", qa(g,"#stSum .s").length===4&&sum.indexOf("访问设备")>=0, sum.replace(/\s+/g," "));
     T("今天口径下赵六（昨天）不出现", txt.indexOf("赵六")<0, txt.slice(0,120));
     /* 排序：访问次数优先；次数相同再按最近访问（张三 2 次 > 王五 1 次 12:00 > 李四 1 次 10:42） */
     var names=qa(g,"#stOut .strow .lb").map(function(x){return x.textContent;});
@@ -217,6 +222,34 @@ async function run(){
     var clis=qa(g,"#stOut .stcli").map(function(x){return x.textContent;});
     T("记录具体登录端（安卓/Windows/小程序）", clis.indexOf("Windows")>=0&&clis.indexOf("安卓")>=0&&clis.indexOf("小程序")>=0, clis.join(" | "));
     T("同一账号取最近登录端（张三最近=安卓）", names.length===3&&names[0].indexOf("张三")>=0&&clis[0]==="安卓", names.join(" | ")+" :: "+clis.join(" | "));
+
+    /* —— 可视化：趋势 / 登录端 / 版本 / 设备 —— */
+    T("今天趋势为 24 小时柱", qa(g,"#stTrend .st-tcol").length===24, "bars="+qa(g,"#stTrend .st-tcol").length);
+    T("趋势柱有高度与数值", qa(g,"#stTrend .st-tbar").some(function(x){return parseFloat(x.style.height)>0;})&&
+      qa(g,"#stTrend .st-tv").some(function(x){return x.textContent.trim().length>0;}), q(g,"#stTrend").textContent.slice(0,120));
+    T("登录端堆叠条与图例", qa(g,"#stCli .st-cli-seg").length>=3&&qa(g,"#stCli .st-leg").length>=3,
+      "seg="+qa(g,"#stCli .st-cli-seg").length+" leg="+qa(g,"#stCli .st-leg").length);
+    var verTxt=q(g,"#stVer")?q(g,"#stVer").textContent:"";
+    T("版本分布含 2.0.0 / 1.0.0-beta14 / 0.1.0", verTxt.indexOf("2.0.0")>=0&&verTxt.indexOf("1.0.0-beta14")>=0&&verTxt.indexOf("0.1.0")>=0, verTxt.slice(0,200));
+    var devTxt=q(g,"#stDev")?q(g,"#stDev").textContent:"";
+    T("设备分布含 Windows / 安卓机型 / iPhone", devTxt.indexOf("Windows")>=0&&devTxt.indexOf("Xiaomi")>=0&&devTxt.indexOf("iPhone")>=0, devTxt.slice(0,240));
+    T("账号行显示版本/设备标签", qa(g,"#stOut .stver").length>=1&&qa(g,"#stOut .stdev").length>=1,
+      "ver="+qa(g,"#stOut .stver").length+" dev="+qa(g,"#stOut .stdev").length);
+
+    /* —— 账号明细展开 —— */
+    var firstRow=q(g,"#stOut .strow");
+    if(firstRow) firstRow.click();
+    await sleep(150);
+    var detail=q(g,"#stOut .st-acc-detail:not([hidden])");
+    var detailTxt=detail?detail.textContent:"";
+    T("点击账号展开明细", !!detail, detailTxt.slice(0,160));
+    T("明细含活跃/首次/最近", detailTxt.indexOf("首次")>=0&&detailTxt.indexOf("最近")>=0, detailTxt.slice(0,200));
+    T("明细含登录端/版本/设备分组", detailTxt.indexOf("登录端")>=0&&detailTxt.indexOf("版本")>=0&&detailTxt.indexOf("设备")>=0, detailTxt.slice(0,240));
+    T("明细含具体设备与次数", detailTxt.indexOf("Windows · Edge 131")>=0&&detailTxt.indexOf("次")>=0, detailTxt.slice(0,240));
+    if(firstRow) firstRow.click();
+    await sleep(120);
+    T("再次点击账号收起明细", !q(g,"#stOut .st-acc-detail:not([hidden])"));
+    T("430 宽无横向溢出", d2.documentElement.scrollWidth<=432, "scrollWidth="+d2.documentElement.scrollWidth);
 
     /* 近 7 天：出现赵六（4 个账号） */
     var week=qa(g,'input[name="strange"]').filter(function(x){return x.value==="week";})[0];
@@ -227,6 +260,10 @@ async function run(){
       T("近 7 天聚合出 5 个账号（含旧行）", qa(g,"#stOut .strow").length===5, "rows="+qa(g,"#stOut .strow").length);
       T("近 7 天显示赵六登录端=鸿蒙", txt2.indexOf("鸿蒙")>=0, txt2.slice(0,200));
       T("旧行无 client 显示未记录、无 ts 回退整点 08:00", txt2.indexOf("未记录")>=0&&txt2.indexOf("08:00")>=0, txt2.slice(0,240));
+      T("近 7 天趋势为 7 天柱", qa(g,"#stTrend .st-tcol").length===7, "bars="+qa(g,"#stTrend .st-tcol").length);
+      T("近 7 天登录端图例含未记录", (q(g,"#stCli")||{textContent:""}).textContent.indexOf("未记录")>=0, (q(g,"#stCli")||{textContent:""}).textContent.slice(0,200));
+      T("近 7 天版本分布含鸿蒙 1.0.8", (q(g,"#stVer")||{textContent:""}).textContent.indexOf("1.0.8")>=0, (q(g,"#stVer")||{textContent:""}).textContent.slice(0,200));
+      T("近 7 天版本分布含未记录（旧数据）", (q(g,"#stVer")||{textContent:""}).textContent.indexOf("未记录")>=0, (q(g,"#stVer")||{textContent:""}).textContent.slice(0,200));
     }
     /* 默认打开今天：切去别的 tab 再进统计，范围回到今天 */
     var allBtn2=q(g,'#tabsBar button[data-tab="all"]'); if(allBtn2) allBtn2.click(); await sleep(300);
@@ -244,6 +281,12 @@ async function run(){
       }); }catch(e){}
     });
     T("全程无第三方外部请求（只允许 127.0.0.1 + 被 mock 的云端 + 大屏互联 presence）", ext.length===0, ext.join(","));
+    /* 截图用：拉高 iframe 并展开第一个账号，便于人工检查版本/设备与明细 */
+    try{
+      var fr=document.getElementById("fr");
+      if(fr){fr.style.height="1500px"; if(fr.contentWindow)fr.contentWindow.scrollTo(0,0);
+        var r0=fr.contentDocument.querySelector("#stOut .strow"); if(r0)r0.click();}
+    }catch(e){}
   }catch(e){
     R.steps.push({k:"脚本异常",ok:false,note:String((e&&e.message)||e)});
   }
@@ -311,7 +354,7 @@ def main():
         shot = os.path.join(SHOTS, "stats_admin_430.png")
         if os.path.exists(shot):
             os.remove(shot)
-        run_edge(BASE + "tests/" + HARNESS, budget=26000, shot=shot)
+        run_edge(BASE + "tests/" + HARNESS, budget=26000, shot=shot, window="492,1560")
         ok = os.path.exists(shot) and os.path.getsize(shot) > 8000
         results.append(("统计页截图 stats_admin_430.png", ok,
                         ("%d bytes" % os.path.getsize(shot)) if os.path.exists(shot) else "未生成"))

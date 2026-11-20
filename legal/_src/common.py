@@ -13,7 +13,7 @@ OPERATOR = "陈子麒"
 EMAIL = "Ko_Link@outlook.com"
 VERSION = "1.0"
 EFFECTIVE = "2026年11月17日"
-LAST_UPDATED = "2026年11月17日"
+LAST_UPDATED = "2026年11月20日"
 ICP_MP = "闽ICP备2026042939号"
 
 PLATFORM_ORDER = ["web", "android", "windows", "harmony", "mp"]
