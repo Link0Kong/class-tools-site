@@ -63,17 +63,12 @@ ADMIN_TOKEN_FILE = os.environ.get("ACCOUNT_ADMIN_TOKEN_FILE") or "/opt/class-too
 OPPO_FILE = os.environ.get("ACCOUNT_OPPO_FILE") or "/opt/class-tools/account/oppo-account.json"
 HONOR_FILE = os.environ.get("ACCOUNT_HONOR_FILE") or "/opt/class-tools/account/honor-account.json"
 MOCK = (os.environ.get("ACCOUNT_MOCK") or "0").strip() in ("1", "true", "yes", "on")
-# OPPO 账号服务端 token 端点：旧域名 + 当前 SDK（account-env 1.0.13）实际使用的 heytap 域名。
-# 两个域名返回同样的错误结构，账号服务未开通/凭证不匹配时均为 2020003 invalid_client。
-OPPO_TOKEN_URLS = (
-    "https://client-uc.heytapmobi.com/oauth2/token/token-code",
-    "https://api.uc.oppomobile.com/oauth2/token/token-code",
-)
-OPPO_PROFILE_URLS = (
-    "https://client-uc.heytapmobi.com/oauth2/userinfo/profile",
-    "https://api.uc.oppomobile.com/oauth2/userinfo/profile",
-)
-OPPO_GOOD = {"url": "", "secret": ""}  # 运行期记住可用组合（不持久化，不含日志）
+# OPPO 账号服务端接口（官方文档《OPPO 账号OAuth授权SDK服务端API》id=10155）：
+#   国内生产 https://api.uc.oppomobile.com
+#   POST /oauth2/token/token-code  {appKey, appSecret, code}（JSON）
+# 注意：appSecret 是「账号服务」应用的 appSecret，不是推送 AppSecret / MasterSecret。
+OPPO_TOKEN_URL = "https://api.uc.oppomobile.com/oauth2/token/token-code"
+OPPO_PROFILE_URL = "https://api.uc.oppomobile.com/oauth2/userinfo/profile"
 HONOR_TOKEN_URL = "https://hnoauth-login.cloud.honor.com/oauth2/v3/token"
 HONOR_USERINFO_URL = (
     "https://account-drcn.platform.hihonorcloud.com/rest.php?nsp_svc=GOpen.User.getInfo")
@@ -308,62 +303,32 @@ def _oppo_exchange(code):
     cfg = _load_oppo_config()
     if cfg is None:
         return None, "not_configured", "账号服务凭证未配置"
-
-    # 账号服务有两套可能凭证：客户端 AppSecret 与 AppServerSecret（MasterSecret）；
-    # 环境也有旧 oppomobile 与当前 heytap 两个域名。逐个尝试，记住可用组合。
-    pairs = []
-    if OPPO_GOOD["url"] and OPPO_GOOD["secret"]:
-        pairs.append((OPPO_GOOD["url"], OPPO_GOOD["secret"]))
-    for url in OPPO_TOKEN_URLS:
-        for key in ("app_secret", "app_server_secret"):
-            if cfg.get(key) and (url, key) not in pairs:
-                pairs.append((url, key))
-
-    failures = []
-    for url, secret_key in pairs:
-        st, out = _http("POST", url, {
-            "appKey": cfg["app_key"], "appSecret": cfg[secret_key], "code": code,
-        }, timeout=20)
-        ok = st == 200 and isinstance(out, dict) and out.get("success")
-        if not ok:
-            err = (out or {}).get("error") if isinstance(out, dict) else None
-            text = str((err or {}).get("message") or "OPPO 授权码换取失败")[:80]
-            err_code = str((err or {}).get("code") or "")
-            failures.append("%s@%s" % (text, url.split("/")[2]))
-            # 2020003 invalid_client = 应用/凭证/环境不匹配，换另一套再试；
-            # 其它错误（如 invalid code）说明凭证已被接受，无需继续换。
-            if err_code and err_code != "2020003":
-                break
-            continue
-        OPPO_GOOD["url"], OPPO_GOOD["secret"] = url, secret_key
-        data = out.get("data") or {}
-        openid = str(data.get("openId") or "").strip()
-        access = str(data.get("accessToken") or "").strip()
-        if not openid:
-            return None, "oppo_exchange_failed", "OPPO 未返回 openId"
-        nickname = "OPPO 用户"
-        if access:
-            idx = OPPO_TOKEN_URLS.index(url) if url in OPPO_TOKEN_URLS else 0
-            profile_urls = (OPPO_PROFILE_URLS[idx],) + tuple(
-                u for i, u in enumerate(OPPO_PROFILE_URLS) if i != idx)
-            for profile_url in profile_urls:
-                st2, out2 = _http("POST", profile_url, {
-                    "appKey": cfg["app_key"], "openId": openid, "accessToken": access,
-                }, timeout=15)
-                if st2 == 200 and isinstance(out2, dict) and out2.get("success"):
-                    nickname = str(((out2.get("data") or {}) or {}).get("nickname") or nickname)[:40]
-                    break
-        return {"openid": openid, "nickname": nickname}, "", ""
-    if failures:
-        uniq = []
-        for item in failures:
-            if item not in uniq:
-                uniq.append(item)
-        detail = "；".join(uniq)
-        if len(uniq) == 1:
-            detail = "%s（%d 种凭证/域名组合均失败）" % (uniq[0], len(failures))
+    if not cfg.get("app_secret"):
+        return None, "not_configured", "账号服务 AppSecret 未配置（与推送 AppSecret 不是同一套）"
+    st, out = _http("POST", OPPO_TOKEN_URL, {
+        "appKey": cfg["app_key"], "appSecret": cfg["app_secret"], "code": code,
+    }, timeout=20)
+    if st != 200 or not isinstance(out, dict) or not out.get("success"):
+        err = (out or {}).get("error") if isinstance(out, dict) else None
+        code_text = str((err or {}).get("code") or st or "")
+        msg = str((err or {}).get("message") or "OPPO 授权码换取失败")
+        detail = ("%s %s" % (code_text, msg)).strip()[:100]
+        if str((err or {}).get("code")) == "2020003":
+            detail += "（账号服务未激活/未申请 openid 权限，或 appSecret 非账号服务应用）"
         return None, "oppo_exchange_failed", detail[:120]
-    return None, "oppo_exchange_failed", "OPPO 授权码换取失败"
+    data = out.get("data") or {}
+    openid = str(data.get("openId") or "").strip()
+    access = str(data.get("accessToken") or "").strip()
+    if not openid:
+        return None, "oppo_exchange_failed", "OPPO 未返回 openId"
+    nickname = "OPPO 用户"
+    if access:
+        st2, out2 = _http("POST", OPPO_PROFILE_URL, {
+            "appKey": cfg["app_key"], "openId": openid, "accessToken": access,
+        }, timeout=15)
+        if st2 == 200 and isinstance(out2, dict) and out2.get("success"):
+            nickname = str(((out2.get("data") or {}) or {}).get("nickname") or nickname)[:40]
+    return {"openid": openid, "nickname": nickname}, "", ""
 
 
 # ---------------------------------------------------------------- Honor 授权码兑换

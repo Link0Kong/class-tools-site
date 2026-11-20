@@ -18,7 +18,7 @@
   `skipType=4` intent URI 点击直达 MainActivity；水位/首轮基线/`--test/--notice/--dry-run/--auth`；真实凭证 `--auth` 成功。
 - **OPPO 推送复核**：`oppo_push.py --auth` 成功；发现 `ClasstoolsPushWatch` 之前只跑鸿蒙 `push_tick.py`，OPPO/vivo 发送器**从未被调度** →
   新增 `briefdesk/scripts/push_tick_all.py`（harmony→oppo→vivo）并已把该任务指过去，实跑三脚本 exit=0。云端当前 0 台 OPPO token（无 ColorOS 真机登录）。
-- **OPPO 账号复核（22:5x 补充）**：用户提供的 appServerSecret 经比对等于推送 MasterSecret（推送鉴权已通过）；账号服务兑换已改为 `client-uc.heytapmobi.com`（当前 SDK 环境）+ 旧 `api.uc.oppomobile.com` × `app_secret`/`app_server_secret` 四种组合自动尝试，无效 code 仍全部返回 `invalid_client`，确认账号服务未开通/凭证不是这套；详见 android 仓 `docs/PUSH_ACCOUNT_RECHECK_20261120.md`。
+- **OPPO 账号复核（23:0x 按官方文档）**：官方《OPPO 账号OAuth授权SDK服务端API》(id=10155) 确认固定域 `https://api.uc.oppomobile.com/oauth2/token/token-code`、`{appKey,appSecret,code}`；用户提供的 `appServerSecret` 等于推送 MasterSecret（推送鉴权已通过），不是账号服务参数；用给定 appKey/appSecret + 无效 code 仍返回 `2020003 invalid_client` → **应用未在账号服务激活/未申请 openid 权限**（或 appSecret 非账号服务应用）。服务端已收敛为官方单域名，并给出明确提示；详见 android 仓 `docs/PUSH_ACCOUNT_RECHECK_20261120.md`。
 - **OPPO 账号复核**：ECS 服务 configured=true，但账号服务 token 端点用现 appKey/appSecret（与推送同一套）+ 无效 code 返回
   `{"code":"2020003","message":"invalid_client"}`；同一套密钥在推送侧鉴权成功 → 账号服务 AppKey/AppSecret 是另一套或服务未开通。
   需在 OPPO 开放平台补账号服务凭证并在 `oppo-account.json` 更新；客户端已把 `invalid_client` 显示为可诊断文案。
@@ -2176,6 +2176,7 @@
   同步脏检测（后台逻辑不跨端推送/不改用户偏好；用户手动切换视图、导入自定义课表仍正常同步）；
   ② UD 模块含 apply/DOM 辅助约 280 行（契约估 ~150 行）；③ 网页无隐私开关（隐私/数据管理页在小程序），
   网页不承诺开关。
+
 
 
 
