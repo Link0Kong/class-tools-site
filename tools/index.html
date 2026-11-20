@@ -11907,12 +11907,12 @@ function renderStats(){
     var t=stTsOf(r); if(!t)return false;
     return days.indexOf(stDayKey(new Date(t)))>=0;
   });
-  var gClients={},gVers={},gDevs={},gDids={};
+  var gClients={},gVers={},gDevs={},gDeviceKeys={};
   var m={};
   rows.forEach(function(r){
     var sid=String(r.sid).trim(); if(!sid)return;
     var t=stTsOf(r); if(!t)return;
-    var x=m[sid]||(m[sid]={key:sid,n:0,first:0,last:0,latestName:"",firstName:"",days:{},clients:{},vers:{},devs:{},dids:{}});
+    var x=m[sid]||(m[sid]={key:sid,n:0,first:0,last:0,latestName:"",firstName:"",days:{},clients:{},vers:{},devs:{},devkeys:{}});
     var ck=stClientKey(r.client),vk=stNormVer(r.ver)||"未记录",dv=stNormDev(r.dev);
     x.n++;
     if(!x.first||t<x.first)x.first=t;
@@ -11924,12 +11924,14 @@ function renderStats(){
     var dk=ck+"|"+dv;
     if(!x.devs[dk])x.devs[dk]={client:ck,dev:dv,n:0,last:0};
     x.devs[dk].n++; if(t>=x.devs[dk].last)x.devs[dk].last=t;
-    var did=String(r.did||"").trim(); if(did)x.dids[did]=1;
+    var did=String(r.did||"").trim();
+    var deviceKey=did?"d:"+did:"x:"+ck+"|"+dv;
+    x.devkeys[deviceKey]=1;
+    gDeviceKeys[deviceKey]=1;
     gClients[ck]=(gClients[ck]||0)+1;
     gVers[vk]=(gVers[vk]||0)+1;
     if(!gDevs[dk])gDevs[dk]={client:ck,dev:dv,n:0,last:0};
     gDevs[dk].n++; if(t>=gDevs[dk].last)gDevs[dk].last=t;
-    if(did)gDids[did]=1;
   });
   var accounts=Object.keys(m).map(function(k){
     var x=m[k];
@@ -11942,7 +11944,7 @@ function renderStats(){
       .sort(function(a,b){return (b.n-a.n)||(b.last-a.last);});
     x.activeDays=Object.keys(x.days).length;
     x.activeToday=!!x.days[today];
-    x.deviceCount=Object.keys(x.dids).length||Object.keys(x.devs).length;
+    x.deviceCount=Object.keys(x.devkeys).length;
     var lr=null;
     // 最近一行用于端/版本/设备标签（数据已按 ts 倒序，遍历一次取最大 ts 即可）
     for(var j=0;j<rows.length;j++){var r=rows[j];if(String(r.sid).trim()!==k)continue;if(stTsOf(r)===x.last){lr=r;break;}}
@@ -11953,7 +11955,7 @@ function renderStats(){
   }).sort(function(a,b){return (b.n-a.n)||(b.last-a.last)||a.name.localeCompare(b.name,"zh-Hans-CN");});
   var totalVisits=rows.length;
   var activeToday=accounts.filter(function(x){return x.activeToday;}).length;
-  var deviceTotal=Object.keys(gDids).length||Object.keys(gDevs).length;
+  var deviceTotal=Object.keys(gDeviceKeys).length;
   if(sum)sum.innerHTML=stSummary([
     {v:accounts.length,t:"访问账号"},
     {v:totalVisits,t:"访问次数"},
