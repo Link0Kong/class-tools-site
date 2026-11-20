@@ -1,10 +1,10 @@
 {
-  "versionCode": 98,
-  "versionName": "1.0.0-beta15",
-  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta15.apk.bin",
-  "notes": "访问统计可视化重做：访问次数/设备/版本/登录端 + 账号明细",
+  "versionCode": 101,
+  "versionName": "1.0.0-beta18",
+  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta18.apk.bin",
+  "notes": "顶部悬浮按官方参考重做：大标题随滚动缩小/上移/淡出，内容临近顶栏与浮岛时逐像素渐隐（不再被顶栏硬盖住）",
   "force": false,
   "channel": "beta",
-  "sha256": "e48c5261f107f2188ea3a25053da55c978b2eeb7ba0f9a791c0a5708fca088a8",
-  "sizeBytes": 5886077
+  "sha256": "915956866cf5f877222cf42ef747436076608960c0a6f6488a6c5cf1bb06c359",
+  "sizeBytes": 6064999
 }

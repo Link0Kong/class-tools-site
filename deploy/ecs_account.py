@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""部署「OPPO 账号绑定/快捷登录验证服务」到阿里云 ECS（云助手通道，无需 SSH）。
+"""部署「OPPO/荣耀账号绑定/快捷登录验证服务」到阿里云 ECS（云助手通道，无需 SSH）。
 
 - 代码：`deploy/account_app.py` → `/opt/class-tools/account/app.py`
 - 密钥：publish key（`deploy/cloudbase/publish_key.txt`）、管理员班级 token
   （`G:\\ClassTools\\briefdesk\\secrets\\class-token.json`）、OPPO 账号服务凭证
-  （`G:\\ClassTools\\briefdesk\\secrets\\oppo-account.json`，缺失时写空 {}，服务 configured=false）
+  （`G:\\ClassTools\\briefdesk\\secrets\\oppo-account.json` / `honor-account.json`，缺失时写空 {}，对应 provider configured=false）
 - 服务：systemd `class-tools-account.service`，127.0.0.1:8094，Python 标准库
 - 路由：`deploy/ecs_site.py` 的 Caddy 配置提供 `/account/*` 反代（strip_prefix）
 
@@ -28,6 +28,7 @@ APP_LOCAL = os.path.join(HERE, "account_app.py")
 PUBLISH_LOCAL = os.path.join(HERE, "cloudbase", "publish_key.txt")
 ADMIN_TOKEN_LOCAL = r"G:\ClassTools\briefdesk\secrets\class-token.json"
 OPPO_ACCOUNT_LOCAL = r"G:\ClassTools\briefdesk\secrets\oppo-account.json"
+HONOR_ACCOUNT_LOCAL = r"G:\ClassTools\briefdesk\secrets\honor-account.json"
 SERVICE = "class-tools-account"
 APP_DIR = "/opt/class-tools/account"
 BASE_URL = "http://%s/account" % ecs_site.ECS_IP
@@ -47,6 +48,7 @@ Environment=ACCOUNT_GATEWAY=https://tool-d4gosudok46e0e081.api.tcloudbasegateway
 Environment=ACCOUNT_PUBLISH_KEY_FILE=/opt/class-tools/account/publish_key
 Environment=ACCOUNT_ADMIN_TOKEN_FILE=/opt/class-tools/account/class-token
 Environment=ACCOUNT_OPPO_FILE=/opt/class-tools/account/oppo-account.json
+Environment=ACCOUNT_HONOR_FILE=/opt/class-tools/account/honor-account.json
 Environment=ACCOUNT_MOCK=0
 ExecStart=/usr/bin/python3 /opt/class-tools/account/app.py
 Restart=always
@@ -79,6 +81,19 @@ def _admin_token_bytes():
     except Exception:  # noqa: BLE001
         tok = raw.strip()
     return tok.encode("utf-8")
+
+
+def _honor_account_bytes():
+    if os.path.isfile(HONOR_ACCOUNT_LOCAL):
+        raw = open(HONOR_ACCOUNT_LOCAL, "rb").read()
+        try:
+            obj = json.loads(raw.decode("utf-8", "replace"))
+            if isinstance(obj, dict) and str(obj.get("client_id") or "").strip() \
+                    and str(obj.get("client_secret") or "").strip():
+                return raw
+        except Exception:  # noqa: BLE001
+            pass
+    return b"{}"
 
 
 def _oppo_account_bytes():
@@ -138,6 +153,7 @@ def install_service():
         ("publish_key", open(PUBLISH_LOCAL, "rb").read()),
         ("class-token", _admin_token_bytes()),
         ("oppo-account.json", _oppo_account_bytes()),
+        ("honor-account.json", _honor_account_bytes()),
     ]
     for name, data in files:
         if not _upload(name, data, "account-" + name.replace(".", "-")):
@@ -149,8 +165,8 @@ APP_DIR="__APP_DIR__"
 SERVICE="__SERVICE__"
 chown -R www-data:www-data "$APP_DIR" 2>/dev/null || true
 chmod 755 "$APP_DIR"
-chmod 640 "$APP_DIR/class-token" "$APP_DIR/oppo-account.json" "$APP_DIR/publish_key" 2>/dev/null || true
-chown root:www-data "$APP_DIR/class-token" "$APP_DIR/oppo-account.json" "$APP_DIR/publish_key" 2>/dev/null || true
+chmod 640 "$APP_DIR/class-token" "$APP_DIR/oppo-account.json" "$APP_DIR/honor-account.json" "$APP_DIR/publish_key" 2>/dev/null || true
+chown root:www-data "$APP_DIR/class-token" "$APP_DIR/oppo-account.json" "$APP_DIR/honor-account.json" "$APP_DIR/publish_key" 2>/dev/null || true
 chmod 755 "$APP_DIR/app.py"
 python3 -m py_compile "$APP_DIR/app.py"
 rm -rf "$APP_DIR/__pycache__"
@@ -223,3 +239,5 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+

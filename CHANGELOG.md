@@ -2,6 +2,28 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-20 22:1x · 账号服务 v1.1（荣耀）+ vivo 推送发送器 + provider 约束放开 + OPPO 推送调度补挂
+
+> 用户要求：按 `honorid-opensdk` 接入荣耀账号 OAuth；按 AppID/AppKey/AppSecret 接入 vivo 推送；再次检查 OPPO 账号服务与推送。
+
+- **ECS 账号服务** `deploy/account_app.py` v1.1：新增 `POST /honor/{login,bind,unbind}`、`GET /honor/bindings`；
+  荣耀 authCode → `https://hnoauth-login.cloud.honor.com/oauth2/v3/token`（form：grant_type/code/client_id/client_secret/redirect_uri）
+  → `https://account-drcn.platform.hihonorcloud.com/rest.php?nsp_svc=GOpen.User.getInfo` 取 `openID/displayName`；
+  `/__health` 增加 `providers:{oppo,honor}`。已用云助手部署（`ecs_account.py`，含 `honor-account.json`），
+  公网 `http://121.196.47.2/account/__health` = `{ok:true,providers:{oppo:true,honor:true},version:"1.1"}`；
+  无效 code 实测返回 `honor_exchange_failed / 1101/20152 invalid code`（说明凭证被接受）。
+- **DB 迁移** `deploy/cloudbase/2026-11-20_push_vivo_account_honor.sql`（已应用）：
+  `push_tokens.provider` 放开 `('oppo','harmony','vivo')`；`account_bindings.provider` 放开 `('oppo','honor')`（触发器仍按 provider 分别限 3）。
+- **vivo 推送发送器** `briefdesk/scripts/vivo_push.py`：`/message/auth`（md5(appId+appKey+ts+appSecret)）+ `/message/send`；
+  `skipType=4` intent URI 点击直达 MainActivity；水位/首轮基线/`--test/--notice/--dry-run/--auth`；真实凭证 `--auth` 成功。
+- **OPPO 推送复核**：`oppo_push.py --auth` 成功；发现 `ClasstoolsPushWatch` 之前只跑鸿蒙 `push_tick.py`，OPPO/vivo 发送器**从未被调度** →
+  新增 `briefdesk/scripts/push_tick_all.py`（harmony→oppo→vivo）并已把该任务指过去，实跑三脚本 exit=0。云端当前 0 台 OPPO token（无 ColorOS 真机登录）。
+- **OPPO 账号复核**：ECS 服务 configured=true，但账号服务 token 端点用现 appKey/appSecret（与推送同一套）+ 无效 code 返回
+  `{"code":"2020003","message":"invalid_client"}`；同一套密钥在推送侧鉴权成功 → 账号服务 AppKey/AppSecret 是另一套或服务未开通。
+  需在 OPPO 开放平台补账号服务凭证并在 `oppo-account.json` 更新；客户端已把 `invalid_client` 显示为可诊断文案。
+- **回滚**：账号服务恢复上一版 `account_app.py` 重新 `ecs_account.py deploy`；DB 先删 `provider in ('vivo','honor')` 行再收紧 CHECK；
+  vivo 发送器改名/删除 `vivo-push.json` 即安全跳过；推送任务可指回 `harmony-class-tools/scripts/push_tick.py`。
+
 ## 2026-11-18 22:3x–22:4x · 统计排序改为「访问次数优先，次数相同按最近访问」（网页已上线；小程序/安卓/Windows 源码同步）
 
 > 用户原话：「把排序设成访问次数排序优先，访问次数相同时按访问时间排序」。唯一契约 `统计多端_最新登录_契约_20261118.md`（§2 排序口径已更新）。
@@ -2153,6 +2175,7 @@
   同步脏检测（后台逻辑不跨端推送/不改用户偏好；用户手动切换视图、导入自定义课表仍正常同步）；
   ② UD 模块含 apply/DOM 辅助约 280 行（契约估 ~150 行）；③ 网页无隐私开关（隐私/数据管理页在小程序），
   网页不承诺开关。
+
 
 
 
