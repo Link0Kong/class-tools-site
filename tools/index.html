@@ -11852,8 +11852,8 @@ function stDistHtml(items,emptyText){
 function stAccountHtml(rank,x,mx,range){
   var tags='<em class="stcli">'+esc(x.lastClientText)+'</em>';
   if(x.ver)tags+='<em class="stver">v'+esc(x.ver)+'</em>';
-  if(x.dev)tags+='<em class="stdev" title="'+esc(x.dev)+'">'+esc(x.dev)+'</em>';
-  var when='最近 '+x.lastText+(x.deviceCount>1?' · '+x.deviceCount+' 台设备':'');
+  var whenHtml=(x.dev?'<em class="stdev" title="'+esc(x.dev)+'">'+esc(x.dev)+'</em> · ':'')+
+    '最近 '+esc(x.lastText)+(x.deviceCount>1?' · '+x.deviceCount+' 台设备':'');
   var line=(range==="week"?"活跃 "+x.activeDays+"/7 天 · ":"")+"首次 "+x.firstText+" · 最近 "+x.lastText;
   var vtop=stTop(x.versions,6).map(function(v){
     return '<span class="st-acc-chip st-acc-chip--ver">'+esc(v.label==="未记录"?"未记录":"v"+v.label)+' ×'+v.n+'</span>';
@@ -11872,7 +11872,7 @@ function stAccountHtml(rank,x,mx,range){
   return '<div class="st-acc">'+
     '<div class="strow'+(rank<=3?" top":"")+'" role="button" tabindex="0" aria-expanded="false">'+
     '<span class="rk">'+rank+'</span>'+
-    '<span class="lb">'+esc(x.name)+'<small>'+tags+'</small><span class="st-acc-when">'+esc(when)+'</span></span>'+
+    '<span class="lb">'+esc(x.name)+'<small>'+tags+'</small><span class="st-acc-when">'+whenHtml+'</span></span>'+
     '<span class="stbar"><i style="width:'+Math.round(x.n/mx*100)+'%"></i></span>'+
     '<span class="vv">'+x.n+'</span></div>'+
     '<div class="st-acc-detail" hidden>'+detail+'</div></div>';
