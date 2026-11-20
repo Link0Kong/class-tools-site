@@ -2,9 +2,9 @@
   "versionCode": 101,
   "versionName": "1.0.0-beta18",
   "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta18.apk.bin",
-  "notes": "顶部悬浮按官方参考重做：大标题随滚动缩小/上移/淡出，内容临近顶栏与浮岛时逐像素渐隐（不再被顶栏硬盖住）",
+  "notes": "荣耀账号快捷登录/绑定 + vivo 推送 + OPPO 推送调度修复；含访问统计、沉浸光感、顶部悬浮",
   "force": false,
   "channel": "beta",
-  "sha256": "915956866cf5f877222cf42ef747436076608960c0a6f6488a6c5cf1bb06c359",
+  "sha256": "bfcd0ec034c5abdb2467d8eeeee6820caf507479ff40bc3a0e2beb5f897a3ac3",
   "sizeBytes": 6064999
 }
