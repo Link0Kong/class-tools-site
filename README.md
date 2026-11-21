@@ -43,7 +43,7 @@
 
 ## 在线体验与下载
 
-- 在线体验：<https://tool.furina.fun/>
+- 在线体验：<https://tool.furina.fun/>（域名备案完成前可能不可用，调试入口与反向代理配置见 [deploy/ECS_DEPLOY.md](deploy/ECS_DEPLOY.md)）
 - 下载与版本说明：[Releases](https://github.com/Link0Kong/class-tools-site/releases) · [CHANGELOG.md](CHANGELOG.md)
 
 ## 本地打开 / 自部署
