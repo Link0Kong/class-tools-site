@@ -6264,6 +6264,9 @@ def _period_range_of(text, ref):
     cands = []
     for rx in (_DATE_RANGE_RE, _DATE_RANGE_MD_RE):
         for m in rx.finditer(text):
+            # 报名/截止/开放后面的时间段是报名窗口，不是活动期（活动期另有其范围）
+            if re.search(r"报名|截止|截至|开放", text[max(0, m.start() - 14):m.start()]):
+                continue
             try:
                 if rx is _DATE_RANGE_RE:
                     y, m1, d1, m2, d2 = (m.group("y"), m.group("m1"), m.group("d1"),
