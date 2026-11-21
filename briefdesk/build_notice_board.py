@@ -1216,7 +1216,7 @@ function cardAnchorTs(g){
   for(var i=0;i<its.length;i++){if(its[i]&&its[i].time)return its[i].time}
   return (g&&g.time)||'';
 }
-/* 2026-11-18 契约《通知三端_发布时间统一_契约_20261118.md》§1：发布时间。
+/* 2026-11-18 契约《《通知三端·发布时间统一》契约（内部归档）》§1：发布时间。
    优先数据字段 publishedAt（管线统一计算）；旧缓存/旧数据回退组内最新消息时间 + updatedAt（pubTsOf）。 */
 function publishedTsOf(g){
   if(!g)return 0;
@@ -6320,7 +6320,7 @@ def main():
         # 需求 9：长期安排不计入待处理
         if isinstance(g.get("recurrence"), dict) and g["recurrence"].get("freq"):
             g["actionable"] = False
-        # 2026-11-18 契约《通知三端_发布时间统一_契约_20261118.md》§1：
+        # 2026-11-18 契约《《通知三端·发布时间统一》契约（内部归档）》§1：
         # 所有组写 publishedAt；无任何时间锚点且非长期安排的组写 publishAction="发布"（chip 动作用）。
         pub = publish_at_of(g)
         if pub:

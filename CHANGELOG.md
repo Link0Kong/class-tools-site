@@ -37,7 +37,7 @@
 
 ## 2026-11-18 22:3x–22:4x · 统计排序改为「访问次数优先，次数相同按最近访问」（网页已上线；小程序/安卓/Windows 源码同步）
 
-> 用户原话：「把排序设成访问次数排序优先，访问次数相同时按访问时间排序」。唯一契约 `统计多端_最新登录_契约_20261118.md`（§2 排序口径已更新）。
+> 用户原话：「把排序设成访问次数排序优先，访问次数相同时按访问时间排序」。唯一契约 `《统计多端·最新登录》契约（内部归档）`（§2 排序口径已更新）。
 
 - **网页** `renderStats`：排序改为 `(b.n-a.n)||(b.last-a.last)`；标题/说明工具卡统一为「按访问次数排序（次数相同按最近访问）」；`stats_check.py` 断言改为 张三（2 次）→ 王五（1 次 12:00）→ 李四（1 次 10:42），**44/44**。
 - **小程序**：`pages/stats` 排序 `count` → `lastTs`；WXML/工具描述/AI `getVisitStats` 同步；`unit.js` 统计页新增次数优先/同次数按最近访问用例。
@@ -61,7 +61,7 @@
 
 ## 2026-11-18 21:2x–21:4x · 统计多端：按最新登录排序 / 默认今天 / 分钟时间 / 记录登录端 / 忽略测试账号（网页已上线；小程序/安卓/Windows/鸿蒙源码同步）
 
-> 用户原话：「将所有端的统计工具统一更新为按最新登录顺序排序，默认打开为今天，时间精确到分钟，记录具体登录端，忽略测试账号」。唯一契约 `统计多端_最新登录_契约_20261118.md`。
+> 用户原话：「将所有端的统计工具统一更新为按最新登录顺序排序，默认打开为今天，时间精确到分钟，记录具体登录端，忽略测试账号」。唯一契约 `《统计多端·最新登录》契约（内部归档）`。
 
 - **数据**：`public.visits` 新增 `client text not null default ''`（web/mp/android/win/harmony；旧行为空显示「未记录」）+ `ts/slot` 索引；迁移 `deploy/cloudbase/2026-11-18_visits_client.sql` 已应用（CloudBase + ECS `class_tools`/`class_tools_cut` 三库同步）。旧客户端不传 client 仍可写。
 - **网页 `tools/index.html`**：`visitLog` 写 `client:"web"`；统计查询改 `select=slot,sid,name,ts,client&order=ts.desc&limit=5000`；`renderStats` 按 `max(ts)` 倒序、时间显示 `MM/DD HH:mm`（旧行 ts=0 回退 slot 整点）、账号行显示端标签、过滤官方测试账号 `3260799999` 与 9999 段 10 位 QA 身份；每次进入统计页重置「今天」。
@@ -91,7 +91,7 @@
 
 > 用户原话（2026-11-18 12:45）：「将通知中不含时间的时间设定为发布时间，动作设为发布，并参与排序等等统一计算」。2026-11-14 契约曾把「无任何时间锚点」的通知单独放入「资料 / 无时间」栏、不进主列表/不参与待处理统计；本次改为统一计算。
 
-- **唯一契约**：`通知三端_发布时间统一_契约_20261118.md`（`publishedAt` / `publishAction` 数据字段、状态/分类/排序/统计口径、兼容与回滚）。
+- **唯一契约**：`《通知三端·发布时间统一》契约（内部归档）`（`publishedAt` / `publishAction` 数据字段、状态/分类/排序/统计口径、兼容与回滚）。
 - **数据管线**（`briefdesk-plan/build_notice_board.py` + `C:\briefdesk\scripts\sync_notices_cloud.py`）：所有组写 `publishedAt`（组内最新消息时间/updatedAt 的较晚者，ISO +08:00，与「最新发布」同口径）；无任何时间锚点且非长期安排的组写 `publishAction="发布"`；`compact_group` 白名单新增两字段（云端 body 下发三端）。
 - **网页模板**（`build_notice_board.py` → demo → `build_notice_embed.py`）：新增 `publishedTsOf`（优先字段、旧数据回退推算）；`statusOf` 在「无时间」前新增 `published` 分支（chip `<时间> 发布`）；`isInfoGroup` 排除有发布时间者、`isTimeGroup` 纳入发布卡 → 发布卡进主列表；`orderRank` 档 4 + 档内按发布时间倒序；「资料 / 无时间」栏只保留既无锚点又无发布时间的兜底卡（正常 0 条自动隐藏）；待处理/24h/7 天/最新发布按契约统一计算（发布卡 actionable!==false 计入待处理；主显示时间过去→不进未来窗口）。
 - **测试**：新增 `tools/tests/v2_notice_publish_check.py` **20/20**（状态/chip/主列表/资料栏兜底/排序倒序/待处理统计/最新发布字段优先/真实数据/无溢出）；更新 `v2_notice_period_check.py` **53/53**、`v2_notice_longterm_check.py` **27/27**、`v2_notice_live_check.py` **20/20**（资料栏语义改为发布卡进主列表）；`v2_notice_data_check` 27/27、`v2_notice_dynamic_cat_check` 18/18、`v2_ui_check` 27/27；`overflow_check 430` overflowCount=0、`export_check draw` 正常落盘。
@@ -151,7 +151,7 @@
 - **本地 mock E2E 通过**：绑定 4 个 mock 账号→前 3 成功/第 4 limit；快捷登录返回班级 token（class_whoami 校验）；解绑后登录 unbound。绑定行已清理。
 - **安卓**：OPPO 账号 OAuth SDK 1.1.3 + 身份页快捷登录 + 我的→账号绑定/解绑/列表（N/3）；全量单测 **1545/1545（116 suites，新增账号 72）**；APK vc85/1.0.0-beta2。当前账号服务凭证未填 → 快捷登录/账号入口隐藏；真实 OAuth 未联调（需账号服务专用凭证 + ColorOS 真机）。
 - **待用户操作**：账号服务专用 AppID/AppKey/AppSecret 填 `C:\briefdesk\secrets\oppo-account.json` + `app/oppo.properties` 的 `oppo.accountAppId/accountAppKey` → Lead 重跑 `deploy\ecs_account.py deploy`（health configured:true）+ 重打 APK。
-- 文档：`通知OPPO账号绑定与快捷登录_接入说明_20261117.md`、`android-class-tools/docs/OPPO_ACCOUNT.md`。回滚：停 ECS 服务/去 Caddy 路由；DROP 表；客户端回退上一版 APK。
+- 文档：`《通知 OPPO 账号绑定与快捷登录》说明（内部归档）`、`android-class-tools/docs/OPPO_ACCOUNT.md`。回滚：停 ECS 服务/去 Caddy 路由；DROP 表；客户端回退上一版 APK。
 ## 2026-11-16 21:4x · 更正：网页恢复「学信网」工具（用户更正：仅网页保留；Android/小程序/鸿蒙仍删除；未部署、未 commit）
 
 > 用户更正：网页版学信网可以留下，其它端仍删除。当前 HEAD `9092feb` 已删除 chsi（线上 1,321,954B/`5fc54899`），本次只把学信网相关代码合并回网页，activity/today 仍不在网页。注意 `9092feb^` 因并行提交 `78765f4` 已含删除结果，实际以备份 `tools/_backup/index_online_20261116-2129_preRemoveTools.html`（1,322,990 B / `621f6a7b`，含 chsi）为片段来源；插入位置按当前 HEAD 锚点，并做了「再跑一次删除脚本 == HEAD 字节级一致」的往返校验。
@@ -228,7 +228,7 @@
 - 安卓：OPPO PUSH SDK V4.0.0 AAR（`app/libs/com.heytap.msp_V4.0.0.aar`，sha256 `8A542A78…1C41`）+ `app/oppo.properties`(不入库)/`.example` + Manifest 回调 Service + Channel `class_notice` + 注册状态机/设置页状态 + token 上传云端 + 点击（冷启动/onNewIntent）打开对应通知；全量单测 **1246/1246**（新增 OPPO 33 项）；Release **v4.51.0/vc69**，APK **3,252,045 B / SHA-256 `5BD44F09…EDA1A5`**（aapt2/apksigner 复核）。**未真机验证（无密钥）**。
 - 云端：迁移 `deploy/cloudbase/2026-11-14_push_tokens.sql` 已应用（本人读写自己行、管理员读全量）；测试身份实测插入/upsert 去重/权限/清理通过。
 - 本机：新增 `C:\briefdesk\scripts\oppo_push.py`（OPPO auth/单推/批量/水位去重/`--test/--notice/--dry-run/--tokens`）+ 14/14 单测；`detect_docs.py` 在云端通知同步后自动调用（`secrets/oppo-push.json` 存在才跑，失败不阻断）。
-- 文档：`web/通知OPPO推送_接入说明_20261114.md`、`android-class-tools/docs/OPPO_PUSH.md`。
+- 文档：`web/《通知 OPPO 推送接入》说明（内部归档）`、`android-class-tools/docs/OPPO_PUSH.md`。
 - 用户下一步：OPPO 开放平台开通推送（测试权限）拿三密钥 → 安卓填 `oppo.properties` 重打包真机安装 → 本机填 `C:\briefdesk\secrets\oppo-push.json` → `oppo_push.py --tokens/--test <regId>` 验证。
 - 回滚：清空/删除 `oppo-push.json` 即停推；`DROP TABLE public.push_tokens`；安卓回退上一版 APK；已知限制：仅 ColorOS 系、正式通知栏权限需上架 OPPO 商店/特殊申请。
 
@@ -245,7 +245,7 @@
 
 ## 2026-11-14 13:3x–14:4x · 增量 58：三端通知改造（长期安排按期次 + 5 张可点数据卡 + 资料·无时间栏 + 时间显示归一）+ AI 活动周期记忆/更新合并（网页已上线 OSS+ECS；小程序/安卓待用户上传/安装）
 
-> 用户 2026-11-14 要求：通知数据栏新增长期通知、全部数据卡可点展示、已过期卡换最新发布；长期通知不隐藏、按期次每次提前一天展示并可单独已处理；无时间不得进长期；请假只在军训期间；射击 11-14 通知应按已过期且要有时间；时间显示统一 `11月13日（本周五）`；11-13 晚自习/军训应合并为更新通知、摘要只留军训。契约 `通知三端_长期通知与时间显示_契约_20261114.md`。
+> 用户 2026-11-14 要求：通知数据栏新增长期通知、全部数据卡可点展示、已过期卡换最新发布；长期通知不隐藏、按期次每次提前一天展示并可单独已处理；无时间不得进长期；请假只在军训期间；射击 11-14 通知应按已过期且要有时间；时间显示统一 `11月13日（本周五）`；11-13 晚自习/军训应合并为更新通知、摘要只留军训。契约 `《通知三端·长期通知与时间显示》契约（内部归档）`。
 
 ### 网页（`tools/index.html` 内嵌模板，APP_VER 仍 2.0.0）
 - 顶部 5 张可点数据卡：待处理 / 24h 截止 / 7 天内 / **长期通知** / **最新发布**（点=筛选、再点取消、与 chips 互斥）；已过期数量只在下方过期区标题，不再占卡。
@@ -385,7 +385,7 @@
 > 用户需求原话：「对三端使用说明进行重构，从文字堆叠改为卡片展示，左右滑动切换卡片，且加入一键总览等按钮的形式，可加入一定配图对功能说明，重写使用说明，使其更清晰易懂」。
 
 ### 共享契约
-- 新增 `使用说明_卡片化重构契约_20261112.md`（三端唯一契约）：一屏一张卡 + 左右滑动切换 + 一键总览 + 分类快捷标签 + 上一张/下一张 + 11 种配图 scene + 文案硬规则（标题≤8 / 作用≤20 / 步骤≤24 / 提示≤30）；三端按本端真实功能实现，不写别端入口。
+- 新增 `《使用说明·卡片化重构》契约（内部归档）`（三端唯一契约）：一屏一张卡 + 左右滑动切换 + 一键总览 + 分类快捷标签 + 上一张/下一张 + 11 种配图 scene + 文案硬规则（标题≤8 / 作用≤20 / 步骤≤24 / 提示≤30）；三端按本端真实功能实现，不写别端入口。
 
 ### 网页（`tools/index.html` `__UG_CARDS_V1__`；已上线）
 - `#s-ug` 重写：**17 张卡片横向 scroll-snap 轮播**（一屏一张、首尾 clamp、触摸/触控板/鼠标拖动跟手）+ **5 个分类 chips**（点跳该分类首卡、分类高亮、点按高度 40px）+ **一键总览弹层**（按分类分组、桌面 ≥960px 两列、点条目关闭并跳卡、遮罩/×/返回键/Esc 关闭，关闭不误弹「再按一次返回退出」）+ 上一张/下一张/页码/进度条 + 键盘 ←/→。
