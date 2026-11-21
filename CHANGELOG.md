@@ -2,6 +2,20 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-21 21:3x–21:4x · 修复冬季傍晚慢跑打卡活动被判长期通知：限期活动合并成一张卡并展示报名开始/报满即止（数据已同步云端，网页模板未变无需重发）
+
+> 用户反馈：「修复将冬季傍晚慢跑打卡活动识别成长期通知的问题，实际该内容也为活动之一，需要报名，通知内应该展示的是活动报名开始和截止时间」。
+> 已确认口径：原文只写「报名时间：2026年11月16日17:00」+「报名时间结束即止/报满即止」，没有明确报名截止 → 只展示报名开始 11-16 17:00 并写明「报满即止」，不虚构截止时间；两张重复卡合并为一张。
+
+- **根因（三处叠加）**：① AI 聚类把同一活动的「活动介绍全文」与「补报名 + 策划书附件」拆成两张卡，介绍卡没有报名信息；② 介绍卡里「11-16 至 11-27 每日 17:00-20:00」被 AI 质检判成 `recurrence(daily, until 11-27)`，`recurrence` 在状态机里优先 → 卡片进「长期通知」且 `actionable=false`；③ 上一轮的人工补丁按旧组 id/标题「屏山慢跑打卡」写的，重组后匹配不到 → 旧修正静默失效。
+- **合并（`build_notice_board.expand_merged` + `ai_merged.merge_same_activity`，同口径）**：同一条合并转发记录里标题同主题的聚类合并成一张卡（标题归一化公共前缀 ≥6 字且占较长标题 ≥70%，如「冬季慢跑打卡活动报名」/「…介绍」），indexes/points 取并集；「子活动一/二/三」这类短公共前缀不合并。合并后该活动只剩 1 张卡（补报名原文 + 活动全文 + 策划书附件）。
+- **限期活动不是长期安排（`build_notice_board.resolve_recurrence_conflicts` 新增确定性规则）**：`recurrence` + 正文显式起止日期 + 活动语义 → 限期活动：`eventAt`=活动期首日+每日时段起点、`expireAt`=末日+时段终点，移除 `recurrence` 并恢复 `actionable`。反向保护：只有周期表述、没有活动起止日期的真长期安排（军训请假每日 7:30、每月前三周卫生检查）保持不变；「请假/报备/检查/值班/考勤」类不因正文顺带提到日期区间而降级。
+- **AI 提示词（`ai_quality.py` / `ai_brief.py`）**：「报名时间：<日期 时间>」没有「前/截止」字样是**报名开始**；只有「报满即止」时 `signupEnd`/`deadline` 必须留 null、不得编造；限期活动必须 eventAt/expireAt 表达并给出慢跑打卡的例子。本次不改 `CACHE_VER`（只有内容变化的组重算，分类另由 builder 确定性规则兜底，避免在活跃板上整体重算抖动）。
+- **人工补丁（`C:\briefdesk\data\notice-manual-patches.json`）**：替换旧「屏山慢跑打卡」条目——合并重复组的 `mergeInto` + 目标卡 `set`（`signupStart=2026-11-16T17:00`、`signupEnd/deadline/deadlineAction=null`、`eventAt=11-16T17:00`+`eventAction=报名开始`、`expireAt=2026-11-27T20:00`、`actionable=true`、摘要/要点/分段含「报名 11-16 17:00 起、报满即止、11-17 屏山补报名」）。补丁 `set` 新增 `null=删除字段`（时间字段同样适用），避免 AI 再写回推断的报名截止。
+- **数据结果（本地 + 云端）**：该组 1 张卡；`recurrence=null`、`signupStart=11-16T17:00`、`signupEnd/deadline=null`、`eventAt=11-16T17:00 报名开始`、`expireAt=11-27T20:00`、`actionable=true`；卡片在主列表 chip「11月16日（本周一） 17:00 报名开始」，正文含报名/报满即止；长期通知计数不再含该组（仅军训请假与宿舍卫生检查两条真周期安排）。`sync_notices_cloud` 已推云端（`auto_g_qqm_7708988868871074939_c0` 未归档；旧的 `…_c1`、`auto_g_qqm_7707958493357894546_c0` 已归档；测试身份只读核验通过）。`index.html` 模板未改，**无需 OSS/ECS 重发**；小程序/安卓读同一字段，无需改客户端。
+- **测试**：新增 `tools/tests/v2_notice_slowrun_check.py` 重写为当前回归 **16/16**（数据 9 项含「无『限期活动+长期安排』并存组」通用守卫 + 真实模板 430px 渲染 chip/主列表/长期计数/0 JS 报错）；`briefdesk/tests/test_build_normalize.py` 新增 §3.8 限期活动、§3.9 补丁 null=删除、§3.10 聚类合并共 14 项 → **76 PASS / 12 FAIL**（12 项为改动前既有的 §5 身份夹具缺失，非本次引入）；回归 `v2_notice_longterm_check 27/27`、`v2_notice_period_check 53/53`、`v2_notice_publish_check 20/20`、`v2_notice_data_check 27/27`、`v2_notice_dynamic_cat_check 18/18`、`v2_notice_live_check 20/20`、`v2_notice_fix_check 11/11`；`v2_notice_quality_check 12/20`（8 项为改动前既有：河洛夜市/小儿体质夹具组已过期下线，原 builder 同样 12/20）。
+- **回滚**：还原 `build_notice_board.py` 的 `_merge_similar_clusters`/`_recurrence_to_period_activity`/补丁 null 语义与 `ai_merged.py` 合并规则；删掉人工补丁里的慢跑条目（旧的 `g_qqm_7707958493357894546_c0` 补丁如需恢复从本机历史取）；重建 board + `sync_notices_cloud.py` 即可回滚云端数据。网页无字节变更。
+
 ## 2026-11-21 13:0x · 电费「上次充值」改为跨区间查找并显示充值量（已上线 OSS+ECS）
 
 > 用户要求：「修复电费上次充值只会在选择区间内查找的问题，同时优化安卓端的电费曲线，上次充值应该改为显示上次的充值量」；随后要求全部端同步修复。

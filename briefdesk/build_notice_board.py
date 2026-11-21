@@ -4244,14 +4244,20 @@ def _append_items(g, items):
 
 
 def _apply_patch_to_group(g, patch, appended=0, updated_at=""):
-    """按字段覆盖/追加 items / 写 updatedAt（人工补丁与 AI 补充共用）。"""
+    """按字段覆盖/追加 items / 写 updatedAt（人工补丁与 AI 补充共用）。
+
+    值语义：null = 删除该字段（时间字段同样适用，用于「原文没有这个时间、不得保留 AI 推断值」），
+    空串 = 不写（模板占用位），其余按字段类型归一。
+    """
     patch = patch if isinstance(patch, dict) else {}
     for k in GROUP_PATCH_FIELDS:
         if k not in patch:
             continue
         v = patch.get(k)
         if k == "recurrence":
-            if isinstance(v, dict) and v.get("freq"):
+            if v is None:
+                g.pop("recurrence", None)   # 与 AI 质检「null=删除」同口径
+            elif isinstance(v, dict) and v.get("freq"):
                 g["recurrence"] = v
             continue
         if k == "updatedAt":
@@ -4262,6 +4268,8 @@ def _apply_patch_to_group(g, patch, appended=0, updated_at=""):
             nv = _patch_iso(v)
             if nv:
                 g[k] = nv
+            elif v is None:
+                g.pop(k, None)
             continue
         if k == "actionable":
             g["actionable"] = bool(v)
@@ -5431,6 +5439,49 @@ def _merged_msg_hash(merged):
     return hashlib.sha1("\n".join(lines).encode("utf-8", "replace")).hexdigest()
 
 
+# 2026-11-21 用户反馈（冬季傍晚慢跑打卡活动）：同一条合并转发记录里，AI 把「活动介绍全文」与
+# 「报名/补报名 + 策划书附件」拆成两个聚类，介绍卡没有报名信息、随后被判成每日长期安排。
+# 同一件事的聚类标题高度相似（「冬季慢跑打卡活动报名」/「…介绍」：公共前缀 8 字占 80%），
+# 用确定性规则合并成一张卡（保留先出现的标题/摘要 + 取并集的 indexes/points）。
+# 与 ai_merged.py 的 merge_same_activity 同口径；缓存命中的旧拆分也照样合并。
+_CLUSTER_MERGE_MIN_PREFIX = 6
+_CLUSTER_MERGE_MIN_RATIO = 0.7
+
+
+def _merge_similar_clusters(clusters):
+    """同一合并转发记录里标题同主题的聚类合成一组（幂等，保留原顺序）。"""
+    out = []
+    for c in clusters or []:
+        if not isinstance(c, dict) or not c.get("indexes"):
+            continue
+        nt = _norm_title(c.get("title"))
+        for t in out:
+            tt = _norm_title(t.get("title"))
+            if not nt or not tt:
+                continue
+            cp = 0
+            for a, b in zip(nt, tt):
+                if a != b:
+                    break
+                cp += 1
+            if cp < _CLUSTER_MERGE_MIN_PREFIX or cp < _CLUSTER_MERGE_MIN_RATIO * max(len(nt), len(tt)):
+                continue
+            idx = list(t.get("indexes") or [])
+            for i in c.get("indexes") or []:
+                if i not in idx:
+                    idx.append(i)
+            t["indexes"] = sorted(idx)
+            pts = list(t.get("points") or [])
+            for p in c.get("points") or []:
+                if p not in pts and len(pts) < 3:
+                    pts.append(p)
+            t["points"] = pts
+            break
+        else:
+            out.append(dict(c))
+    return out
+
+
 def expand_merged(groups):
     """Split merged chat records into AI-clustered notices (same topic stays together)."""
     if not AI_MERGED.exists():
@@ -5451,6 +5502,8 @@ def expand_merged(groups):
         if not merged or not clusters:
             out.append(g)
             continue
+        # 同一活动的聚类（介绍 + 报名/附件）合成一张卡，避免介绍卡缺报名信息被判长期安排
+        clusters = _merge_similar_clusters(clusters)
         base_items = [it for it in g.get("items", []) if it.get("kind") != "merged"]
         for ci, c in enumerate(clusters):
             items = list(base_items) if ci == 0 else []
@@ -6182,6 +6235,102 @@ def has_time_anchor(g):
     return bool(g.get("signupWindows"))
 
 
+# ---------------------------------------------------------------- 2026-11-21 限期活动不能被当成长期安排
+# 用户反馈：冬季傍晚慢跑打卡活动（活动时间 11-16 至 11-27，每日 17:00-20:00）被 AI 判成每日
+# recurrence，整张活动卡进了「长期通知」、不进主列表；而它其实是**需要报名的限期活动**，
+# 卡片应展示报名开始时间，截止方式按原文「报满即止」（原文没有明确截止时刻，不臆造）。
+# 确定性规则（不依赖 AI 是否听话）：recurrence + 正文显式起止日期 + 活动语义 → 限期活动：
+#   · eventAt = 活动期首日 + 活动每日时段起点（没有时段就按 09:00），expireAt = 末日 + 时段终点；
+#   · 移除 recurrence，恢复 actionable（长期安排会被强制不可处理）。
+# 反向约束：只有「每日/每周/每月」周期表述、没有活动起止日期的真长期安排（军训期间每日请假、
+# 每月前三周卫生检查、周例会）不受影响；办事/检查/报备类也不因正文顺带提到日期区间而降级。
+_ACTIVITY_WORD_RE = re.compile(
+    r"活动|打卡|比赛|赛事|运动会|培训|讲座|课程|征集|展演|演出|沙龙|决赛|选拔|体验|招募|游园|义诊|晚会")
+_RECUR_CHORE_RE = re.compile(r"请假|报备|卫生检查|例行检查|值班|例会|考勤|查寝|点名")
+_DATE_RANGE_MD_RE = re.compile(
+    r"(?<![\d:：])(\d{1,2})\s*[-.．/]\s*(\d{1,2})(?![\d:：])\s*[至到\-—–~～]\s*"
+    r"(?:(?:20\d{2})\s*年\s*)?(\d{1,2})\s*[-.．/]\s*(\d{1,2})(?![\d:：])")
+_CLOCK_RANGE_RE = re.compile(
+    r"(?<![\d:：])(\d{1,2})\s*[:：]\s*(\d{2})\s*[-—–~～至到]\s*(\d{1,2})\s*[:：]\s*(\d{2})(?!\d)")
+
+
+def _period_range_of(text, ref):
+    """正文里的固定活动期 → (start_dt, end_dt, start_clock, end_clock)；没有区间返回 None。
+
+    start_clock/end_clock 取区间附近「每日 17:00-20:00」这类时段（没有则 None）。
+    """
+    if not text or not isinstance(ref, datetime):
+        return None
+    cands = []
+    for rx in (_DATE_RANGE_RE, _DATE_RANGE_MD_RE):
+        for m in rx.finditer(text):
+            try:
+                if rx is _DATE_RANGE_RE:
+                    y, m1, d1, m2, d2 = (m.group("y"), m.group("m1"), m.group("d1"),
+                                         m.group("m2"), m.group("d2"))
+                else:
+                    y, (m1, d1, m2, d2) = None, m.groups()
+                start = _make_dt(int(m1), int(d1), 9, 0, ref, y)
+                end = _make_dt(int(m2), int(d2), 23, 59, ref, y)
+            except (TypeError, ValueError):
+                continue
+            if not start or not end or end < start:
+                continue
+            if (end - start).days > 120:  # 半年前的日期区间不是本次活动的活动期
+                continue
+            cands.append((start, end, m.end()))
+    if not cands:
+        return None
+    start, end, pos = min(cands, key=lambda x: x[2])
+    sc = ec = None
+    # 时段优先取区间尾部（「…至11月27日，每日17:00-20:00」），再退到区间之前（「每日17:00-20:00…11-16至11-27」）
+    for chunk in (text[pos:pos + 60], text[max(0, pos - 60):pos]):
+        cm = _CLOCK_RANGE_RE.search(chunk)
+        if not cm:
+            continue
+        h1, n1, h2, n2 = (int(cm.group(i)) for i in range(1, 5))
+        if 0 <= h1 <= 23 and 0 <= h2 <= 23 and 0 <= n1 <= 59 and 0 <= n2 <= 59:
+            sc, ec = (h1, n1), (h2, n2)
+            break
+    return start, end, sc, ec
+
+
+def _recurrence_to_period_activity(g):
+    """限期活动误判为长期安排 → 改成一次性活动（返回 True 表示已转换）。"""
+    rec = g.get("recurrence")
+    if not isinstance(rec, dict) or not rec.get("freq"):
+        return False
+    title = str(g.get("title") or "")
+    text = _group_plain_text(g)
+    if _RECUR_CHORE_RE.search(text):
+        return False
+    if not _ACTIVITY_WORD_RE.search(title + " " + text):
+        return False
+    span = _period_range_of(text, _group_anchor(g))
+    if not span:
+        return False
+    start, end, sc, ec = span
+    if sc:
+        start = start.replace(hour=sc[0], minute=sc[1])
+    if ec:
+        end = end.replace(hour=ec[0], minute=ec[1])
+    g.pop("recurrence", None)
+    if not g.get("eventAt"):
+        g["eventAt"] = _iso_of(start)
+    if not g.get("deadline"):
+        g["expireAt"] = _iso_of(end)
+    if not g.get("eventAction"):
+        act = _infer_event_action(g, text + " " + title) or "活动开始"
+        g["eventAction"] = _short_action(act)[:12]
+    if not g.get("deadline") and not g.get("eventAt"):
+        return False  # 理论上不会发生：保守起见不留半截状态
+    if g.get("actionable") is False:
+        g["actionable"] = True
+    print("recurrence->period:", g.get("id"), "|", title[:40], "|",
+          g.get("eventAt"), "->", g.get("expireAt"))
+    return True
+
+
 # ---------------------------------------------------------------- 2026-11-18 长期安排 × 一次性时间冲突
 # 用户反馈：屏山慢跑补报名（11-17 17:00）所在活动被 AI 判为每日 recurrence，导致
 #   · 卡片显示「本次 11-18 17:00」而不是 11-17 17:00 补报名（时间识别异常）；
@@ -6196,6 +6345,8 @@ def resolve_recurrence_conflicts(groups):
         finite = bool(g.get("signupStart") or g.get("signupEnd") or g.get("deadline")
                      or g.get("eventAt") or g.get("signupWindows"))
         if not finite:
+            # 没有任何一次性时间锚点：限期活动（正文写死起止日期）同样不是长期安排
+            _recurrence_to_period_activity(g)
             continue
         # 只有报名开始、没有截止/活动时间时，把报名开放当作一次性事件展示（补报名/报名开始）
         if not g.get("eventAt") and not g.get("deadline") and g.get("signupStart"):
