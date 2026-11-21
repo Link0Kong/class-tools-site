@@ -2,6 +2,16 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-21 13:0x · 电费「上次充值」改为跨区间查找并显示充值量（已上线 OSS+ECS）
+
+> 用户要求：「修复电费上次充值只会在选择区间内查找的问题，同时优化安卓端的电费曲线，上次充值应该改为显示上次的充值量」；随后要求全部端同步修复。
+
+- **网页 `tools/index.html`**：新增 `POWER.lastRecharge(pts)`（按 t 升序取最后一次 `Δq>0.05`，返回 `{t,reset,delta}`）；tile4「上次充值」优先取 **30d 全量历史**（云端 `power_history` 仅保留 30 天）的最后一次上升，慢频房取 `slowStats.lastRecharge`，30d 缺失才回退所选区间 `lastUp`；显示值改为 `+delta` 度（充值量），不再显示充值后余额 `reset`；切 24h/7d/30d 值不变。
+- **取数**：`pull` 恒定拉 24h+7d+30d（实时房由 2 个历史请求变 3 个，5 分钟缓存/在途去重不变）；`loadHist` 同样补 30d。
+- **验证**：`power_check.py` **155/155**、`v2_power_cadence_check.py` **84/84**、`v2_power_detail_check.py` 30、`v2_power_trend_compare_check.py` 38、`v2_orient_power_check.py` 33、`v2_power_pick_mem_check.py` 48、`v2_power_sync_hardening_check.py` 29、`v2_power_tip_fixed_check.py` 25；`v2_power_slow_check.py` 44/45（C5 为改动前既有失败，HEAD 同样失败）。
+- **上线**：`index.html` **1,374,596 B / sha256 `f224dce7458c6a12b1db7693e350af381858439aab9da661394f68f7f248dacf`**；OSS `check` MATCH、ECS `/` 同字节（gzip 427,473 B）。部署前备份 `tools/_backup/index_online_20261121-1307_prePowerRecharge.html`（1,372,939 B / `effa33de…`）。
+- **回滚**：`python deploy/oss_object.py get tools/_backup/index_online_20261121-1307_prePowerRecharge.html index.html` 后重跑 `sync_tools.py` + `ecs_site.py apply`。
+
 ## 2026-11-20 22:1x · 账号服务 v1.1（荣耀）+ vivo 推送发送器 + provider 约束放开 + OPPO 推送调度补挂
 
 > 用户要求：按 `honorid-opensdk` 接入荣耀账号 OAuth；按 AppID/AppKey/AppSecret 接入 vivo 推送；再次检查 OPPO 账号服务与推送。
