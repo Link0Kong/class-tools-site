@@ -1,10 +1,10 @@
 {
-  "versionCode": 101,
-  "versionName": "1.0.0-beta18",
-  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta18.apk.bin",
-  "notes": "荣耀账号快捷登录/绑定 + vivo 推送 + OPPO 推送调度修复；含访问统计、沉浸光感、顶部悬浮",
+  "versionCode": 104,
+  "versionName": "1.0.0-beta21",
+  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta21.apk.bin",
+  "notes": "电费：上次充值改为跨区间查找，并显示上次充值量",
   "force": false,
   "channel": "beta",
-  "sha256": "bfcd0ec034c5abdb2467d8eeeee6820caf507479ff40bc3a0e2beb5f897a3ac3",
-  "sizeBytes": 6064999
+  "sha256": "ab0f13b482d1e8d364dcb6cc91b4be9ff23564fc45f779f51a10b687bf3086b6",
+  "sizeBytes": 6065079
 }
