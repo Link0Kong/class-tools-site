@@ -71,7 +71,7 @@ activity/browser-profile/
 android/*.apk
 android/*.bin
 
-# ==== 内部运维 / 审计产物（2026-11-21 公开化清理；文件保留本机，不入库） ====
+# ==== 内部运维 / 审计产物（2026-11-21 清理；文件保留本机，不入库） ====
 _audit/
 pcap/
 activity/
