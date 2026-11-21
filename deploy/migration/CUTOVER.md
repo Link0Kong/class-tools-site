@@ -24,7 +24,7 @@
 1. **宣布冻结**：请在班群/任意入口通知「接下来 5 分钟别提交作业/投票/抽签」。
 2. **最终快照**（CloudBase 只读）：
    ```
-   cd C:\Users\Ko_Li\.openclaw\workspace\web
+   cd %USERPROFILE%\.openclaw\workspace\web
    python deploy\migration\export_schema.py --out C:\briefdesk\data\cloudbase_migration\cutover
    python deploy\migration\export_data.py  --out C:\briefdesk\data\cloudbase_migration\cutover
    python deploy\migration\verify_export.py --dir C:\briefdesk\data\cloudbase_migration\cutover
@@ -51,9 +51,9 @@
    ```
    备份：脚本先把当前 `/etc/caddy/Caddyfile` 复制到 `/opt/class-tools/backup/caddy-<ts>.Caddyfile`。
 6. **三端验证（测试账号）**：
-   - 网页：`http://121.196.47.2/?api=next` 或域名 → 登录/通知/作业/投票/抽签/电费 → 写一条测试 marks 再清理。
+   - 网页：`https://tool.furina.fun/?api=next` 或域名 → 登录/通知/作业/投票/抽签/电费 → 写一条测试 marks 再清理。
    - 小程序/安卓（若已发布新域名版）：登录 + 读通知 + 提交一次测试投票/撤销。
-   - 本机管线：`CLASS_CB_BASE=http://121.196.47.2/v1/rdb/rest/ python sync_notices_cloud.py --dry-run` 类只读检查。
+   - 本机管线：`CLASS_CB_BASE=https://tool.furina.fun/v1/rdb/rest/ python sync_notices_cloud.py --dry-run` 类只读检查。
 7. **启用 ECS 定时任务**（power/xgj/health）：`python deploy\ecs_cron.py enable`；确认首轮成功（journal）。
 8. **观察 30–60 分钟**：API 5xx、PostgREST 日志、PG 连接数、磁盘、附件/PPT 下载、健康行 `cloudbase` 变成 ok。
 

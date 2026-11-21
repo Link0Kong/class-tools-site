@@ -46,7 +46,7 @@ deploy/functions/
 唯一入口 `deploy/ecs_cron.py`（云助手 RunCommand，无需 SSH；系统 python 需 aliyunsdkcore）：
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web
+cd %USERPROFILE%\.openclaw\workspace\web
 python deploy\ecs_cron.py install --dry-run          # 只打印计划（所有值脱敏）
 python deploy\ecs_cron.py install                    # 安装；默认 staging 后端，timer 全部禁用
 python deploy\ecs_cron.py status                     # 只读：timer/心跳/env 键名

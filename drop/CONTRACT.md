@@ -40,7 +40,7 @@
 > - 公网入口：Caddy `handle /drop/*` → `uri strip_prefix /drop` → `reverse_proxy 127.0.0.1:8093`
 > - 部署/探测：`deploy/ecs_drop.py`（阿里云云助手，无需 SSH）；部署记录见 `deploy/ECS_DEPLOY.md` §9
 >
-> 前端约定：HTTPS 同源页面用 `location.origin + "/drop"`；HTTP 调试期直连 `http://121.196.47.2/drop`。
+> 前端约定：HTTPS 同源页面用 `location.origin + "/drop"`；HTTP 调试期直连 `https://tool.furina.fun/drop`。
 > 本文件是**前后端唯一契约**；改动必须同步更新本文件 + `drop/tests/test_drop_app.py`。
 
 ---
@@ -49,7 +49,7 @@
 
 ```
 浏览器(任意设备)  --https(same-origin /drop)-->  Caddy  --strip_prefix-->  127.0.0.1:8093  drop_app
-浏览器(HTTP 调试)  --http://121.196.47.2/drop-->  Caddy                           |
+浏览器(HTTP 调试)  --https://tool.furina.fun/drop-->  Caddy                           |
                                                                                   +--> CloudBase 网关 rpc/class_whoami（鉴权）
 ```
 
@@ -165,7 +165,7 @@ body `{}`（可为空 body）。返回：
  "events":[
    {"seq":3,"kind":"text","at":1762860001234,"from":{"name":"测试账号"},"payload":{"text":"你好"}},
    {"seq":4,"kind":"file","at":1762860002234,"from":{"name":"测试账号"},
-    "payload":{"fileId":"…","name":"讲义.pdf","size":1048576,"mime":"application/pdf","downloadUrl":"http://121.196.47.2/drop/file/…?s=…&exp=…&sig=…"}}
+    "payload":{"fileId":"…","name":"讲义.pdf","size":1048576,"mime":"application/pdf","downloadUrl":"https://tool.furina.fun/drop/file/…?s=…&exp=…&sig=…"}}
  ],
  "cursor":4}
 ```
@@ -183,7 +183,7 @@ body `{}`（可为空 body）。返回：
  "cursor":42,
  "files":[
    {"id":"9f8e…","name":"讲义.pdf","size":1048576,"mime":"application/pdf",
-    "at":1762860002234,"downloadUrl":"http://121.196.47.2/drop/file/…?s=…&exp=…&sig=…"}
+    "at":1762860002234,"downloadUrl":"https://tool.furina.fun/drop/file/…?s=…&exp=…&sig=…"}
  ],
  "fileSeq":{"9f8e…":42},
  "expiredNotice":2}

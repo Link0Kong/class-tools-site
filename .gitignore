@@ -70,3 +70,30 @@ activity/browser-profile/
 # Android 更新分发二进制（只上传 OSS/ECS，不入库）
 android/*.apk
 android/*.bin
+
+# ==== 内部运维 / 审计产物（2026-11-21 公开化清理；文件保留本机，不入库） ====
+_audit/
+pcap/
+activity/
+ziqi/
+_compliance/
+验收报告/
+*_key.txt
+*.npy
+ppt/logs/
+tools/tests/report_*.json
+AGENTS.md
+HANDOFF.md
+CLOUDBASE.md
+SYNC.md
+REPOS.md
+sync_repos.py
+sync-repos.cmd
+# 通知演示页（含真实姓名，绝不入库）
+tools/notice-board-live-demo.html
+# 电费预览副本（测试生成的临时产物，含真实数据）
+tools/tests/_power_preview.html
+
+# 工具/内部设计文档（不属于公开仓库）
+.zcodeignore
+docs/PORTING_MATRIX_20261115.md

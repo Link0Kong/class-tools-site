@@ -312,7 +312,7 @@ def check_r9(recs, a):
     S("R9.4 药膳 c0 报名优先（chip 含报名）", bool(med) and "报名" in norm(med.get("chip")),
       med.get("chip") if med else "")
     fg = recs.get("g_qqfile_1a81286a3a")
-    S("R9.5 花名册 sender=兰佳杰/学习委员", bool(fg) and norm(fg.get("senderName")) == "兰佳杰"
+    S("R9.5 花名册 sender=同学B/学习委员", bool(fg) and norm(fg.get("senderName")) == "同学B"
       and ("学习委员" in norm(fg.get("senderRole")) or "班委" in norm(fg.get("senderBadge"))),
       fg and "%s/%s/%s" % (fg.get("senderName"), fg.get("senderRole"), fg.get("senderBadge")))
     xx = [g for gid, g in recs.items() if "献血" in norm(g.get("title")) + norm(g.get("aiSummary"))

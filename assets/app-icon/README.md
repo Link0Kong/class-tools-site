@@ -145,7 +145,7 @@ PWA manifest 片段：
 ## 重新生成
 
 ```bat
-cd /d C:\Users\Ko_Li\.openclaw\workspace\web\assets\app-icon
+cd /d %USERPROFILE%\.openclaw\workspace\web\assets\app-icon
 python build_icons.py
 ```
 

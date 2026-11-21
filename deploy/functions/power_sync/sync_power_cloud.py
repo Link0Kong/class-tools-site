@@ -27,6 +27,7 @@ r"""同步班级 17 间宿舍的剩余电量到 CloudBase public.power。
 """
 import argparse
 import json
+import os
 import re
 import sys
 import time
@@ -81,9 +82,9 @@ ROOMS = [
     ("23号楼B座425", "23号楼B座", "425", "4-23B---425"),
 ]
 
-# class_verify 用的管理员身份（仅在本地进程内使用，绝不打印/写日志）
-ADMIN_SID = "3260707024"
-ADMIN_NAME = "\u9648\u5b50\u9e92"  # 姓名常量按 unicode 转义存放，避免误打印
+# class_verify 用的管理员身份（环境变量读取，真实学号/姓名不入库；仅在本地进程内使用，绝不打印/写日志）
+ADMIN_SID = (os.environ.get("CLASS_ADMIN_SID") or "2024000001").strip()
+ADMIN_NAME = (os.environ.get("CLASS_ADMIN_NAME") or "管理员").strip()
 
 # ---------------- 历史采样（public.power_history）----------------
 HISTORY_TABLE = "power_history"

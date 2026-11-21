@@ -10,7 +10,7 @@
   荣耀 authCode → `https://hnoauth-login.cloud.honor.com/oauth2/v3/token`（form：grant_type/code/client_id/client_secret/redirect_uri）
   → `https://account-drcn.platform.hihonorcloud.com/rest.php?nsp_svc=GOpen.User.getInfo` 取 `openID/displayName`；
   `/__health` 增加 `providers:{oppo,honor}`。已用云助手部署（`ecs_account.py`，含 `honor-account.json`），
-  公网 `http://121.196.47.2/account/__health` = `{ok:true,providers:{oppo:true,honor:true},version:"1.1"}`；
+  公网 `https://tool.furina.fun/account/__health` = `{ok:true,providers:{oppo:true,honor:true},version:"1.1"}`；
   无效 code 实测返回 `honor_exchange_failed / 1101/20152 invalid code`（说明凭证被接受）。
 - **DB 迁移** `deploy/cloudbase/2026-11-20_push_vivo_account_honor.sql`（已应用）：
   `push_tokens.provider` 放开 `('oppo','harmony','vivo')`；`account_bindings.provider` 放开 `('oppo','honor')`（触发器仍按 provider 分别限 3）。
@@ -125,9 +125,9 @@
 - 回滚：更新通道 latest.json 回 vc85（或删 beta3 APK）；桌面回旧包；网页无需部署。
 ## 2026-11-17 21:1x · 修复安卓检查更新：发布 vc85/beta2 到更新通道（latest.json + APK）
 
-> 用户反馈「app 的检查更新检查不到」。排查：更新服务器 `http://121.196.47.2/android/latest.json` 仍是 **vc84/1.0.0-beta1**（`versionCode=84`），而桌面新包已是 **vc85/1.0.0-beta2**；App 更新判定只看 `versionCode > 当前 versionCode`，所以装 vc84→服务器同为 84 不会提示，装 vc85→服务器 84 更低也不会提示；同时 vc85 APK 之前未发布到更新通道（ECS `/var/www/tool/android/` 无 beta2 文件）。
+> 用户反馈「app 的检查更新检查不到」。排查：更新服务器 `https://tool.furina.fun/android/latest.json` 仍是 **vc84/1.0.0-beta1**（`versionCode=84`），而桌面新包已是 **vc85/1.0.0-beta2**；App 更新判定只看 `versionCode > 当前 versionCode`，所以装 vc84→服务器同为 84 不会提示，装 vc85→服务器 84 更低也不会提示；同时 vc85 APK 之前未发布到更新通道（ECS `/var/www/tool/android/` 无 beta2 文件）。
 
-- 已发布：`android/latest.json` → `versionCode=85 / versionName=1.0.0-beta2 / apkUrl=http://121.196.47.2/android/classtools-1.0.0-beta2.apk / sha256=7580c6e7…5708c6 / channel=beta / force=false`；
+- 已发布：`android/latest.json` → `versionCode=85 / versionName=1.0.0-beta2 / apkUrl=https://tool.furina.fun/android/classtools-1.0.0-beta2.apk / sha256=7580c6e7…5708c6 / channel=beta / force=false`；
 - APK 已上传 OSS（因 OSS 限制 `.apk` 后缀，沿用 `.apk.bin` 方式）并由 ECS 落成 `/var/www/tool/android/classtools-1.0.0-beta2.apk`（5,787,701 B，sha256 与 manifest 一致）；ECS `latest.json`/APK 均 HTTP 200 实取校验通过。
 - 影响：手机上当前为 **vc84 或更低** 的 App 现在检查更新可发现 vc85/beta2；已经是 **vc85/beta2** 的手机显示「已是最新」是正常的（服务器没有更高 versionCode）。注意本轮两次 vc85 构建（先无账号密钥、后有账号密钥）versionCode 都是 85，若装的是前一个 vc85，系统不会提示同版本更新，需手动安装桌面最新 `班级工具站_v1.0.0-beta2_安卓.apk` 或后续升 vc86。
 - 回滚：把 `latest.json` 改回上一版 vc84/beta1 并从 ECS 删除 beta2 APK（OSS beta2.apk.bin 可保留）。
@@ -227,11 +227,11 @@
 
 > 用户 2026-11-14 决定：老老实实等 `tool.furina.fun` 备案完成，撤销三端中所有用到 ko-link.cn 的改动。
 
-- **网页**：`tools/index.html` 同源反代判断（`var CB` 运行时覆盖）与抽签核验链接 host 判断去掉 `ko-link.cn`，恢复为 `tool.furina.fun` 子域 / `121.196.47.2`；测试预览副本 `tools/tests/_power_preview.html` 同步；`deploy/ecs_site.py` Caddy HTTPS 站点块恢复为仅 `tool.furina.fun`。**保留** `/v1/rdb/rest/*` 反代 `header_up -Origin`（IP/非白名单来源登录必需，2026-11-12 修复）。
+- **网页**：`tools/index.html` 同源反代判断（`var CB` 运行时覆盖）与抽签核验链接 host 判断去掉 `ko-link.cn`，恢复为 `tool.furina.fun` 子域 / `tool.furina.fun`；测试预览副本 `tools/tests/_power_preview.html` 同步；`deploy/ecs_site.py` Caddy HTTPS 站点块恢复为仅 `tool.furina.fun`。**保留** `/v1/rdb/rest/*` 反代 `header_up -Origin`（IP/非白名单来源登录必需，2026-11-12 修复）。
 - **小程序**（源码，待用户重新上传）：`utils/cloud-config.js` `webBase` → `https://tool.furina.fun`、`dropBase` → `''`；`utils/drawproof.js`/README/CHANGELOG 注释同步。**安卓**：全仓库无 ko-link.cn 引用，无需改动。
 - **服务器/DNS**：`python deploy\ecs_site.py apply` 部署（Caddy 仅 `tool.furina.fun`、80/443 正常、`grep -c ko-link /etc/caddy/Caddyfile` = 0）；删除 ko-link.cn 的 LE 证书缓存；阿里云 DNS 删除 `@`/`www` A 记录（恢复 0 记录，`dns.alidns.com` DoH 实测无 A）。
-- **上线**：网页 OSS/ECS **1,257,937 B / sha256 `b84b3d57d8acace943a693c13645c84f14ab9f048cf51fcf04d7e87a45204e48`**（`oss_object.py check` MATCH、ECS verify MATCH、`http://121.196.47.2/` 实取同字节、页面内 `ko-link.cn` 出现次数 0）；headless Edge 测试身份在 `http://121.196.47.2/` 登录成功（class_verify/class_members/class_league/fitrecs/marks/userdata 全 200、0 console error）。
-- **回滚**：重传备份 `tools/_backup/index_online_20261114-2122_preKoLinkRevert.html`（1,257,999B/`fe5ca3da…`）+ `apply`；小程序回退源码；如需恢复临时域名 = Caddy 加回域名 + DNS 加回 `@`/`www` A → `121.196.47.2` + 三端源码反向修改。
+- **上线**：网页 OSS/ECS **1,257,937 B / sha256 `b84b3d57d8acace943a693c13645c84f14ab9f048cf51fcf04d7e87a45204e48`**（`oss_object.py check` MATCH、ECS verify MATCH、`https://tool.furina.fun/` 实取同字节、页面内 `ko-link.cn` 出现次数 0）；headless Edge 测试身份在 `https://tool.furina.fun/` 登录成功（class_verify/class_members/class_league/fitrecs/marks/userdata 全 200、0 console error）。
+- **回滚**：重传备份 `tools/_backup/index_online_20261114-2122_preKoLinkRevert.html`（1,257,999B/`fe5ca3da…`）+ `apply`；小程序回退源码；如需恢复临时域名 = Caddy 加回域名 + DNS 加回 `@`/`www` A → `tool.furina.fun` + 三端源码反向修改。
 
 ## 2026-11-14 13:3x–14:4x · 增量 58：三端通知改造（长期安排按期次 + 5 张可点数据卡 + 资料·无时间栏 + 时间显示归一）+ AI 活动周期记忆/更新合并（网页已上线 OSS+ECS；小程序/安卓待用户上传/安装）
 
@@ -255,7 +255,7 @@
 
 ### 验证 / 上线 / 回滚
 - 数据验收 20/20；网页 5 套 145/145；独立验收报告 `验收报告/通知长期期次与时间显示_独立验收_20261114.md`（无 P0；P1 已修；P2 如 AI 摘要少量重写/内存压力/最新发布时间来源）。
-- 上线：备份 `tools/_backup/index_online_20261114-141130_preNoticeV2.html`（1,232,339B/`6da2b338…`）→ OSS/ECS **1,257,999 B / sha256 `fe5ca3da…`**（HTTPS 443 与 ko-link.cn/www/121.196.47.2 同字节）；云端通知 95/95。
+- 上线：备份 `tools/_backup/index_online_20261114-141130_preNoticeV2.html`（1,232,339B/`6da2b338…`）→ OSS/ECS **1,257,999 B / sha256 `fe5ca3da…`**（HTTPS 443 与 ko-link.cn/www/tool.furina.fun 同字节）；云端通知 95/95。
 - 回滚：网页重传备份 + `deploy/ecs_site.py apply`；数据/AI 脚本备份在 `C:\briefdesk\data\_backup_notice_redesign_20261114\`；小程序/安卓回退用户上一版。
 
 ## 2026-11-14 13:0x–13:2x · 增量 56：安卓「教务」工具页改「卡片速览 + 官方接口数据 + 官方工具入口」（仅安卓 4.48.0 APK；网页/小程序无改动、无需部署）
@@ -333,7 +333,7 @@
 - 测试身份：`SID=9999000005 / 测试同学`（9999 段 mock 身份，符合 AGENTS §0-7）；未使用真实账号、未读密钥、未真实写云端。
 
 ### ③ 三端同步落地（Lead 汇总）
-- **网页已上线 OSS+ECS**：线上 **1,233,447 B / sha256 `de932bfab059a908d2b8b0f49adf963730e970d7ee5e7519ab58f2e5c38af266`**（`deploy/oss_object.py check index.html` = MATCH；`python deploy/ecs_site.py verify` = MATCH（脚本按 ECS_IP 直连字节校验）；直连 `http://121.196.47.2/` 实取 1,233,447 B / 同一 sha 且含教务入口；gzip 382,493 B）；部署前线上备份 `tools/_backup/index_online_20261113-1902_preJw.html`（1,228,439 B / `89685d55…`）。
+- **网页已上线 OSS+ECS**：线上 **1,233,447 B / sha256 `de932bfab059a908d2b8b0f49adf963730e970d7ee5e7519ab58f2e5c38af266`**（`deploy/oss_object.py check index.html` = MATCH；`python deploy/ecs_site.py verify` = MATCH（脚本按 ECS_IP 直连字节校验）；直连 `https://tool.furina.fun/` 实取 1,233,447 B / 同一 sha 且含教务入口；gzip 382,493 B）；部署前线上备份 `tools/_backup/index_online_20261113-1902_preJw.html`（1,228,439 B / `89685d55…`）。
 - Lead 独立复跑：`v2_jw_check 64/64`、`run/overflow_check 430 overflowCount=0`、`v2_ug_check 56/56`、`v2_drag_check 69/69`、`v2_ui_check 27/27`、`export_check draw` PASS；`selfcheck.py` 为身份门禁前旧脚本（引用已删除 `#aRoster`），HEAD 基线同样 FAIL，按既有文档口径不作门禁。
 - **小程序源码已改、待用户微信上传发布**（`mp-class-tools`，VERSION 仍 2.0.0）：`utils/tools.js` TOOLS 末尾追加 `jw`、新增 `pages/jw/jw.{js,json,wxml,wxss}` + `app.json` 注册、`images/tool-jw.png`（96×96 透明底白色校舍 glyph，1,643 B）、`pages/ug/ug.js` 使用说明新增「教务入口」卡（19→20 卡）；页面只做「复制链接 → 手机浏览器打开」（个人主体无 web-view/外链能力），`wx.setClipboardData` + toast「链接已复制，请在手机浏览器打开」；实跑 `unit.js 537/0、tool_sort_unit 21/0、ug_cards_check 60/0、sync_contract_test 34/0、staticcheck/code_quality exit 0`（含 test-only 修复 5 个既有红用例：作业夹具日期腐烂 + tool_sort 缺 file 期望）。
 - **安卓 4.45.0 / vc61 APK 已交付**：`data/tool/ToolCatalog.kt` 追加 `jw`（School 图标 / BrandSlateBlue / 学习分类）、新增 `ui/screens/jw/JwEntryScreen.kt`（ACTION_VIEW 打开 + 剪贴板复制 + URL / 提示行）、`MainNavHost` 路由分支、使用说明第 21 卡；`testDebugUnitTest` **1112/0**（89 suites，+JwEntryTest 8），Release **3,108,633 B / SHA-256 `39458E83C0EEBF64187F29DA48051B2F832E7B204E061E95F972D5F3805CFA41`**（`android-class-tools/artifacts/classtools-4.45.0-release-signed.apk`，v2 签名验签通过、dex 内已核验含教务 URL/文案；APK 以当前工作树构建，含并行会话未提交 WIP）。
@@ -397,7 +397,7 @@
 ### Android（`ui/screens/guide/`；APK 已交付）
 - `UserGuideScreen.kt` 重写 + 新增 `GuideContent.kt` / `GuideScenes.kt`：CtTopBar（右侧「总览」）+ 5 分类 chips + **`HorizontalPager` 20 卡** + 11 种 scene Compose 自绘（无图片依赖）+ 底部上一张/页码/下一张（≥48dp、首尾禁用、clamp 不循环）+ `ModalBottomSheet` 分组总览（点条目关 sheet 并跳卡、BackHandler 关 sheet）+ 卡内 verticalScroll；`UserGuideContent.VERSION="2026-11-12.1"`；全局版本号未改。
 - 测试：新增 `UserGuideContentTest` **13/13**（20 卡/id 唯一/分类合法/文案长度/事实/VERSION/Android 独有 reminder·calendar·permissions）；`:app:testDebugUnitTest` **1098/0**、`assembleDebug` 通过、`assembleRelease` 成功。
-- APK：`C:\Users\Ko_Li\Desktop\classtools-4.42.0-ug-cards-release-signed.apk`（3,075,869 B / sha256 `352E0C9F78ADBD045C35A84BFE79BF8637DC5F75C235DA322F4E8C343D3283C7`，v4.42.0 / vc58，apksigner 验证通过）。注意：该 APK 构建自当前工作区，**同时包含并行会话未提交改动**（版本号 4.42.0/vc58 由并行会话维护，本功能未改全局版本号）。
+- APK：`%USERPROFILE%\Desktop\classtools-4.42.0-ug-cards-release-signed.apk`（3,075,869 B / sha256 `352E0C9F78ADBD045C35A84BFE79BF8637DC5F75C235DA322F4E8C343D3283C7`，v4.42.0 / vc58，apksigner 验证通过）。注意：该 APK 构建自当前工作区，**同时包含并行会话未提交改动**（版本号 4.42.0/vc58 由并行会话维护，本功能未改全局版本号）。
 
 ### 独立验收
 - `验收报告/使用说明_重构_独立验收_20261112.md`：QA 独立复核三端 **PASS（P0=0 / P1=0 / P2=1 记录豁免）**——web 自研 CDP 真实触摸驱动 122/122、`v2_ug_check 56/56`、上线对象三方字节一致；mp 535/0 + staticcheck/ug_cards_check；android 单测复跑 1098/0。初验 P1（chips 34px<40px）已修复重新上线，P2 已修 4 项（桌面两列总览 / power 提示长度 / fb 文案 / nt「右下提醒」位置），SVG 阴影色按记录豁免。
@@ -417,10 +417,10 @@
 
 ## 2026-11-12 21:20–21:25 · 修复 IP/临时域名访问登录「网络错误」（Caddy 同源反代去 Origin）
 
-- 用户反馈 `http://121.196.47.2/` 登录提示「网络错误」。根因：CloudBase 网关 Origin 白名单只含 `https://tool.furina.fun` / `http://127.0.0.1:*`，而浏览器对同源 POST/PATCH/DELETE 也会带 `Origin: <当前访问域名>`，经 Caddy `/v1/rdb/rest/*` 反代原样透传 → 网关 **403**（`ko-link.cn`、IP、OSS 域名、`null` 实测均 403；`tool.furina.fun`/`127.0.0.1` 200）。
+- 用户反馈 `https://tool.furina.fun/` 登录提示「网络错误」。根因：CloudBase 网关 Origin 白名单只含 `https://tool.furina.fun` / `http://127.0.0.1:*`，而浏览器对同源 POST/PATCH/DELETE 也会带 `Origin: <当前访问域名>`，经 Caddy `/v1/rdb/rest/*` 反代原样透传 → 网关 **403**（`ko-link.cn`、IP、OSS 域名、`null` 实测均 403；`tool.furina.fun`/`127.0.0.1` 200）。
 - 修复：`deploy/ecs_site.py` 三处 `/v1/rdb/rest/*` 反代块加 `header_up -Origin`（同源请求不需要 CORS；鉴权仍是 Bearer anon key + `X-Device-Id` 班级 token，不变）。
 - 部署：`python deploy\ecs_site.py apply --https`（ECS Caddy 生效，`grep -c 'header_up -Origin' /etc/caddy/Caddyfile` = 2）；带 Origin 的请求返回 401（需鉴权）而不是 403。
-- 验证：headless Edge 打开 `http://121.196.47.2/` 用测试身份 `3260799999/测试账号` 登录成功（auth-pending 移除；`class_verify`/`class_members`/`fitrecs`/`marks`/`userdata` 全 200；0 console error）。
+- 验证：headless Edge 打开 `https://tool.furina.fun/` 用测试身份 `3260799999/测试账号` 登录成功（auth-pending 移除；`class_verify`/`class_members`/`fitrecs`/`marks`/`userdata` 全 200；0 console error）。
 - 副作用：只影响本机反代对网关请求头的处理；直连 CloudBase 网关的页面仍受网关白名单约束。ko-link.cn 备案通过后同样走这个反代，无需再改 CloudBase 配置。
 - 回滚：还原 `deploy/ecs_site.py` 三处 `header_up -Origin` 后重新 `apply --https`。
 
@@ -440,7 +440,7 @@
 
 > 背景：`tool.furina.fun` 因备案/DNS 暂停不可解析，微信小程序体验版必须有 HTTPS + 已备案域名。用户提供阿里云同账号域名 `ko-link.cn`（注意实际是**连字符**，不是下划线）。
 
-- **DNS**：阿里云 DNS 新增 `@` / `www` A → `121.196.47.2`（TTL 600），公网已生效。
+- **DNS**：阿里云 DNS 新增 `@` / `www` A → `tool.furina.fun`（TTL 600），公网已生效。
 - **ECS/Caddy**：HTTPS 站点块改为同时服务 `tool.furina.fun, ko-link.cn, www.ko-link.cn`（`deploy/ecs_site.py`）；`ecs_site.py apply --https` 已启用 Caddy HTTPS，证书已签发。
 - **实测**：`https://ko-link.cn/` 200（1,158,556B / `9fac5b58…`）、`https://www.ko-link.cn/` 200、`https://ko-link.cn/drop/__health` 200 version=2.3、`https://ko-link.cn/v1/rdb/rest/*` 同源反代 200、drop 签名下载 URL 为 `https://ko-link.cn/drop/file/...` 且真实下载 200（测试身份 probe，已清理）。
 - **网页**：`tools/index.html` 运行时同源判断增加 `ko-link.cn` 及其子域（走同源 `/v1/rdb/rest` / `/drop` / `/pptfiles`）；线上 index **1,158,556 B / sha256 `9fac5b58…`**（OSS+ECS MATCH）。备份 `tools/_backup/index_online_20261112_preKoLink.html`（1,158,525B/`41dcfefc…`）。
@@ -461,7 +461,7 @@
 
 ### ③ 域名停用期间小程序使用方案
 - 说明：课表/作业/通知/投票/名单/水量等**不依赖 tool.furina.fun**（走 CloudBase HTTPS 网关）；仅文件云空间/大屏互联/部分静态加速依赖 ECS 域名。
-- 小程序默认：开发/体验版直连 ECS `http://121.196.47.2/drop`（DevTools 勾「不校验合法域名」）；正式版用 `https://tool.furina.fun/drop`，需 DNS 恢复 + HTTPS + 微信后台 request/downloadFile 合法域名。
+- 小程序默认：开发/体验版直连 ECS `https://tool.furina.fun/drop`（DevTools 勾「不校验合法域名」）；正式版用 `https://tool.furina.fun/drop`，需 DNS 恢复 + HTTPS + 微信后台 request/downloadFile 合法域名。
 - 根治：恢复 DNS/备案并 `web_pause.py --off` + `ecs_site.py apply --https`；临时期可用已备案域名 CNAME 到 ECS；正式版不能走 http/IP。
 
 ### ④ 大屏拖动重做（占位块）
@@ -704,17 +704,17 @@
 
 ## 2026-11-11 12:4x · PPT 下载加速（网页端）：下载详情优先走 ECS 缓存 `/pptfiles` + 备用 OSS 直链（**本地完成，待 Lead 部署网页；ECS 已上线**）
 
-> 背景（Lead 任务）：实测本机→OSS 香港单连接 74KB/s、用户→ECS 杭州 4.7MB/s；ECS 提供 `/pptfiles/ppt/a/...` 缓存下载（服务由另一 agent 部署，地址 `http://121.196.47.2/pptfiles/`，https 备案后同源 `/pptfiles/`）。本次把网页下载详情的三行下载链接改为优先走 ECS 缓存，OSS 保留为「备用」。
+> 背景（Lead 任务）：实测本机→OSS 香港单连接 74KB/s、用户→ECS 杭州 4.7MB/s；ECS 提供 `/pptfiles/ppt/a/...` 缓存下载（服务由另一 agent 部署，地址 `https://tool.furina.fun/pptfiles/`，https 备案后同源 `/pptfiles/`）。本次把网页下载详情的三行下载链接改为优先走 ECS 缓存，OSS 保留为「备用」。
 > 写作用域：`tools/index.html`（PPT 块内增量）+ `tools/tests/` + 本 CHANGELOG；未改其它文件、未部署、未 git。
 
-- **链接选择 `pptDlHref(man,f)`**：先用 `resolveUrl(manifest.base, files.s)` 得 OSS 绝对 URL 并解析 pathname；`/ppt/...` 路径时——http 页面 → `http://121.196.47.2/pptfiles` + pathname；https 页面 → `location.origin + "/pptfiles"` + pathname（为 tool.furina.fun 备案后同源反代预留）；非 `/ppt/` 路径、`data:`/`blob:`、解析失败 → 回退原 OSS 直链。
+- **链接选择 `pptDlHref(man,f)`**：先用 `resolveUrl(manifest.base, files.s)` 得 OSS 绝对 URL 并解析 pathname；`/ppt/...` 路径时——http 页面 → `https://tool.furina.fun/pptfiles` + pathname；https 页面 → `location.origin + "/pptfiles"` + pathname（为 tool.furina.fun 备案后同源反代预留）；非 `/ppt/` 路径、`data:`/`blob:`、解析失败 → 回退原 OSS 直链。
 - **fileRow**：主「下载」按钮改用 ECS href（`<a href=… download=name>`，下载文件名/人类可读大小不变）；按钮下方新增**小字「备用」**链接指向原 OSS 直链（`title="备用下载（较慢）"`、同一 download 名），ECS 未就绪/失败时可自选；回退场景（主链接即 OSS）不重复显示「备用」；「未生成 · —」行不变。按钮组竖排 `.ppt-file-a`，暖白卡片/雾青主按钮风格不变。
 - **顺带修正**：存量 deck 补转 compat 后（既有 `files` 又保留旧 `slides/video`），详情现在按契约 §12.4.1 显示**次要「在线预览」**按钮（此前仅无 files 的旧 deck 才有），下载为主、预览为次。
 - **测试（真实输出，最终稳定合并文件 920,140 B / sha256 `489c87eaf55ab19dc26b443152929baa6de1c7c8fe25425b4c32cf82304c5298`；mtime 12:51:39，并行投票/大屏改动均在内）**：
-  - [`v2_ppt_download_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_download_check.py) **51/51 PASS**（新增/更新：http 页面三行主 href 均以 `http://121.196.47.2/pptfiles/ppt/a/` 开头、download 文件名/大小不变、备用=原 OSS 且 title 正确、非 /ppt/ 路径回退 OSS 且不显示备用、存量补转 deck 三行 ECS +「在线预览」可进旧播放器、430px 文件行不溢出、0 JS 报错/0 console.error/0 真实云端写）
+  - [`v2_ppt_download_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_download_check.py) **51/51 PASS**（新增/更新：http 页面三行主 href 均以 `https://tool.furina.fun/pptfiles/ppt/a/` 开头、download 文件名/大小不变、备用=原 OSS 且 title 正确、非 /ppt/ 路径回退 OSS 且不显示备用、存量补转 deck 三行 ECS +「在线预览」可进旧播放器、430px 文件行不溢出、0 JS 报错/0 console.error/0 真实云端写）
   - 既有 [`v2_ppt_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_check.py) **92/92**、[`v2_ppt_video_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_video_check.py) **100/100** 全过（详情/下载/播放器交互不回归）
   - 回归（真实输出）：`overflow_check 430`=**0**、`v2_ui_check` **27/27**、`v2_pos_restore_check` **12/12**、`v2_x5_anim_check` **28/28**、`v2_drag_check` **56/56**
-  - 真实 deck `dmwalrdlgevz90l`（本地 http 页面）：详情三行主 href 实测为 `http://121.196.47.2/pptfiles/ppt/a/dmwalrdlgevz90l/c0e5834805/{compat.pptx,preview.pdf,original.pptx}`，备用均为 `https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/...`（title=备用下载（较慢）），下载名=原中文名；详情同时保留「在线预览」；0 JS error。
+  - 真实 deck `dmwalrdlgevz90l`（本地 http 页面）：详情三行主 href 实测为 `https://tool.furina.fun/pptfiles/ppt/a/dmwalrdlgevz90l/c0e5834805/{compat.pptx,preview.pdf,original.pptx}`，备用均为 `https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/...`（title=备用下载（较慢）），下载名=原中文名；详情同时保留「在线预览」；0 JS error。
   - **ECS `/pptfiles` 已上线（Lead 反馈缓存命中 7.2MB/s、用户 deck 4 文件已预热）**；本机只读复核：HEAD `compat.pptx` 200/39,063,744B、`preview.pdf` 200/1,105,861B、`original.pptx` 200/38,016,533B、`ppt/src/.../source.pptx` 200/38,016,533B；`Range: bytes=0-4095` 四者均 206 且返回 `bytes 0-4095/总长`（即 `/ppt/a/` 与 `/ppt/src/` 都在 ECS 缓存覆盖范围，无需收窄 `pptDlHref` 前缀）；真实速度/sha256 由 Lead 部署网页后 E2E。
 - **已知限制**：① https 页面走同源 `/pptfiles`，需 Caddy 反代就绪（备案后）；② ECS 已实测覆盖 `/ppt/a/` 与 `/ppt/src/`，旧 deck 原始文件同样走缓存；若未来 ECS 范围收窄，需把 `pptDlHref` 生效前缀同步收窄（一行）；③ 浏览器大文件下载无进度（原生下载，仅显示大小）；④ 移动端/微信内仍可能被改写为预览或拦截 `<a download>`。
 - **并行改动提醒**：本次期间并行 agent 合入了「投票」功能（+~700 行 CSS/JS/HTML 与 TOOLS 入口），最终稳定工作区 `tools/index.html` **920,140 B / sha256 `489c87eaf55ab19dc26b443152929baa6de1c7c8fe25425b4c32cf82304c5298`**（我的下载加速 + 投票 + 此前大屏/v2.0 均在内），全部 PPT 测试在该合并文件上实跑通过；部署前请 Lead 以最终文件重新备份。
@@ -741,7 +741,7 @@
   - 改造 [`v2_ppt_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_check.py) **92/92 PASS**（原 86 项语义保留，播放器用例改经「卡片→详情→在线预览」入口；+4 静态 v2.0 断言 +2 详情入口断言；mock 支持 `manifest->files` 轻量子查询）
   - 改造 [`v2_ppt_video_check.py`](C:/Users/Ko_Li/.openclaw/workspace/web/tools/tests/v2_ppt_video_check.py) **100/100 PASS**（原 99 项保留；打开路径改为详情→在线预览；新增详情三态断言）
   - 回归（真实输出）：`overflow_check 430`=**0**；`v2_ui_check` **27/27**；`v2_pos_restore_check` **12/12**；`v2_x5_anim_check` **28/28**；`v2_drag_check` **56/56**
-  - 真实 deck `dmwalrdlgevz90l`（旧 v1 manifest，无 files，16 页/36MB）：headless Edge 实跑——列表卡片「16 页 · 36MB · 16 步 · 陈子麒」、无标签无列表播放按钮；点击卡片 0.08s 内打开详情：「兼容版未生成 + 原始文件 36MB（OSS `ppt/src/.../source.pptx`，download=source.pptx）+ 在线预览 + 重新处理」；点在线预览进原播放器（`ppt-vmode`、真实 deck.mp4 `readyState=4、paused=false、err=0`），0 JS error；生产轻量标签查询实际 URL `ppt_decks?select=id%2Cfiles%3Amanifest-%3Efiles&deleted=eq.false&limit=100` 返回 200。
+  - 真实 deck `dmwalrdlgevz90l`（旧 v1 manifest，无 files，16 页/36MB）：headless Edge 实跑——列表卡片「16 页 · 36MB · 16 步 · 管理员」、无标签无列表播放按钮；点击卡片 0.08s 内打开详情：「兼容版未生成 + 原始文件 36MB（OSS `ppt/src/.../source.pptx`，download=source.pptx）+ 在线预览 + 重新处理」；点在线预览进原播放器（`ppt-vmode`、真实 deck.mp4 `readyState=4、paused=false、err=0`），0 JS error；生产轻量标签查询实际 URL `ppt_decks?select=id%2Cfiles%3Amanifest-%3Efiles&deleted=eq.false&limit=100` 返回 200。
 - **已知限制（如实）**：① 列表标签/大小依赖上面的 JSON 子字段轻查询（已实测线上 200）；若未来网关/表结构不支持会静默无标签（功能仍可用），彻底稳的方案是后端加 `has_compat/video_dur` 等轻字段（需契约 §4.4 与三端同改，本次未做）；② 旧 deck「在线预览」仅当旧 manifest 有 `slides`（v1 实际都有；video-only 旧 manifest 无独立播放器入口）；③ 网页下载为 `<a download>` 直连 OSS，移动浏览器/微信内可能改为预览或拦截（契约 12.4.2 已注），大文件不显示下载进度（只显示大小）；④ 详情打开期间列表 10s 轮询刷新不会实时重绘详情，状态变化需关闭重开；⑤ 「长按/右上 ⋯」菜单未做，保留原内联「重试/删除」按钮；⑥ 兼容版 deck 调用 `PPT.open` 会转为下载详情（大屏演示暂无直接放映兼容版能力，需转分步/视频旧模式才行）。
 - **回滚**：本次未部署；回滚 = 用改前线上对象覆盖 `tools/index.html` 后重传（本机参考备份 `tools/_backup/index_online_20261110-2215_preStageV2.html`，**847,026 B / sha256 `411354e1…`**；注意该备份不含并行「大屏演示 V2」改动，回退会一并回退）；本次改动只在 PPT 块内（列表/详情 + 播放器保留），不影响其它工具逻辑。交付时工作区 `tools/index.html` **870,349 B / sha256 `ea799a2892809b4e08b6dffe59f7aaddff99066f11b50147381534ee28771dc3`**（含并行大屏改动，部署前请 Lead 以最终文件重算哈希）。
 > **上线（2026-11-10 22:53，Lead 统一部署）**：`index.html` **870,349 B / sha256 `ea799a2892809b4e08b6dffe59f7aaddff99066f11b50147381534ee28771dc3`**（含同批「大屏 V2」）；`sync_tools.py index.html` 后 `oss_object.py check` = **MATCH**，`ecs_site.py apply` 后 ECS `/` 同字节（**MATCH**）。回滚点：`tools/_backup/index_online_20261110-2253_prePPTv2.html`（853,685 B / `9a158498…`，含大屏 V2、不含本 v2.0）；或再往前 `…2215_preStageV2.html`（847,026 B / `411354e1…`，两项改动之前）。
@@ -804,7 +804,7 @@
 
 - **① ECS 备案落点（已完成）**：新增 `deploy/ecs_site.py`（云助手 RunCommand，无需 SSH）把 OSS 最新站同步到 `/var/www/tool`；Caddy 增加 `encode zstd gzip`、缓存头（index/tt/board no-cache、assets 7 天）、`/att/*` 与 `/v1/rdb/rest/*` 路由；HTTPS 就绪配置写入 `/etc/caddy/Caddyfile.https.ready`（等备案 + DNS 恢复后 `apply --https` 自动签发）。实测 ECS `index.html` 802,355 B / sha256 `e40571d3…`、gzip 传输 260,997 B、`/board`/`/api/status` 不受影响；文档 `deploy/ECS_DEPLOY.md`。
 - **② 通知附件外置（服务与网页端已完成，默认关闭）**：新增 `attachments/`（契约 + 纯标准库服务端 + 本机客户端 + 单测）与 `deploy/ecs_attachments.py`；ECS `class-tools-att.service`（127.0.0.1:8091，数据 `/opt/class-tools/attachments`，签名 URL `HMAC-SHA256(sha256(SYNC_TOKEN|att-v1), id+exp)`，180 天、内容寻址、不可枚举）；本机 `sync_notices_cloud.py` 以 `NOTICE_ATTACH_EXTERNALIZE=1` 开关接入（失败保留 data URI，fail-open）；实测 40 个去重附件 6.1 MB 上传后，board 通知体 **8.05 MB → 0.17 MB**，签名 GET 200/篡改 403。网页模板（`briefdesk-plan/build_notice_board.py` + `build_notice_embed.py`）已兼容 URL 与 data URI 双形态（`v2_attach_url_check.py` 9/9、`v2_notice_data_check` 27/27 全绿）。**不默认开启**：旧版小程序/安卓未见新版前遇到 http/IP URL 会坏，按「三端一起」等备案通过后统一开。
-- **③ 同源/缓存（已完成）**：网页 `CB` 在 `tool.furina.fun`/`121.196.47.2` 下运行时改走同源 `/v1/rdb/rest/*`（ECS 反代 CloudBase 网关，消除 CORS 与跨云一跳；`var CB` 字面量保留给本机脚本解析）；静态站 gzip 32.5%。
+- **③ 同源/缓存（已完成）**：网页 `CB` 在 `tool.furina.fun`/`tool.furina.fun` 下运行时改走同源 `/v1/rdb/rest/*`（ECS 反代 CloudBase 网关，消除 CORS 与跨云一跳；`var CB` 字面量保留给本机脚本解析）；静态站 gzip 32.5%。
 - **上线**：`index.html` **802,355 B / sha256 `e40571d395f32af735243673f7e93c6d008788143b046a7b15df2ec0c4142c50`**（OSS `check` MATCH + ECS 同步 MATCH）；改前线上对象备份 `tools/_backup/index_online_20261110-1900_preAttUrl.html`（800,243 B / `4412f5fc…`）。
 - **三端改造已完成（2026-11-10 晚）**：小程序 `nt.js`（`unit.js` **305/0**，新增 8 条 URL 用例）、安卓（`testDebugUnitTest` **934/0**，新增 30 条）；均保持 data URI 兼容、版本号未 bump、未发布/未构建 APK。
 - **未完成（等备案）**：开启 `NOTICE_ATTACH_EXTERNALIZE` 与存量回填；`apply --https` 切域名；小程序后台加 downloadFile 域名；安卓正式版只能走 https。
@@ -1313,7 +1313,7 @@
 
 ## 2026-11-05 23:23 · v2.0.0 增量 7：通知 AI 识别与时间显示修复（已上线）
 
-> 用户反馈 6 条：申报材料截止时间错误/相对日期、时间显示不统一、活动报名优先报名时间、申报材料两条未合并、天城企鹅未映射班委、本人发布通知未识别。
+> 用户反馈 6 条：申报材料截止时间错误/相对日期、时间显示不统一、活动报名优先报名时间、申报材料两条未合并、网名B未映射班委、本人发布通知未识别。
 > 契约：`C:\briefdesk\scripts\通知时间显示与识别_契约_20261105.md`；说明：`C:\briefdesk\scripts\通知时间显示与识别_修复说明_20261105.md`。
 
 ### 一、通知模板（iframe 模板，build_notice_board.py → build_notice_embed.py）
@@ -1324,7 +1324,7 @@
 - 消息文本相对日期替换 `absRelDates`：今天/明天/今晚/明早/本周X/下周X/裸周X → MM-DD（锚点=首条 item.time；
   作用于 AI 摘要/要点/segments/原文/补充通知/合并转发/原始消息弹层）。
 - 合并/多消息卡渲染全部原文 item（不再被 aiSummary 隐藏）；透传 `aiMerged/supplement/updatedAt`（「已更新」徽标）。
-- 发送者身份映射：class-members + class-identities + class-aliases，网名「天城企鹅」→ 兰佳杰/学习委员/班委。
+- 发送者身份映射：class-members + class-identities + class-aliases，网名「网名B」→ 同学B/学习委员/班委。
 
 ### 二、数据链路（C:\briefdesk，非 web 仓库）
 
@@ -1741,7 +1741,7 @@
 - **手机比例顶部栏（≤600px）**：隐藏装饰三色点与身份角标（副团支书等角标只在宽屏显示），身份胶囊限宽 7.4em、不换行、字号 11.5；域名降到 10px；标题加大 17px/800。顶部内边距接入 `env(safe-area-inset-top)`，吸顶 tabs 也留出安全区。>600px 的桌面/横屏布局保持原样。
 - **卡片与框浮起**：卡片底改暖白 `#FFFFFF`、描边 `#E0D2BC`、柔和投影（`0 1px 2px` + `0 12px 26px -14px`）；内层的「结果框 / 作业·反馈条目」改浅沙 `#FBF6EC` 做出「外浮内陷」层次；输入框/多行框改 `#FDFAF2` + 深一档描边并加内阴影；`.ck`、`.steps` 按钮同步；吸顶 tabs 加柔和投影。
 - **通知 iframe 同步**：`build_notice_embed.py` 的 `OVERRIDE` 改为白卡 + 同等投影 + 浅沙内框，重新嵌入 `NOTICE_TPL_B64`（模板与旧版逐行 diff 仅 OVERRIDE 区 15 行；demo 与旧模板逐字节一致）。
-- 验证：真宽度 320/360/390/430/601/720/844/1280 全部 `overflow=0`、0 JS 报错、全部栏按钮底差 0px；手机 320–430 身份名不截断（陈子麒）且角标/点隐藏，601+ 恢复完整；通知页 390/1280 内嵌模板卡片渲染正常；draw 导出正常；线上 `index.html` **sha256 MATCH**（316,967 B）。
+- 验证：真宽度 320/360/390/430/601/720/844/1280 全部 `overflow=0`、0 JS 报错、全部栏按钮底差 0px；手机 320–430 身份名不截断（管理员）且角标/点隐藏，601+ 恢复完整；通知页 390/1280 内嵌模板卡片渲染正常；draw 导出正常；线上 `index.html` **sha256 MATCH**（316,967 B）。
 - 回滚点：`tools/_backup/index_online_20261104-2058_preMobileTopCard.html`。
 
 ## 2026-11-04 · 全部栏卡片莫奈配色 + 按钮底部对齐
@@ -1755,13 +1755,13 @@
 
 ## 2026-11-04 · 身份门禁重构：学号+姓名进入 + 班委/账号统计
 
-- **旧登录全部移除**：网页不再有账号/密码/注册/旧管理员入口，`users`/`identity_verify` 旧登录表已从 CloudBase 删除；管理员身份改由班级名单中的 `is_admin` 决定（陈子麒 / 3260707024）。
+- **旧登录全部移除**：网页不再有账号/密码/注册/旧管理员入口，`users`/`identity_verify` 旧登录表已从 CloudBase 删除；管理员身份改由班级名单中的 `is_admin` 决定（管理员 / 2024000001）。
 - **启动身份页**：网页打开先显示身份门禁，输入「学号 + 姓名」→ `rpc/class_verify`；通过后才拉取班级名单（70 人）、作业、通知、marks、体测与课表，未通过前不发任何班级数据请求。
-- **新名单权威**：`private.class_ids` 重建为官方 XLS 花名册的 70 人；旧 `admin` 数据迁到 3260707024，旧 `xzx/xsx` 数据迁到谢梓萱 3260707026。旧管理员 `admin` 不再可用。
-- **班委名单**：新增「班委」工具页，展示 `role/badge` 身份气泡；已按《关于公布2026级班委会拟定结果的通知》导入 **18 名班委**（班长陈玉霞、团支书谢梓萱、副团支书陈子麒、学习/生活/纪律/文娱/劳动/体育/心理/组织/宣传/廉政监督员），按官方职务顺序展示；管理员仍可在班委页点「管理」调整。
+- **新名单权威**：`private.class_ids` 重建为官方 XLS 花名册的 70 人；旧 `admin` 数据迁到 2024000001，旧 `xzx/xsx` 数据迁到同学M 2024000002。旧管理员 `admin` 不再可用。
+- **班委名单**：新增「班委」工具页，展示 `role/badge` 身份气泡；已按《关于公布2026级班委会拟定结果的通知》导入 **18 名班委**（班长同学A、团支书同学M、副团支书管理员、学习/生活/纪律/文娱/劳动/体育/心理/组织/宣传/廉政监督员），按官方职务顺序展示；管理员仍可在班委页点「管理」调整。
 - **统计改为按账号**：`visits` 新增 `sid/name`，前端埋点写当前身份；统计页只管理员可见，按账号聚合访问次数/最近时间/近 7 天，旧匿名行忽略。
 - **CORS**：网页 token 走网关已放行的 `X-Device-Id` 头（服务端同时接受小程序的 `X-Class-Token`），修复 `X-Class-Token` 被浏览器预检拒绝的问题。
-- 验证：线上输入陈子麒/3260707024 成功进入、名单 70 人、班委页 **18 条**、统计按账号、console errors 0；本地 identity/committee/stats 截图通过；未登录时数据接口返回空/拒绝。
+- 验证：线上输入管理员/2024000001 成功进入、名单 70 人、班委页 **18 条**、统计按账号、console errors 0；本地 identity/committee/stats 截图通过；未登录时数据接口返回空/拒绝。
 - 已知限制：课表仍为同源静态 `tools/tt.json`（前端身份后请求）。
 - 回滚点：`tools/_backup/index_online_20261104_1335.html`（身份改造前线上版本）。
 
@@ -2033,7 +2033,7 @@
 - 验证：小程序 unit 49/49、staticcheck handlers missing 0、cli preview 编译成功（405.1KB）；网页生产环境打开国标表横向滚动，首列保持覆盖。
 
 ## 2026-11-04 18:55 通知人群可见
-- notices.audience + RLS 服务端过滤；红会群仅 3260707024，班委群仅班委，其余 all；写权限收紧管理员；已验证 19/18/18/0。
+- notices.audience + RLS 服务端过滤；红会群仅 2024000001，班委群仅班委，其余 all；写权限收紧管理员；已验证 19/18/18/0。
 
 ## 2026-11-04 19:10 截止时间按消息日期解析
 - 截止只取截止语境，相对日期按消息发送时间锚定；AI 摘要截止同步重算；已重建并同步 19 组。
@@ -2052,7 +2052,7 @@
   睡莲青主圆 + 雾蓝/暖沙点缀）；无外部请求、无新增资源，已部署，线上 sha256 MATCH。
 - 服务端：`public.notices.audience` 新增 `league`（团员可见）；`private.class_league` 50 名团员名单 +
   `auth_is_league()` + `nt_read` 新分支；自动通知映射「团员」群 → `league`。详见 `CLOUDBASE.md`
-  （其中「长言木」「🗿」两个网名群成员已按用户确认映射为张誉权、孙博文）。
+  （其中「长言木」「🗿」两个网名群成员已按用户确认映射为同学D、孙博文）。
 - 小程序：身份页图标同步换成站点图标（`images/logo.png`）；小程序头像用 `images/app-icon-1024.png` 上传。
 - 回滚点：`tools/_backup/index_online_20261104-2032_preLogo.html`（本次上线前的线上版）。
 
@@ -2108,7 +2108,7 @@
      `headers(true)` → `headers(false)`；小程序未发版前靠第 1 步已恢复。
 - **验证**：新增 `tools/tests/stats_check.py`（假身份 + fetch mock，不碰真实云）**30/30 PASS**；
   线上 E2E（headless Edge + CDP，普通成员）`POST /rest/visits` **201**（修复前 401）、DB 入库、
-  管理员统计页出现 2 个账号（陈子麒/李学盈）、无学号（截图 `tools/tests/_shots_stats/live_stats_admin_430.png`）；
+  管理员统计页出现 2 个账号（管理员/同学N）、无学号（截图 `tools/tests/_shots_stats/live_stats_admin_430.png`）；
   云端策略直连探测 8/8（临时脚本已删）；回归 `export_check.py draw` 正常，
   `roster_check.py` / `overflow_check.py` 见独立验收。测试产生的 visits/feedback 行已清理。
 - **独立验收**（另一 agent，fresh context，只读）：线上字节首尾两次比对一致（353,460 B / 同上 sha256）；

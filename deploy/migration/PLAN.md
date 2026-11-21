@@ -9,18 +9,18 @@
 
 | 项 | 值 |
 |---|---|
-| ECS | `class_tool` / `121.196.47.2`，2 vCPU / **3.6 GiB 可用内存** / 40 GB ESSD / 出峰值 **100 Mbps**，Ubuntu 26.04，Caddy 2.6.2 |
+| ECS | `class_tool` / `tool.furina.fun`，2 vCPU / **3.6 GiB 可用内存** / 40 GB ESSD / 出峰值 **100 Mbps**，Ubuntu 26.04，Caddy 2.6.2 |
 | ECS 现有服务 | board 8090、附件 8091、PPT 文件缓存 8092、drop 8093、账号 8094、地图 8095（全部 127.0.0.1 + Caddy 路由） |
 | CloudBase | env `tool-d4gosudok46e0e081`，**2026-12-10 23:59:59 到期**；PG **17.11**；`tcb` CLI 已登录，`tcb db execute --json` 可执行只读 SQL |
 | CloudBase 数据 | 库 42 MB；public **29 表**、private **5 表**；**88 个函数**（36 SECURITY DEFINER）、**71 条策略（全部 TO anon）**；`notices` 184 行/25.4 MB（单行最大 2.0 MB）、`class_sessions` 8,326 行 |
-| 客户端 | 网页：ECS `http://121.196.47.2/`（备案前仅 IP 调试），`var CB` 运行时同源 `/v1/rdb/rest/`（当前 Caddy 反代 CloudBase）；小程序/安卓：仍直连 CloudBase 网关（`https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/`） |
+| 客户端 | 网页：ECS `https://tool.furina.fun/`（备案前仅 IP 调试），`var CB` 运行时同源 `/v1/rdb/rest/`（当前 Caddy 反代 CloudBase）；小程序/安卓：仍直连 CloudBase 网关（`https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/`） |
 | 备案 | `tool.furina.fun` 仍 NXDOMAIN，**ICP 未通过** → 小程序/安卓正式版无法切到自建域名（它们不接受 http/IP） |
 
 ## 2. 目标架构
 
 ```
 浏览器/小程序/安卓
-   │  https://tool.furina.fun/v1/rdb/rest/…   （备案后；现在网页走 http://121.196.47.2/ 同源）
+   │  https://tool.furina.fun/v1/rdb/rest/…   （备案后；现在网页走 https://tool.furina.fun/ 同源）
    ▼
 Caddy (:80/:443, gzip/zstd, 静态站, /att /pptfiles /drop /account /map)
    │  handle_path /v1/rdb/rest/*  → 127.0.0.1:3000   （切换时只改这一条）

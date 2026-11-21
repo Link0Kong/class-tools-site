@@ -219,7 +219,7 @@ body {
 <nav class="toc"><div class="toc-title">目录 · CONTENTS</div><ol class="toc-list"><li><a href="#0-tldr"><span>0. 结论先行（TL;DR）</span></a></li><li><a href="#1"><span>1. 需求与设计边界</span></a></li><li><a href="#2"><span>2. 本机现状（已验证 / 待验证）</span></a></li><li><a href="#3"><span>3. 总体架构</span></a></li><li><a href="#4"><span>4. 采集方案</span></a></li><li><a href="#5-briefdesk"><span>5. Briefdesk 配置与改造</span></a></li><li><a href="#57-toolfurinafun"><span>5.7 与班级工具站（tool.furina.fun）整合</span></a></li><li><a href="#58-qq"><span>5.8 同步发布到 QQ 频道</span></a></li><li><a href="#59"><span>5.9 富媒体通知适配（小程序 / 公众号 / 腾讯文档 / 文件 / 图片）</span></a></li><li><a href="#510"><span>5.10 示例网页（本次已交付）</span></a></li><li><a href="#6"><span>6. 部署与运维</span></a></li><li><a href="#7"><span>7. 隐私、合规与风险</span></a></li><li><a href="#8"><span>8. 实施路线</span></a></li><li><a href="#9"><span>9. 成本估算</span></a></li><li><a href="#10-7"><span>10. 需要你拍板的 7 件事</span></a></li><li><a href="#a"><span>附录 A：命令速查</span></a></li><li><a href="#benv-cbriefdeskappenv"><span>附录 B：.env 模板（关键行，复制到 C:\briefdesk\app\.env）</span></a></li><li><a href="#c"><span>附录 C：参考资料</span></a></li><li><a href="#d"><span>附录 D：本方案已核实 / 未核实清单</span></a></li></ol></nav><blockquote>
 <p><strong>微信人工转发私聊 + QQ 群自动采集 → 班级工具站 + QQ 频道</strong> ｜ v1.1 ｜ 2026-11-03</p>
 <p>目标：把班级分散在 QQ 群、微信群、私聊里的通知，汇成一份<strong>自动分类、去重、带截止时间、可检索</strong>的班级简报；完善后<strong>整合进班级工具站（tool.furina.fun）</strong>，重要简报可<strong>同步发布到 QQ 频道相关板块</strong>，并尽量兼容通知里常见的<strong>公众号文章、小程序卡片、腾讯文档收集表</strong>等富媒体内容。
-适用对象：福建中医药大学 2026 级信管 · 班委（副团支书）陈子麒 · 单机本地部署。
+适用对象：福建中医药大学 2026 级信管 · 班委（副团支书）管理员 · 单机本地部署。
 本次同时交付<strong>示例网页</strong>：<code>web/tools/notice-demo.html</code>（见 §5.10），先把「最终长什么样」定下来。</p>
 </blockquote>
 <hr />
@@ -567,7 +567,7 @@ Expand-Archive $zip -DestinationPath .
 
 # 4) 注册账号（token 用变量，不要写进命令行历史）
 $tok = (.\qqflow-server.exe token).Trim()
-$body = @{ qq='&lt;你的QQ号&gt;'; key='&lt;16字节ASCII库密钥&gt;'; db_path='C:\Users\Ko_Li\Documents\Tencent Files\&lt;QQ号&gt;\nt_qq\nt_db\nt_msg.db' } | ConvertTo-Json -Compress
+$body = @{ qq='&lt;你的QQ号&gt;'; key='&lt;16字节ASCII库密钥&gt;'; db_path='%USERPROFILE%\Documents\Tencent Files\&lt;QQ号&gt;\nt_qq\nt_db\nt_msg.db' } | ConvertTo-Json -Compress
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5032/api/v1/accounts `
   -Headers @{ Authorization = &quot;Bearer $tok&quot; } -ContentType 'application/json' -Body $body
 

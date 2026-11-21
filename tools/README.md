@@ -4,12 +4,12 @@
 
 线上地址：**https://tool.furina.fun/**
 
-> v2.0.0 更新摘要（详见 `../CHANGELOG.md` 与 `../HANDOFF.md` §31）：
+> v2.0.0 更新摘要（详见 `../CHANGELOG.md`）：
 > 版本号 2.0.0 · 刷新恢复 tab+滚动位置 · 通知页改为父页滚动（修复微信内 iframe 滑不动）+ iframe 左右滑切工具 ·
 > 管理员通知编辑/软删除/恢复（云端 override_json/hidden 四列）· 通知长期安排（recurrence）·
 > QQ 文件「待获取/下载后自动上线」· AI 摘要 1–6 条关键词（≤12 字）· 补充通知自动合并 · 体测男女/年级纳入同步 ·
 > 通知已处理/作业完成跨端同步加固 · 全站克制动效 + reduced-motion · 性能优化。
-> 小程序端同版 2.0.0（源码在 `../../mp-class-tools`），演示/审核模式、AI 开发模式发版默认关闭。
+> 小程序端同版 2.0.0（源码见仓库根目录「相关仓库」表），演示/审核模式、AI 开发模式发版默认关闭。
 
 独立门牌：独立 OSS Bucket `tool-furina-fun` @ 香港（公共读 + 静态网站托管）+ 自定义域名 + Let's Encrypt 证书。
 与竞选自我介绍页（`me.furina.fun`）完全解耦——自我介绍页弃用后，本站照样跑。
@@ -59,7 +59,7 @@
 ## 3. 部署 / 更新（重要：改了必须同步）
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web\deploy
+cd %USERPROFILE%\.openclaw\workspace\web\deploy
 python sync_tools.py            # 同步 web\tools → Bucket 根目录
 ```
 
@@ -99,7 +99,7 @@ python setup_tool_site.py       # 建 Bucket + 传文件 + 签 LE 证书 + 绑�
 ## 5. 自检（改完必跑）
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web\tools
+cd %USERPROFILE%\.openclaw\workspace\web\tools
 python tests\selfcheck.py       # 交互冒烟：模拟点击全部按钮，断言 0 JS 报错 + 旧数据迁移 + 无底部栏
 python tests\overflow_check.py 430  # 横向溢出审计（逐 tab 收集，overflowCount=0）
 python tests\shots.py           # 各档宽度截图（iframe 固定宽度，HUD 显示 viewport/scrollW/overflow）

@@ -8,7 +8,7 @@
 前置：`deploy/ecs_site.py` 已能通过云助手操作 ECS（见 [../deploy/ECS_DEPLOY.md](../deploy/ECS_DEPLOY.md)）。
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web
+cd %USERPROFILE%\.openclaw\workspace\web
 
 # 1) 部署附件服务（写代码到 /opt/class-tools/att-code，systemd class-tools-att，本机自测上传/下载）
 python deploy\ecs_attachments.py deploy
@@ -17,7 +17,7 @@ python deploy\ecs_attachments.py deploy
 python deploy\ecs_site.py apply
 
 # 3) 健康检查（经 Caddy）
-curl.exe http://121.196.47.2/att/healthz
+curl.exe https://tool.furina.fun/att/healthz
 ```
 
 状态（2026-11-10 18:5x 实测）：

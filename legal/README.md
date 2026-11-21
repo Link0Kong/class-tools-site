@@ -27,7 +27,7 @@ https://tool.furina.fun/legal/android/terms.html
 ...
 ```
 
-> **已部署（2026-11-17 22:27）**：ECS `http://121.196.47.2/legal/`、OSS `https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/legal/index.html` 均为 HTTP 200；当前域名未恢复，页面内相对链接可直接在 IP 下使用。域名恢复后按 §3 复跑并切换正式域名。
+> **已部署（2026-11-17 22:27）**：ECS `https://tool.furina.fun/legal/`、OSS `https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/legal/index.html` 均为 HTTP 200；当前域名未恢复，页面内相对链接可直接在 IP 下使用。域名恢复后按 §3 复跑并切换正式域名。
 > 小程序备案号：`闽ICP备2026042939号`。网站/APP 备案号以工信部系统公示为准，页脚已留说明，取得后替换。
 
 ---
@@ -37,7 +37,7 @@ https://tool.furina.fun/legal/android/terms.html
 直接双击 `index.html` 即可（所有 CSS/JS 内联）。建议用本地静态服务器模拟正式路径：
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web\legal
+cd %USERPROFILE%\.openclaw\workspace\web\legal
 python -m http.server 8787
 # 浏览器打开 http://127.0.0.1:8787/
 ```
@@ -45,7 +45,7 @@ python -m http.server 8787
 校验（标准库 + lxml；不依赖 npm）：
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web\legal\_src
+cd %USERPROFILE%\.openclaw\workspace\web\legal\_src
 python build.py            # 重新生成 10 页 + index + manifest
 python validate.py         # HTML/锚点/相对链接/无外部自动加载/无真实学号手机号
 python preview_check.py    # 需先启动 Edge headless CDP（见脚本头注释）
@@ -60,17 +60,17 @@ python preview_check.py    # 需先启动 Edge headless CDP（见脚本头注释
 ### 3.0 当前已部署状态（2026-11-17 22:27）
 
 ```text
-ECS 入口：      http://121.196.47.2/legal/
+ECS 入口：      https://tool.furina.fun/legal/
 OSS 入口：      https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/legal/index.html
 ECS 目录：      /var/www/tool/legal（12 个公开文件）
-manifest：      debugBaseUrl = http://121.196.47.2/legal/
+manifest：      debugBaseUrl = https://tool.furina.fun/legal/
                 baseUrl      = https://tool.furina.fun/legal/
 ```
 
 复跑命令：
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web
+cd %USERPROFILE%\.openclaw\workspace\web
 python deploy\sync_legal.py            # OSS + ECS，自动跳过 README/_src
 python deploy\sync_legal.py --oss-only # 只更新 OSS
 python deploy\sync_legal.py --ecs-only # ECS 从 OSS 重新拉取（重试）

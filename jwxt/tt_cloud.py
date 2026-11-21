@@ -49,9 +49,9 @@ DEFAULT_TT = os.path.join(WEB_ROOT, "tools", "tt.json")
 
 TOKEN_FILE = os.environ.get("CLASS_TOKEN_FILE") or r"G:\ClassTools\briefdesk\secrets\class-token.json"
 
-# class_verify 用的管理员身份（与 scripts/sync_power_cloud.py 同源；仅在进程内存使用，绝不打印）
-ADMIN_SID = "3260707024"
-ADMIN_NAME = "\u9648\u5b50\u9e92"
+# class_verify 用的管理员身份（环境变量读取，真实学号/姓名不入库；仅在进程内存使用，绝不打印）
+ADMIN_SID = (os.environ.get("CLASS_ADMIN_SID") or "2024000001").strip()
+ADMIN_NAME = (os.environ.get("CLASS_ADMIN_NAME") or "管理员").strip()
 
 CB_RE = re.compile(r'var CB="([^"]+)"')
 CBK_RE = re.compile(r'var CBK="([^"]+)"')

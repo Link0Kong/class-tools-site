@@ -76,7 +76,7 @@ def main():
         T("A8 毛毛雨通知内容保留", rain and "毛毛雨" in rain["text"] and "35分钟" in rain["text"], (rain or {}).get("text", "")[:200])
         # 4) 假班委气泡：数据层 badge 只出现在有 role 的发送者
         board = json.load(open(r"C:\briefdesk\data\board-data.json", encoding="utf-8"))
-        bad, names = [], {"张誉权", "范进平", "杨培琪"}
+        bad, names = [], {"同学D", "同学E", "同学F"}
         for g in board.get("groups", []):
             for it in g.get("items") or []:
                 if not isinstance(it, dict):

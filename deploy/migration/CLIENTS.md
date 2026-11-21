@@ -11,7 +11,7 @@
 | 档位 | REST base | 用途 | 允许明文 |
 |---|---|---|---|
 | `cloudbase` | `https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/` | 现状（腾讯云 CloudBase 网关）；CloudBase 2026-12-10 到期前有效 | 否（https） |
-| `staging` | `http://121.196.47.2/v1/rdb/rest-next/` | ECS 影子验证（P2）；仅 devtools / debug 构建 | 是（仅 debug） |
+| `staging` | `https://tool.furina.fun/v1/rdb/rest-next/` | ECS 影子验证（P2）；仅 devtools / debug 构建 | 是（仅 debug） |
 | `selfhosted` | `https://tool.furina.fun/v1/rdb/rest/` | 备案 + DNS 恢复后的正式域名（P4 后） | 否（https） |
 
 - 三档使用同一份 publishableKey（公开 anon 令牌）；自建 Caddy 在 `/v1/rdb/rest*` 路由上 `header_up -Authorization` 剥掉该头，
@@ -27,7 +27,7 @@
 ```js
 const REST_PROFILES = {
   cloudbase:  'https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/',
-  staging:    'http://121.196.47.2/v1/rdb/rest-next/',
+  staging:    'https://tool.furina.fun/v1/rdb/rest-next/',
   selfhosted: 'https://tool.furina.fun/v1/rdb/rest/'
 };
 const ACTIVE_REST_PROFILE = 'cloudbase';   // ← 切流/回滚只改这一行
@@ -42,10 +42,10 @@ const ACTIVE_REST_PROFILE = 'cloudbase';   // ← 切流/回滚只改这一行
 ### 1.2 开发期 http/IP 说明（devtools）
 
 - 微信开发者工具：右上角「详情 → 本地设置」勾选 **「不校验合法域名、web-view（业务域名）、TLS 版本以及 HTTPS 证书」**
-  后，devtools 可直接请求 `http://121.196.47.2/v1/rdb/rest-next/`（体验版/正式版不允许 http + IP）。
+  后，devtools 可直接请求 `https://tool.furina.fun/v1/rdb/rest-next/`（体验版/正式版不允许 http + IP）。
 - 运行时也可在 devtools console 临时切档（不改源码，结束即失效）：
   ```js
-  require('./utils/cloud.js').configure({ restBase: 'http://121.196.47.2/v1/rdb/rest-next/', restProfile: 'staging' });
+  require('./utils/cloud.js').configure({ restBase: 'https://tool.furina.fun/v1/rdb/rest-next/', restProfile: 'staging' });
   ```
 - 真机调试（staging）不可用 http IP，必须等备案 + HTTPS 后用 `selfhosted` 档。
 
@@ -82,7 +82,7 @@ const ACTIVE_REST_PROFILE = 'cloudbase';   // ← 切流/回滚只改这一行
 | 8 个并发请求峰值并发（上限 2 时） | 8 | **2** |
 | 登录后首屏 `cloudPull` 请求数（旧 base 不回退基线） | 9 | **9** |
 
-复现：`cd G:\ClassTools\mp-class-tools\tests; node net_bench.js`。
+复现：`cd %CLASS_TOOLS_ROOT%\mp-class-tools\tests; node net_bench.js`。
 回归：`node unit.js` **597/0 全绿**（新增 `net_layer_tests.js` 12 项：三档配置/HTTP2/超时分级/重试/合并/并发/旧配置兼容）。
 
 **首屏请求数评估**（登录/通知）：此前已完成的优化继续生效——通知列表走 `rpc/class_notices_meta`（~0.3MB，按需懒加载 body）、
@@ -100,7 +100,7 @@ const ACTIVE_REST_PROFILE = 'cloudbase';   // ← 切流/回滚只改这一行
     → buildType 默认档（debug→staging / release→selfhosted）。
   - 三档地址可用 `ct.restBase.cloudbase / .staging / .selfhosted` 覆盖。
 - ECS 其他服务（账号 `/account`、云空间 `/drop`、更新清单 `/android/latest.json`、地图 `/map/...`）同样按 buildType 注入：
-  debug = `http://121.196.47.2/...`；release = `https://tool.furina.fun/...`。
+  debug = `https://tool.furina.fun/...`；release = `https://tool.furina.fun/...`。
   显式覆盖：`ct.accountBaseUrl / ct.cloudspaceBaseUrl / ct.updateBaseUrl / ct.mapBaseUrl`。
 - 构建产物字段（BuildConfig）：`REST_BASE_URL / REST_PROFILE / ACCOUNT_BASE_URL / CLOUDSPACE_BASE_URL / UPDATE_BASE_URL / MAP_BASE_URL`。
 
@@ -108,9 +108,9 @@ const ACTIVE_REST_PROFILE = 'cloudbase';   // ← 切流/回滚只改这一行
 
 ```powershell
 $env:JAVA_HOME = "C:\AndroidToolchain\jdk17"
-cd C:\Users\Ko_Li\.openclaw\workspace\android-class-tools
+cd %USERPROFILE%\.openclaw\workspace\android-class-tools
 
-# debug（默认 staging：连 http://121.196.47.2/v1/rdb/rest-next/，仅调试用）
+# debug（默认 staging：连 https://tool.furina.fun/v1/rdb/rest-next/，仅调试用）
 .\gradlew.bat :app:assembleDebug
 
 # 强制某档（两种 buildType 同档）：
@@ -119,24 +119,24 @@ cd C:\Users\Ko_Li\.openclaw\workspace\android-class-tools
 .\gradlew.bat :app:assembleRelease -Pct.restProfile=selfhosted    # 备案后正式切流
 
 # 单 buildType 显式 URL：
-.\gradlew.bat :app:assembleDebug   "-Pct.restBaseUrlDebug=http://121.196.47.2/v1/rdb/rest-next/"
+.\gradlew.bat :app:assembleDebug   "-Pct.restBaseUrlDebug=https://tool.furina.fun/v1/rdb/rest-next/"
 .\gradlew.bat :app:assembleRelease "-Pct.restBaseUrlRelease=https://tool.furina.fun/v1/rdb/rest/"
 
 # release 安全闸门（发布前必跑；不构建 APK）：
 .\gradlew.bat :app:verifyReleaseEndpoints
 ```
 
-`verifyReleaseEndpoints` 断言 release 的 5 个地址全部 `https://` 且不含 `121.196.47.2`；当前输出：
+`verifyReleaseEndpoints` 断言 release 的 5 个地址全部 `https://` 且不含 `tool.furina.fun`；当前输出：
 `REST_BASE_URL=https://tool.furina.fun/v1/rdb/rest/`、`ACCOUNT_BASE_URL=.../account`、`CLOUDSPACE_BASE_URL=.../drop`、
 `UPDATE_BASE_URL=.../android/latest.json`、`MAP_BASE_URL=.../map/campus_final_25d.html`（REST_PROFILE=selfhosted）。
 
 ### 2.3 明文（cleartext）策略
 
 - `app/src/main/res/xml/network_security_config.xml`（release 使用）：`cleartextTrafficPermitted=false`；
-  仅保留教务 HTTP 主机 `210.34.74.77`。**不含 `121.196.47.2`**。
-- `app/src/debug/res/xml/network_security_config.xml`（仅 debug 合并）：额外放行 `121.196.47.2`（staging REST +
+  仅保留教务 HTTP 主机 `210.34.74.77`。**不含 `tool.furina.fun`**。
+- `app/src/debug/res/xml/network_security_config.xml`（仅 debug 合并）：额外放行 `tool.furina.fun`（staging REST +
   账号/云空间/更新/地图的备案前 IP 入口）。
-- 因此 **release APK 不含 121.196.47.2 明文放行**（`verifyReleaseEndpoints` + 源码资源双证据）；
+- 因此 **release APK 不含 tool.furina.fun 明文放行**（`verifyReleaseEndpoints` + 源码资源双证据）；
   release 的 REST/ECS 地址全部 https，明文只可能在 debug 构建出现。
 - 注意：release 构建仅在 `tool.furina.fun` 备案 + DNS + HTTPS 启用后发布。
 
@@ -167,7 +167,7 @@ cd C:\Users\Ko_Li\.openclaw\workspace\android-class-tools
 
 ## 3. 网页（Lead 负责，本文件不涉及）
 
-网页 `tools/index.html` 的 `var CB` 字面量保留；运行时在 `tool.furina.fun` / `121.196.47.2` 下走同源 `/v1/rdb/rest/*`
+网页 `tools/index.html` 的 `var CB` 字面量保留；运行时在 `tool.furina.fun` / `tool.furina.fun` 下走同源 `/v1/rdb/rest/*`
 （Caddy 反代当前 CloudBase，P4 切到本地 PostgREST）。staging 调试入口 `?api=next`（见 CUTOVER.md）。
 
 ## 3b. PPT 在线媒体走 ECS `/pptfiles` 缓存（小程序/安卓，2026-11-18）
@@ -188,7 +188,7 @@ GET/HEAD/**Range 206**（视频边下边播可用）。网页端已于 commit `f
 | 已映射的 ECS 地址 | 原样（幂等） |
 
 - 编码路径与 `?query` 原样保留（Caddy 解码后由缓存服务按 OSS pathname 命中；`#fragment` 丢弃，与网页一致）。
-- ECS 缓存基址 = web 基址 + `/pptfiles`：staging/调试期 `http://121.196.47.2/pptfiles`；备案后
+- ECS 缓存基址 = web 基址 + `/pptfiles`：staging/调试期 `https://tool.furina.fun/pptfiles`；备案后
   `https://tool.furina.fun/pptfiles`（Caddy 同源反代，无需新域名/新证书）。
 - 覆盖范围（两端都是"manifest 归一化/解析后统一入口"，因此播放/预览/下载/预加载/缩略图自动复用）：
   `manifest.base`、`slides[].steps[].img`、`slides[].thumb`、`video.s`、`media_files[].s`、
@@ -205,7 +205,7 @@ GET/HEAD/**Range 206**（视频边下边播可用）。网页端已于 commit `f
   `cover`、播放器首帧 `pages/pptplay` 的 `_deck.cover_url` 也统一经 `pptEcsUrl()` 映射（只映射本桶 `/ppt/`；空/data:/外域原样）。
 - 开关：`utils/cloud-config.js` 的 `pptEcs: { enabled: true, base: '' }`
   - `base: ''`（默认）= `webBase + '/pptfiles'`（`webBase` 当前 `https://tool.furina.fun`，需备案 + HTTPS）；
-  - devtools/备案前调试：临时设 `base: 'http://121.196.47.2/pptfiles'`（配合「不校验合法域名」）；
+  - devtools/备案前调试：临时设 `base: 'https://tool.furina.fun/pptfiles'`（配合「不校验合法域名」）；
   - 回滚：`enabled: false`（恢复 OSS 直链，旧行为）。
 - 单测：`mp-class-tools-tests/ppt_ecs_unit_tests.js`（6 项，已挂 `unit.js`）：映射/不映射/data:/外域/
   编码路径+query/自定义 base/回滚开关/manifest 全字段集成/**cover_url（列表/详情/播放器首帧）映射**。
@@ -214,9 +214,9 @@ GET/HEAD/**Range 206**（视频边下边播可用）。网页端已于 commit `f
 
 ### 安卓（`android-class-tools`）
 
-- BuildConfig：`app/build.gradle.kts` 新增 `WEB_BASE_URL`（debug = `http://121.196.47.2`；release =
+- BuildConfig：`app/build.gradle.kts` 新增 `WEB_BASE_URL`（debug = `https://tool.furina.fun`；release =
   `https://tool.furina.fun`；可用 `-Pct.webBaseUrl=<基址>` 显式覆盖两种 buildType），
-  `verifyReleaseEndpoints` 同步校验 release 的 `WEB_BASE_URL` 不含 121.196.47.2 且为 https。
+  `verifyReleaseEndpoints` 同步校验 release 的 `WEB_BASE_URL` 不含 tool.furina.fun 且为 https。
 - 实现：新增 `features/ppt/PptEcsUrl.kt`（纯函数 `map(url, ecsBase)`，默认基址 = `WEB_BASE_URL + /pptfiles`）；
   `PptManifest.resolveImage()` 统一入口改为 `PptEcsUrl.map(PptUrl.resolve(base, ref))`，因此
   `thumbOf/videoUrl/fileUrl/mediaUrl/sourceUrl` 与播放器（`PptPlayerScreen`/`PptVideoPlayer`/`PptImageLoader`）、
@@ -235,16 +235,16 @@ GET/HEAD/**Range 206**（视频边下边播可用）。网页端已于 commit `f
   `t1.webp` → 200 3,236B；`deck.mp4` → 200 `video/mp4` 13,668,151B；
   `Range: bytes=0-1023` → **206** 1,024B；中文媒体 `media/本草孝心_…视频1_第7页.mp4` → 200 `video/mp4` 20,158,796B。
 - 网页：Lead 已实跑真实 E2E 10/10（commit `f0a829e`）。
-- **小程序 devtools 冒烟 PASS**（测试账号；临时 `ACTIVE_REST_PROFILE='staging'` + `pptEcs.base='http://121.196.47.2/pptfiles'`
+- **小程序 devtools 冒烟 PASS**（测试账号；临时 `ACTIVE_REST_PROFILE='staging'` + `pptEcs.base='https://tool.furina.fun/pptfiles'`
   → devtools 重开编译 → 真实登录 1132ms → 列表 + 播放器）：
-  列表 `pages/ppt/ppt` 封面 `cover=http://121.196.47.2/pptfiles/ppt/a/dmwalrdlgevz90l/c0e5834805/t1.webp`（`hasCover=true`）；
+  列表 `pages/ppt/ppt` 封面 `cover=https://tool.furina.fun/pptfiles/ppt/a/dmwalrdlgevz90l/c0e5834805/t1.webp`（`hasCover=true`）；
   播放器 `state=ready mode=video`，首帧 `vposter=…/pptfiles/…/t1.webp`、首图 `imgA=…/pptfiles/…/s1-1.webp`、
   缩略图 `t1/t2/t3.webp`、视频 `videoUrl=…/pptfiles/…/deck.mp4`，`imgErr=false`（图片真实加载成功）；
   **9/9 检查通过**、0 exception。存档 `mp-class-tools-tests/staging_smoke_ppt_result.json`。
 - **安卓 debug 构建冒烟 PASS**（`CT_STAGING_SMOKE=1` 跑 `PptStagingMediaSmokeTest`，真实 staging deck）：
   manifest 16 页；`img=…/pptfiles/ppt/…`、`video=…/pptfiles/ppt/…`、`cover=…/pptfiles/ppt/…`；
   对 ECS 真实请求 **封面/图片 HEAD 200（image/webp）** 与 **Range GET 206**（`bytes=0-1023`，video/mp4），输出
-  `PPT_STAGING_MEDIA_SMOKE_OK slides=16 img=http://121.196.47.2/pptfiles/ppt/… video=… cover=… range=206 base=http://121.196.47.2`。
+  `PPT_STAGING_MEDIA_SMOKE_OK slides=16 img=https://tool.furina.fun/pptfiles/ppt/… video=… cover=… range=206 base=https://tool.furina.fun`。
 - 工程回归：mp `node unit.js` **597/0 全绿**（`ppt_ecs_unit_tests.js` 6 项）；安卓 `:app:testDebugUnitTest`
   **1605 项 / 0 失败 / 2 跳过**（`PptEcsUrlTest` 7 + `PptEcsMappingTest` 3 + `PptStagingMediaSmokeTest` 1）；
   安卓 `:app:verifyReleaseEndpoints` OK。
@@ -268,7 +268,7 @@ GET/HEAD/**Range 206**（视频边下边播可用）。网页端已于 commit `f
 ### 4.1 小程序 devtools 冒烟（实测可行流程）
 
 ```powershell
-$mp = "C:\Users\Ko_Li\.openclaw\workspace\mp-class-tools"
+$mp = "%USERPROFILE%\.openclaw\workspace\mp-class-tools"
 $cli = "C:\Program Files (x86)\Tencent\微信web开发者工具\cli.bat"
 
 # 1) 关闭工程 → 把 ACTIVE_REST_PROFILE 临时改为 'staging' → 重开（保证 devtools 用 staging 编译）
@@ -277,7 +277,7 @@ $cli = "C:\Program Files (x86)\Tencent\微信web开发者工具\cli.bat"
 & $cli auto --project $mp --auto-port 9420 --trust-project
 
 # 2) 运行冒烟（脚本先校验配置档位 + staging class_verify 200，否则拒绝运行；结束清空 devtools storage）
-cd G:\ClassTools\mp-class-tools\tests
+cd %CLASS_TOOLS_ROOT%\mp-class-tools\tests
 node staging_smoke_mp.js
 
 # 3) 收尾：把 ACTIVE_REST_PROFILE 改回 'cloudbase'，并关闭 devtools
@@ -295,12 +295,12 @@ node staging_smoke_mp.js
 ```powershell
 $env:JAVA_HOME = "C:\AndroidToolchain\jdk17"
 $env:CT_STAGING_SMOKE = "1"
-cd C:\Users\Ko_Li\.openclaw\workspace\android-class-tools
+cd %USERPROFILE%\.openclaw\workspace\android-class-tools
 .\gradlew.bat :app:testDebugUnitTest --tests "*StagingSmokeTest*" --info
 ```
 
 `StagingSmokeTest` 用 debug 构建（`REST_BASE_URL` = staging）真实请求：`rpc/class_verify`（测试账号）→ `rpc/class_members` →
-`notices/homework/site_assets` 只读；开头断言 `REST_PROFILE=staging` 且 base 是 `http://121.196.47.2/v1/rdb/rest-next/`（防误连生产）。
+`notices/homework/site_assets` 只读；开头断言 `REST_PROFILE=staging` 且 base 是 `https://tool.furina.fun/v1/rdb/rest-next/`（防误连生产）。
 默认跳过（不设 `CT_STAGING_SMOKE` 时 `Assume` 跳过），不影响常规 `testDebugUnitTest` 全绿。
 
 ### 4.3 冒烟结果（2026-11-18，P1 staging 导入完成后实跑 PASS）
@@ -308,8 +308,8 @@ cd C:\Users\Ko_Li\.openclaw\workspace\android-class-tools
 | 项 | 结果 |
 |---|---|
 | 小程序 devtools（真实登录 + 读） | **PASS**：`ACTIVE_REST_PROFILE` 临时切 `staging` → devtools 重开编译 → 测试账号真实登录 **1300ms** → `pages/index/index`；名单 **70 人**；首屏同步键 `members/tt/marks/nt/ud/hw/fit`；通知页 `ready` **26 卡**（`云端已同步`、长期 1）；课表 `data` **32 门**（`教务 11/18 07:05`）；作业页 `data`；0 exception；9/9 检查通过。存档 `mp-class-tools-tests/staging_smoke_result.json`，脚本 `staging_smoke_mp.js` |
-| 安卓 debug 构建（真实登录 + 读） | **PASS**：`CT_STAGING_SMOKE=1` 跑 `StagingSmokeTest`（debug BuildConfig = staging，真实网络）：`class_verify` 122ms、`class_members` 26ms（**70 人**）、notices 30ms、homework 23ms、site_assets 24ms；`STAGING_SMOKE_OK base=http://121.196.47.2/v1/rdb/rest-next/ members=70` |
-| 小程序 devtools（PPT 在线媒体 + 封面 → /pptfiles，2026-11-18） | **PASS**：`ACTIVE_REST_PROFILE='staging'` + `pptEcs.base='http://121.196.47.2/pptfiles'` → devtools 重开 → 测试账号登录 1132ms → 列表封面 `…/pptfiles/ppt/a/dmwalrdlgevz90l/c0e5834805/t1.webp`（`hasCover=true`）→ 打开 staging deck `dmwalrdlgevz90l` 播放器：`state=ready mode=video`，首帧 `vposter`/首图/缩略图/原样播放视频 URL 均为 `http://121.196.47.2/pptfiles/ppt/a/…`；`imgErr=false`；**9/9 检查通过**。存档 `mp-class-tools-tests/staging_smoke_ppt_result.json`，脚本 `staging_smoke_ppt_mp.js` |
+| 安卓 debug 构建（真实登录 + 读） | **PASS**：`CT_STAGING_SMOKE=1` 跑 `StagingSmokeTest`（debug BuildConfig = staging，真实网络）：`class_verify` 122ms、`class_members` 26ms（**70 人**）、notices 30ms、homework 23ms、site_assets 24ms；`STAGING_SMOKE_OK base=https://tool.furina.fun/v1/rdb/rest-next/ members=70` |
+| 小程序 devtools（PPT 在线媒体 + 封面 → /pptfiles，2026-11-18） | **PASS**：`ACTIVE_REST_PROFILE='staging'` + `pptEcs.base='https://tool.furina.fun/pptfiles'` → devtools 重开 → 测试账号登录 1132ms → 列表封面 `…/pptfiles/ppt/a/dmwalrdlgevz90l/c0e5834805/t1.webp`（`hasCover=true`）→ 打开 staging deck `dmwalrdlgevz90l` 播放器：`state=ready mode=video`，首帧 `vposter`/首图/缩略图/原样播放视频 URL 均为 `https://tool.furina.fun/pptfiles/ppt/a/…`；`imgErr=false`；**9/9 检查通过**。存档 `mp-class-tools-tests/staging_smoke_ppt_result.json`，脚本 `staging_smoke_ppt_mp.js` |
 | 安卓 debug 构建（PPT 媒体 + 封面 → /pptfiles，2026-11-18） | **PASS**：`PptStagingMediaSmokeTest`（CT_STAGING_SMOKE=1）真实读 staging deck manifest（16 页）→ 映射后对 ECS `/pptfiles` **封面/图片 HEAD 200（image/webp）**、**Range GET 206**（video/mp4）；输出 `PPT_STAGING_MEDIA_SMOKE_OK slides=16 img=…/pptfiles/ppt/… video=… cover=… range=206` |
 | 冒烟前置校验（脚本内） | 配置档位必须为 `staging` + staging `class_verify` 200，否则脚本拒绝运行（不可能误连 CloudBase/生产）；PPT 冒烟额外校验 `pptEcs.base` 为 ECS IP |
 | 清理 | 冒烟结束清空 devtools 本机 storage；`utils/cloud-config.js` 已改回 `'cloudbase'` + `pptEcs.base=''`；devtools 已退出 |

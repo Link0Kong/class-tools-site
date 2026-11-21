@@ -293,8 +293,8 @@ def main():
 
     # 花名册发送者
     fileg = next((g for g in groups if str(g.get("id", "")).startswith("g_qqfile_1a81286a3a")), None)
-    S("L4.10 云端花名册行 senderRole=学习委员 / senderName=兰佳杰",
-      bool(fileg) and norm(fileg.get("senderName")) == "兰佳杰"
+    S("L4.10 云端花名册行 senderRole=学习委员 / senderName=同学B",
+      bool(fileg) and norm(fileg.get("senderName")) == "同学B"
       and ("学习委员" in norm(fileg.get("senderRole")) or "班委" in norm(fileg.get("senderBadge"))),
       fileg and "senderName=%s senderRole=%s senderBadge=%s" % (
           fileg.get("senderName"), fileg.get("senderRole"), fileg.get("senderBadge")))
@@ -311,10 +311,10 @@ def main():
                     + " " + norm(it.get("fromName")) + " " + norm(it.get("note")))
 
         its = g.get("items") or []
-        sup_text = [it for it in its if norm(it.get("label")) == "补充通知" and "陈子麒" in itblob(it)
+        sup_text = [it for it in its if norm(it.get("label")) == "补充通知" and "管理员" in itblob(it)
                     and norm(it.get("time")) == "11-05 10:18"
                     and any(w in itblob(it) for w in ("11月14日", "下周六", "献血"))]
-        my_link = [it for it in its if "陈子麒" in itblob(it) and norm(it.get("url"))
+        my_link = [it for it in its if "管理员" in itblob(it) and norm(it.get("url"))
                    and "mp.weixin" in norm(it.get("url"))]
         note_ok = any("本人转发" in norm(it.get("note")) for it in its)
         ev = fmt_ts(g.get("eventAt"))

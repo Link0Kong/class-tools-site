@@ -48,28 +48,28 @@ def eq(name, actual, expected):
 print("---- §5 发送者身份映射（网名 → 姓名 + 职务）----")
 roster = bnb.load_roster()
 check("roster 非空", bool(roster.get("by_clean")))
-info = bnb._roster_lookup("天城企鹅", roster)
-eq("天城企鹅 → 姓名", (info or {}).get("name"), "兰佳杰")
-eq("天城企鹅 → 职务", (info or {}).get("role"), "学习委员")
-eq("天城企鹅 → 班委徽标", (info or {}).get("badge"), "班委")
-eq("08曹明星 → 姓名", (bnb._roster_lookup("08曹明星", roster) or {}).get("name"), "曹明星")
-eq("64陈玉霞 → 姓名", (bnb._roster_lookup("64陈玉霞", roster) or {}).get("name"), "陈玉霞")
+info = bnb._roster_lookup("网名B", roster)
+eq("网名B → 姓名", (info or {}).get("name"), "同学B")
+eq("网名B → 职务", (info or {}).get("role"), "学习委员")
+eq("网名B → 班委徽标", (info or {}).get("badge"), "班委")
+eq("08同学C → 姓名", (bnb._roster_lookup("08同学C", roster) or {}).get("name"), "同学C")
+eq("64同学A → 姓名", (bnb._roster_lookup("64同学A", roster) or {}).get("name"), "同学A")
 check("未知发送者不误命中", bnb._roster_lookup("路过的陌生人", roster) is None)
 
-it = {"kind": "file", "time": "10-29 15:27", "from": "天城企鹅", "name": "花名册.xls"}
+it = {"kind": "file", "time": "10-29 15:27", "from": "网名B", "name": "花名册.xls"}
 bnb._fill_sender(it, roster)
-eq("_fill_sender fromName", it.get("fromName"), "兰佳杰")
+eq("_fill_sender fromName", it.get("fromName"), "同学B")
 eq("_fill_sender fromRole", it.get("fromRole"), "学习委员")
 eq("_fill_sender fromBadge", it.get("fromBadge"), "班委")
-eq("_fill_sender 保留 fromRaw", it.get("fromRaw"), "天城企鹅")
+eq("_fill_sender 保留 fromRaw", it.get("fromRaw"), "网名B")
 
 g_file = {"id": "g_qqfile_1a81286a3a", "cat": "班级事务", "title": "更新版学生花名册发布",
           "items": [{"kind": "file", "label": "附件", "time": "10-29 15:27",
-                     "from": "天城企鹅", "name": "级信息管理与信息系统-花名册学生名单.xls"}]}
+                     "from": "网名B", "name": "级信息管理与信息系统-花名册学生名单.xls"}]}
 bnb.attach_sender_roles([g_file])
-eq("A5 花名册卡 senderName", g_file.get("senderName"), "兰佳杰")
+eq("A5 花名册卡 senderName", g_file.get("senderName"), "同学B")
 eq("A5 花名册卡 senderRole", g_file.get("senderRole"), "学习委员")
-check("A5 不再以天城企鹅作为发送者", "天城企鹅" not in json.dumps(
+check("A5 不再以网名B作为发送者", "网名B" not in json.dumps(
     {k: v for k, v in g_file.items() if k != "items"}, ensure_ascii=False))
 
 # ---------------------------------------------------------------- 2. 人工补丁字段（契约 §1）
@@ -90,7 +90,7 @@ print("---- §4 时间归一（notice_time + builder 补缺）----")
 g_food = {
     "id": "g_food", "cat": "活动", "title": "惜粮手抄报活动通知",
     "deadline": "2026-11-12T20:00:00+08:00",
-    "items": [{"kind": "text", "label": "活动通知", "time": "11-02 10:46", "from": "21林宇翔",
+    "items": [{"kind": "text", "label": "活动通知", "time": "11-02 10:46", "from": "21同学I",
                "text": "各位同学大家好～这个秋日，由福建中医药大学学生膳食管理委员会承办的“食不易得，惜粮在行”"
                        "主题活动正式启动啦！活动对象：全体在校学生。活动时间：2026年10月30日-11月15日。"
                        "开群时间：11月3日 12:00。收集表报名时间：11月3日12:00-20:30。参与者在 11月5日-11日期间"
@@ -109,7 +109,7 @@ eq("A4 手抄报 deadlineAction", g_food.get("deadlineAction"), "投稿截止")
 # 3.2 药膳：人工补丁追加更正文本后 final pass 刷新 signup 到 11-07（人工字段优先）
 g_food2 = {
     "id": "g_qqm_7704134971497063025_c0", "cat": "活动", "title": "药膳答题打卡活动报名",
-    "items": [{"kind": "text", "label": "通知", "time": "11-04 10:18", "from": "21林宇翔",
+    "items": [{"kind": "text", "label": "通知", "time": "11-04 10:18", "from": "21同学I",
                "text": "线上活动QQ群：1127693680 2026年11月7日—11月14日 2026年11月5日12:00—18:00 "
                        "11月5日12:00开放“食养本草，润愈身心”药膳知识线上答题打卡QQ活动群，"
                        "填写群精华消息内的线上报名表并核对信息正确即为报名成功。"}],
@@ -130,7 +130,7 @@ bnb.MANUAL_SET_FIELDS.clear()
 #     （曾把「活动周期 11月7日—11月14日」误当报名 end，覆盖成 11-14）
 g_c1 = {
     "id": "g_qqm_7704134971497063025_c1", "cat": "活动", "title": "药膳手记线上打卡活动报名",
-    "items": [{"kind": "text", "label": "通知", "time": "11-04 10:18", "from": "21林宇翔",
+    "items": [{"kind": "text", "label": "通知", "time": "11-04 10:18", "from": "21同学I",
                "text": "拾味本草，手记食养”药膳手记线上打卡活动。线上活动QQ群：817436248。"
                        "活动周期内（11月7日至11月14日）需完成共计5次有效打卡，结束后将全部打卡照片统一提交至群作业。"
                        "2026年11月5日12:00—18:00 2026年11月5日12:00开放报名QQ群聊：817436248"
@@ -149,7 +149,7 @@ eq("c1 final 不刷新 signupEnd（不得变成 11-14）", g_c1.get("signupEnd")
 g_apply = {
     "id": "g_ait_5396a55f24", "cat": "班级事务", "title": "申报材料报送提醒",
     "deadline": "2026-11-06T12:00:00+08:00", "aiTriage": True,
-    "items": [{"kind": "text", "label": "通知", "time": "11-05 20:47", "from": "陈玉霞",
+    "items": [{"kind": "text", "label": "通知", "time": "11-05 20:47", "from": "同学A",
                "text": "请申报的同学明天中午前报送姓名，周日晚点名时需要提交材料！"}],
 }
 bnb.normalize_group_times([g_apply])
@@ -176,7 +176,7 @@ eq("骨伤 deadline 保持 11-08", g_gu.get("deadline"), "2026-11-08T00:00:00+08
 g_essay = {
     "id": "g_essay", "cat": "活动", "title": "杏林故事征文通知",
     "deadline": "2026-11-15T23:59:00+08:00",
-    "items": [{"kind": "text", "label": "原始通知", "time": "10-29 12:17", "from": "64陈玉霞",
+    "items": [{"kind": "text", "label": "原始通知", "time": "10-29 12:17", "from": "64同学A",
                "text": "关于开展“岐黄薪火·我的杏林故事”征文的通知：须为原创首发，仅接收 Word 文档。"
                        "活动截止时间：2026 年 11 月 15 日。投稿方式：作品电子版发送至邮箱 2006002@fjtcm.edu.cn。"}],
 }
@@ -190,7 +190,7 @@ eq("征文 deadline 保持 11-15", g_essay.get("deadline"), "2026-11-15T23:59:00
 g_view = {
     "id": "g_games_viewer", "cat": "活动", "title": "校运动会观众征集",
     "deadline": "2026-11-03T18:30:00+08:00",
-    "items": [{"kind": "text", "label": "原始通知", "time": "11-03 14:03", "from": "64陈玉霞",
+    "items": [{"kind": "text", "label": "原始通知", "time": "11-03 14:03", "from": "64同学A",
                "text": "为保证校运动会顺利开展，需要向 25 级、26 级各班征集运动会观众，每半日需要各班 6 名观众。截止今天六点半！"}],
 }
 bnb.normalize_group_times([g_view])

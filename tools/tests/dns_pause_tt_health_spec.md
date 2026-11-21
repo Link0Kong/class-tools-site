@@ -149,9 +149,9 @@ QA（独立）：抽查云端表/RLS/18 行、mp 单测、web 诊断渲染与回
 
 | 路径 | 唯一写者 |
 |---|---|
-| `C:\briefdesk\scripts\health_beat.py`、`C:\briefdesk\cloudbase\**`、`C:\Users\Ko_Li\.openclaw\workspace\web\jwxt\**`、`C:\briefdesk\scripts\web_pause.py`、`web\deploy\cloudbase\2026-11-07_*.sql` | cloud-tt |
-| `C:\Users\Ko_Li\.openclaw\workspace\mp-class-tools\**`、`mp-class-tools-tests/**` | mp-tt |
-| `C:\Users\Ko_Li\.openclaw\workspace\web\tools\index.html`、`web\tools\tests\health_monitor_spec.md`、文档/部署/交付 | Lead |
+| `C:\briefdesk\scripts\health_beat.py`、`C:\briefdesk\cloudbase\**`、`%USERPROFILE%\.openclaw\workspace\web\jwxt\**`、`C:\briefdesk\scripts\web_pause.py`、`web\deploy\cloudbase\2026-11-07_*.sql` | cloud-tt |
+| `%USERPROFILE%\.openclaw\workspace\mp-class-tools\**`、`mp-class-tools-tests/**` | mp-tt |
+| `%USERPROFILE%\.openclaw\workspace\web\tools\index.html`、`web\tools\tests\health_monitor_spec.md`、文档/部署/交付 | Lead |
 
 ## 8. 用户侧后续动作（不在本次自动化范围）
 

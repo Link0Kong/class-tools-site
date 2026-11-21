@@ -52,10 +52,10 @@ READY_CFG = {
     "payproid": "2122",
     "channelno": "30",
     "rooms": [
-        {"label": "13号楼324", "roomverify": "1-13---324", "occupant": "测试同学"},
-        {"label": "23号楼B座423", "roomverify": "4-23B---423"},
+        {"label": "13号楼301", "roomverify": "1-13---301", "occupant": "测试同学"},
+        {"label": "23号楼B座402", "roomverify": "4-23B---402"},
     ],
-    "default_room": "13号楼324",
+    "default_room": "13号楼301",
     "room": {"roomverify": "", "label": ""},
     "payPro": {"electric": {"name": "用电支出", "businesstype": 2}},
     "threshold_low": 10,
@@ -481,59 +481,59 @@ def test_util():
     check("占位符识别：中文占位", util.is_placeholder_text("你的学号"))
     check("占位符识别：真实值", not util.is_placeholder_text("2122"))
 
-    check("解析 roomverify 1-13---324",
-          util.parse_roomverify("1-13---324")
-          == {"areaid": "1", "building": "13", "room": "324"})
-    check("解析 roomverify 4-23B---423",
-          util.parse_roomverify("4-23B---423")
-          == {"areaid": "4", "building": "23B", "room": "423"})
+    check("解析 roomverify 1-13---301",
+          util.parse_roomverify("1-13---301")
+          == {"areaid": "1", "building": "13", "room": "301"})
+    check("解析 roomverify 4-23B---402",
+          util.parse_roomverify("4-23B---402")
+          == {"areaid": "4", "building": "23B", "room": "402"})
     check("解析非法 roomverify 返回 None",
           util.parse_roomverify("101-07--112-308") is None)
 
-    check("规范名 1-13---324",
-          util.canonical_room("1-13---324")
-          == {"building": "13号楼", "room": "324", "label": "13号楼324"})
-    check("规范名 4-23B---423",
-          util.canonical_room("4-23B---423")
-          == {"building": "23号楼B座", "room": "423", "label": "23号楼B座423"})
+    check("规范名 1-13---301",
+          util.canonical_room("1-13---301")
+          == {"building": "13号楼", "room": "301", "label": "13号楼301"})
+    check("规范名 4-23B---402",
+          util.canonical_room("4-23B---402")
+          == {"building": "23号楼B座", "room": "402", "label": "23号楼B座402"})
     check("规范名非标准格式返回 None", util.canonical_room("abc") is None)
 
     rooms_cfg = {"rooms": [
-        {"label": "13号楼324", "roomverify": "1-13---324", "occupant": "测试同学"},
+        {"label": "13号楼301", "roomverify": "1-13---301", "occupant": "测试同学"},
         # 故意留一个旧 label，输出应统一成规范名
-        {"label": "23B-423", "roomverify": "4-23B---423"},
-    ], "default_room": "23B-423"}      # 旧 default_room 也要能匹配
+        {"label": "23B-402", "roomverify": "4-23B---402"},
+    ], "default_room": "23B-402"}      # 旧 default_room 也要能匹配
     normalized = util.cfg_rooms(rooms_cfg)
     check("rooms 规范化出规范名 building/room",
           normalized[0]["building"] == "13号楼"
-          and normalized[0]["room"] == "324"
-          and normalized[1]["label"] == "23号楼B座423"
+          and normalized[0]["room"] == "301"
+          and normalized[1]["label"] == "23号楼B座402"
           and normalized[1]["building"] == "23号楼B座",
           repr(normalized))
     check("旧 label 仍能被 default_room 匹配",
-          (util.cfg_active_room(rooms_cfg) or {}).get("roomverify") == "4-23B---423")
+          (util.cfg_active_room(rooms_cfg) or {}).get("roomverify") == "4-23B---402")
     sorted_rooms = util.cfg_rooms({"rooms": [
-        {"roomverify": "4-23B---425"}, {"roomverify": "1-16---306"},
-        {"roomverify": "1-13---324"}, {"roomverify": "4-23A---330"}]})
+        {"roomverify": "4-23B---404"}, {"roomverify": "1-16---302"},
+        {"roomverify": "1-13---301"}, {"roomverify": "4-23A---310"}]})
     check("房间按楼号自然排序",
           [room["label"] for room in sorted_rooms]
-          == ["13号楼324", "16号楼306", "23号楼A座330", "23号楼B座425"],
+          == ["13号楼301", "16号楼302", "23号楼A座310", "23号楼B座404"],
           repr([room["label"] for room in sorted_rooms]))
     check("没有房间时 active 为 None", util.cfg_active_room({}) is None)
 
     dash_payload = dashboard.build_payload({"rooms": [
-        {"label": "A", "roomverify": "1-13---324", "quantity": 5,
+        {"label": "A", "roomverify": "1-13---301", "quantity": 5,
          "occupant": "测试同学"}]})
     check("dashboard 白名单剔除 occupant 并规范化 label",
           "occupant" not in dash_payload["rooms"][0]
-          and dash_payload["rooms"][0]["label"] == "13号楼324"
+          and dash_payload["rooms"][0]["label"] == "13号楼301"
           and "测试同学" not in json.dumps(dash_payload, ensure_ascii=False))
     check("dashboard 按楼栋分组顺序",
           [room["label"] for room in dashboard.build_payload({"rooms": [
-              {"roomverify": "4-23B---423"}, {"roomverify": "1-16---305"},
-              {"roomverify": "1-13---324"},
-              {"roomverify": "4-23A---321"}]})["rooms"]]
-          == ["13号楼324", "16号楼305", "23号楼A座321", "23号楼B座423"])
+              {"roomverify": "4-23B---402"}, {"roomverify": "1-16---301"},
+              {"roomverify": "1-13---301"},
+              {"roomverify": "4-23A---301"}]})["rooms"]]
+          == ["13号楼301", "16号楼301", "23号楼A座301", "23号楼B座402"])
     check("dashboard 空快照也能渲染",
           "<!DOCTYPE html>" in dashboard.render({}))
 
@@ -706,8 +706,8 @@ def test_retry_and_batch():
 
     fixture_gw = cloudpay.FixtureGateway(FIXTURE_PATH)
     batch = [
-        {"label": "A", "roomverify": "1-13---324"},
-        {"label": "B", "roomverify": "1-16---305"},
+        {"label": "A", "roomverify": "1-13---301"},
+        {"label": "B", "roomverify": "1-16---301"},
         {"label": "C", "roomverify": "9-99---999"},
     ]
     sleeps = []
@@ -735,7 +735,7 @@ def test_fixture_cli():
         "channelno": "30",
         "request_interval": 0,
         "rooms": [dict(room, occupant="测试同学") for room in fixture["_rooms"]],
-        "default_room": "13号楼324",
+        "default_room": "13号楼301",
         "room": {"roomverify": "", "label": ""},
         "payPro": {"electric": {"name": "用电支出", "businesstype": 2}},
         "threshold_low": 10,
@@ -757,15 +757,15 @@ def test_fixture_cli():
     check("query --all 退出 0", code == 0, "exit=%s err=%s" % (code, err[:200]))
     check("query --all 成功 17/17", "成功 17 / 17" in out, out[-200:])
     check("query 表格用规范名",
-          "23号楼A座321" in out and "23号楼B座423" in out
-          and "23A-321" not in out and "23B-423" not in out, out[-500:])
+          "23号楼A座301" in out and "23号楼B座402" in out
+          and "23A-301" not in out and "23B-402" not in out, out[-500:])
     query_data, error = util.load_json(json_out)
     check("query --json-out 合法 JSON",
           error is None and len(query_data.get("rooms") or []) == 17)
     check("query JSON 用规范名 label/building",
-          query_data["rooms"][0]["label"] == "13号楼308"
+          query_data["rooms"][0]["label"] == "13号楼302"
           and query_data["rooms"][0]["building"] == "13号楼"
-          and query_data["rooms"][-1]["label"] == "23号楼B座425"
+          and query_data["rooms"][-1]["label"] == "23号楼B座404"
           and query_data["rooms"][-1]["building"] == "23号楼B座")
     check("query JSON 不含 occupant",
           "occupant" not in json.dumps(query_data, ensure_ascii=False))
@@ -811,8 +811,8 @@ def test_fixture_cli():
                   for room in snap_rooms))
     low_rooms = [room for room in snap_rooms if room["low"]]
     check("snapshot low 判定 <30 度", len(low_rooms) == 1
-          and low_rooms[0]["roomverify"] == "1-16---305"
-          and low_rooms[0]["label"] == "16号楼305",
+          and low_rooms[0]["roomverify"] == "1-16---301"
+          and low_rooms[0]["label"] == "16号楼301",
           repr([(room["label"], room["quantity"]) for room in low_rooms]))
     snap_text = json.dumps(snap, ensure_ascii=False)
     check("snapshot 不含 occupant/姓名",
@@ -829,8 +829,8 @@ def test_fixture_cli():
     dash_data = json.loads(data_match.group(1)) if data_match else {}
     dash_labels = [room["label"] for room in dash_data.get("rooms") or []]
     check("dashboard 含全部房间（规范名）",
-          "23号楼B座423" in html_text and "13号楼324" in html_text
-          and "23号楼A座321" in html_text)
+          "23号楼B座402" in html_text and "13号楼301" in html_text
+          and "23号楼A座301" in html_text)
     check("dashboard 按楼栋分组且顺序正确",
           "optgroup" in html_text
           and "23号楼A座" in html_text and "23号楼B座" in html_text

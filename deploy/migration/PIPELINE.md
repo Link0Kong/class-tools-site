@@ -55,9 +55,9 @@
 
 ```ini
 # staging（P2 影子验证；写 rest-next 影子库，可安全做集成测试）
-CLASS_CB_BASE=http://121.196.47.2/v1/rdb/rest-next/
+CLASS_CB_BASE=https://tool.furina.fun/v1/rdb/rest-next/
 # 切流后（P4，Caddy /v1/rdb/rest/* 改指向自建 PostgREST）
-#CLASS_CB_BASE=http://121.196.47.2/v1/rdb/rest/
+#CLASS_CB_BASE=https://tool.furina.fun/v1/rdb/rest/
 # 备案 + HTTPS 恢复后等价写法
 #CLASS_CB_BASE=https://tool.furina.fun/v1/rdb/rest/
 # 可选：CLASS_CB_KEY=...（自建路由会剥 Authorization，一般不需要）
@@ -100,7 +100,7 @@ CLASS_CB_BASE=http://121.196.47.2/v1/rdb/rest-next/
 ### 3.1 切到 staging（演练 / P2 影子验证）
 ```powershell
 # 1) 写入（不打印内容）：在 C:\briefdesk\secrets\cloud.env 末尾追加
-#    CLASS_CB_BASE=http://121.196.47.2/v1/rdb/rest-next/
+#    CLASS_CB_BASE=https://tool.furina.fun/v1/rdb/rest-next/
 # 2) 只读确认（输出只含 base/来源，不含 key）
 C:\briefdesk\venv\Scripts\python.exe C:\briefdesk\scripts\cloud_backend.py --status
 C:\briefdesk\venv\Scripts\python.exe C:\briefdesk\scripts\cloud_backend.py --check
@@ -108,7 +108,7 @@ C:\briefdesk\venv\Scripts\python.exe C:\briefdesk\scripts\cloud_backend.py --che
 C:\briefdesk\venv\Scripts\python.exe C:\briefdesk\scripts\sync_power_cloud.py --dry-run --limit 1
 C:\briefdesk\venv\Scripts\python.exe C:\briefdesk\scripts\health_beat.py --once --dry-run
 ```
-预期：`--status` 显示 `backend=staging base=http://121.196.47.2/v1/rdb/rest-next/ base_source=file`。
+预期：`--status` 显示 `backend=staging base=https://tool.furina.fun/v1/rdb/rest-next/ base_source=file`。
 
 ### 3.2 切回 CloudBase（任何异常立即执行）
 ```powershell
@@ -119,7 +119,7 @@ C:\briefdesk\venv\Scripts\python.exe C:\briefdesk\scripts\cloud_backend.py --sta
 无需改 `index.html`、无需重启 watchdog（它每轮新进程都会重读 cloud.env）。
 
 ### 3.3 切流后（P4，自建后端=生产库）
-把 `CLASS_CB_BASE` 改成 `http://121.196.47.2/v1/rdb/rest/`（备案/HTTPS 后可用
+把 `CLASS_CB_BASE` 改成 `https://tool.furina.fun/v1/rdb/rest/`（备案/HTTPS 后可用
 `https://tool.furina.fun/v1/rdb/rest/`）。**顺序**：先切 Caddy `/v1/rdb/rest/*` → 验证
 自建库 → 再改 cloud.env（否则本机管线会写到 Caddy 仍反代的 CloudBase）。
 
@@ -146,7 +146,7 @@ C:\briefdesk\venv\Scripts\python.exe C:\briefdesk\scripts\cloud_backend.py --sta
 
 ### 4.2 部署（默认 staging；安装 ≠ 启用）
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web
+cd %USERPROFILE%\.openclaw\workspace\web
 python deploy\ecs_cron.py install --dry-run     # 只打印计划（env 全部脱敏，不连 ECS）
 python deploy\ecs_cron.py install               # 安装：staging 后端；三个 timer 全部 disabled
 python deploy\ecs_cron.py status                # 只读：timer/心跳/env 键名/base
@@ -303,7 +303,7 @@ round-3 `class-tools-pg-monitor.timer` 保持 enabled/active 正常写监控文�
 
 | 用例 | 结果 |
 |---|---|
-| staging 可达性：`GET http://121.196.47.2/v1/rdb/rest-next/` | HTTP 200（OpenAPI 121,708 B） |
+| staging 可达性：`GET https://tool.furina.fun/v1/rdb/rest-next/` | HTTP 200（OpenAPI 121,708 B） |
 | `python deploy\ecs_cron.py smoke --job health_probe` | **ok:true / rc=0 / ms=575→1920，8 行 patched**；rows_detail：cloudbase ok(HTTP 200·3ms)、site_static/site_tls warn(备案暂停)、dns_domain ok(已暂停)、tt_cloud ok(7.2h)、cloud_power_sync ok、cloud_health_probe ok |
 | `smoke --job power_sync` | **ok:true / rc=0 / ms=7073**；17/17 房间 PATCH 到 staging `power` + 17 条 `power_history`，cloud_fail=0 |
 | `scripts\tests\staging_smoke.py`（测试账号，见下） | **26 PASS / 0 FAIL** |
@@ -334,7 +334,7 @@ round-3 `class-tools-pg-monitor.timer` 保持 enabled/active 正常写监控文�
 | 上传/解码 | 8 个文件逐片上传 + `python3 -m py_compile` 全过（`decode-ok`） |
 | 代码位置 | `/opt/class-tools/jobs/{jobs_runner.py,cloud_backend.py}` + `power_sync/`、`xgj_sync/`、`health_probe/` |
 | `jobs.env` | 14 个键写入 `/etc/class-tools/jobs.env`，**600 root:root**，回显仅键名（`env installed: keys=CB_BASE,…`） |
-| 后端 | `backend=staging base=http://121.196.47.2/v1/rdb/rest-next/`（install 时探活 404 → 已提示「P1 未就绪，timer 保持禁用」并继续安装） |
+| 后端 | `backend=staging base=https://tool.furina.fun/v1/rdb/rest-next/`（install 时探活 404 → 已提示「P1 未就绪，timer 保持禁用」并继续安装） |
 | systemd | 三组 `class-tools-job-*.{service,timer}` 安装 + `daemon-reload`；`enabled=disabled`、`active=inactive`（**默认全部禁用**） |
 | self-check | `jobs_runner --self-check`（以 www-data 运行）：三个 job `import OK`；`target backend=staging`；`self-check OK` |
 | marker | `/opt/class-tools/jobs/INSTALLED.json`（version=2026-11-18.p3、jobs/cron/service、8 文件 sha256、timers=disabled） |
@@ -383,7 +383,7 @@ cloudbase/deploy.py                 注释：部署 CloudBase 云函数故意不
 cloudbase/functions/power_sync/sync_power_cloud.py   = scripts 同源刷新
 cloudbase/functions/health_probe/health_beat.py      = scripts 同源刷新
 ```
-仓库（`C:\Users\Ko_Li\.openclaw\workspace\web`，未 commit，Lead 统一提交）：
+仓库（`%USERPROFILE%\.openclaw\workspace\web`，未 commit，Lead 统一提交）：
 ```
 deploy/functions/README.md
 deploy/functions/jobs.env.example

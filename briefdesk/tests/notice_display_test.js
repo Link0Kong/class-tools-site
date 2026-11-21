@@ -60,7 +60,7 @@ const GROUPS = [
   {
     id: 'g_deadline', cat: '班级事务', title: '申报材料报送提醒',
     deadline: '2026-11-06T12:00:00+08:00', deadlineAction: '报送姓名截止',
-    items: [{ kind: 'text', label: '原始消息', time: '11-05 20:47', from: '陈玉霞',
+    items: [{ kind: 'text', label: '原始消息', time: '11-05 20:47', from: '同学A',
       text: '请申报的同学明天中午前报送姓名，周日晚点名时需要提交材料！' }],
     aiSummary: '请申报的同学明天中午前报送姓名，周日晚点名时需要提交材料！',
     aiPoints: ['明天中午前报送姓名'],
@@ -122,18 +122,18 @@ const GROUPS = [
     aiSummary: '申报同学11-06 中午前报送姓名，11-08 晚点名时提交材料。',
     aiMerged: true, supplement: true, updatedAt: '2026-11-05T21:07:00+08:00',
     items: [
-      { kind: 'text', label: '通知', time: '11-05 20:47', from: '陈玉霞',
+      { kind: 'text', label: '通知', time: '11-05 20:47', from: '同学A',
         text: '请申报的同学明天中午前报送姓名，周日晚点名时需要提交材料！' },
-      { kind: 'text', label: '通知', time: '11-05 21:07', from: '陈玉霞',
+      { kind: 'text', label: '通知', time: '11-05 21:07', from: '同学A',
         text: '电子版材料需要在周日下午十四点发给我' },
-      { kind: 'text', label: '通知', time: '11-05 21:07', from: '陈玉霞', text: '纸质版晚点名交' },
+      { kind: 'text', label: '通知', time: '11-05 21:07', from: '同学A', text: '纸质版晚点名交' },
     ],
   },
   {
     id: 'g_single_summary', cat: '班级事务', title: '单条消息卡',
     deadline: '2026-11-06T12:00:00+08:00', deadlineAction: '报送姓名截止',
     aiSummary: '摘要：请明天中午前报送姓名。',
-    items: [{ kind: 'text', label: '通知', time: '11-05 20:47', from: '陈玉霞',
+    items: [{ kind: 'text', label: '通知', time: '11-05 20:47', from: '同学A',
       text: '原始正文：请申报的同学明天中午前报送姓名。' }],
   },
   {

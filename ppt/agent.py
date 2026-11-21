@@ -70,9 +70,9 @@ PUBLISH_KEY_FILE = os.path.join(WEB_ROOT, "deploy", "cloudbase", "publish_key.tx
 TOKEN_FILE = r"G:\ClassTools\briefdesk\secrets\class-token.json"
 CLOUDBASE_RC = r"G:\ClassTools\briefdesk\secrets\cloudbaserc.local.json"
 
-# 管理员身份兜底（与 diag_agent.py 一致；非密钥）
-FALLBACK_ADMIN_SID = "3260707024"
-FALLBACK_ADMIN_NAME = "陈子麒"
+# 管理员身份兜底（真实学号/姓名不入库）：优先 cloudbaserc.local.json / 环境变量
+FALLBACK_ADMIN_SID = (os.environ.get("CLASS_ADMIN_SID") or "2024000001").strip()
+FALLBACK_ADMIN_NAME = (os.environ.get("CLASS_ADMIN_NAME") or "管理员").strip()
 
 LOG_DIR = os.path.join(HERE, "logs")
 WORK_DIR = os.path.join(HERE, "work")

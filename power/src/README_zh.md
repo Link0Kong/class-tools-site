@@ -43,7 +43,7 @@ src\
 主链路只用 Python 标准库；只有启用「账密 fallback」才需要 `cryptography`：
 
 ```bat
-cd C:\Users\Ko_Li\.openclaw\workspace\perfect-campus-power\src
+cd %USERPROFILE%\.openclaw\workspace\perfect-campus-power\src
 pip install -r requirements.txt
 copy config.example.json config.json
 ```
@@ -61,13 +61,13 @@ copy config.example.json config.json
 | 字段 | 填什么 | 说明 |
 | --- | --- | --- |
 | `idserial` | 你的学号 | 完美校园绑定的学号（校园卡号=学号），纯数字 |
-| `rooms[]` | 班级房间清单 | 每项 `{"label": "13号楼324", "roomverify": "1-13---324"}`；`label`/`building` 会按规范名自动统一 |
+| `rooms[]` | 班级房间清单 | 每项 `{"label": "13号楼301", "roomverify": "1-13---301"}`；`label`/`building` 会按规范名自动统一 |
 | `default_room` | 默认房间 | 写规范名或 `roomverify`（旧 label 也兼容），`query`/`now`/`sample`/`report` 默认查它 |
 
-> **宿舍名统一规范**：`{楼号}号楼{座}{房间号}` —— `13号楼324`、`16号楼305`、
-> `23号楼A座321`、`23号楼B座423`。
+> **宿舍名统一规范**：`{楼号}号楼{座}{房间号}` —— `13号楼301`、`16号楼301`、
+> `23号楼A座301`、`23号楼B座402`。
 > 本工具会从 `roomverify` 自动派生规范名（label/building/room 三处统一），
-> config 里即使写了旧名字（如 `23A-321`），输出也一律用规范名，`doctor` 会提示你同步配置；
+> config 里即使写了旧名字（如 `23A-301`），输出也一律用规范名，`doctor` 会提示你同步配置；
 > 班级站与本机工具因此始终是同一套名字。
 
 现成的班级 17 间房清单（规范名 + roomverify，**不含姓名**）可以直接复制：
@@ -78,12 +78,12 @@ copy config.example.json config.json
 ```json
 "idserial": "你的学号",
 "rooms": [
-  {"label": "13号楼324", "roomverify": "1-13---324"},
-  {"label": "16号楼305", "roomverify": "1-16---305"},
-  {"label": "23号楼A座321", "roomverify": "4-23A---321"},
-  {"label": "23号楼B座423", "roomverify": "4-23B---423"}
+  {"label": "13号楼301", "roomverify": "1-13---301"},
+  {"label": "16号楼301", "roomverify": "1-16---301"},
+  {"label": "23号楼A座301", "roomverify": "4-23A---301"},
+  {"label": "23号楼B座402", "roomverify": "4-23B---402"}
 ],
-"default_room": "13号楼324"
+"default_room": "13号楼301"
 ```
 
 填完先跑一次自检（会告诉你还缺什么）：
@@ -117,20 +117,20 @@ schoolcode = 769；idserial = 已配置（11 位学号，不显示）
 如果不知道房间的 roomverify，用房间树命令查（**逐层剪枝，别全量拉**）：
 
 ```bat
-run.bat rooms --building 13 --room 324
+run.bat rooms --building 13 --room 301
 ```
 
 输出形如：
 
 ```
-  旗山校区学生公寓 / 13号楼 / 虚拟楼层 / 324  ->  1-13---324
+  旗山校区学生公寓 / 13号楼 / 虚拟楼层 / 301  ->  1-13---301
 ```
 
 FJTCM 实测要点（2026-11-05）：
 
-- roomverify 格式 = `areaid-楼栋---房间`：`1-13---324`、`4-23B---423`；
-- **13号楼、16号楼用 areaid=1**（`1-13---324` / `1-16---305`），规范名 `13号楼324` / `16号楼305`；
-- **23号楼 A/B 只在 areaid=4**（`4-23A---321` / `4-23B---423`），规范名 `23号楼A座321` / `23号楼B座423`；
+- roomverify 格式 = `areaid-楼栋---房间`：`1-13---301`、`4-23B---402`；
+- **13号楼、16号楼用 areaid=1**（`1-13---301` / `1-16---301`），规范名 `13号楼301` / `16号楼301`；
+- **23号楼 A/B 只在 areaid=4**（`4-23A---301` / `4-23B---402`），规范名 `23号楼A座301` / `23号楼B座402`；
 - areaid=4 里也有 13/16 号楼，但只有 6 个房间（不是宿舍楼），别选错；
 - 每栋楼 `optype=3` 只返回一个虚拟楼层 `id=-1`，`optype=4` 返回的 `id` 就是 roomverify，不要自己拼。
 
@@ -146,11 +146,11 @@ run.bat now                 :: 同上，now 的别名
 
 ```
 payproid = 2122；房间 1 个；串行查询，每请求间隔 1.1 秒（预计 0 秒）
-  [1/1] 13号楼324        78.97 度
+  [1/1] 13号楼301        78.97 度
 
 房间              roomverify            剩余 单位  状态
 --------------------------------------------------------------------------
-13号楼324         1-13---324          78.97 度   正常
+13号楼301         1-13---301          78.97 度   正常
 ```
 
 批量查班级全部房间（串行、每请求间隔 1.1 秒，17 间约 20 秒）：
@@ -163,7 +163,7 @@ run.bat query --all --json-out query.json
 ### 第 5 步：装计划任务（每小时采样 + 周一 00:05 周报）
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\perfect-campus-power\src
+cd %USERPROFILE%\.openclaw\workspace\perfect-campus-power\src
 powershell -NoProfile -ExecutionPolicy Bypass -File install_task.ps1
 ```
 
@@ -217,7 +217,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File install_task.ps1 -DryRun
 | --- | --- |
 | `doctor` | 自检：Python/依赖/配置/台账/网络；**不登录、不发个人信息** |
 | `projects` | 列出本校缴费项目，用来填 `payproid` |
-| `rooms --building 13 --room 324` | 房间树下钻找 `roomverify`（支持 `--campus/--building/--room/--floor/--payproid`） |
+| `rooms --building 13 --room 301` | 房间树下钻找 `roomverify`（支持 `--campus/--building/--room/--floor/--payproid`） |
 | `query` | 查默认房间剩余量（表格） |
 | `query --all` | 串行查 `rooms[]` 全部房间；`--json-out <file>` 落 JSON |
 | `snapshot` | 批量查全部房间 → 班级站用的精简 `snapshot.json` |
@@ -267,19 +267,19 @@ run.bat dashboard
   "low_threshold": 30.0,
   "rooms": [
     {
-      "label": "13号楼324",
+      "label": "13号楼301",
       "building": "13号楼",
-      "room": "324",
-      "roomverify": "1-13---324",
+      "room": "301",
+      "roomverify": "1-13---301",
       "quantity": 78.97,
       "unit": "度",
       "low": false
     },
     {
-      "label": "23号楼B座423",
+      "label": "23号楼B座402",
       "building": "23号楼B座",
-      "room": "423",
-      "roomverify": "4-23B---423",
+      "room": "402",
+      "roomverify": "4-23B---402",
       "quantity": 148.83,
       "unit": "度",
       "low": false
@@ -384,7 +384,7 @@ Referer: https://cloudpaygateway.59wanmei.com:8087/pay/index.html
 | --- | --- | --- |
 | 缴费项目 | `smallProgramPayPro` | `{"schoolcode":"769","idserial":"<学号>","channelno":"30"}` |
 | 房间树 | `samllProgramGetRoom`（**拼写就是 samll**） | `{"schoolno":"769","optype":1-4,"payproid":"2122","areaid":"0","buildid":"0","unitid":"0","levelid":"0","businesstype":"2","idserial":"<学号>"}` |
-| 剩余电量 | `samllProgramGetRoomState` | `{"payproid":"2122","schoolcode":"769","roomverify":"4-23B---423","businesstype":"2"}` |
+| 剩余电量 | `samllProgramGetRoomState` | `{"payproid":"2122","schoolcode":"769","roomverify":"4-23B---402","businesstype":"2"}` |
 
 查电量响应（businessData）：
 

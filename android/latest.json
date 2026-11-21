@@ -1,10 +1,10 @@
 {
-  "versionCode": 104,
-  "versionName": "1.0.0-beta21",
-  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta21.apk.bin",
-  "notes": "电费：上次充值改为跨区间查找，并显示上次充值量",
+  "versionCode": 105,
+  "versionName": "1.0.0-beta22",
+  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta22.apk.bin",
+  "notes": "通知模块化（对齐鸿蒙）：新作业/作业截止/上课/新通知/活动截止/开抢/新投票/投票结果/水费扣除/每日汇总 + 发送测试通知；分享弹层（对齐小程序）：5:4 分享卡/分享图片/保存相册/分享链接/复制文案",
   "force": false,
   "channel": "beta",
-  "sha256": "ab0f13b482d1e8d364dcb6cc91b4be9ff23564fc45f779f51a10b687bf3086b6",
-  "sizeBytes": 6065079
+  "sha256": "658552aa97c8fc7d9afb903e7dba97f1465761f5ad4bef15413845d079ed24be",
+  "sizeBytes": 6097875
 }

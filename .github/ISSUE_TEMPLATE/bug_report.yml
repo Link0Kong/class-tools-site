@@ -1,0 +1,68 @@
+name: Bug 报告
+description: 报告一个可复现的问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！提交前请先搜索已有 Issue。**不要**在 Issue 中粘贴真实姓名、学号、手机号、宿舍号、密钥或服务器地址。
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 运行平台
+      options:
+        - 网页端
+        - 微信小程序
+        - Android
+        - HarmonyOS
+        - Windows
+        - 构建 / 部署 / 文档
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 应用内「关于 / 设置」页显示的版本号，或 Release 标签
+      placeholder: 例如 v2.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请按顺序写清操作，并使用测试账号或虚构数据
+      placeholder: |
+        1. 打开……
+        2. 点击……
+        3. 看到……
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果
+      description: 可附脱敏后的截图或控制台报错
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: 环境信息
+      description: 设备型号 / 系统版本 / 浏览器或运行时版本（不要填个人信息）
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 确认
+      options:
+        - label: 我已搜索现有 Issue，确认不是重复问题
+          required: true
+        - label: 我提交的内容不包含真实个人信息或密钥
+          required: true

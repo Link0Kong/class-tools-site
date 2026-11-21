@@ -58,7 +58,7 @@
 环境：Windows 10/11 + Python 3.8+ + Edge/Chrome（自动发现）。
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web\jwxt
+cd %USERPROFILE%\.openclaw\workspace\web\jwxt
 pip install -r requirements.txt
 ```
 
@@ -67,8 +67,8 @@ pip install -r requirements.txt
 ## 2. 第一次使用：保存统一认证凭据
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web\jwxt
-python sync.py --save-creds --account 3260707024
+cd %USERPROFILE%\.openclaw\workspace\web\jwxt
+python sync.py --save-creds --account 2024000001
 ```
 
 - 会提示两次隐藏输入（getpass）：**统一认证密码** + 确认；密码不显示、不落日志、不写明文。
@@ -179,7 +179,7 @@ python sync.py --manual --publish-link  # 抓完顺便出发布链接
 先确认 `--save-creds` + `--check` 通过，然后（**无需管理员权限**）：
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web\jwxt
+cd %USERPROFILE%\.openclaw\workspace\web\jwxt
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install_task.ps1
 ```
 

@@ -60,12 +60,12 @@
 
 ## 2. 快速开始（手动）
 
-系统 Python：`C:\Users\Ko_Li\AppData\Local\Programs\Python\Python312\python.exe`
+系统 Python：`%USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe`
 （已装 python-pptx 1.0.2 / Pillow 11.3 / oss2 / requests / pywin32；`pythonw.exe` 同目录）。
-ffmpeg/ffprobe 在 PATH（`C:\Users\Ko_Li\bin\ffmpeg.exe`）。
+ffmpeg/ffprobe 在 PATH（`%USERPROFILE%\bin\ffmpeg.exe`）。
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web\ppt
+cd %USERPROFILE%\.openclaw\workspace\web\ppt
 
 # ---- v2.0 默认：兼容性处理（不降质 + 多端下载）----
 # 只转换、不碰云端（调试单文件；输出 compat.pptx/preview.pdf/cover.webp/original.<ext>）
@@ -101,7 +101,7 @@ python convert.py "C:\path\deck.pptx" --video-only --work-dir work\debug-video
 ## 3. 安装计划任务（生产）
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web\ppt
+cd %USERPROFILE%\.openclaw\workspace\web\ppt
 
 # 注册（不立即运行、注册后禁用；等你/Lead 统一 E2E 后自行启用）
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install_agent.ps1 -NoRun -Disabled
@@ -117,7 +117,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install_agent.ps1 -Remove
 
 任务定义（`schtasks /Query /TN PptConvertAgent /V /FO LIST` 可核对）：
 
-- 动作：`C:\Users\Ko_Li\AppData\Local\Programs\Python\Python312\pythonw.exe "…\web\ppt\agent.py" --once`
+- 动作：`%USERPROFILE%\AppData\Local\Programs\Python\Python312\pythonw.exe "…\web\ppt\agent.py" --once`
   - **pythonw.exe（GUI 子系统）**：每分钟触发不会闪黑框；不要用 `powershell.exe/cmd.exe` 承载。
 - 触发器：每 1 分钟 + **登录后 30s**（关机/睡眠错过的任务由 StartWhenAvailable 补跑）；
 - 主体：当前用户、**InteractiveToken**（PowerPoint COM 自动化必须交互桌面，不能"不管用户是否登录"）；
@@ -435,32 +435,32 @@ PowerPoint 若在 SaveAs 时已自动修复的包，本阶段无操作（幂等�
 
 ```
 转换机上传 compat.pptx / preview.pdf / original.<ext> / cover.webp 到 OSS
-   └→ 立即对 ECS 缓存服务发预热：GET http://121.196.47.2/pptfiles/__warm/ppt/a/<deckId>/<buildId>/<file>
+   └→ 立即对 ECS 缓存服务发预热：GET https://tool.furina.fun/pptfiles/__warm/ppt/a/<deckId>/<buildId>/<file>
        （best-effort：每文件 ≤3s 超时，失败只 WARN，不影响 PATCH ready）
-用户下载 → http://121.196.47.2/pptfiles/ppt/a/<deckId>/<buildId>/compat.pptx
+用户下载 → https://tool.furina.fun/pptfiles/ppt/a/<deckId>/<buildId>/compat.pptx
        Caddy /pptfiles/* → strip_prefix → ECS 本地服务 127.0.0.1:8092
        命中本地磁盘：直接下发（Range/206、HEAD、Accept-Ranges、immutable 长缓存）
        未命中：从 OSS 回源（边下边发 + .part 原子落盘，同 path 加锁）
 ```
 
-- 配置：`PPT_WARM_BASE` 环境变量（默认 `http://121.196.47.2`）；预热函数 `agent.warm_ppt_files()`，
+- 配置：`PPT_WARM_BASE` 环境变量（默认 `https://tool.furina.fun`）；预热函数 `agent.warm_ppt_files()`，
   URL 规则 `<base>/pptfiles/__warm/<manifest.base 相对 OSS 的路径前缀><文件名>?force=1`；
 - **预热列表**：build 根目录 `compat.pptx/preview.pdf/original.*/cover.webp` + `media/` 子目录下全部
   `media_files`（两次 warm 调用，均 `?force=1`）；v2.3 起以 `warm_media_assets()` 实现；
 - **同一 build 重转的缓存一致性（v2.1+）**：`--compat-only` 复用原 build 目录上传 compat（同 URL 内容会变），
   所以预热默认带 **`?force=1`**：服务先 HEAD OSS 比对本地 `.meta`（Content-Length/ETag/Last-Modified），
   不一致才 `.part` 回源原子替换并更新 meta；普通下载命中缓存直接下发（不 HEAD）。
-  手动强制刷新：`curl 'http://121.196.47.2/pptfiles/__warm/ppt/a/<deckId>/<buildId>/compat.pptx?force=1'`
+  手动强制刷新：`curl 'https://tool.furina.fun/pptfiles/__warm/ppt/a/<deckId>/<buildId>/compat.pptx?force=1'`
   （202 刷新中 / 200 unchanged）；自测：`python deploy\ecs_pptfiles.py force-selftest`。
 - 存量 deck 用 `--compat-only` 补文件后也会预热（写入原 build 目录）；
 - **ECS 服务运维**（部署/健康/手动预热/清缓存）见 `deploy/ECS_DEPLOY.md §8`；脚本：
-  `python deploy\ecs_pptfiles.py deploy|probe|verify`，健康 `http://121.196.47.2/pptfiles/__health`；
+  `python deploy\ecs_pptfiles.py deploy|probe|verify`，健康 `https://tool.furina.fun/pptfiles/__health`；
 - **实测速度**（2026-11-11）：预热后本机下载 37.25MB compat **4.41s / 8.44MB/s**
   （直连 OSS 香港同文件 ~74KB/s）；未缓存首次直下 38MB 14.88s / 2.56MB/s，缓存后 2.50s / 15.2MB/s；
   首次预热回源约 74s（ECS→OSS 当时 ~0.53MB/s），之后用户下载走 ECS 本地磁盘；
 - **三端下载 URL 需切到 ECS**：manifest 里 `files.*.s` 仍存 OSS 相对路径（不改契约），客户端下载时
   把 `https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/ppt/a/<deckId>/<buildId>/<file>`
-  替换为 `http://121.196.47.2/pptfiles/ppt/a/<deckId>/<buildId>/<file>`（备案/DNS 恢复后换
+  替换为 `https://tool.furina.fun/pptfiles/ppt/a/<deckId>/<buildId>/<file>`（备案/DNS 恢复后换
   `https://tool.furina.fun/pptfiles/...` 更佳）；未命中时服务会自动回源，所以客户端可**默认全走 ECS**，
   失败再回退 OSS 直链（缓存服务不可用时不要阻塞下载）；
 - 缓存上限 5GiB 自动清最旧；清理：`rm -rf /opt/class-tools/pptfiles/ppt/<path>` 或见 ECS_DEPLOY §8.3；
@@ -477,7 +477,7 @@ PowerPoint 若在 SaveAs 时已自动修复的包，本阶段无操作（幂等�
 | 日志 `PowerPoint 进程存在但无法连接` | 可能是崩溃残留的 POWERPNT 僵尸进程。任务管理器结束 `POWERPNT.EXE` 后下一轮恢复；**先确认用户没在编辑/没未保存文档** |
 | 日志 `退出时检测到 PowerPoint 有 N 个文档…保留实例` + 一直「排队转换」 | 上一轮转换被强制中断（计划任务超时/进程被杀）留下的残留实例，会让后续每轮判 busy。任务管理器结束 `POWERPNT.EXE`（先确认用户没在编辑）后下一轮自动恢复；本目录测试用 `python tests\test_convert_integration.py` 收尾会打印残留检查提示 |
 | 日志 `PowerPoint 无法打开该文件（可能加密/损坏）` | 源文件加密/损坏/格式伪装 → 前端显示「转换失败」+ 中文原因；需用户重传 |
-| 日志 `缺少 pywin32/oss2` | 用了错误解释器（venv 没装依赖）。计划任务必须用系统 pythonw（脚本默认 `C:\Users\Ko_Li\AppData\Local\Programs\Python\Python312\pythonw.exe`） |
+| 日志 `缺少 pywin32/oss2` | 用了错误解释器（venv 没装依赖）。计划任务必须用系统 pythonw（脚本默认 `%USERPROFILE%\AppData\Local\Programs\Python\Python312\pythonw.exe`） |
 | 日志 `OSS 凭据缺失` / `401/403` | 检查 `web/deploy/creds.env`（不要打印内容）与 `class-token.json` 是否可读；token 会自动刷新 |
 | 日志 `ffmpeg ... 失败` | 检查 PATH 中 ffmpeg（`ffmpeg -version`）；个别媒体失败会跳过该媒体（图片/其他内容仍可用） |
 | 日志 `云端/配置错误` 且退出码 1 | `publish_key.txt`/token 文件/网络问题；修好后下一轮自动恢复（计划任务每分钟） |
@@ -490,7 +490,7 @@ PowerPoint 若在 SaveAs 时已自动修复的包，本阶段无操作（幂等�
 | `--video-only` 报「源文件缺失」 | 该 deck 是早期数据（无 `source_key` 或 OSS 原件已清）。重新上传源文件后转换，或先 `PATCH status=queued` 让转换机重跑 |
 | `--video-only` 报「只有 ready 的 deck 才能补视频」 | 只对已 ready 的存量 deck 补视频；queued/processing/failed 走正常转换流程 |
 | **重转后下载到旧兼容包（旧视频/旧媒体）** | 同一 build 目录内容会变，缓存需强制刷新。v2.1+ 转换机上传后自动 `?force=1` 预热；若仍旧：手动 `curl '…/pptfiles/__warm/ppt/a/<id>/<build>/compat.pptx?force=1'` 等待 202 完成后重试；检查 `journalctl -u class-tools-pptfiles` 的 force 刷新日志 |
-| **下载兼容版很慢（几十 KB/s）** | 现在应走 ECS 缓存 `…/pptfiles/ppt/a/...`（见 §7.1）。检查：`curl http://121.196.47.2/pptfiles/__health` 是否 200；`deploy/ecs_pptfiles.py probe` 看服务/缓存；该文件是否已预热（`__warm` 返回 202 后约 1–2 分钟落盘）。缓存服务不可用时先用 OSS 直链（慢但可用） |
+| **下载兼容版很慢（几十 KB/s）** | 现在应走 ECS 缓存 `…/pptfiles/ppt/a/...`（见 §7.1）。检查：`curl https://tool.furina.fun/pptfiles/__health` 是否 200；`deploy/ecs_pptfiles.py probe` 看服务/缓存；该文件是否已预热（`__warm` 返回 202 后约 1–2 分钟落盘）。缓存服务不可用时先用 OSS 直链（慢但可用） |
 | **下载兼容版后视频仍显示不可用** | v2.0.1 起转换机自动修复「外链断链但包内有内嵌副本」的视频（日志 `修复断链视频（第 N 页…→ 内嵌 …）`，manifest `compat.repairs`）。检查该 deck manifest：`repairs` 是否含该页；若 `external_media` 仍列出说明是真外链（包内无副本）→ 只能告警，需用户重新在 PPT 里嵌入媒体后重传。修复需重转：`python agent.py --deck <id> --compat-only` |
 | **旧 deck 没有兼容文件**（manifest 无 `files`） | 用 `python agent.py --deck <id> --compat-only` 补；dry-run 可先本地验证。补完 manifest 只新增 files/compat，旧预览字段保留 |
 | `compat: 字体未嵌入（可能无 TrueType 字体或许可受限）` | 只是 warning，不失败；版式在其他设备可能变化。查看是否使用了许可禁止嵌入的字体 |
@@ -504,7 +504,7 @@ PowerPoint 若在 SaveAs 时已自动修复的包，本阶段无操作（幂等�
 ## 9. 测试（本机可复跑）
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web\ppt
+cd %USERPROFILE%\.openclaw\workspace\web\ppt
 
 # 1) 生成 fixture（首次/需要重生成时；会启动 PowerPoint COM）
 python tests\make_fixture_pptx.py

@@ -6,7 +6,7 @@
   2) 启动 headless Edge（--remote-debugging-port=0），用 CDP(websocket-client) 打开 https://tool.furina.fun/；
   3) 首次加载后向 localStorage 注入测试身份（**仅测试身份 token**，不打印/不落盘；2026-11-11 用户红线后不再读取真实管理员 token），
      reload → 真实云端拉取 notices → 切到通知 tab（gotoTab('nt')）→ 读取 iframe 内 GROUPS/DOM；
-  4) 断言：申报材料合并卡/药膳报名优先/花名册 兰佳杰/献血合并卡/无旧文案与今天混排/0 JS 报错；
+  4) 断言：申报材料合并卡/药膳报名优先/花名册 同学B/献血合并卡/无旧文案与今天混排/0 JS 报错；
      并截图（首屏、申报卡、献血卡）存 C:\\briefdesk\\data\\_qa_nottime\\phase3\\online_ui\\。
 env：NTP_UI_OUT（截图/日志目录）、NTP_EDGE。
 退出码 0 = 线上页面验证全绿。
@@ -198,7 +198,7 @@ IFRAME_JS = r"""
   out.file=fileg?{id:fileg.id,senderName:fileg.senderName,senderRole:fileg.senderRole,senderBadge:fileg.senderBadge,
     pubname:fc?norm((fc.querySelector('.pubname')||{}).textContent||''):null,
     badge:fc?norm((fc.querySelector('.pubbadge')||{}).textContent||''):null,
-    cardHasTiancheng:cardText(fileg.id).indexOf('天城企鹅')>=0}:null;
+    cardHasTiancheng:cardText(fileg.id).indexOf('网名B')>=0}:null;
   // 献血
   var xx=[];gs.forEach(function(g){if(JSON.stringify(g).indexOf('献血')>=0)xx.push(g);});
   var x=xx[0]||null;
@@ -353,16 +353,16 @@ def main():
           and "2026-11-05T18:00" in str(c1.get("signupEnd")),
           "chip=%s signupEnd=%s deadline=%s" % (c1.get("chip"), c1.get("signupEnd"), c1.get("deadline")))
         fl = data.get("file") or {}
-        S("U5.1 花名册 senderName=兰佳杰 / 学习委员", fl.get("senderName") == "兰佳杰"
+        S("U5.1 花名册 senderName=同学B / 学习委员", fl.get("senderName") == "同学B"
           and ("学习委员" in str(fl.get("senderRole")) or "班委" in str(fl.get("senderBadge"))),
           "name=%s role=%s badge=%s pubname=%s" % (fl.get("senderName"), fl.get("senderRole"),
                                                    fl.get("senderBadge"), fl.get("pubname")))
-        S("U5.2 线上页面不显示「天城企鹅」", fl.get("cardHasTiancheng") is False, "")
+        S("U5.2 线上页面不显示「网名B」", fl.get("cardHasTiancheng") is False, "")
         xx = data.get("xianxue") or {}
         items = xx.get("items") or []
-        sup = [it for it in items if it.get("label") == "补充通知" and "陈子麒" in str(it.get("from"))]
+        sup = [it for it in items if it.get("label") == "补充通知" and "管理员" in str(it.get("from"))]
         link = [it for it in items if it.get("hasUrl") and it.get("kind") == "link"
-                and "陈子麒" in str(it.get("from"))]
+                and "管理员" in str(it.get("from"))]
         note_ok = any("本人转发" in str(it.get("note")) for it in items)
         S("U6.1 献血通知仅 1 卡（合并，无独立新卡）", xx.get("count") == 1,
           "count=%s id=%s title=%s" % (xx.get("count"), xx.get("id"), xx.get("title")))

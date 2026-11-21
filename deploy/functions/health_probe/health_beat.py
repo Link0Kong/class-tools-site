@@ -118,8 +118,11 @@ BRIEFDESK_PORT = 3000
 QQFLOW_TOKEN_FILE = os.path.join(SECRETS, "qqflow-token.txt")
 WEFLOW_TOKEN_FILE = os.path.join(SECRETS, "weflow-token.txt")
 
-ADMIN_SID = "3260707024"
-ADMIN_NAME = "陈子麒"
+# 管理员身份（class_verify 用）：从环境变量读取，真实学号/姓名不入库。
+# 部署时在 CloudBase 函数环境变量里配置 CLASS_ADMIN_SID / CLASS_ADMIN_NAME；
+# 未配置时的是占位值，class_verify 会失败（不会误用真实身份）。
+ADMIN_SID = (os.environ.get("CLASS_ADMIN_SID") or "2024000001").strip()
+ADMIN_NAME = (os.environ.get("CLASS_ADMIN_NAME") or "管理员").strip()
 
 HTTP_TIMEOUT = 8.0          # 普通 HTTP（站点资源 / 云端 / 本地服务）
 TLS_TIMEOUT = 15.0          # TLS 握手（实测外网抖动 1~9s，给足余量，避免误报 down）

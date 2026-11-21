@@ -1,4 +1,4 @@
-# ECS 备案落点部署（阿里云 class_tool / 121.196.47.2）
+# ECS 备案落点部署（阿里云 class_tool / tool.furina.fun）
 
 > 2026-11-10 建立。用途：ICP 备案通过后，`tool.furina.fun` 要从香港 OSS 切到内地 ECS；
 > 本文件记录 ECS 端部署通道、当前状态、HTTPS 启用步骤与回滚方式。
@@ -21,10 +21,10 @@
 | 缓存头 | `index.html` / `tt.json` / `/board` → `Cache-Control: no-cache`；`/assets/*` 与图标 → `public, max-age=604800` |
 | 原有服务（未改） | `/api/*` → uvicorn `127.0.0.1:8090`（briefdesk-board）；`/board*` → `/opt/briefdesk/data/board.html` |
 | 通知附件服务（迁移第 2 步） | `/att/*` → `127.0.0.1:8091`（`class-tools-att.service`，systemd，代码 `/opt/class-tools/att-code/`，数据 `/opt/class-tools/attachments/`；签名 URL 契约见 `attachments/CONTRACT.md`） |
-| 同源 API 代理（第 3 步就绪，前端已切） | `/v1/rdb/rest/*` → `https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com`（`header_up Host` 已设为网关域名；实测 401/OpenAPI 200/RLS `[]` 正常）。网页 `var CB` 在 `tool.furina.fun` / `121.196.47.2` 下运行时改走同源（字面量保留给本机脚本解析） |
+| 同源 API 代理（第 3 步就绪，前端已切） | `/v1/rdb/rest/*` → `https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com`（`header_up Host` 已设为网关域名；实测 401/OpenAPI 200/RLS `[]` 正常）。网页 `var CB` 在 `tool.furina.fun` / `tool.furina.fun` 下运行时改走同源（字面量保留给本机脚本解析） |
 | HTTPS 就绪配置 | `/etc/caddy/Caddyfile.https.ready` 已生成并通过 `caddy validate`（含 `tool.furina.fun` 站点块 + 自动 Let's Encrypt），**尚未启用**（DNS 停用中，无法签发） |
 | 备份 | 每次 apply 前备份到 `/var/www/tool_backup/<时间戳>/`（旧 `index.html` + 旧 `Caddyfile`） |
-| 实测 | `curl http://121.196.47.2/` = 800,243 B 且与本地 sha 一致；`/board` 8,555,473 B、`/api/status` 200、`/tt.json` 7,463 B |
+| 实测 | `curl https://tool.furina.fun/` = 800,243 B 且与本地 sha 一致；`/board` 8,555,473 B、`/api/status` 200、`/tt.json` 7,463 B |
 
 ## 3. 用法（在 `web` 目录下执行，用带 `aliyunsdkcore` 的 Python，例如系统 `python`）
 
@@ -43,22 +43,22 @@ python deploy\ecs_site.py apply --dry-run  # 只打印将要执行的远端脚�
 ### 3.5 临时公网域名 ko-link.cn（2026-11-12 启用；2026-11-14 已全部撤销）
 
 - **2026-11-14 用户决定**：等 `tool.furina.fun` 备案完成，不再使用临时域名。撤销范围：网页/小程序/安卓三端源码中的同源判断与 `webBase`/`dropBase`、ECS Caddy 站点块、阿里云 DNS 记录。
-- **当前状态**：Caddy HTTPS 站点块只有 `tool.furina.fun`；ko-link.cn 的 `@`/`www` A 记录已删除（0 记录）；公网仅保留 `http://121.196.47.2/` 调试入口。撤销记录见 `HANDOFF.md` 增量 59 / `CHANGELOG.md` 2026-11-14 条目。
-- **历史（备查）**：启用时 DNS `@`/`www` A→`121.196.47.2`、Caddy 三域名 + LE 自动签发；因 ko-link.cn 未完成 ICP 备案，大陆访问被阿里云阻断（HTTP 403 / HTTPS RST），实际只对境外可用。
-- **复核**：`grep -c ko-link /etc/caddy/Caddyfile` 应为 0；`curl http://121.196.47.2/` 与 OSS `index.html` 同字节。
+- **当前状态**：Caddy HTTPS 站点块只有 `tool.furina.fun`；ko-link.cn 的 `@`/`www` A 记录已删除（0 记录）；公网仅保留 `https://tool.furina.fun/` 调试入口。撤销记录见 `HANDOFF.md` 增量 59 / `CHANGELOG.md` 2026-11-14 条目。
+- **历史（备查）**：启用时 DNS `@`/`www` A→`tool.furina.fun`、Caddy 三域名 + LE 自动签发；因 ko-link.cn 未完成 ICP 备案，大陆访问被阿里云阻断（HTTP 403 / HTTPS RST），实际只对境外可用。
+- **复核**：`grep -c ko-link /etc/caddy/Caddyfile` 应为 0；`curl https://tool.furina.fun/` 与 OSS `index.html` 同字节。
 - **恢复域名**：`tool.furina.fun` 备案通过 + DNS 恢复后，`python deploy\ecs_site.py apply`（默认 HTTPS），Caddy 自动签发证书。
 
 ### 3.6 同源反代 Origin 修复（2026-11-12）
 
-- 现象：`http://121.196.47.2/` 输入身份登录时提示「网络错误」。
-- 根因：CloudBase 网关只放行白名单 Origin（`https://tool.furina.fun`、`http://127.0.0.1:*`）；浏览器对**同源** POST/PATCH/DELETE 也会带 `Origin: <当前访问域名>`，经 Caddy 同源反代 `/v1/rdb/rest/*` 原样透传后网关直接 403（`https://ko-link.cn`、`http://121.196.47.2`、OSS 默认域名、`null` 实测均 403），前端 catch 后显示「网络错误，请稍后重试」。
+- 现象：`https://tool.furina.fun/` 输入身份登录时提示「网络错误」。
+- 根因：CloudBase 网关只放行白名单 Origin（`https://tool.furina.fun`、`http://127.0.0.1:*`）；浏览器对**同源** POST/PATCH/DELETE 也会带 `Origin: <当前访问域名>`，经 Caddy 同源反代 `/v1/rdb/rest/*` 原样透传后网关直接 403（`https://ko-link.cn`、`https://tool.furina.fun`、OSS 默认域名、`null` 实测均 403），前端 catch 后显示「网络错误，请稍后重试」。
 - 修复：三处 `/v1/rdb/rest/*` 反代块（HTTP 配置、HTTPS 域名块、HTTPS 里的 `:80` 块）加 `header_up -Origin`。同源请求不需要 CORS，网关响应头对同源页面无影响；鉴权不变（Bearer anon key + `X-Device-Id` 班级 token）。
 - 部署/校验：`python deploy\ecs_site.py apply --https`；ECS 上 `grep -c 'header_up -Origin' /etc/caddy/Caddyfile` 应为 **2**；带 `Origin` 请求 `/v1/rdb/rest/` 应返回 **401**（需鉴权）而不是 403。
 - 备注：ECS IP 调试入口等非白名单来源走同一反代，**无需**改 CloudBase 控制台；其他直连 CloudBase 网关的第三方页面仍受网关 Origin 白名单约束。
 
 ## 4. HTTPS 启用（ICP 备案通过、`tool` 解析恢复之后）
 
-前提：`tool.furina.fun` 的 A 记录已指向 `121.196.47.2`（备案落点），公网可解析。
+前提：`tool.furina.fun` 的 A 记录已指向 `tool.furina.fun`（备案落点），公网可解析。
 
 ```powershell
 python deploy\ecs_site.py apply --https
@@ -90,7 +90,7 @@ systemctl reload caddy
    因为 `tool.furina.fun` 尚未备案解析，现在开会让已发布的旧版小程序/安卓遇到 http/IP URL；等备案通过 + 三端新版发布后按
    `attachments/README.md` §2 一次性开启（存量 41 个附件自动回填）。
 2. **前端同源切换（第 3 步）**：已完成并随 2026-11-10 的 `index.html`（802,355 B）部署；逻辑是运行时按 `location.hostname`
-   决定 `CB = location.origin + "/v1/rdb/rest/"`（仅 `tool.furina.fun` / `121.196.47.2`），其它来源仍走 CloudBase 网关。
+   决定 `CB = location.origin + "/v1/rdb/rest/"`（仅 `tool.furina.fun` / `tool.furina.fun`），其它来源仍走 CloudBase 网关。
 3. **PPT 媒体仍在 OSS 香港**（`ppt/a/…`），跨境访问慢；后续可加 ECS 反代 + 磁盘缓存（媒体不可变，适合长缓存）。
 
 ## 8. PPT 文件本地缓存（下载加速，2026-11-11）
@@ -153,12 +153,12 @@ python deploy\ecs_site.py verify                # 末尾含 pptfiles health 检�
 
 ```bash
 # 预热（转换机在上传后会自动调用 `?force=1`；也可手动）：
-curl -sS 'http://121.196.47.2/pptfiles/__warm/ppt/a/<deckId>/<buildId>/compat.pptx?force=1'
-curl -sS http://121.196.47.2/pptfiles/__warm/ppt/a/<deckId>/<buildId>/preview.pdf
-curl -sS http://121.196.47.2/pptfiles/__warm/ppt/a/<deckId>/<buildId>/original.pptx
+curl -sS 'https://tool.furina.fun/pptfiles/__warm/ppt/a/<deckId>/<buildId>/compat.pptx?force=1'
+curl -sS https://tool.furina.fun/pptfiles/__warm/ppt/a/<deckId>/<buildId>/preview.pdf
+curl -sS https://tool.furina.fun/pptfiles/__warm/ppt/a/<deckId>/<buildId>/original.pptx
 
 # 查看缓存占用：
-curl -sS http://121.196.47.2/pptfiles/__health
+curl -sS https://tool.furina.fun/pptfiles/__health
 du -sh /opt/class-tools/pptfiles/ppt
 
 # 清理全部缓存（不影响 OSS 原件；下次请求自动回源）：
@@ -224,7 +224,7 @@ python deploy\ecs_drop.py verify     # 公网：/drop/__health + CORS 预检 + �
 python deploy\ecs_drop.py selftest   # 测试身份真实 E2E（token 不打印/不落盘）
 ```
 
-- 公网基址：`http://121.196.47.2/drop`（备案 + DNS 恢复后同源 `https://tool.furina.fun/drop`；
+- 公网基址：`https://tool.furina.fun/drop`（备案 + DNS 恢复后同源 `https://tool.furina.fun/drop`；
   下载 URL 由服务端按 `X-Forwarded-Proto/Host` 自动生成，无需改代码）。
 - 回滚：`systemctl disable --now class-tools-drop` → 去掉 `ecs_site.py` 里的 drop handle 后 `apply`；
   旧 Caddyfile 备份在 `/var/www/tool_backup/<时间戳>/Caddyfile.old`；

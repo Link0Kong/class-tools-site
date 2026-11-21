@@ -59,10 +59,10 @@
 |---|---|---|
 | 身份 | `#idgate`；`classVerify`；token 存 `zq_class_identity`，29 天免登录（`index.html:12994`） | 原样；壳不另做登录 |
 | 数据 | CloudBase PostgREST；`X-Device-Id`；`var CB` 字面量（`:4322`） | 本机代理转发，附带固定 `Origin` |
-| 同源反代 | 站点在 `tool.furina.fun`/`121.196.47.2` 时 `CB` 改同源 `/v1/rdb/rest/`（`:4327-4328`） | 本机 origin 不是这两个，不触发；由壳重写为 `/__cb/` |
+| 同源反代 | 站点在 `tool.furina.fun`/`tool.furina.fun` 时 `CB` 改同源 `/v1/rdb/rest/`（`:4327-4328`） | 本机 origin 不是这两个，不触发；由壳重写为 `/__cb/` |
 | 同步 | UD v6（14 顶层键、逐 section LWW）+ `marks` | **完全不变**；壳不新增同步类别 |
-| PPT | 下载详情的 `<a download="标题_兼容版.pptx">`（`:13642`）；ECS 缓存基址 `http://121.196.47.2/pptfiles`（`:13562`）；大屏「打开文件」是 `target=_blank`（`:17481`，**不是** `ms-powerpoint:`） | 重写为同源 `/__ecs/pptfiles`；下载属性保留正确文件名；壳拦截并调 Office |
-| 文件传输/互联 | 同账号临时云空间；`http://121.196.47.2/drop`（`:18203/19400`）；8 MiB 分片 | 重写为 `/__ecs/drop`，走本机代理（顺带消除 CORS） |
+| PPT | 下载详情的 `<a download="标题_兼容版.pptx">`（`:13642`）；ECS 缓存基址 `https://tool.furina.fun/pptfiles`（`:13562`）；大屏「打开文件」是 `target=_blank`（`:17481`，**不是** `ms-powerpoint:`） | 重写为同源 `/__ecs/pptfiles`；下载属性保留正确文件名；壳拦截并调 Office |
+| 文件传输/互联 | 同账号临时云空间；`https://tool.furina.fun/drop`（`:18203/19400`）；8 MiB 分片 | 重写为 `/__ecs/drop`，走本机代理（顺带消除 CORS） |
 | 大屏 | 仅管理员可开（`:18790`，页脚「仅管理员 · 团日活动」）；V5 布局/投票/抽签/PPT/互联 | 原样；壳只做全屏/投影/常亮，**不提权** |
 | 通知 | 页面打开时 45s 轻量签名轮询（`:19809`），`new Notification`（`:19757`） | 托盘保活 + WebView2 通知（M0 验证）；不另建推送 |
 | 诊断 | `#s-diag` 全员可见；`client_diag` 白名单 | 壳另做本机诊断日志；不新增上报字段 |
@@ -121,7 +121,7 @@ A 的本机 origin `http://127.0.0.1:47821` 不触发这些同源分支；只需
 
 ### 3.4 0 代码临时方案（只用于对比/体验）
 
-`msedge.exe --app=http://121.196.47.2/ --start-fullscreen` 可以立刻得到一个无地址栏窗口，适合课前临时用；但没有离线包、托盘、下载管理、Office 联动、更新、公用电脑清理，**不作为交付形态**。
+`msedge.exe --app=https://tool.furina.fun/ --start-fullscreen` 可以立刻得到一个无地址栏窗口，适合课前临时用；但没有离线包、托盘、下载管理、Office 联动、更新、公用电脑清理，**不作为交付形态**。
 
 ---
 
@@ -192,19 +192,19 @@ A 的本机 origin `http://127.0.0.1:47821` 不触发这些同源分支；只需
 | # | 原文（精确） | 替换为 | 期望次数 | 作用 |
 |---|---|---|---|---|
 | R1 | `https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/` | `/__cb/` | 1 | 登录/全部数据走本机代理，消除 CORS |
-| R2 | `PPT_ECS_BASE="http://121.196.47.2/pptfiles"` | `PPT_ECS_BASE="/__ecs/pptfiles"` | 1 | PPT 下载同源，`download` 文件名生效 |
-| R3 | `"http://121.196.47.2/drop"` | `"/__ecs/drop"` | 4 | 文件传输/大屏互联同源，不依赖 drop 的 CORS |
+| R2 | `PPT_ECS_BASE="https://tool.furina.fun/pptfiles"` | `PPT_ECS_BASE="/__ecs/pptfiles"` | 1 | PPT 下载同源，`download` 文件名生效 |
+| R3 | `"https://tool.furina.fun/drop"` | `"/__ecs/drop"` | 4 | 文件传输/大屏互联同源，不依赖 drop 的 CORS |
 | R4 | `location.origin+location.pathname+"#drop"` | `"<ShareBase>/#drop"` | 1 | 「复制互联链接」不再复制出 `127.0.0.1` 的无效链接 |
 | R5 | `var base="https://tool.furina.fun";` | `var base="<ShareBase>";` | 1 | 抽签核验二维码/链接在备案期也能扫开（当前用 ECS IP，域名恢复后自动用域名） |
 
-**`<ShareBase>` 的取值**：启动时先用上次缓存（首次默认 `http://121.196.47.2`），后台用 2s HEAD 探测 `https://tool.furina.fun/`；可用则切 `https://tool.furina.fun`，否则若 `http://121.196.47.2/` 可用则保持 IP，两者都不可用则仍用域名（此时分享出去也打不开，等联网）。探测结果缓存 10 分钟并后台刷新；页面重新加载即用新值。**不要把 ShareBase 写死成 IP 或域名**：备案期/恢复期两种状态都要能用。
+**`<ShareBase>` 的取值**：启动时先用上次缓存（首次默认 `https://tool.furina.fun`），后台用 2s HEAD 探测 `https://tool.furina.fun/`；可用则切 `https://tool.furina.fun`，否则若 `https://tool.furina.fun/` 可用则保持 IP，两者都不可用则仍用域名（此时分享出去也打不开，等联网）。探测结果缓存 10 分钟并后台刷新；页面重新加载即用新值。**不要把 ShareBase 写死成 IP 或域名**：备案期/恢复期两种状态都要能用。
 
 规则实现要求：
 
 - 每条**必须匹配到期望次数**；任一不符 → 不返回页面，显示本机错误页「Windows 壳与网页版本不匹配，请更新壳」。**不允许半替换后带病运行**（否则表现为登录 404/文件下载失败，极难排查）。
 - 重写后在 HTML 顶部加一行注释：`<!-- CT-DESKTOP-REWRITE v1 cb=1 ppt=1 drop=4 share=1 verify=1 -->`，供自检/日志。
 - 规则表随壳版本号管理（`RewriteProfile = "2026-11-16.1"`）；网页升级若改动这些字符串，发布前用 `tools/tests` 跑壳的兼容测试，或同步发壳。
-- **不改** `h==="121.196.47.2"` 这类 hostname 判断（本机 hostname 是 `127.0.0.1`，不会命中，留着无害）；不做全局 IP 替换，避免误伤判断逻辑。
+- **不改** `h==="tool.furina.fun"` 这类 hostname 判断（本机 hostname 是 `127.0.0.1`，不会命中，留着无害）；不做全局 IP 替换，避免误伤判断逻辑。
 
 #### 5.1.2 路由表
 
@@ -214,9 +214,9 @@ A 的本机 origin `http://127.0.0.1:47821` 不触发这些同源分支；只需
 | `/tt.json` | **ECS 在线优先**（`/tt.json`，2s 超时、缓存 5 分钟）→ 本地 pack 兜底 | 避免 pack 里的课表快照长期陈旧；断网仍可用 |
 | `/assets/*`、`/map/*`、`/favicon.ico` | 本地 pack | `map` 是页面 iframe 的 `/map/campus_final_25d.html`，必须随包 |
 | `/__cb/*` | `https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/*` | 固定 `Origin: https://tool.furina.fun`、`Referer` 同值；TLS 校验开启 |
-| `/__ecs/pptfiles/*` | `http://121.196.47.2/pptfiles/*`（域名恢复后优先 `https://tool.furina.fun/pptfiles/*`） | 保留 Range/206/HEAD/Content-Length；大文件流式 |
-| `/__ecs/drop/*` | `http://121.196.47.2/drop/*`（同上可切 HTTPS） | 8 MiB 分片上传；流式，不整包缓冲 |
-| `/__ecs/att/*` | `http://121.196.47.2/att/*`（预留） | 目前页面附件走绝对 URL，暂不强制 |
+| `/__ecs/pptfiles/*` | `https://tool.furina.fun/pptfiles/*`（域名恢复后优先 `https://tool.furina.fun/pptfiles/*`） | 保留 Range/206/HEAD/Content-Length；大文件流式 |
+| `/__ecs/drop/*` | `https://tool.furina.fun/drop/*`（同上可切 HTTPS） | 8 MiB 分片上传；流式，不整包缓冲 |
+| `/__ecs/att/*` | `https://tool.furina.fun/att/*`（预留） | 目前页面附件走绝对 URL，暂不强制 |
 | `/__chan/health` | 本机 | 返回 `{ok, shell, pack, rewrite}`；不返回 token/路径 |
 | 其它 | 404 | **不是开放代理**：上游 host 由路由固定，绝不根据请求 URL 拼接 |
 
@@ -673,7 +673,7 @@ build.ps1
 - pack：`packs\previous` + 设置「使用上一版资源包」；删除 `active` 指针自动回退。
 - 网页：**零改动**，无需回滚。
 - 云端：**零改动**，无需回滚。
-- 应急：`--safe-mode` 或 `--remote`（直接加载线上 `http://121.196.47.2/`，功能等同浏览器，无离线/Office 增强）。
+- 应急：`--safe-mode` 或 `--remote`（直接加载线上 `https://tool.furina.fun/`，功能等同浏览器，无离线/Office 增强）。
 
 ---
 
@@ -702,15 +702,15 @@ build.ps1
 
 ```text
 R1  count=1  https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/  ->  /__cb/
-R2  count=1  PPT_ECS_BASE="http://121.196.47.2/pptfiles"                              ->  PPT_ECS_BASE="/__ecs/pptfiles"
-R3  count=4  "http://121.196.47.2/drop"                                                ->  "/__ecs/drop"
+R2  count=1  PPT_ECS_BASE="https://tool.furina.fun/pptfiles"                              ->  PPT_ECS_BASE="/__ecs/pptfiles"
+R3  count=4  "https://tool.furina.fun/drop"                                                ->  "/__ecs/drop"
 R4  count=1  location.origin+location.pathname+"#drop"                                 ->  "<ShareBase>/#drop"
 R5  count=1  var base="https://tool.furina.fun";                                       ->  var base="<ShareBase>";
 ```
 
 - 任一条 count 不符：不返回页面，本机错误页 + 日志 `rewrite_mismatch rule=R? expected=? actual=?`。
 - 成功：HTML 顶部插 `<!-- CT-DESKTOP-REWRITE v1 ... -->`；`/__chan/health` 暴露计数（不含内容）。
-- `<ShareBase>` 由壳在启动/每 10 分钟探测 `https://tool.furina.fun/` 与 `http://121.196.47.2/` 后决定（见 §5.1.1），不是固定值。
+- `<ShareBase>` 由壳在启动/每 10 分钟探测 `https://tool.furina.fun/` 与 `https://tool.furina.fun/` 后决定（见 §5.1.1），不是固定值。
 - 兼容性测试：`tests/test_rewrite.py` 读取线上 `index.html`，断言 5 条计数；发布前跑。
 
 ### A.2 代理请求头（白名单）
@@ -748,7 +748,7 @@ R5  count=1  var base="https://tool.furina.fun";                                
   "schema": 1,
   "kind": "shell",
   "version": "1.0.0",
-  "url": "http://121.196.47.2/dl/win/ClassToolsSetup-1.0.0.exe",
+  "url": "https://tool.furina.fun/dl/win/ClassToolsSetup-1.0.0.exe",
   "sha256": "<hex>",
   "size": 73400320,
   "min_version": "1.0.0",
@@ -772,7 +772,7 @@ shell\n1.0.0\n<url>\n<sha256>\n<size>\n<min_version>
   "kind": "pack",
   "pack": "2026-11-16.1",
   "web_ver": "2.0.0",
-  "url": "http://121.196.47.2/dl/win/pack-2026-11-16.1.zip",
+  "url": "https://tool.furina.fun/dl/win/pack-2026-11-16.1.zip",
   "sha256": "<zip hex>",
   "size": 1780000,
   "min_shell": "1.0.0",

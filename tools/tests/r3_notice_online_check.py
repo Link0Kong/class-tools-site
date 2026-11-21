@@ -252,8 +252,8 @@ def check_cloud(index_html):
       "%s ~ %s" % (c1.get("signupStart"), c1.get("signupEnd")))
     # 花名册 / 献血
     fg = by.get("g_qqfile_1a81286a3a") or {}
-    S("B8 云端花名册 sender=兰佳杰/学习委员",
-      norm(fg.get("senderName")) == "兰佳杰"
+    S("B8 云端花名册 sender=同学B/学习委员",
+      norm(fg.get("senderName")) == "同学B"
       and ("学习委员" in norm(fg.get("senderRole")) or "班委" in norm(fg.get("senderBadge"))),
       "%s/%s" % (fg.get("senderName"), fg.get("senderRole")))
     xx = [g for g in groups if "献血" in json.dumps(g, ensure_ascii=False)]

@@ -314,14 +314,14 @@ try{
   OUT.targets.file=fileG?{id:fileG.id,senderName:fileG.senderName,senderRole:fileG.senderRole,
       senderBadge:fileG.senderBadge,fromName:fileG.fromName,fromRaw:fileG.fromRaw,
       pubname:filePub,pubbadge:fileBadge}:null;
-  P("A5.1 花名册 senderName = 兰佳杰", !!(fileG&&norm(fileG.senderName)==="兰佳杰"),
+  P("A5.1 花名册 senderName = 同学B", !!(fileG&&norm(fileG.senderName)==="同学B"),
     fileG?("senderName="+fileG.senderName+" role="+fileG.senderRole+" badge="+fileG.senderBadge):"");
   P("A5.2 花名册 senderRole/senderBadge 体现职务或班委",
     !!(fileG&&(/学习委员/.test(norm(fileG.senderRole))||/班委/.test(norm(fileG.senderBadge))||/学习委员/.test(fileBadge))),
     fileG?("role="+fileG.senderRole+" badge="+fileG.senderBadge+" DOMbadge="+fileBadge):"");
-  P("A5.3 页面署名行为「兰佳杰」，不显示「天城企鹅」",
-    !!(fileG&&filePub.indexOf("兰佳杰")>=0&&fileTxt.indexOf("天城企鹅")<0),
-    "pubname="+filePub+" card含天城企鹅="+(fileTxt.indexOf("天城企鹅")>=0));
+  P("A5.3 页面署名行为「同学B」，不显示「网名B」",
+    !!(fileG&&filePub.indexOf("同学B")>=0&&fileTxt.indexOf("网名B")<0),
+    "pubname="+filePub+" card含网名B="+(fileTxt.indexOf("网名B")>=0));
 
   // ---------------- A6 本人献血转发上板（Lead 口径：并入既有献血卡；独立新卡=FAIL） ----------------
   var xx=gs.filter(function(g){return JSON.stringify(g).indexOf("献血")>=0;});
@@ -329,7 +329,7 @@ try{
   var hasSupText=false,hasMyLink=false,hasNote=false;
   (xCard&&xCard.items||[]).forEach(function(it){
     var blob=norm(it.text)+" "+norm(it.name)+" "+norm(it.from)+" "+norm(it.fromName)+" "+norm(it.note);
-    var mine=/陈子麒/.test(blob);
+    var mine=/管理员/.test(blob);
     if(it.label==="补充通知"&&mine&&norm(it.time)==="11-05 10:18"&&/11月14日|下周六|献血/.test(blob))hasSupText=true;
     if(mine&&it.url&&/11月14日|下周六|献血/.test(blob))hasMyLink=true;
     if(mine&&/本人转发/.test(norm(it.note)))hasNote=true;
@@ -338,7 +338,7 @@ try{
       eventAction:g.eventAction,supplement:g.supplement,updatedAt:g.updatedAt,itemCount:(g.items||[]).length,
       items:(g.items||[]).map(function(it){return {label:it.label,time:it.time,from:it.from,fromName:it.fromName,
           kind:it.kind,text:norm(it.text||it.name||'').slice(0,90),url:norm(it.url||'').slice(0,50),note:norm(it.note||'')};})};});
-  P("A6.1 本人 11-05 10:18 献血转发已并入献血卡（补充通知 text item，陈子麒）",
+  P("A6.1 本人 11-05 10:18 献血转发已并入献血卡（补充通知 text item，管理员）",
     xx.length===1&&hasSupText,
     "献血组="+xx.length+" 补充通知text="+hasSupText+" card="+(xCard&&xCard.id));
   P("A6.2 献血卡含本人转发的可点链接 item（公众号 URL，note 含「本人转发」）",
@@ -653,7 +653,7 @@ def py_data_steps(board, now):
     # ---- A5 数据：花名册发送者映射
     fileg = next((g for g in groups if str(g.get("id", "")).startswith("g_qqfile_1a81286a3a")), None)
     if fileg:
-        S("D5.1 花名册 fromName=兰佳杰", norm(fileg.get("senderName")) == "兰佳杰" or norm(fileg.get("fromName")) == "兰佳杰",
+        S("D5.1 花名册 fromName=同学B", norm(fileg.get("senderName")) == "同学B" or norm(fileg.get("fromName")) == "同学B",
           "senderName=%s fromName=%s" % (fileg.get("senderName"), fileg.get("fromName")))
         S("D5.2 花名册 fromRole=学习委员 或 fromBadge=班委",
           "学习委员" in norm(fileg.get("senderRole")) or "班委" in norm(fileg.get("senderBadge")),
@@ -675,10 +675,10 @@ def py_data_steps(board, now):
             return (norm(it.get("text")) + " " + norm(it.get("name")) + " " + norm(it.get("from"))
                     + " " + norm(it.get("fromName")) + " " + norm(it.get("note")))
 
-        sup_text = [it for it in its if norm(it.get("label")) == "补充通知" and "陈子麒" in itblob(it)
+        sup_text = [it for it in its if norm(it.get("label")) == "补充通知" and "管理员" in itblob(it)
                     and norm(it.get("time")) == "11-05 10:18"
                     and contains_any(itblob(it), ["11月14日", "下周六", "献血"])]
-        my_link = [it for it in its if "陈子麒" in itblob(it) and norm(it.get("url"))
+        my_link = [it for it in its if "管理员" in itblob(it) and norm(it.get("url"))
                    and "mp.weixin" in norm(it.get("url"))]
         note_ok = any("本人转发" in norm(it.get("note")) for it in its)
         S("D6.2 献血卡标题/摘要含「献血」",
@@ -880,7 +880,7 @@ HINTS = {
     "A2": "检查 statusOf deadline 分支是否用 deadlineAction，且 fmtWhen 按 24h/7d 分段、不再硬编码「今天」；复现：固定 now=11-05T23:00 看 5396 卡 chip。",
     "A3": "检查 builder 是否写入 signupStart/signupEnd，statusOf 是否「报名优先」先于 deadline/eventAt；复现：药膳 c0 卡 chip。",
     "A4": "检查「收集表报名时间 11月3日12:00-20:30」是否被正确解析为 signupEnd（不要误用 11-12 作品提交截止）；复现：g_food 卡 chip。",
-    "A5": "检查 class-identities/class-aliases 的「天城企鹅」→兰佳杰匹配（_person_clean/最长别名包含）；复现：g_qqfile_1a81286a3a 卡 publine。",
+    "A5": "检查 class-identities/class-aliases 的「网名B」→同学B匹配（_person_clean/最长别名包含）；复现：g_qqfile_1a81286a3a 卡 publine。",
     "A6": "检查 ai_triage 本人转发 rescue（isSelf 聚类 → 同主题 supplements 并入）：应并入 g_ait_d3117057d2（补充通知 text+link，note 含「本人转发」）而不是独立新卡；若出现独立献血卡=FAIL。复现：board-data 里数「献血」组数应=1。",
     "A7": "检查 statusOf label 组装是否统一「时间 动作」、fmtWhen 分段边界（1h/24h/7d）、去掉「今天/明天」与「已截止·自动完成/已结束·自动归档/已延长」旧文案。",
     "A8": "检查显示层相对日期替换：作用对象 aiSummary/aiPoints/aiSegments/item.text/messages/原始消息弹层，锚点=该卡第一条 item.time；复现：申报材料「明天中午前/周日晚点名」。",

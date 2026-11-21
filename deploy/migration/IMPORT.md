@@ -117,7 +117,7 @@ python deploy\ecs_pg.py staging
    - 延迟：本机 → staging P50 对比 CloudBase 网关 P50。
 3. `python deploy\ecs_pg.py staging` → staging root 200/OpenAPI、`rpc/not_exists` 404、带 JWT 请求 200（**Authorization 已被 Caddy 剥掉**）、生产 `/v1/rdb/rest/` 仍 401（CloudBase 未切流）。
 4. `python deploy\ecs_pg.py probe` → PG 参数/角色/服务/备份/Caddy 路由计数（`staging_routes=3`、`prod_routes=3`）。
-5. 网页 staging 真实验证（Lead/前端）：`http://121.196.47.2/?api=next` 用测试账号登录（`tools/index.html` 内置 `?api=next` 切到 staging）。
+5. 网页 staging 真实验证（Lead/前端）：`https://tool.furina.fun/?api=next` 用测试账号登录（`tools/index.html` 内置 `?api=next` 切到 staging）。
 
 ### 4.1 接口/行为差异排查清单
 
@@ -175,7 +175,7 @@ python deploy\ecs_site.py apply   # 生产 /v1/rdb/rest/* 不受影响
 | 时间 | 阶段 | 结果 |
 |---|---|---|
 | 2026-11-18 13:39 | P1 provision | PG **18.6** + PostgREST **13.0.8** 就绪（127.0.0.1:3000）；角色/库（C locale）/备份 timer 就绪；`provision` 幂等重跑通过 |
-| 2026-11-18 13:41 | P1 staging 路由 | `deploy/ecs_site.py apply` 生效：`handle_path /v1/rdb/rest-next/*`（域名块 + IP `:80` 块）；公网 `http://121.196.47.2/v1/rdb/rest-next/` = 200 OpenAPI；`rpc/not_exists` = 404；带 JWT 请求 = 200（Authorization 已剥离）；生产 `/v1/rdb/rest/` = 401（仍 CloudBase，未切流） |
+| 2026-11-18 13:41 | P1 staging 路由 | `deploy/ecs_site.py apply` 生效：`handle_path /v1/rdb/rest-next/*`（域名块 + IP `:80` 块）；公网 `https://tool.furina.fun/v1/rdb/rest-next/` = 200 OpenAPI；`rpc/not_exists` = 404；带 JWT 请求 = 200（Authorization 已剥离）；生产 `/v1/rdb/rest/` = 401（仍 CloudBase，未切流） |
 | 2026-11-18 13:42 | P0 schema 导入自测 | `roles.sql`+`schema.sql` 在临时库（C locale）导入通过：34 表/89 函数/73 策略/2 触发器/60 索引/4 序列；临时库已删 |
 | 2026-11-18 14:07 | **P0 数据导入（最终版）** | 产物 `20261118-1337`（41.05MB）经私有 OSS → ECS：**34/34 表、19,341 行导入成功**；`HASH_OK 34`（gz sha + 行哈希 34/34 一致）、`row_mismatch=[]`；序列 setval：hw_bindings=5 / power_history=9417 / push_tokens=17；`db-extra-search-path → public,private`；对象属主 `class_tools_owner` |
 | 2026-11-18 14:08 | 行数校验 | `verify --expect manifest.json` → **VERIFY_OK tables=34**；库内计数 34 表/89 函数/73 策略/2 触发器/60 索引，db_size 72MB |

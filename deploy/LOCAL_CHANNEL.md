@@ -13,7 +13,7 @@
 **方式 B（命令行）**：
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web
+cd %USERPROFILE%\.openclaw\workspace\web
 python deploy\local_channel.py --open          # 或 --port 8899
 ```
 
@@ -42,7 +42,7 @@ python deploy\local_channel.py --open          # 或 --port 8899
 ## 自检（改动本工具后跑）
 
 ```powershell
-cd C:\Users\Ko_Li\.openclaw\workspace\web
+cd %USERPROFILE%\.openclaw\workspace\web
 python deploy\local_channel_selftest.py
 ```
 

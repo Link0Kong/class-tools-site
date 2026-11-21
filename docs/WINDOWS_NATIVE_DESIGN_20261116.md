@@ -3,7 +3,7 @@
 > 版本：v0.3（设计稿） · 日期：2026-11-16 · 状态：**范围已确认；M0 ✅、M1 ✅、M2 学习页核心 ✅、M3 抽签核心 ✅（名单/分组/体测/导出待做），按里程碑推进**
 > 适用：**只在旅行者自己的 Windows 电脑上使用**；**功能全做**；**Win11 现代化 UI + 高质量交互**；不要 WebView/网页壳
 > **2026-11-16 已确认**：全功能（含地图、PPT 播放器、大屏 V5）；安卓独有功能（今日校园/第二课堂/快递/学信网提取）不做；WinUI 3 工具链已通过。
-> 代码：`C:\Users\Ko_Li\.openclaw\workspace\windows-class-tools`（`ClassTools.WinUI.sln`；M1 登录/同步数据层已完成，M2 页面进行中）。
+> 代码：`%USERPROFILE%\.openclaw\workspace\windows-class-tools`（`ClassTools.WinUI.sln`；M1 登录/同步数据层已完成，M2 页面进行中）。
 > 说明：本文 v0.3 直接取代 v0.2 的单机原生方案（同一文件已更新为全量范围）；v0.1 WebView2 壳方案见 [WINDOWS_DESKTOP_DESIGN_20261116.md](WINDOWS_DESKTOP_DESIGN_20261116.md)（已存档）。
 > 关联契约：`AGENTS.md` §0/§1、`CLOUDBASE.md`、`HANDOFF.md` §5、`ppt/CONTRACT.md`、`vote/CONTRACT.md`、`draw/CONTRACT.md`、`drop/CONTRACT.md`、`tools/tests/_water_contract.md`
 > 本文只做设计：不改网页、不改云端表/RLS/UD v6、不部署。
@@ -22,7 +22,7 @@
 
 **必须提前说清的成本**：这不是壳，是完整的第四端原生应用。全量 + 高质量 UI 约 **180–210 人日**；全职约 **5–6 个月**，每天 5 小时约 **8–10 个月**。如果希望更快，只能减少范围或对少数复杂页面接受浏览器/WebView 兜底（见 §1.3 的杠杆）。
 
-**M0 技术验证（2026-11-16 已通过主项）**：本机没有 Visual Studio/独立 Windows SDK，但用 `dotnet` + NuGet 的 `Microsoft.WindowsAppSDK 2.6.4` + `Microsoft.Windows.SDK.BuildTools 10.0.28000.2957` **成功构建并启动**了 WinUI 3 工程（.NET 10，自包含未打包）；`NavigationView`、Mica、中文字体、`InfoBar`、品牌 Accent、自定义标题栏、**Office COM（PowerPoint 16.0）** 均验证通过。剩余 M0 项：`AppNotificationManager`、托盘、文件选择器。工程与骨架见 `C:\Users\Ko_Li\.openclaw\workspace\windows-class-tools`。
+**M0 技术验证（2026-11-16 已通过主项）**：本机没有 Visual Studio/独立 Windows SDK，但用 `dotnet` + NuGet 的 `Microsoft.WindowsAppSDK 2.6.4` + `Microsoft.Windows.SDK.BuildTools 10.0.28000.2957` **成功构建并启动**了 WinUI 3 工程（.NET 10，自包含未打包）；`NavigationView`、Mica、中文字体、`InfoBar`、品牌 Accent、自定义标题栏、**Office COM（PowerPoint 16.0）** 均验证通过。剩余 M0 项：`AppNotificationManager`、托盘、文件选择器。工程与骨架见 `%USERPROFILE%\.openclaw\workspace\windows-class-tools`。
 
 ---
 

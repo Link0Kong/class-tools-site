@@ -13,7 +13,7 @@ https://tool.furina.fun/att/<id>?exp=<unix秒>&sig=<hex64>
 - `<id>` = 文件字节 sha256 的前 32 位小写十六进制（内容寻址、不可枚举、同内容天然去重）。
 - `sig` = `HMAC-SHA256(key, "<id>\n<exp>")` 的 hex；`key = sha256(CLOUD_SYNC_TOKEN + "|att-v1")`（服务端/客户端同源推导，无新增密钥分发）。
 - `exp` = Unix 秒；默认 **180 天**，每次通知同步（`sync_notices_cloud.py` 重建）重新签名。
-- 备案期调试可临时用 `http://121.196.47.2/att/...`（`ATT_BASE_URL` 覆盖）；三端代码只判断 `^https?://`，**不写死域名**。
+- 备案期调试可临时用 `https://tool.furina.fun/att/...`（`ATT_BASE_URL` 覆盖）；三端代码只判断 `^https?://`，**不写死域名**。
 - GET 不需要任何请求头/cookie；`<img>` / `<a download>` / `wx.downloadFile` / OkHttp 均可直接取。
 
 ## 2. 云端字段（只动三处）
@@ -49,7 +49,7 @@ https://tool.furina.fun/att/<id>?exp=<unix秒>&sig=<hex64>
 
 ```
 NOTICE_ATTACH_EXTERNALIZE=1   # 开启（默认关闭，等三端发布 + 备案通过后打开）
-ATT_BASE_URL=https://tool.furina.fun   # 可选；备案期调试用 http://121.196.47.2
+ATT_BASE_URL=https://tool.furina.fun   # 可选；备案期调试用 https://tool.furina.fun
 ```
 
 - 开启后：解析 `items` 三处 data URI → 上传（同内容去重）→ 替换为签名 URL → 再写云端；**上传失败保留 data URI（fail-open）**，不会让通知丢失。

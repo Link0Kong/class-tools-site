@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全问题（私下报告）
+    url: https://github.com/Link0Kong
+    about: 请勿公开提交安全问题，按 SECURITY.md 的方式私下联系维护者。
+  - name: 使用与构建问题
+    url: https://github.com/Link0Kong?tab=repositories
+    about: 先阅读仓库 README 与文档；仍无法解决再提交 Issue。

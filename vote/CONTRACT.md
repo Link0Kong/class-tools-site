@@ -127,7 +127,7 @@ RPC 内不泄露他人投票明细（匿名投票连发起人/管理员也不返
   "now": 1760000000000,
   "polls": [{
     "id": "pabc123", "title": "…", "description": "…", "mode": "quick",
-    "owner_name": "陈子麒", "settings": { … }, "deadline": 1760000000000,
+    "owner_name": "管理员", "settings": { … }, "deadline": 1760000000000,
     "status": "open", "closed_at": 0, "created_at": 1760000000000, "updated_at": 1760000000000,
     "audience": "committee", "audience_count": 0,
     "closed": false, "total": 12, "counts": {"o1": 7, "o2": 5},
