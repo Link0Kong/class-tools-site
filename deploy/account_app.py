@@ -26,6 +26,17 @@
   GET  /honor/bindings              → 同 OPPO
   POST /honor/unbind {id}           → 同 OPPO
 
+二维码跨设备登录（2026-11-22，契约 web/docs/QR_LOGIN_CONTRACT.md）：
+  POST /qr/create {p?}              → {ok,t,k,ttl,exp}；t 进二维码，k 只留在发起端轮询
+  GET  /qr/poll?t=&k=               → {ok,status:wait|ok|deny|expired[,...]}；
+                                      status=ok 时带 {token,sid,name,role,badge,is_admin,provider}
+  POST /qr/authorize {t,p?,via?}    → {ok,name}（需 X-Class-Token；服务端校验身份后另签 30 天
+                                      token 写入票据，客户端无法伪造 token）
+  POST /qr/deny {t}                 → {ok}（需 X-Class-Token；手机端取消）
+  票据 180s 过期为默认值（ACCOUNT_QR_TTL 可调，上限 600）；/qr/* 返回 CORS 头（无 Cookie），
+  供 OSS 直连页面跨源访问；t/k 均为 128-bit 随机串，服务日志不打印。
+  App 扩展位：原生端可认领二维码链接后调 `/qr/authorize`，p/via 只作展示与统计。
+
 环境变量：
   ACCOUNT_PORT=8094
   ACCOUNT_GATEWAY=https://.../v1/rdb/rest/
@@ -34,12 +45,15 @@
   ACCOUNT_OPPO_FILE=/opt/class-tools/account/oppo-account.json    # {"app_id","app_key","app_secret"}
   ACCOUNT_HONOR_FILE=/opt/class-tools/account/honor-account.json  # {"client_id","client_secret","redirect_uri"}
   ACCOUNT_MOCK=1   # 仅本地自测：code 以 MOCK: 开头时不再请求厂商；生产必须为 0
+  ACCOUNT_QR_TTL=180  # 二维码票据有效期（秒，60–600）
 """
 import base64
 import hashlib
+import hmac
 import json
 import os
 import re
+import secrets
 import sys
 import threading
 import time
@@ -54,7 +68,7 @@ try:
 except Exception:  # noqa: BLE001
     pass
 
-VERSION = "1.1"
+VERSION = "1.2"
 PORT = int(os.environ.get("ACCOUNT_PORT") or "8094")
 GATEWAY = os.environ.get("ACCOUNT_GATEWAY") or (
     "https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/")
@@ -82,10 +96,27 @@ PROVIDERS = {
 MAX_BINDINGS = 3
 MAX_BODY = 64 * 1024
 RATE_LIMIT = 30  # 每 IP 每分钟 login+bind 次数
+# 二维码跨设备登录（2026-11-22）
+try:
+    QR_TTL = max(60, min(600, int(os.environ.get("ACCOUNT_QR_TTL") or "180")))
+except Exception:  # noqa: BLE001
+    QR_TTL = 180
+QR_MAX = 2000          # 内存票据上限（超出按创建时间淘汰）
+QR_CREATE_LIMIT = 12   # 每 IP 每分钟建票
+QR_POLL_LIMIT = 240    # 每 IP 每分钟轮询（前端 1.2s 一次 ≈ 50）
+QR_AUTH_LIMIT = 30     # 每 IP 每分钟授权/取消
 
 _LOCK = threading.Lock()
-_RATE = {}  # ip -> [timestamps]
+_RATE = {}  # "ip|bucket" -> [timestamps]
+_QR_LOCK = threading.Lock()
+_QR = {}    # t -> {k, at, exp, state, provider, token, sid, name, role, badge, is_admin, via}
 _HEADERS = {"Content-Type": "application/json", "Cache-Control": "no-store"}
+_CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-Class-Token, X-Device-Id",
+    "Access-Control-Max-Age": "600",
+}
 
 
 def _read_file(path, limit=2 * 1024 * 1024):
@@ -155,15 +186,16 @@ def _log(msg):
     print(line, flush=True)
 
 
-def _rate_ok(ip):
+def _rate_ok(ip, bucket="login", limit=RATE_LIMIT):
     now = time.time()
+    key = "%s|%s" % (ip, bucket)
     with _LOCK:
-        items = [t for t in _RATE.get(ip, []) if now - t < 60]
-        if len(items) >= RATE_LIMIT:
-            _RATE[ip] = items
+        items = [t for t in _RATE.get(key, []) if now - t < 60]
+        if len(items) >= limit:
+            _RATE[key] = items
             return False
         items.append(now)
-        _RATE[ip] = items
+        _RATE[key] = items
     return True
 
 
@@ -243,16 +275,140 @@ def _whoami(user_token):
     return None
 
 
-def _class_verify(sid, name):
+def _class_verify_full(sid, name):
+    """class_verify RPC → 完整身份（token/role/badge/is_admin）；失败返回 (None, reason)。"""
     st, out = _rpc("class_verify", {"p_sid": sid, "p_name": name})
     if st != 200 or not isinstance(out, dict):
         return None, "verify_failed"
     if out.get("ok") is False:
         return None, str(out.get("reason") or "verify_failed")[:60]
-    token = str(out.get("token") or "")
+    token = str(out.get("token") or "").strip()
     if not token:
         return None, "verify_failed"
-    return token, ""
+    return {
+        "token": token,
+        "sid": str(out.get("sid") or sid),
+        "name": str(out.get("name") or name),
+        "role": str(out.get("role") or ""),
+        "badge": str(out.get("badge") or ""),
+        "is_admin": bool(out.get("is_admin")),
+    }, ""
+
+
+def _class_verify(sid, name):
+    full, err = _class_verify_full(sid, name)
+    if not full:
+        return None, err
+    return full["token"], ""
+
+
+# ---------------------------------------------------------------- 二维码跨设备登录
+# 票据只在 ECS 内存中存活 QR_TTL 秒；t 进二维码，k 只返回给发起端用于轮询。
+# 授权时用手机自己的班级 token 调 class_whoami，再 class_verify 另签一份 30 天 token
+# 交给发起端（带 role/badge/is_admin；不把手机 token 或 openid 暴露给任何第三方）。
+
+def _qr_now():
+    return time.time()
+
+
+def _qr_norm_provider(value):
+    p = str(value or "").strip().lower()
+    return p if p in ("oppo", "harmony", "honor") else ""
+
+
+def _qr_purge(now=None, reserve=0):
+    """调用方需持 _QR_LOCK：清过期票据 + 超上限时按创建时间淘汰；reserve 为即将新增的条数。"""
+    now = _qr_now() if now is None else now
+    dead = [t for t, r in _QR.items() if now - float(r.get("at") or 0) > QR_TTL + 120]
+    for t in dead:
+        _QR.pop(t, None)
+    extra = len(_QR) - max(1, QR_MAX - int(reserve))
+    if extra > 0:
+        for t in sorted(_QR, key=lambda x: float(_QR[x].get("at") or 0))[:extra]:
+            _QR.pop(t, None)
+
+
+def _qr_create(provider):
+    now = _qr_now()
+    t = secrets.token_hex(16)
+    k = secrets.token_hex(16)
+    with _QR_LOCK:
+        _qr_purge(now, 1)
+        _QR[t] = {"k": k, "at": now, "exp": now + QR_TTL, "state": "wait",
+                  "provider": _qr_norm_provider(provider)}
+    return {"ok": True, "t": t, "k": k, "ttl": QR_TTL, "exp": int(now + QR_TTL)}
+
+
+def _qr_poll(t, k):
+    t = str(t or "").strip().lower()
+    k = str(k or "").strip().lower()
+    if not t or not k:
+        return 400, {"ok": False, "code": "bad_request", "message": "缺少票据"}
+    now = _qr_now()
+    with _QR_LOCK:
+        rec = _QR.get(t)
+        if not rec:
+            return 200, {"ok": True, "status": "expired"}
+        if not hmac.compare_digest(str(rec.get("k") or ""), k):
+            return 404, {"ok": False, "code": "not_found", "message": "二维码不存在"}
+        if now > float(rec.get("exp") or 0):
+            _QR.pop(t, None)
+            return 200, {"ok": True, "status": "expired"}
+        state = str(rec.get("state") or "wait")
+        if state == "ok":
+            return 200, {"ok": True, "status": "ok", "token": rec.get("token"),
+                         "sid": rec.get("sid"), "name": rec.get("name"),
+                         "role": rec.get("role") or "", "badge": rec.get("badge") or "",
+                         "is_admin": bool(rec.get("is_admin")),
+                         "provider": rec.get("provider") or "", "via": rec.get("via") or "web"}
+        if state == "deny":
+            return 200, {"ok": True, "status": "deny"}
+        return 200, {"ok": True, "status": "wait"}
+
+
+def _qr_authorize(body, class_token):
+    """手机端确认：校验当前班级身份 → 为发起端另签 30 天 token 写入票据。"""
+    t = str(body.get("t") or "").strip().lower()
+    if not t:
+        return 400, {"ok": False, "code": "bad_request", "message": "缺少票据"}
+    now = _qr_now()
+    with _QR_LOCK:
+        rec = _QR.get(t)
+        if not rec or now > float(rec.get("exp") or 0):
+            _QR.pop(t, None)
+            return 200, {"ok": False, "code": "ticket_expired",
+                         "message": "二维码已过期，请在电脑上刷新后重扫"}
+        if rec.get("state") == "ok":
+            return 200, {"ok": True, "name": rec.get("name") or "", "already": True}
+    who = _whoami(class_token)
+    if not who:
+        return 401, {"ok": False, "code": "unauthorized", "message": "身份已失效，请重新登录"}
+    full, _err = _class_verify_full(who["sid"], who["name"])
+    if not full:
+        return 200, {"ok": False, "code": "verify_failed", "message": "身份校验失败，请重新登录"}
+    provider = _qr_norm_provider(body.get("p"))
+    via = "app" if str(body.get("via") or "").strip().lower() == "app" else "web"
+    with _QR_LOCK:
+        rec = _QR.get(t)
+        if not rec or _qr_now() > float(rec.get("exp") or 0):
+            return 200, {"ok": False, "code": "ticket_expired", "message": "二维码已过期，请重试"}
+        if rec.get("state") == "ok":
+            return 200, {"ok": True, "name": rec.get("name") or "", "already": True}
+        rec.update({"state": "ok", "token": full["token"], "sid": full["sid"], "name": full["name"],
+                    "role": full["role"], "badge": full["badge"], "is_admin": full["is_admin"],
+                    "provider": provider or rec.get("provider") or "", "via": via})
+    return 200, {"ok": True, "name": full["name"]}
+
+
+def _qr_deny(body, class_token):
+    t = str(body.get("t") or "").strip().lower()
+    if not _whoami(class_token):
+        return 401, {"ok": False, "code": "unauthorized", "message": "请先登录"}
+    with _QR_LOCK:
+        rec = _QR.get(t)
+        if rec and rec.get("state") != "ok":
+            rec["state"] = "deny"
+    return 200, {"ok": True}
 
 
 def _binding_by_openid(provider, openid):
@@ -501,11 +657,14 @@ class Handler(BaseHTTPRequestHandler):
         # 不打印请求体/Authorization/token
         _log("%s %s" % (self.command, self.path.split("?")[0]))
 
-    def _json(self, status, payload):
+    def _json(self, status, payload, cors=False):
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         for k, v in _HEADERS.items():
             self.send_header(k, v)
+        if cors:
+            for k, v in _CORS_HEADERS.items():
+                self.send_header(k, v)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         try:
@@ -529,6 +688,16 @@ class Handler(BaseHTTPRequestHandler):
         raw = (self.headers.get("X-Class-Token") or self.headers.get("X-Device-Id") or "").strip()
         return raw
 
+    def do_OPTIONS(self):  # noqa: N802
+        if self.path.split("?")[0].startswith("/qr/"):
+            self.send_response(204)
+            for k, v in _CORS_HEADERS.items():
+                self.send_header(k, v)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        return self._json(404, {"ok": False, "code": "not_found", "message": "not found"})
+
     def do_GET(self):  # noqa: N802
         path = self.path.split("?")[0]
         if path in ("/__health", "/health"):
@@ -539,8 +708,18 @@ class Handler(BaseHTTPRequestHandler):
                 "ok": True,
                 "configured": configured,
                 "providers": {"oppo": bool(oppo), "honor": bool(honor)},
+                "qr": True,
+                "qrTtl": QR_TTL,
                 "version": VERSION,
             })
+        if path == "/qr/poll":
+            ip = self.client_address[0]
+            if not _rate_ok(ip, "qrpoll", QR_POLL_LIMIT):
+                return self._json(429, {"ok": False, "code": "rate_limited",
+                                        "message": "请求过于频繁，请稍后再试"}, cors=True)
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            status, payload = _qr_poll((query.get("t") or [""])[0], (query.get("k") or [""])[0])
+            return self._json(status, payload, cors=True)
         for provider in PROVIDERS:
             if path == "/%s/bindings" % provider:
                 status, payload = _bindings_page(provider, self._token())
@@ -553,6 +732,23 @@ class Handler(BaseHTTPRequestHandler):
         if not _rate_ok(ip):
             return self._json(429, {"ok": False, "code": "rate_limited", "message": "请求过于频繁，请稍后再试"})
         body = self._body()
+        if path == "/qr/create":
+            if not _rate_ok(ip, "qrcreate", QR_CREATE_LIMIT):
+                return self._json(429, {"ok": False, "code": "rate_limited",
+                                        "message": "请求过于频繁，请稍后再试"}, cors=True)
+            return self._json(200, _qr_create(body.get("p")), cors=True)
+        if path == "/qr/authorize":
+            if not _rate_ok(ip, "qrauth", QR_AUTH_LIMIT):
+                return self._json(429, {"ok": False, "code": "rate_limited",
+                                        "message": "请求过于频繁，请稍后再试"}, cors=True)
+            status, payload = _qr_authorize(body, self._token())
+            return self._json(status, payload, cors=True)
+        if path == "/qr/deny":
+            if not _rate_ok(ip, "qrauth", QR_AUTH_LIMIT):
+                return self._json(429, {"ok": False, "code": "rate_limited",
+                                        "message": "请求过于频繁，请稍后再试"}, cors=True)
+            status, payload = _qr_deny(body, self._token())
+            return self._json(status, payload, cors=True)
         code = str(body.get("code") or "").strip()
         provider = next((p for p in PROVIDERS if path.startswith("/%s/" % p)), "")
         action = path.rsplit("/", 1)[-1] if provider else ""
@@ -575,8 +771,8 @@ def main():
     adm = bool(_load_admin_token())
     oppo_cfg = _load_oppo_config()
     honor_cfg = _load_honor_config()
-    _log("account service v%s on 127.0.0.1:%d mock=%s publish=%s admin=%s oppo_cfg=%s honor_cfg=%s"
-         % (VERSION, PORT, MOCK, pub, adm, bool(oppo_cfg), bool(honor_cfg)))
+    _log("account service v%s on 127.0.0.1:%d mock=%s publish=%s admin=%s oppo_cfg=%s honor_cfg=%s qr_ttl=%ds"
+         % (VERSION, PORT, MOCK, pub, adm, bool(oppo_cfg), bool(honor_cfg), QR_TTL))
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     srv.daemon_threads = True
     srv.serve_forever()

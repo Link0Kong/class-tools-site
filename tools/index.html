@@ -523,6 +523,50 @@ body.id-locked .idgate{display:flex}
 .idlaw a{color:#4E9082;text-decoration:none;border-bottom:1px solid rgba(78,144,130,.3);padding-bottom:1px}
 .idlaw a:hover{color:#3D7C6F}
 .idver{display:block;margin-top:4px;font-size:10px;letter-spacing:.06em;color:#B3BCB6}
+/* ---------------- 扫码登录（__QR_LOGIN_V1__ 2026-11-22） ---------------- */
+.idor{display:flex;align-items:center;gap:10px;margin:13px 0 10px;color:#A6B0AA;font-size:11px}
+.idor i{flex:1;height:1px;background:#E9EFEB}
+.idqr{width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #DCE6E0;background:#fff;color:#3F6B58;border-radius:14px;padding:12px 14px;font-size:14px;font-weight:750;cursor:pointer;transition:background .15s,border-color .15s,transform .15s}
+.idqr:hover{background:#F3F8F5;border-color:#CBDDD4}
+.idqr:active{transform:scale(.985)}
+.idqr svg{width:17px;height:17px;flex:none}
+body.qr-modal,body.qr-locked{overflow:hidden}
+.qrov{position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;padding:20px 16px;background:rgba(30,42,37,.46)}
+.qrov.on{display:flex}
+.qrcard{width:min(340px,100%);box-sizing:border-box;background:#fff;border:1px solid #E5ECE7;border-radius:22px;padding:18px 18px 14px;box-shadow:0 18px 50px rgba(32,50,42,.22);text-align:center;max-height:90vh;overflow-y:auto}
+.qrhead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.qrhead b{font-size:15px;color:#24302B;letter-spacing:.01em}
+.qrx{border:0;background:transparent;color:#8B9891;font-size:22px;line-height:1;width:40px;height:40px;border-radius:12px;cursor:pointer;flex:none}
+.qrx:hover{background:#F2F6F3;color:#3F6B58}
+.qrseg{display:flex;gap:4px;background:#F2F6F3;border-radius:12px;padding:4px;margin:12px 0 10px}
+.qrseg button{flex:1;border:0;background:transparent;border-radius:9px;padding:9px 6px;font-size:13px;font-weight:700;color:#6B7A73;cursor:pointer;min-height:40px;transition:background .15s,color .15s,box-shadow .15s}
+.qrseg button.on{background:#fff;color:#2F5D4C;box-shadow:0 2px 8px rgba(52,80,68,.10)}
+.qrcv{display:block;width:220px;height:220px;max-width:100%;margin:2px auto 0;border-radius:10px;background:#fff}
+.qrstate{min-height:18px;margin-top:9px;font-size:12px;color:#75847C;line-height:1.5}
+.qrstate.err{color:#B25A48}
+.qrstate.ok{color:#3F6B58;font-weight:700}
+.qract{margin-top:10px}
+.qract .btn{min-height:40px}
+.qrgate{position:fixed;inset:0;z-index:10001;display:none;align-items:center;justify-content:center;padding:20px;background:radial-gradient(120% 90% at 12% 0%,#EAF4EF 0%,#F7F8F6 46%,#F3EEE4 100%)}
+body.qr-locked .qrgate{display:flex}
+.qrccard{width:min(380px,100%);box-sizing:border-box;background:#fff;border:1px solid #E5ECE7;border-radius:22px;padding:26px 22px 20px;box-shadow:0 18px 50px rgba(52,80,68,.12);text-align:center}
+.qrcmark{width:44px;height:44px;border-radius:13px;background:#EAF3EE;color:#3F6B58;display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+.qrcmark svg{width:24px;height:24px}
+.qrctitle{font-size:20px;font-weight:800;color:#24302B}
+.qrcsub{font-size:12px;color:#8B9891;margin:4px 0 16px}
+.qrcwho{font-size:15px;font-weight:750;color:#24302B;background:#F4F8F5;border-radius:12px;padding:12px;margin:0 0 14px}
+.qrccard .idfield{text-align:left}
+.qrccard .idgo{margin-top:4px}
+.qrccancel{width:100%;margin-top:9px;min-height:40px}
+.qrccard .iderr{min-height:16px}
+.qrcok{display:none;padding:16px 0 6px}
+body.qr-done #qrCLive{display:none}
+body.qr-done .qrcok{display:block}
+.qrcok .okmark{width:54px;height:54px;border-radius:50%;background:#E7F2EC;color:#3F6B58;display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+.qrcok .okmark svg{width:28px;height:28px}
+.qrcok b{display:block;font-size:17px;color:#24302B}
+.qrcok span{display:block;font-size:12.5px;color:#8B9891;margin-top:6px}
+@media (max-width:360px){.qrcv{width:196px;height:196px}}
 .ugver{margin-top:14px;text-align:center;font-size:10.5px;letter-spacing:.06em;color:#A6ACA6}
 .idchip{max-width:150px}.idchip em{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .idrole{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:#E7F2EC;color:#3F6B58;font-size:11px;font-weight:700;margin-left:7px;vertical-align:2px}
@@ -2944,6 +2988,25 @@ html[data-appearance="dark"] .iderr{color:#CA897C}
 html[data-appearance="dark"] .idfoot{color:#B2BAB5}
 html[data-appearance="dark"] .idlaw{color:#9AA6A0}
 html[data-appearance="dark"] .idlaw a{color:#8DC5B8;border-bottom-color:rgba(141,197,184,.3)}
+html[data-appearance="dark"] .idor{color:#8B9891}
+html[data-appearance="dark"] .idor i{background:#2C3832}
+html[data-appearance="dark"] .idqr{background:#1B2320;border-color:#2E3A34;color:#9BC8B7}
+html[data-appearance="dark"] .idqr:hover{background:#202B26;border-color:#3A4A42}
+html[data-appearance="dark"] .qrov{background:rgba(4,8,6,.66)}
+html[data-appearance="dark"] .qrcard{background:#181D1B;border-color:#2C3832}
+html[data-appearance="dark"] .qrhead b,html[data-appearance="dark"] .qrctitle,html[data-appearance="dark"] .qrcwho,html[data-appearance="dark"] .qrcok b{color:#EEF2F0}
+html[data-appearance="dark"] .qrseg{background:#141A18}
+html[data-appearance="dark"] .qrseg button{color:#A9B6AF}
+html[data-appearance="dark"] .qrseg button.on{background:#232C28;color:#CFE6DC;box-shadow:none}
+html[data-appearance="dark"] .qrstate{color:#9AA6A0}
+html[data-appearance="dark"] .qrstate.err{color:#CA897C}
+html[data-appearance="dark"] .qrstate.ok{color:#9BC8B7}
+html[data-appearance="dark"] .qrgate{background:radial-gradient(120% 90% at 12% 0%,#16241F 0%,#111614 46%,#171412 100%)}
+html[data-appearance="dark"] .qrccard{background:#181D1B;border-color:#2C3832}
+html[data-appearance="dark"] .qrcsub,html[data-appearance="dark"] .qrcok span{color:#BEC5C1}
+html[data-appearance="dark"] .qrcwho{background:#141A18}
+html[data-appearance="dark"] .qrcmark{background:#1F2A25;color:#9BC8B7}
+html[data-appearance="dark"] .qrcok .okmark{background:#1F2A25}
 html[data-appearance="dark"] .idver{color:#ABB5AF}
 html[data-appearance="dark"] .ugver{color:#B4B9B4}
 html[data-appearance="dark"] .cmrow,
@@ -3322,8 +3385,47 @@ html[data-appearance="dark"] #noticeHost .notice-empty,html[data-appearance="dar
     <div class="idfield"><label for="igName">姓名</label><input id="igName" autocomplete="name" placeholder="请输入本人姓名"></div>
     <button class="idgo" id="igGo" type="button">进入班级</button>
     <div class="iderr" id="igErr"></div>
+    <div class="idor" aria-hidden="true"><i></i><span>或</span><i></i></div>
+    <button class="idqr" id="igQr" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h4v4h-4zM20 14v6M14 20h3"/></svg>扫码登录</button>
     <div class="idlaw">进入即表示同意 <a href="legal/web/terms.html" target="_blank" rel="noopener noreferrer">用户协议</a> 与 <a href="legal/web/privacy.html" target="_blank" rel="noopener noreferrer">隐私政策</a></div>
     <div class="idfoot">仅本班同学可进入；身份校验通过后才加载班级数据。<span class="idver">班级工具 v2.0.0</span></div>
+  </div>
+</div>
+
+<div class="qrov" id="qrOv" aria-hidden="true">
+  <div class="qrcard" role="dialog" aria-modal="true" aria-label="扫码登录">
+    <div class="qrhead"><b>扫码登录</b><button class="qrx" id="qrClose" type="button" aria-label="关闭">×</button></div>
+    <div class="qrseg" id="qrSeg" role="tablist" aria-label="手机类型">
+      <button type="button" data-qrp="oppo" class="on" role="tab" aria-selected="true">OPPO</button>
+      <button type="button" data-qrp="harmony" role="tab" aria-selected="false">鸿蒙</button>
+    </div>
+    <canvas id="qrCanvas" class="qrcv" width="440" height="440" aria-label="登录二维码"></canvas>
+    <div class="qrstate" id="qrState" aria-live="polite">生成中…</div>
+    <div class="qract"><button class="btn ghost" id="qrRefresh" type="button">刷新二维码</button></div>
+  </div>
+</div>
+
+<div class="qrgate" id="qrGate">
+  <div class="qrccard" role="dialog" aria-modal="true" aria-label="确认登录">
+    <div id="qrCLive">
+      <div class="qrcmark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.4"/><path d="M10.5 5.2h3"/><path d="M10 15.6l1.6 1.6 3-3.2"/></svg></div>
+      <div class="qrctitle" id="qrCTitle">确认登录</div>
+      <div class="qrcsub" id="qrCSub">网页版确认</div>
+      <div class="qrcwho" id="qrCWho" hidden></div>
+      <div id="qrCForm" hidden>
+        <div class="idfield"><label for="qrSid">学号</label><input id="qrSid" inputmode="numeric" maxlength="10" autocomplete="username" placeholder="请输入 10 位学号"></div>
+        <div class="idfield"><label for="qrName">姓名</label><input id="qrName" autocomplete="name" placeholder="请输入本人姓名"></div>
+      </div>
+      <button class="idgo" id="qrCGo" type="button">确认登录</button>
+      <button class="btn ghost qrccancel" id="qrCCancel" type="button">取消</button>
+      <div class="iderr" id="qrCErr"></div>
+      <div class="idlaw" id="qrCLaw">继续即表示同意 <a href="legal/web/terms.html" target="_blank" rel="noopener noreferrer">用户协议</a> 与 <a href="legal/web/privacy.html" target="_blank" rel="noopener noreferrer">隐私政策</a></div>
+    </div>
+    <div class="qrcok" id="qrCOk">
+      <div class="okmark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"/></svg></div>
+      <b>已确认登录</b>
+      <span id="qrCOkSub">正在进入班级…</span>
+    </div>
   </div>
 </div>
 
@@ -13506,6 +13608,336 @@ function doIdentity(){
     igErr(String(e&&e.message||e).indexOf("不在")>=0?"姓名或学号不在班级名单中":"网络错误，请稍后重试");
   });
 }
+/* ============================================================
+   __QR_LOGIN_V1__ 扫码登录（2026-11-22）
+   契约：web/docs/QR_LOGIN_CONTRACT.md / ECS `/account/qr/*`（deploy/account_app.py v1.2）
+   - 桌面：身份页「扫码登录」→ 一次性票据二维码 → 轮询 → 自动进入班级；
+   - 手机：扫到 `#qr=<t>&p=oppo|harmony` → 本机确认（已登录一键 / 否则学号+姓名）→ 授权票据；
+   - 二维码只含票据（token 只在 ECS 轮询响应里）；轮询密钥 k 只留在发起端；票据 180s 过期自动刷新；
+   - App 升级位：原生端认领二维码链接后带自己的班级 token 调 `/qr/authorize` 即可（契约 §5），
+     网页端无需再改。
+   ============================================================ */
+var QRL=(function(){
+  var POLL_MS=1200, MAX_NET_ERR=5, ENTER_WAIT=450;
+  var st={open:false,t:"",k:"",p:"oppo",exp:0,timer:null,netErr:0,polls:0,creates:0,busy:false,entered:false,status:""};
+  var saved=null, mode="";
+
+  function apiBase(){
+    try{
+      var h=String(location.hostname||"");
+      if(/^(121\.196\.47\.2|tool\.furina\.fun|127\.0\.0\.1|localhost)$/i.test(h))return location.origin+"/account";
+      /* OSS 直连页是 https：不能跨源调 http://121.196.47.2（混合内容会被拦） */
+      if(location.protocol==="https:")return "https://tool.furina.fun/account";
+    }catch(e){}
+    return "http://121.196.47.2/account";
+  }
+  function pageUrl(){
+    try{
+      if(location.protocol==="http:"||location.protocol==="https:"){
+        return location.protocol+"//"+location.host+location.pathname;
+      }
+    }catch(e){}
+    return "http://121.196.47.2/";
+  }
+  function qrLink(t,p){
+    var u=pageUrl()+"#qr="+encodeURIComponent(t)+"&p="+(p==="harmony"?"harmony":"oppo");
+    if(u.length>128)u=pageUrl()+"#qr="+encodeURIComponent(t);
+    return u;
+  }
+  function req(path,opt){
+    opt=opt||{};
+    var init={method:opt.method||"GET",headers:opt.headers||{},cache:"no-store",credentials:"omit"};
+    if(opt.body!=null){init.headers["Content-Type"]="application/json";init.body=JSON.stringify(opt.body);}
+    var ctl=null;
+    try{
+      if(window.AbortController){
+        ctl=new AbortController();init.signal=ctl.signal;
+        setTimeout(function(){try{ctl.abort();}catch(e){}},opt.timeout||9000);
+      }
+    }catch(e){}
+    return fetch(apiBase()+path,init).then(function(r){
+      return r.text().then(function(txt){
+        var j=null;try{j=txt?JSON.parse(txt):null;}catch(e){j=null;}
+        return {status:r.status,ok:r.ok,body:j};
+      });
+    });
+  }
+  function tell(text,cls){
+    var el=$("#qrState");if(!el)return;
+    el.textContent=text;
+    el.className="qrstate"+(cls?(" "+cls):"");
+  }
+  function paint(){
+    var cv=$("#qrCanvas");if(!cv)return;
+    if(!st.t){try{var c=cv.getContext("2d");c.fillStyle="#fff";c.fillRect(0,0,cv.width,cv.height);}catch(e){}return;}
+    paintQr(cv,qrLink(st.t,st.p));
+  }
+  function syncSeg(){
+    $$("#qrSeg [data-qrp]").forEach(function(b){
+      var on=b.getAttribute("data-qrp")===st.p;
+      b.classList.toggle("on",on);
+      try{b.setAttribute("aria-selected",on?"true":"false");}catch(e){}
+    });
+  }
+  function stopPoll(){
+    if(st.timer){clearTimeout(st.timer);st.timer=null;}
+  }
+  function schedule(ms){
+    stopPoll();
+    if(!st.open||!st.t||!st.k)return;
+    st.timer=setTimeout(pollOnce,ms||POLL_MS);
+  }
+  function create(){
+    if(!st.open||st.busy)return;
+    stopPoll();
+    st.busy=true;st.netErr=0;st.creates++;st.entered=false;st.status="";
+    st.t="";st.k="";st.exp=0;
+    tell("生成中…","");paint();
+    req("/qr/create",{method:"POST",body:{p:st.p}}).then(function(r){
+      st.busy=false;
+      if(!st.open)return;
+      var b=r.body||{};
+      if(!r.ok||!b.ok||!b.t){tell("扫码服务暂不可用","err");return;}
+      st.t=String(b.t);st.k=String(b.k||"");st.exp=Number(b.exp)||0;st.status="wait";
+      paint();tell("等待手机扫码","");
+      schedule(420);
+    }).catch(function(){
+      st.busy=false;
+      if(st.open)tell("网络异常，点击刷新重试","err");
+    });
+  }
+  function netErr(){
+    if(!st.open)return;
+    st.netErr++;
+    if(st.netErr>=MAX_NET_ERR){tell("网络异常，点击刷新重试","err");return;}
+    schedule(POLL_MS+600);
+  }
+  function done(b){
+    if(st.entered)return;
+    st.entered=true;stopPoll();
+    var nm=String(b.name||"").trim();
+    var data={token:String(b.token||""),sid:String(b.sid||""),name:nm,role:String(b.role||""),
+      badge:String(b.badge||""),is_admin:!!b.is_admin};
+    if(!data.token||!data.sid){st.entered=false;tell("登录信息缺失，请刷新重试","err");return;}
+    tell("已确认"+(nm?("："+nm):""),"ok");
+    setTimeout(function(){
+      if(!st.open)return;
+      close();
+      try{enterClass(data);}catch(e){}
+      try{toast("扫码登录成功");}catch(e){}
+    },ENTER_WAIT);
+  }
+  function pollOnce(){
+    st.timer=null;
+    if(!st.open||!st.t||!st.k)return;
+    st.polls++;
+    req("/qr/poll?t="+encodeURIComponent(st.t)+"&k="+encodeURIComponent(st.k),{}).then(function(r){
+      if(!st.open)return;
+      if(r.status===404){tell("二维码已失效，正在刷新…","");create();return;}
+      var b=r.body||{};
+      if(!r.ok||!b||b.ok===false){netErr();return;}
+      st.netErr=0;
+      var s=String(b.status||"");
+      st.status=s;
+      if(s==="ok"){done(b);return;}
+      if(s==="deny"){tell("已取消，请刷新二维码","err");return;}
+      if(s==="expired"){tell("二维码已过期，正在刷新…","");create();return;}
+      tell("等待手机扫码","");
+      schedule(POLL_MS);
+    }).catch(function(){netErr();});
+  }
+  function open(){
+    if(st.open)return;
+    st.open=true;st.entered=false;st.netErr=0;st.busy=false;st.status="";
+    st.t="";st.k="";st.exp=0;
+    var ov=$("#qrOv");if(!ov)return;
+    ov.classList.add("on");try{ov.setAttribute("aria-hidden","false");}catch(e){}
+    document.body.classList.add("qr-modal");
+    syncSeg();
+    setTimeout(function(){try{$("#qrClose").focus();}catch(e){}},30);
+    create();
+  }
+  function close(){
+    if(!st.open)return;
+    st.open=false;stopPoll();
+    var ov=$("#qrOv");
+    if(ov){ov.classList.remove("on");try{ov.setAttribute("aria-hidden","true");}catch(e){}}
+    document.body.classList.remove("qr-modal");
+    st.t="";st.k="";st.exp=0;st.status="";
+    try{$("#igQr").focus();}catch(e){}
+  }
+  /* ---------------- 手机确认页 ---------------- */
+  function tellC(text){
+    var el=$("#qrCErr");if(el)el.textContent=text||"";
+  }
+  function parseHash(){
+    var h=String(location.hash||"");
+    if(h.indexOf("#qr=")!==0)return null;
+    var m=/^#qr=([0-9a-f]{32})(?:&p=(oppo|harmony|honor))?$/i.exec(h);
+    if(!m)return {bad:true};
+    return {t:m[1].toLowerCase(),p:(m[2]||"").toLowerCase()};
+  }
+  function stripHash(){
+    try{history.replaceState(null,"",location.pathname+location.search);}catch(e){try{location.hash="";}catch(e2){}}
+  }
+  function showForm(msg){
+    saved=null;mode="form";
+    var w=$("#qrCWho");if(w)w.hidden=true;
+    var f=$("#qrCForm");if(f)f.hidden=false;
+    var g=$("#qrCGo");if(g){g.textContent="登录并确认";g.hidden=false;}
+    var c=$("#qrCCancel");if(c){c.textContent="取消";c.hidden=false;}
+    var l=$("#qrCLaw");if(l)l.hidden=false;
+    try{
+      var last=JSON.parse(localStorage.getItem("zq_last_identity")||"{}");
+      if(last.sid&&$("#qrSid")&&!$("#qrSid").value)$("#qrSid").value=last.sid;
+      if(last.name&&$("#qrName")&&!$("#qrName").value)$("#qrName").value=last.name;
+    }catch(e){}
+    tellC(msg||"");
+  }
+  function success(name){
+    document.body.classList.add("qr-done");
+    var s=$("#qrCOkSub");if(s)s.textContent=(name?name+" · ":"")+"正在进入班级…";
+    tellC("");
+  }
+  function finishEnter(data){
+    try{document.body.classList.remove("qr-locked","qr-done");}catch(e){}
+    try{enterClass(data);}catch(e){}
+    try{history.replaceState(null,"",location.pathname+location.search);}catch(e){}
+  }
+  function confirmStart(qr){
+    stripHash();
+    if(!$("#qrGate"))return;
+    document.body.classList.add("qr-locked");
+    document.body.classList.remove("qr-done");
+    st.t=qr.t||"";st.p=qr.p||"oppo";
+    var label=qr.p==="harmony"?"鸿蒙手机":(qr.p==="oppo"?"OPPO 手机":"手机");
+    var sub=$("#qrCSub");if(sub)sub.textContent=label+" · 网页版确认";
+    var id=null;
+    try{
+      var x=identityGet();
+      if(x&&x.token&&x.sid&&(Date.now()-(Number(x.ts)||0)<29*86400000))id=x;
+    }catch(e){}
+    if(id){
+      saved=id;mode="saved";
+      var w=$("#qrCWho");if(w){w.textContent=String(id.name||"已登录");w.hidden=false;}
+      var f=$("#qrCForm");if(f)f.hidden=true;
+      var g=$("#qrCGo");if(g){g.textContent="确认登录";g.hidden=false;}
+      var c=$("#qrCCancel");if(c){c.textContent="取消";c.hidden=false;}
+      var l=$("#qrCLaw");if(l)l.hidden=false;
+      tellC("");
+    }else{
+      showForm("");
+      setTimeout(function(){try{$("#qrSid").focus();}catch(e){}},200);
+    }
+  }
+  function showBad(){
+    stripHash();
+    if(!$("#qrGate"))return;
+    document.body.classList.add("qr-locked");
+    document.body.classList.remove("qr-done");
+    st.t="";
+    var t=$("#qrCTitle");if(t)t.textContent="二维码无效";
+    var s=$("#qrCSub");if(s)s.textContent="请回到电脑上刷新后重新扫码";
+    var w=$("#qrCWho");if(w)w.hidden=true;
+    var f=$("#qrCForm");if(f)f.hidden=true;
+    var g=$("#qrCGo");if(g)g.hidden=true;
+    var l=$("#qrCLaw");if(l)l.hidden=true;
+    var c=$("#qrCCancel");if(c)c.textContent="返回首页";
+    tellC("");
+  }
+  function authorize(t,token){
+    return req("/qr/authorize",{method:"POST",headers:{"X-Class-Token":token},
+      body:{t:t,p:st.p||"",via:"web"}});
+  }
+  function goHome(){
+    try{location.replace(pageUrl());}catch(e){try{location.reload();}catch(e2){}}
+  }
+  function cancel(){
+    var t=st.t, tok=(saved&&saved.token)||"";
+    if(t&&tok){
+      try{req("/qr/deny",{method:"POST",headers:{"X-Class-Token":tok},body:{t:t}});}catch(e){}
+    }
+    setTimeout(goHome,60);
+  }
+  function onConfirm(){
+    var go=$("#qrCGo");
+    if(!go||go.disabled)return;
+    tellC("");
+    if(mode==="saved"&&saved){
+      go.disabled=true;go.textContent="确认中…";
+      authorize(st.t,saved.token).then(function(r){
+        go.disabled=false;go.textContent="确认登录";
+        var b=r.body||{};
+        if(r.status===401){showForm("身份已失效，请重新登录");return;}
+        if(r.status===429){tellC("请求过于频繁，请稍后再试");return;}
+        if(!r.ok||!b||!b.ok){tellC(String(b&&b.message||"确认失败，请重试"));return;}
+        success(saved.name||b.name||"");
+        setTimeout(function(){finishEnter(saved);},700);
+      }).catch(function(){
+        go.disabled=false;go.textContent="确认登录";tellC("网络错误，请稍后重试");
+      });
+      return;
+    }
+    var sidEl=$("#qrSid"), nameEl=$("#qrName");
+    var sid=String(sidEl&&sidEl.value||"").replace(/\s+/g,"");
+    var name=String(nameEl&&nameEl.value||"").trim();
+    if(!/^\d{10}$/.test(sid)){tellC("请输入 10 位学号");try{if(sidEl)sidEl.focus();}catch(e){}return;}
+    if(!name){tellC("请输入姓名");try{if(nameEl)nameEl.focus();}catch(e){}return;}
+    go.disabled=true;go.textContent="校验中…";
+    classVerify(sid,name).then(function(r){
+      if(!r||!r.ok){
+        go.disabled=false;go.textContent="登录并确认";
+        tellC((r&&r.reason)||"姓名或学号不在班级名单中");
+        return;
+      }
+      return authorize(st.t,r.token).then(function(a){
+        go.disabled=false;go.textContent="登录并确认";
+        var b=a.body||{};
+        if(!a.ok||!b||!b.ok){tellC(String(b&&b.message||"确认失败，请重试"));return;}
+        success(r.name||name);
+        setTimeout(function(){finishEnter(r);},700);
+      });
+    }).catch(function(){
+      go.disabled=false;go.textContent="登录并确认";
+      tellC("网络错误，请稍后重试");
+    });
+  }
+  /* ---------------- 绑定 ---------------- */
+  try{
+    var igq=$("#igQr");if(igq)igq.addEventListener("click",open);
+    var qc=$("#qrClose");if(qc)qc.addEventListener("click",close);
+    var qrEl=$("#qrOv");
+    if(qrEl)qrEl.addEventListener("click",function(e){if(e.target===qrEl)close();});
+    var qb=$("#qrRefresh");if(qb)qb.addEventListener("click",function(){if(!st.busy)create();});
+    $$("#qrSeg [data-qrp]").forEach(function(b){
+      b.addEventListener("click",function(){
+        var p=b.getAttribute("data-qrp");
+        if(p!=="harmony"&&p!=="oppo")return;
+        st.p=p;syncSeg();
+        if(st.t)paint();else create();
+      });
+    });
+    var gc=$("#qrCGo");if(gc)gc.addEventListener("click",onConfirm);
+    var cc=$("#qrCCancel");if(cc)cc.addEventListener("click",cancel);
+    var qs=$("#qrSid"),qn=$("#qrName");
+    if(qs)qs.addEventListener("keydown",function(e){if(e.key==="Enter"&&qn)qn.focus();});
+    if(qn)qn.addEventListener("keydown",function(e){if(e.key==="Enter")onConfirm();});
+    document.addEventListener("keydown",function(e){
+      if(e&&e.key==="Escape"&&st.open){e.preventDefault();close();}
+    });
+  }catch(e){}
+  try{
+    window.__qrLogin={state:function(){
+      return {open:st.open,t:st.t,p:st.p,exp:st.exp,polls:st.polls,creates:st.creates,
+        status:st.status,netErr:st.netErr,busy:st.busy,entered:st.entered,base:apiBase(),
+        link:st.t?qrLink(st.t,st.p):"",mode:mode};
+    },auth:function(){
+      try{return {ready:!!AUTH.ready,name:AUTH.name||"",token:AUTH.token||"",sid:AUTH.sid||"",
+        role:AUTH.role||"",is_admin:!!AUTH.is_admin};}catch(e){return null;}
+    },parse:parseHash,link:qrLink};
+  }catch(e){}
+  return {open:open,close:close,parseHash:parseHash,confirmStart:confirmStart,showBad:showBad};
+})();
 (function(){
   var last={}; try{last=JSON.parse(localStorage.getItem("zq_last_identity")||"{}");}catch(e){}
   try{$$(".idver,.ugver").forEach(function(el){el.textContent="班级工具 v"+APP_VER;});}catch(e){}
@@ -13519,6 +13951,12 @@ function doIdentity(){
     try{localStorage.removeItem("zq_last_identity");}catch(e){}
     location.reload();
   });
+  /* 扫码登录：手机端带 #qr=<票据> 打开时先走确认页（已登录一键确认 / 否则学号+姓名） */
+  var qr=QRL.parseHash();
+  if(qr){
+    if(qr.bad)QRL.showBad();else QRL.confirmStart(qr);
+    return;
+  }
   /* 只登录一次：已有未过期 token 直接进入班级，不再弹身份页 */
   var saved=identityGet();
   if(saved && saved.token && saved.sid && (Date.now()-(Number(saved.ts)||0) < 29*86400000)){

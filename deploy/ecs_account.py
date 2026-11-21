@@ -73,6 +73,17 @@ def _b64_file(path):
         return _b64(fh.read())
 
 
+def _publish_key_bytes():
+    """publish key 是公开 anon key（网页 `var CBK` 同值）；仓库清理后本地文件可能不存在，
+    此时不覆盖 ECS 上的 `/opt/class-tools/account/publish_key`。"""
+    if os.path.isfile(PUBLISH_LOCAL):
+        return open(PUBLISH_LOCAL, "rb").read()
+    env = (os.environ.get("ACCOUNT_PUBLISH_KEY") or "").strip()
+    if env:
+        return env.encode("utf-8")
+    return None
+
+
 def _admin_token_bytes():
     raw = open(ADMIN_TOKEN_LOCAL, "rb").read().decode("utf-8", "replace")
     try:
@@ -150,11 +161,15 @@ def install_service():
     if not _upload("app.py", open(APP_LOCAL, "rb").read(), "account-app"):
         return 1
     files = [
-        ("publish_key", open(PUBLISH_LOCAL, "rb").read()),
         ("class-token", _admin_token_bytes()),
         ("oppo-account.json", _oppo_account_bytes()),
         ("honor-account.json", _honor_account_bytes()),
     ]
+    pub = _publish_key_bytes()
+    if pub:
+        files.insert(0, ("publish_key", pub))
+    else:
+        print("[publish_key] 本地缺失：保留 ECS 现有 /opt/class-tools/account/publish_key")
     for name, data in files:
         if not _upload(name, data, "account-" + name.replace(".", "-")):
             return 1

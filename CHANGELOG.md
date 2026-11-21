@@ -2,6 +2,32 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-22 07:2x–07:3x · 网页端「OPPO / 鸿蒙」扫码登录（账号服务 v1.2 + 手机确认页；方案 D 第一阶段）
+
+> 用户要求：「尝试在网页端增加 oppo 和鸿蒙扫码一键登录」。已与用户确认方案 D：先把网页扫码链路做完并可测，
+> 二维码预留原生 App 接管位；App 侧后续接入即可升级为真 OPPO/华为账号一键登录。
+
+- **网页**（`tools/index.html`，`__QR_LOGIN_V1__`，APP_VER 仍 2.0.0）：身份页「进入班级」下方新增「或 · 扫码登录」；
+  扫码弹层（OPPO/鸿蒙分段、内置 `qrGen` 生成二维码、等待/已确认/已取消/已过期/服务不可用状态、刷新、Esc/遮罩关闭、
+  成功自动进入班级、过期自动换票、关闭即停轮询）；手机确认页（`#qr=<t>&p=oppo|harmony`，读后立即清 hash；
+  已登录一键确认，未登录学号+姓名，401 回退表单，无效二维码错误页）；暗色主题与 360/430px 无溢出。
+- **ECS 账号服务 v1.2**（`deploy/account_app.py`）：新增 `POST /qr/create`、`GET /qr/poll`、
+  `POST /qr/authorize`、`POST /qr/deny`；票据 128-bit、TTL 180s、纯内存（上限 2000）、一次性轮询密钥；
+  授权时 `class_whoami` + `class_verify` 另签 30 天 token（含 role/badge/is_admin），**不向手机返回 token/openid**；
+  `/qr/*` 带 CORS（无 Cookie）与 OPTIONS；建票 12/分、轮询 240/分、授权 30/分/IP；日志不打印 t/k/token。
+- **契约/文档**：`docs/QR_LOGIN_CONTRACT.md`（URL/API/安全/App 接管位/已知限制/回滚）。
+- **测试**：`tools/tests/v2_qr_login_check.py` **34/34**（headless Edge + CDP，mock 云端，0 外部请求：入口/二维码像素/
+  OPPO↔鸿蒙切换/轮询成功入班/停止轮询/关层停轮询/过期换票/服务不可用/手机已登录一键确认/学号+姓名/401 回退/无效二维码/
+  无溢出/0 JS 报错）；`deploy/tests/test_account_qr.py` **12 passed**（票据格式/错误 k/过期/幂等/CORS/限频/内存上限）。
+  线上实测（测试身份 3260799999）：真实 ECS 服务 + 真实浏览器，桌面扫码→手机确认→桌面拿到 64 位 token。
+- **上线**：账号服务 v1.2 已部署（`/account/__health` = `{version:"1.2",qr:true,qrTtl:180}`）；
+  网页 **1,396,970 B / sha256 `0325a8a4cd1e31f547e9b60b91947defc494a03bbd8e34444cf79137dd8e96cb`**
+  （OSS check MATCH / ECS MATCH；gzip 433,152B）。备份 `tools/_backup/index_online_20261122-0735_preQR.html`
+  （1,374,596 B / `f224dce7…`）。
+- **如实限制**：本轮手机端「OPPO/鸿蒙」只是生态标签，确认仍用班级身份；OPPO 账号服务实测仍 `invalid_client`；
+  OPPO 无官方网页扫码，华为 Account Kit 官方扫码授权需 AGC `client_secret` 与能力申请，均未接入（App 接管位见契约 §7）。
+- **回滚**：重传上述备份并 `ecs_site.py apply`；账号服务回退到 v1.1 后 `ecs_account.py deploy`；无 SQL 变更。
+
 ## 2026-11-21 21:3x–21:4x · 修复冬季傍晚慢跑打卡活动被判长期通知：限期活动合并成一张卡并展示报名开始/报满即止（数据已同步云端，网页模板未变无需重发）
 
 > 用户反馈：「修复将冬季傍晚慢跑打卡活动识别成长期通知的问题，实际该内容也为活动之一，需要报名，通知内应该展示的是活动报名开始和截止时间」。
