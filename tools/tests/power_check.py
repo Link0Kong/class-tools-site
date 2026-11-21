@@ -342,12 +342,14 @@ async function run(){
     if(pr.length){
       T("power 请求带 Bearer + X-Device-Id", String(pr[0].headers["authorization"]||"").indexOf("Bearer ")==0&&!!pr[0].headers["x-device-id"], "");
     }
-    T("选择后 power_history 请求 2 次（24h + 7d 估算窗口）", hr.length===2, hr.length+" | "+hr.map(function(r){return r.url.slice(-46);}).join(" ; "));
-    if(hr.length===2){
+    T("选择后 power_history 请求 3 次（24h + 7d + 30d；30d=云端历史上限）", hr.length===3, hr.length+" | "+hr.map(function(r){return r.url.slice(-46);}).join(" ; "));
+    if(hr.length===3){
       var okAll=hr.every(function(r){return /power_history\?select=ts,quantity/.test(r.url)&&/roomverify=eq\.4-23A---321/.test(r.url)&&/order=ts\.asc/.test(r.url)&&/ts=gte\./.test(r.url)&&/limit=2000/.test(r.url);});
       var g2=hr.map(function(r){var m=r.url.match(/ts=gte\.([^&]+)/);return m?Date.parse(decodeURIComponent(m[1])):0;}).sort(function(a,b){return a-b;});
       T("history 请求契约（select=ts,quantity / roomverify / order / ts gte / limit=2000）", okAll, hr.map(function(r){return r.url.slice(-60);}).join(" | "));
-      T("24h 与 7d 两个窗口的 gte 相差约 6 天", g2[0]>0&&g2[1]>0&&(g2[1]-g2[0])>5*24*3600e3&&(g2[1]-g2[0])<8*24*3600e3, Math.round((g2[1]-g2[0])/3600000)+"h");
+      T("历史窗口 gte 依次约 30/7/1 天（相差约 23 天 + 6 天）",
+        g2[0]>0&&(g2[1]-g2[0])>22*24*3600e3&&(g2[1]-g2[0])<24*24*3600e3&&(g2[2]-g2[1])>5*24*3600e3&&(g2[2]-g2[1])<8*24*3600e3,
+        Math.round((g2[1]-g2[0])/3600000)+"h + "+Math.round((g2[2]-g2[1])/3600000)+"h");
     }
     T("主数值 ≥100 取整（382）", txt(f,"#pwNum").trim()==="382", txt(f,"#pwNum"));
     T("房间名只出现在下拉选中值（规范 label，无重复展示）", (q(f,"#pwSelect")||{}).selectedOptions&&q(f,"#pwSelect").selectedOptions[0].textContent==="23号楼A座321"&&!q(f,"#pwRoomName"), (q(f,"#pwSelect")||{}).selectedOptions?q(f,"#pwSelect").selectedOptions[0].textContent:"");
@@ -372,7 +374,8 @@ async function run(){
     T("估算可用副标 ≈ 5.8 度/天（rate 1 位小数）", /≈\s*5\.8\s*度\/天/.test(tilesTxt.replace(/\s+/g," ")), tilesTxt);
     T("近 24h 用电 6.3 度（1 位小数）", /6\.3\s*度/.test(tilesTxt), tilesTxt);
     T("低电阈值 30 度", /30\s*度/.test(tilesTxt), tilesTxt);
-    T("24h 无充值：上次充值 tile 显示「— / 暂无记录」", /上次充值\s*—/.test(tilesTxt.replace(/\s+/g," "))&&tilesTxt.indexOf("暂无记录")>=0, tilesTxt);
+    T("24h 无充值：上次充值 tile 仍显示 30d 最近充值量 +19.10（不随档位变化）",
+      /上次充值\s*\+\s*19\.10/.test(tilesTxt.replace(/\s+/g," "))&&/\d{2}-\d{2} \d{2}:\d{2}/.test(tilesTxt), tilesTxt);
     T("不出现内部任务名/采样数", tilesTxt.indexOf("ClassPowerSync")<0&&tilesTxt.indexOf("采样")<0&&((q(f,"#s-power")||{textContent:""}).textContent||"").indexOf("ClassPowerSync")<0, "");
     T("充足时不显示低电提示条（hidden 且不渲染）", !!(q(f,"#pwLowBar")&&q(f,"#pwLowBar").hidden)&&view(f,"#pwLowBar").display==="none", view(f,"#pwLowBar").display);
     var fs=0;try{fs=parseFloat(f.contentWindow.getComputedStyle(q(f,"#pwNum")).fontSize);}catch(e){}
@@ -415,7 +418,7 @@ async function run(){
     if(rf2)rf2.click();
     await sleep(900);
     T("点刷新力拉 power（+1）", powerReqs(f).length===b1+1, b1+"->"+powerReqs(f).length);
-    T("点刷新力拉 power_history（24h + 7d，共 +2）", histReqs(f).length===b2+2, b2+"->"+histReqs(f).length+" | "+histReqs(f).slice(b2).map(function(r){return r.url.slice(-46);}).join(" ; "));
+    T("点刷新力拉 power_history（24h + 7d + 30d，共 +3）", histReqs(f).length===b2+3, b2+"->"+histReqs(f).length+" | "+histReqs(f).slice(b2).map(function(r){return r.url.slice(-46);}).join(" ; "));
 
     /* ================= F. 期间有充值：chip + 不计负用电 ================= */
     setSel(f,"1-13---308");
@@ -424,7 +427,8 @@ async function run(){
     T("含充值区间：显示「期间有充值」chip", q(f,"#pwRecharge")&&!q(f,"#pwRecharge").hidden&&view(f,"#pwRecharge").display!=="none", q(f,"#pwRecharge")?q(f,"#pwRecharge").textContent:"");
     var t308=txt(f,"#pwTiles").replace(/\s+/g," ");
     T("含充值区间：近 24h 用电只累计下降（5.8 度）", /5\.8\s*度/.test(t308), t308);
-    T("含充值区间：上次充值 tile 显示重置度数 305.20 + 时间", /305\.20/.test(t308)&&/\d{2}-\d{2} \d{2}:\d{2}/.test(t308), t308);
+    T("含充值区间：上次充值 tile 显示充值量 +5.40（30d 最近上升，而非余额 305.20）",
+      /\+5\.40/.test(t308)&&!/305\.20/.test(t308)&&/\d{2}-\d{2} \d{2}:\d{2}/.test(t308), t308);
 
     /* ================= G. 选择进同步（UD.power） ================= */
     setSel(f,"4-23A---321");
@@ -553,7 +557,7 @@ async function run(){
     var hist0=histReqs(fr);
     var h0=hist0.length;
     var g2s=hist0.map(function(r){var m=r.url.match(/ts=gte\.([^&]+)/);return m?Date.parse(decodeURIComponent(m[1])):0;}).sort(function(a,b){return a-b;});
-    T("初始已拉取 24h + 7d 两个估算窗口", h0===2&&g2s[0]>0&&(g2s[1]-g2s[0])>5*24*3600e3, h0+" | "+Math.round((g2s[1]-g2s[0])/3600000)+"h");
+    T("初始已拉取 24h + 7d + 30d 三个窗口（30d 用于上次充值）", h0===3&&g2s[0]>0&&(g2s[2]-g2s[0])>28*24*3600e3, h0+" | "+Math.round((g2s[2]-g2s[0])/3600000)+"h");
     click(fr,'#pwRanges [data-range="7d"]');
     await waitFor(function(){return txt(fr,"#pwTrendTitle").indexOf("7 天")>=0;},9000);
     await sleep(700);
@@ -568,7 +572,7 @@ async function run(){
       txt(fr,"#pwTrendTitle").indexOf("近 7 天趋势")>=0&&txt(fr,"#pwLegend").indexOf("区间下降")>=0&&txt(fr,"#pwTiles").indexOf("近 7 天用电")>=0,
       txt(fr,"#pwTrendTitle")+" | "+txt(fr,"#pwTiles").replace(/\s+/g," ").slice(0,90));
     T("7 天：期间有充值 chip 可见", !!q(fr,"#pwRecharge")&&!q(fr,"#pwRecharge").hidden, "");
-    T("7 天：上次充值 tile 显示重置度数 + 时间", /414\.20/.test(txt(fr,"#pwTiles"))&&/\d{2}-\d{2} \d{2}:\d{2}/.test(txt(fr,"#pwTiles")), txt(fr,"#pwTiles").replace(/\s+/g," "));
+    T("7 天：上次充值 tile 仍为 30d 最近充值量 +19.10（切档不变）", /\+19\.10/.test(txt(fr,"#pwTiles"))&&/\d{2}-\d{2} \d{2}:\d{2}/.test(txt(fr,"#pwTiles")), txt(fr,"#pwTiles").replace(/\s+/g," "));
     T("7 天：趋势区无横向滚动（画布铺满、overflow hidden）",(function(){var sc=q(fr,"#pwTrendScroll");if(!sc)return false;
       var cs=fr.contentWindow.getComputedStyle(sc);return (cs.overflowX==="hidden")&&sc.scrollWidth<=sc.clientWidth+1;})());
     T("7 天：x 轴日期刻度 3–5 个",(function(){var xl=qa(fr,"#pwXAxis .pw-xlab");return xl.length>=3&&xl.length<=5;})());

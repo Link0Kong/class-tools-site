@@ -382,7 +382,8 @@ def run_phase_a(cdp):
       "数据积累中" in d["days"] and "—" in d["tile1"] and d["ring"].startswith("4"),
       json.dumps({"days": d["days"], "tile1": d["tile1"], "ring": d["ring"]}, ensure_ascii=False))
     T("S4.2 无参考徽标", d["refText"] == "", d["refText"])
-    T("S4.3 上次充值 120.00（30d 变化点，约 6h 前）", "120.00" in d["tile4"] and bool(re.search(r"\d{2}-\d{2} \d{2}:\d{2}", d["tile4"])), d["tile4"])
+    T("S4.3 上次充值 +30.00（30d 最近上升的充值量，非余额 120.00，约 6h 前）",
+      "+30.00" in d["tile4"] and "120.00" not in d["tile4"] and bool(re.search(r"\d{2}-\d{2} \d{2}:\d{2}", d["tile4"])), d["tile4"])
     T("S4.4 日更 chip 仍显示", (not d["chipHidden"]) and d["chipText"] == "日更", d["chipText"])
 
     # ===== L1：23A-321 完全保持现状 =====
@@ -399,7 +400,7 @@ def run_phase_a(cdp):
     T("L1.3 更新时间仍用 updated_at（现状：11-06 06:42）", l1["upd"] == "更新 11-06 06:42", l1["upd"])
     T("L1.4 实时房折线（无阶梯 H/V）、无变化点圆点", "M" in l1["pathD"] and "H" not in l1["pathD"] and "V" not in l1["pathD"] and l1["cdotN"] == 0,
       json.dumps({"path": l1["pathD"][:90], "cdots": l1["cdotN"]}, ensure_ascii=False))
-    T("L1.5 实时房选择 → 恰好 2 个 history 窗口（现状）", l1["hist"] - n_l0 == 2, "%s->%s" % (n_l0, l1["hist"]))
+    T("L1.5 实时房选择 → 恰好 3 个 history 窗口（24h/7d/30d）", l1["hist"] - n_l0 == 3, "%s->%s" % (n_l0, l1["hist"]))
     T("L1.6 截图实时房 390 宽", shot(cdp, "cadence_live_390.png"), "")
 
     # ===== L2：23B-422 新守卫 =====
@@ -411,7 +412,7 @@ def run_phase_a(cdp):
     T("L2.1 24h/7d 均无真实下降 → 数据积累中（不再伪造 ≥30 天）",
       "数据积累中" in l2["days"] and "—" in l2["tile1"] and l2["ring"].startswith("4"),
       json.dumps({"days": l2["days"], "tile1": l2["tile1"], "ring": l2["ring"]}, ensure_ascii=False))
-    T("L2.2 实时房 2 个 history 窗口（24h+7d）", l2["hist"] - n_l2_0 == 2, "%s->%s" % (n_l2_0, l2["hist"]))
+    T("L2.2 实时房 3 个 history 窗口（24h+7d+30d）", l2["hist"] - n_l2_0 == 3, "%s->%s" % (n_l2_0, l2["hist"]))
 
     # ===== 宽度 / 溢出（慢频有更新状态 S1）=====
     pick(cdp, "1-13---324")

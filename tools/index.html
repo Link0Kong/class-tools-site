@@ -7423,6 +7423,23 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     if(d.valid&&d.days>999)d.days=999;
     return d;
   },
+  /* 最近一次充值/上调（与安卓 PowerStats.lastRecharge 同口径）：按时间升序扫描合法采样，
+     取最后一次相邻上升 Δq>0.05；delta=充值量（度）、reset=充值后余额。不限制所选区间：
+     调用方传 30d 全量历史（云端 power_history 只保留 30 天）即可让「上次充值」切档不变。 */
+  lastRecharge:function(pts){
+    var list=[],out=null,i,q0,q1,diff;
+    (pts||[]).forEach(function(p){
+      var q=Number(p&&p.q),t=Number(p&&p.t);
+      if(!isFinite(q)||!isFinite(t))return;
+      list.push({q:q,t:t});
+    });
+    list.sort(function(a,b){return a.t-b.t;});
+    for(i=1;i<list.length;i++){
+      q0=list[i-1].q;q1=list[i].q;diff=q1-q0;
+      if(diff>0.05)out={t:list[i].t,reset:q1,delta:Math.round(diff*100)/100};
+    }
+    return out;
+  },
   /* 网关数据更新频率检测：13/16 号楼电表网关日更，24h 窗口内数值几乎不变（阶梯曲线、估算偏高）。
      只在真实 history 上统计：相邻采样 |Δq|>0.005 记一次变化；24h 窗口变化次数 ≤2 → 慢更新。
      返回 null（正常/无数据）或 {changes,lastT}；lastT 取最近一次变化的后一个采样时间（不伪造/插值）。 */
@@ -7430,13 +7447,15 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     var c=POWER.hcache[rv]&&POWER.hcache[rv]["24h"];
     var list=(c&&c.pts)||null;
     if(!list||list.length<2)return null;
-    var changes=0,lastT=0,i,dq;
+    var changes=0,lastT=0,lastRecharge=null,i,dq,up;
     for(i=1;i<list.length;i++){
       dq=Math.abs(Number(list[i].q)-Number(list[i-1].q));
       if(isFinite(dq)&&dq>0.005){changes++;lastT=list[i].t;}
+      up=Number(list[i].q)-Number(list[i-1].q);
+      if(isFinite(up)&&up>0.05)lastRecharge={t:list[i].t,reset:Number(list[i].q),delta:Math.round(up*100)/100};
     }
     if(changes>2)return null;
-    return {changes:changes,lastT:lastT||0};
+    return {changes:changes,lastT:lastT||0,lastRecharge:lastRecharge};
   },
   /* ---- 慢频（13/16 主楼日更）真实变化点统计：规格 tools/tests/power_cadence_spec.md §1.1/§1.2 ----
      eventsOf：近 30 天真实采样按时间升序，从首点起保留「与上一保留点 |Δq|>CH」的点（首点为起点，不算变化）。
@@ -7474,7 +7493,7 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     for(i=1;i<events.length;i++){
       var dq=events[i-1].q-events[i].q,dtH=(events[i].t-events[i-1].t)/3600000;
       if(dq>0.05&&dtH>=PW_MIN_SEG_H)segs.push({drop:dq,hours:dtH});
-      else if(dq<-0.05)out.lastRecharge={t:events[i].t,reset:events[i].q};   /* 充值/修正：不进用电段 */
+      else if(dq<-0.05)out.lastRecharge={t:events[i].t,reset:events[i].q,delta:Math.round((events[i].q-events[i-1].q)*100)/100};   /* 充值/修正：不进用电段，带充值量 */
     }
     if(events.length>1)out.lastChange=events[events.length-1].t;            /* 30 天内无变化 → null */
     var base=segs.length?POWER.medianOf(segs.map(function(s){return s.drop;})):0,
@@ -7690,16 +7709,18 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     POWER.histLoading=true;POWER.render();
     var jobs=[POWER.fetchHist(rv,range,false).catch(function(){return null;})];
     var fetched=[range];
-    if(POWER.isSlowRoom(rv)){
-      /* 慢频房（13/16 日更）：估算/更新时间/上次充值都按 30d 真实更新点；切档补 30d（已缓存不重复请求） */
-      if(range!=="30d"&&fetched.indexOf("30d")<0){jobs.push(POWER.fetchHist(rv,"30d",false).catch(function(){return null;}));fetched.push("30d");}
-    }else if(range!=="24h"&&fetched.indexOf("24h")<0){
-      jobs.push(POWER.fetchHist(rv,"24h",false).catch(function(){return null;}));fetched.push("24h");
+    function addHist(k){
+      if(!k||fetched.indexOf(k)>=0)return;
+      fetched.push(k);
+      jobs.push(POWER.fetchHist(rv,k,false).catch(function(){return null;}));
     }
+    /* 30d = 云端历史保留上限（power_history 只留 30 天）：所有房间都拉，
+       「上次充值」用它取最近一次上升，切 24h/7d/30d 都不变；已缓存/在途不重复请求。 */
+    addHist("30d");
+    /* 实时房估算/慢更新判定需要 24h；慢频房以 30d 真实变化点为准，不额外拉 24h */
+    if(!POWER.isSlowRoom(rv))addHist("24h");
     var cmpKey=POWER.cmpSource(range);
-    if(cmpKey&&fetched.indexOf(cmpKey)<0&&!POWER.hcacheFresh(cmpKey)){
-      jobs.push(POWER.fetchHist(rv,cmpKey,false).catch(function(){return null;}));fetched.push(cmpKey);
-    }
+    if(cmpKey&&!POWER.hcacheFresh(cmpKey))addHist(cmpKey);
     return Promise.all(jobs).then(function(){
       if(POWER.sel!==rv)return false;
       POWER.histLoading=false;POWER.render();return true;
@@ -7784,8 +7805,9 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     var pRow=fetch(CB+"power?select=id,label,building,room,quantity,unit,low,updated_at&id=eq."+encodeURIComponent(rv),
         {headers:cbH(false),cache:"no-store"})
       .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();});
-    var need=["24h","7d"];
-    if(POWER.isSlowRoom(rv))need.push("30d");   /* 慢频房：选择即拉 24h+7d+30d（估算/日更/无更新提示） */
+    /* 30d = 云端历史保留上限（power_history 只留 30 天），所有房间都拉：
+       「上次充值」取 30d 最后一次上升，切 24h/7d/30d 都不变（与安卓 PowerStats.lastRecharge 同口径）。 */
+    var need=["24h","7d","30d"];
     if(need.indexOf(rng)<0)need.push(rng);
     var cmpPull=POWER.cmpSource(rng);
     if(cmpPull&&need.indexOf(cmpPull)<0)need.push(cmpPull); /* 自然周期比较所需更长窗口（7d→14d、30d→70d） */
@@ -8080,8 +8102,17 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
     var feeTxt=(sel&&dSel.drop!=null&&dSel.drop>0)?("≈ ¥"+(dSel.drop*RULES.elec).toFixed(2)+" 电费"):"";
     /* tile2 副标：慢频房该区间无更新时如实提示（不再空着让人误以为 0 用电） */
     var useSubTxt=(isSlow&&!(dSel.drop!=null&&dSel.drop>0))?"该区间无更新":feeTxt;
-    /* tile4 上次充值：慢频房用 30d 真实充值点（切档不变）；实时房沿用区间 lastUp */
-    var rec=(isSlow&&est.lastRecharge)?est.lastRecharge:((sel&&dSel.lastUp)?dSel.lastUp:null);
+    /* tile4 上次充值（与安卓 PowerStats.tilesOf 同口径）：取 30d 全量历史（=云端保留上限）
+       里最后一次电量上升的充值量 delta，切 24h/7d/30d 不变；不再显示充值后余额。
+       只有 30d 不可用（首次加载失败/无历史）时才回退所选区间的 lastUp。 */
+    var p30=sel?POWER.ptsFor("30d"):null;
+    var rec=null;
+    if(sel){
+      if(isSlow)rec=(est&&est.lastRecharge)?est.lastRecharge:null;
+      else rec=POWER.lastRecharge(p30);
+      if(!rec&&(!p30||p30.length<2)&&dSel.lastUp)rec=dSel.lastUp;
+    }
+    var recAmt=(rec&&rec.delta!=null&&isFinite(rec.delta)&&rec.delta>0)?rec.delta:null;
     var refOn=isSlow?!!(est.valid&&est.ref):!!(slow&&sel&&daysMain!=="—");
     var low=Number(POWER.low)||30;
     var opts=[10,20,30,40,50,60,80,100].map(function(v){
@@ -8091,7 +8122,7 @@ var POWER={sel:"",selAt:0,row:null,range:"24h",low:30,hcache:{},loading:false,hi
       '<div class="pw-tile hl"><div class="pw-tl">估算可用</div><div class="pw-tv">'+daysMain+(sel?'<small>天</small>':'')+(refOn?'<span class="pw-ref">参考</span>':'')+'</div><div class="pw-ts">'+daysSub+'</div></div>'+
       '<div class="pw-tile" id="pwUseTile"><div class="pw-tl">'+meta.tile+'</div><div class="pw-tv">'+useTxt+(sel?'<small>度</small>':'')+'</div><div class="pw-ts">'+useSubTxt+'</div></div>'+
       '<button type="button" class="pw-tile pw-tile-btn" id="pwLowTile" aria-haspopup="dialog" aria-expanded="'+(POWER._lowOpen?"true":"false")+'"><div class="pw-tl">低电阈值</div><div class="pw-tv">'+low+'<small>度</small></div></button>'+
-      '<div class="pw-tile"><div class="pw-tl">上次充值</div><div class="pw-tv">'+(rec?POWER.fmtQ(rec.reset):"—")+(rec?'<small>度</small>':'')+'</div><div class="pw-ts">'+(rec?POWER.updText(new Date(rec.t).toISOString()):"暂无记录")+'</div></div>'+
+      '<div class="pw-tile"><div class="pw-tl">上次充值</div><div class="pw-tv">'+(recAmt!=null?("+"+POWER.fmtQ(recAmt)):"—")+(recAmt!=null?'<small>度</small>':'')+'</div><div class="pw-ts">'+(recAmt!=null?POWER.updText(new Date(rec.t).toISOString()):"暂无记录")+'</div></div>'+
       '<div class="pw-bill" id="pwBill"></div>'+
       '<div class="pw-lowsel" id="pwLowSel" role="dialog" aria-label="低电阈值"'+(POWER._lowOpen?"":" hidden")+'>'+
         '<div class="pw-lowsel-h">低电阈值</div><div class="pw-lowsel-g" role="listbox" aria-label="低电阈值">'+opts+'</div></div>';
