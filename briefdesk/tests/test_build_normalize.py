@@ -11,6 +11,7 @@ import json
 import os
 import sys
 import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
 
 BASE = Path(r"G:\ClassTools\web\briefdesk")
@@ -398,6 +399,72 @@ subs = [{"title": "子活动一：线下闯关八段锦", "indexes": [0]},
         {"title": "子活动二：线上手账征集", "indexes": [1]},
         {"title": "子活动三：诵读打卡", "indexes": [2]}]
 eq("子活动一/二/三 不合并", len(bnb._merge_similar_clusters(subs)), 3)
+
+# ---------------------------------------------------------------- 8. 「报名成功后进群/锁群」补充片段（2026-11-22）
+# 用户反馈：「11月22日（今天） 12:00 前进打卡群」上下文不对——补充消息被拆成独立卡，二维码又挂在
+# 活动卡上。同记录里唯一活动主体聚类时，补充片段必须并回活动卡（条目记为「补充通知」）。
+print("---- §3.11 报名成功后进群/锁群补充片段并回活动卡 ----")
+_msgs = [
+    {"kind": "file", "name": "“翰墨腾龙韵”系列主题活动策划书.pdf"},
+    {"kind": "text", "text": "活动时间：2026年11月22日—11月25日；活动对象：全体学生；"
+                             "报名方式：11月21日18:00-22:00在服务号报名；报名成功后加入QQ活动群。"},
+    {"kind": "text", "text": "成功报名的同学加入对应的二维码，在11月22日12点之前进群，到点即锁群"},
+    {"kind": "image", "name": "qr1.jpg"},
+]
+_clusters = [
+    {"title": "龙狮系列主题活动总览", "summary": "", "points": [], "indexes": [0, 1, 3]},
+    {"title": "书法打卡报名进群", "summary": "", "points": ["到点即锁群"], "indexes": [2]},
+]
+new_clusters, supp = bnb._merge_supplement_clusters(_clusters, _msgs)
+eq("补充片段并入主活动卡（indexes 并集）", [c.get("indexes") for c in new_clusters], [[0, 1, 2, 3]])
+eq("补充片段消息序号", supp, {2})
+check("并入的要点保留「到点即锁群」",
+      any("锁群" in p for p in new_clusters[0].get("points") or []), new_clusters[0].get("points"))
+# 反向 1：同记录里有两个活动主体聚类 → 不猜，原样返回
+_msgs2 = _msgs + [{"kind": "text", "text": "活动时间：12月1日—12月30日；报名方式：扫码进群。"}]
+_clusters2 = [
+    {"title": "活动A", "indexes": [0, 1]},
+    {"title": "活动B", "indexes": [4]},
+    {"title": "进群", "indexes": [2]},
+]
+kept2, supp2 = bnb._merge_supplement_clusters(_clusters2, _msgs2)
+eq("多个活动主体聚类时不合并", len(kept2), 3)
+eq("多个活动主体聚类时无补充序号", supp2, set())
+# 反向 2：自己就带活动主体信息（活动时间/报名方式）的聚类不是补充片段
+_clusters3 = [
+    {"title": "活动A", "indexes": [0, 1]},
+    {"title": "活动C", "indexes": [5]},
+]
+_msgs3 = _msgs + [{"kind": "text", "text": "活动时间：12月5日；报名方式：扫码进群，11月22日前进群。"}]
+kept3, supp3 = bnb._merge_supplement_clusters(_clusters3, _msgs3)
+eq("带活动主体信息的聚类不并入", len(kept3), 2)
+eq("带活动主体信息的聚类无补充序号", supp3, set())
+
+# ---------------------------------------------------------------- 9. 报名截止已过、但还有更晚截止（2026-11-22）
+# 用户反馈：龙狮书法打卡报名 11-21 22:00 截止后整卡被判已截止，活动 11-22 才开始、11-25 还要交作品；
+# 报名截止已过但有更晚提交截止时，去掉已过的 signupEnd，卡片跟踪剩下的截止（不要整卡提前过期）。
+print("---- §3.12 报名截止后仍跟踪更晚的提交截止 ----")
+_now = datetime.now()
+_past = (_now - timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%S+08:00")
+_future = (_now + timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%S+08:00")
+g_act = {"id": "g_act", "title": "龙狮系列主题活动", "actionable": True,
+         "signupStart": (_now - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S+08:00"),
+         "signupEnd": _past, "deadline": _future,
+         "eventAt": (_now - timedelta(hours=8)).strftime("%Y-%m-%dT%H:%M:%S+08:00")}
+bnb._drop_passed_signup_end([g_act])
+check("有更晚截止：去掉已过的 signupEnd", not g_act.get("signupEnd"), g_act.get("signupEnd"))
+eq("expireAt 不早于该截止", g_act.get("expireAt"), g_act.get("deadline"))
+check("报名开始保留", bool(g_act.get("signupStart")), g_act.get("signupStart"))
+# 反向 1：没有更晚截止（讲座/比赛这种报名截止后就没事了）→ 保留 signupEnd，按契约进已截止
+g_closed = {"id": "g_closed", "title": "讲座报名", "signupEnd": _past,
+            "deadline": (_now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S+08:00")}
+bnb._drop_passed_signup_end([g_closed])
+eq("没有更晚截止：保留 signupEnd", g_closed.get("signupEnd"), _past)
+# 反向 2：多报名窗口（signupWindows）不动
+g_win = {"id": "g_win", "title": "多窗口活动", "signupEnd": _past, "deadline": _future,
+         "signupWindows": [{"label": "子活动一", "end": _past}]}
+bnb._drop_passed_signup_end([g_win])
+eq("多报名窗口保留 signupEnd", g_win.get("signupEnd"), _past)
 
 # ---------------------------------------------------------------- 结果
 print("\n================ 结果 ================")

@@ -5482,6 +5482,71 @@ def _merge_similar_clusters(clusters):
     return out
 
 
+# 2026-11-22 用户反馈：「11月22日（今天） 12:00 前进打卡群」这张卡的上下文不对。
+# 同一条合并转发里，「成功报名的同学加入对应的二维码，在11月22日12点之前进群，到点即锁群」这条
+# 补充消息被 AI 拆成单独一张卡；它说的三张群二维码图片又被 redistribute_images 挂到了同记录里
+# 有附件的活动卡上——结果这张卡既不知道属于哪个活动，也没有它说的二维码。
+# 规则：同记录里恰好只有一条「活动主体」聚类时，把「报名成功/扫码/进群/锁群」这类单条短补充片段
+# 并进该活动卡，条目标「补充通知」；不唯一时保守跳过（交给 AI 聚类或人工补丁）。
+_SUPPLEMENT_FRAGMENT_RE = re.compile(r"成功报名|报名成功|已报名|录取|入选|扫码|二维码|进群|入群|锁群|加群|群号")
+_ACTIVITY_FRAME_RE = re.compile(r"活动时间|活动对象|活动内容|报名时间|报名方式|主办|承办|子活动|活动地点|活动期间|活动主题")
+
+
+def _merge_supplement_clusters(clusters, messages):
+    """把「报名成功后扫码进群/锁群」的补充片段并入同记录唯一的主活动聚类。
+
+    返回 (clusters, supplement_indexes)：supplement_indexes 是补充片段的原始消息序号（用于在
+    expand_merged 里把条目标成「补充通知」）。只处理单条短文本、自身没有文件/图片、且不含活动
+    主体信息的聚类；同记录里有多个活动主体聚类时不猜，直接跳过。
+    """
+    def _text_of(c):
+        parts = []
+        for i in c.get("indexes") or []:
+            if not isinstance(i, int) or i < 0 or i >= len(messages):
+                continue
+            m = messages[i] if isinstance(messages[i], dict) else {}
+            if (m.get("kind") or "text") == "text":
+                parts.append(str(m.get("text") or ""))
+        return "\n".join(parts)
+
+    def _kinds_of(c):
+        out = set()
+        for i in c.get("indexes") or []:
+            if isinstance(i, int) and 0 <= i < len(messages):
+                m = messages[i] if isinstance(messages[i], dict) else {}
+                out.add(m.get("kind") or "text")
+        return out
+
+    groups = [c for c in (clusters or []) if isinstance(c, dict) and c.get("indexes")]
+    actives = [c for c in groups if _ACTIVITY_FRAME_RE.search(_text_of(c))]
+    if len(actives) != 1:
+        return groups, set()
+    target = actives[0]
+    supp_indexes = set()
+    for c in groups:
+        if c is target or _kinds_of(c) - {"text"}:
+            continue
+        text = _text_of(c)
+        clean = re.sub(r"\s+", "", text)
+        if not clean or len(clean) > 90:
+            continue
+        if not _SUPPLEMENT_FRAGMENT_RE.search(text) or _ACTIVITY_FRAME_RE.search(text):
+            continue
+        idx = list(target.get("indexes") or [])
+        for i in c.get("indexes") or []:
+            if i not in idx:
+                idx.append(i)
+            supp_indexes.add(i)
+        target["indexes"] = sorted(idx)
+        pts = list(target.get("points") or [])
+        for p in c.get("points") or []:
+            if p not in pts and len(pts) < 3:
+                pts.append(p)
+        target["points"] = pts
+    keep = [c for c in groups if c is target or not set(c.get("indexes") or []) <= supp_indexes]
+    return keep, supp_indexes
+
+
 def expand_merged(groups):
     """Split merged chat records into AI-clustered notices (same topic stays together)."""
     if not AI_MERGED.exists():
@@ -5504,6 +5569,8 @@ def expand_merged(groups):
             continue
         # 同一活动的聚类（介绍 + 报名/附件）合成一张卡，避免介绍卡缺报名信息被判长期安排
         clusters = _merge_similar_clusters(clusters)
+        # 「报名成功后扫码进群/锁群」的补充片段并回主活动卡（避免出现没有上下文的孤立卡）
+        clusters, supp_indexes = _merge_supplement_clusters(clusters, merged.get("messages") or [])
         base_items = [it for it in g.get("items", []) if it.get("kind") != "merged"]
         for ci, c in enumerate(clusters):
             items = list(base_items) if ci == 0 else []
@@ -5532,10 +5599,15 @@ def expand_merged(groups):
                                   "name": m.get("name") or "小程序", "note": m.get("text", ""),
                                   "url": m.get("url", "")})
                 else:
-                    items.append({"kind": "text", "label": "通知", "time": m.get("time", ""),
-                                  "text": m.get("text", "")})
+                    supp = idx in supp_indexes
+                    item = {"kind": "text", "label": "补充通知" if supp else "通知",
+                            "time": m.get("time", ""), "text": m.get("text", "")}
+                    if supp:
+                        item["supplement"] = True
+                    items.append(item)
             text = "\n".join(it.get("text", "") for it in items)
-            out.append({
+            merged_supp = any(it.get("supplement") for it in items)
+            group = {
                 "id": g.get("id", "g") + "_c" + str(ci),
                 "cat": classify_wechat(text),
                 "title": (c.get("title") or g.get("title") or "通知")[:24],
@@ -5544,7 +5616,11 @@ def expand_merged(groups):
                 "group": g.get("group", ""), "source": g.get("source", ""),
                 "deadline": extract_deadline(text), "actionable": True,
                 "items": items,
-            })
+            }
+            if merged_supp:
+                # 合并进来的补充片段：卡片标「已更新」（与 apply_supplements/人工补丁同语义）
+                group["supplement"] = True
+            out.append(group)
     return out
 
 
@@ -6369,6 +6445,37 @@ def resolve_recurrence_conflicts(groups):
               "|", g.get("eventAt") or g.get("deadline") or g.get("signupStart"))
 
 
+# ---------------------------------------------------------------- 2026-11-22 报名截止后卡片不该整卡过期
+# 用户反馈：「11月22日（今天） 12:00 前进打卡群」上下文不对。根因之一：龙狮书法打卡的报名窗口
+# 11-21 22:00 截止后，整张活动卡被状态机判成「已截止」移出主列表——可活动 11-22 至 11-25 才进行、
+# 11-25 23:00 前还要交作品，报名成功的人今天 12:00 前还得扫码进群。结果只剩那条独立的「进群」补充卡
+# 在主列表里，看着没有上下文。
+# 数据口径：报名截止已过、但还有更晚的提交/作品截止时，报名窗口已不是可做的事，卡片应跟踪剩下的动作：
+#   · 去掉已过的 signupEnd（三端契约对「只有 signupStart 且已开始」的兜底 = 退回截止/活动时间）；
+#   · expireAt 不早于该截止，避免 eventAt 已过又没归档时间时仍被判定过期。
+# 报名时间仍保留在摘要/要点/分段与原文条目里，不丢信息；只有「报名截止后什么都不能再做」的卡
+# （没有更晚截止：讲座、比赛、名单等）仍按契约进已截止区。
+def _drop_passed_signup_end(groups):
+    now = datetime.now()
+    for g in groups:
+        if not isinstance(g, dict):
+            continue
+        if isinstance(g.get("recurrence"), dict) and g["recurrence"].get("freq"):
+            continue
+        if g.get("signupWindows") or g.get("expired") is True:
+            continue
+        se = _parse_ref_time(g.get("signupEnd"))
+        dl = _parse_ref_time(g.get("deadline"))
+        if not se or not dl or se >= now or dl <= now:
+            continue
+        g.pop("signupEnd", None)
+        ex = _parse_ref_time(g.get("expireAt"))
+        if not ex or ex < dl:
+            g["expireAt"] = _iso_of(dl)
+        print("signup-end->deadline:", g.get("id"), "|", str(g.get("title") or "")[:40],
+              "| signupEnd", _iso_of(se), "-> deadline", g.get("deadline"))
+
+
 def main():
     groups = build_groups()
     docs = load_docs()
@@ -6463,6 +6570,8 @@ def main():
     groups = normalize_group_times(groups, final=True)
     # 2026-11-18：长期安排 × 一次性报名/截止/活动时间冲突归一（固定日期活动不是长期安排）
     resolve_recurrence_conflicts(groups)
+    # 2026-11-22：报名截止已过但还有更晚的提交截止 → 卡片跟踪剩下的动作，不整卡提前过期
+    _drop_passed_signup_end(groups)
     # 统一数据口径：既无截止也无活动时间的通知不带 expireAt/timeLabel，
     # 避免下游把「自动归档时间」误当成「截止时间」显示。
     for g in groups:
