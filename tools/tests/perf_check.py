@@ -263,6 +263,9 @@ def build_previews():
     anchor = "})();\r\n</script>"
     idx = html.rfind(anchor)
     if idx < 0:
+        # 行尾兼容：2026-11-21 仓库整理后 index.html 为 LF；CRLF/LF 两种都接受
+        idx = html.rfind("})();\n</script>")
+    if idx < 0:
         raise SystemExit("[perf_check] 找不到主脚本结尾锚点")
     html = html[:idx] + hook + "\r\n" + html[idx:]
     base = MOCK_JS.replace("__DATA__", json.dumps(DATA, ensure_ascii=False).replace("<", "\\u003c"))

@@ -732,6 +732,9 @@ def build_preview():
     anchor = "})();\r\n</script>"
     idx = html.rfind(anchor)
     if idx < 0:
+        # 行尾兼容：2026-11-21 仓库整理后 index.html 为 LF；CRLF/LF 两种都接受
+        idx = html.rfind("})();\n</script>")
+    if idx < 0:
         raise SystemExit("[sync_check] 找不到主脚本结尾锚点")
     fix = ("window.__SYNC_FIX={web:%s,mp:%s,v5:%s,marks:%s,exp_web_mp:%s,exp_mp_web:%s,exp_v5:%s};"
            % (json.dumps(WEB, ensure_ascii=False),
