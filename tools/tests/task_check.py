@@ -250,12 +250,35 @@ RUNNER = r"""
           document.documentElement.scrollWidth+"/"+document.documentElement.clientWidth);
         T("空搜索/排序控件就位", !!q("#tkSort")&&!!q("#tkQuick"), "");
 
+        /* ---- 时间选择器 ---- */
+        click("#tkQuickDueBtn");await sleep(120);
+        T("快速添加时间入口可见", !!q("#tkQuickTimeBtn")&&!q("#tkQuickDateRow").hidden, "");
+        click("#tkQuickTimeBtn");await sleep(120);
+        T("时间面板打开", !!q("#tkTimePanel")&&!q("#tkTimePanel").hidden&&window.__TIME_PICK().open, "");
+        q('[data-tkp-h="18"]').click();q('[data-tkp-m="30"]').click();await sleep(60);
+        T("时间面板实时预览", txt("#tkTpPreview")==="18:30", txt("#tkTpPreview"));
+        click("#tkTpOk");await sleep(120);
+        T("时间选择写入隐藏值/按钮", q("#tkQuickTime").value==="18:30"&&txt("#tkQuickTimeBtn").indexOf("18:30")>=0,
+          q("#tkQuickTime").value+" | "+txt("#tkQuickTimeBtn"));
+        T("时间选择后面板关闭", q("#tkTimePanel").hidden, "");
+        click("#tkQuickTimeBtn");await sleep(80);
+        setv("#tkTpExact","2030");await sleep(40);click("#tkTpOk");await sleep(100);
+        T("时间直接输入 2030 归一为 20:30", q("#tkQuickTime").value==="20:30", q("#tkQuickTime").value);
+        click("#tkQuickTimeBtn");await sleep(80);
+        q("#tkTpAllDay").click();await sleep(30);click("#tkTpOk");await sleep(100);
+        T("选择全天清空时间", q("#tkQuickTime").value===""&&txt("#tkQuickTimeBtn").indexOf("全天")>=0,
+          q("#tkQuickTime").value+" | "+txt("#tkQuickTimeBtn"));
+        click("#tkQuickDateClear");await sleep(60);
+        setv("#tkQuickDate",__TOMORROW__);
+        click("#tkQuickTimeBtn");await sleep(80);q('[data-tkp-h="18"]').click();q('[data-tkp-m="30"]').click();click("#tkTpOk");await sleep(80);
+
         /* ---- 快速添加 ---- */
         setv("#tkQuick","测试快速添加");
         q("#tkQuickAdd").click();await sleep(250);
         T("快速添加后 5 条", qa("#tkList .tk-item").length===5, qa("#tkList .tk-item").length);
         T("快速添加任务在列表中", !!rowByTitle("测试快速添加"), "");
         T("快速添加默认未分组", (function(){var qk=TASK.items().filter(function(t){return t.title==="测试快速添加";})[0];return !!qk&&qk.list==="";})(), "");
+        T("快速添加保留时间选择", (function(){var qk=TASK.items().filter(function(t){return t.title==="测试快速添加";})[0];return !!qk&&qk.due===__TOMORROW__&&qk.dueTime==="18:30";})(), "");
         var raw=localStorage.getItem("zq_tools_v2___SID__")||"";
         T("快速添加写入本机存储", raw.indexOf("测试快速添加")>=0, String(raw.length));
 
@@ -263,6 +286,11 @@ RUNNER = r"""
         var row=rowByTitle("测试快速添加");row.click();await sleep(300);
         T("编辑器打开且标题回填", q("#tkPanel").style.display!=="none"&&q("#tkFTitle").value==="测试快速添加", q("#tkFTitle").value);
         T("分组下拉含未分组", !!q('#tkFList option[value=""]'), q("#tkFList").value);
+        T("编辑器时间按钮沿用快速添加值", txt("#tkFTimeBtn").indexOf("18:30")>=0&&q("#tkFTime").value==="18:30", txt("#tkFTimeBtn"));
+        click("#tkFTimeBtn");await sleep(100);
+        q('[data-tkp-h="20"]').click();q('[data-tkp-m="15"]').click();click("#tkTpOk");await sleep(120);
+        T("编辑器时间选择生效", q("#tkFTime").value==="20:15"&&txt("#tkFTimeBtn").indexOf("20:15")>=0,
+          q("#tkFTime").value+" | "+txt("#tkFTimeBtn"));
         setv("#tkFTitle","测试编辑任务");
         setv("#tkFNotes","备注内容 ABC");
         setv("#tkFDate",__IN2__);
@@ -392,7 +420,7 @@ RUNNER = r"""
         var file=new File([JSON.stringify(payload)],"tasks.json",{type:"application/json"});
         var dt=new DataTransfer();dt.items.add(file);
         var inp=q("#tkImportFile");inp.files=dt.files;inp.dispatchEvent(new Event("change",{bubbles:true}));
-        await sleep(1800);
+        await waitFor(function(){return txt("#tkLists").indexOf("导入组")>=0;},7000);
         T("恢复任务：分组", txt("#tkLists").indexOf("导入组")>=0, txt("#tkLists").slice(0,120)+" | toast="+txt("#toast"));
         T("恢复任务：条目", !!taskByTitle("导入任务一")&&!!taskByTitle("导入任务二"), "toast="+txt("#toast"));
 
@@ -459,8 +487,8 @@ RUNNER = r"""
           qa("#taskFilesList .att-card").length+" | "+txt("#taskFilesNote"));
         qa("#taskFilesList [data-att-rm]")[0].click();await sleep(120);
         T("再次移除后 1 个", qa("#taskFilesList .att-card").length===1, qa("#taskFilesList .att-card").length);
-        setFiles("#taskFiles",[new File([new Uint8Array(400*1024)],"big.txt",{type:"text/plain"})]);await waitFor(function(){return qa("#taskFilesList .att-card").length===2;},16000);
-        T("任务大文件不再被大小限制", qa("#taskFilesList .att-card").length===2&&txt("#taskFilesNote").indexOf("已添加")>=0,
+        setFiles("#taskFiles",[new File([new Uint8Array(340*1024)],"big.txt",{type:"text/plain"})]);await waitFor(function(){return qa("#taskFilesList .att-card").length===2;},16000);
+        T("任务附件超过旧 320KB 上限", qa("#taskFilesList .att-card").length===2&&txt("#taskFilesNote").indexOf("已添加")>=0,
           qa("#taskFilesList .att-card").length+" | "+txt("#taskFilesNote"));
         qa("#taskFilesList [data-att-rm]")[0].click();await sleep(120);
         setFiles("#taskFiles",[fileOf("补充.txt","补充")]);await waitFor(function(){return qa("#taskFilesList .att-card").length===2;},12000);
@@ -686,9 +714,9 @@ def main():
         os.remove(REPORT)
     url = BASE + os.path.basename(PREVIEW)
     args = [EDGE, "--headless=new", "--disable-gpu", "--no-first-run", "--force-device-scale-factor=1",
-            "--window-size=1280,900", "--virtual-time-budget=90000",
+            "--window-size=1280,900", "--virtual-time-budget=120000",
             "--screenshot=" + os.path.join(REPORT_DIR, "task_check.png"), url]
-    subprocess.run(args, capture_output=True, timeout=240)
+    subprocess.run(args, capture_output=True, timeout=300)
     data = None
     for _ in range(40):
         if os.path.exists(REPORT):

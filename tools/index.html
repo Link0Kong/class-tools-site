@@ -3616,9 +3616,60 @@ body.tk-sorting *{cursor:grabbing!important}
 .tk-ed textarea{min-height:76px;max-height:220px}
 .tk-ed-grid{display:grid;grid-template-columns:74px minmax(0,1fr);gap:8px 12px;align-items:center;margin-top:14px}
 .tk-ed-grid>label{font-size:12px;color:var(--ink3);font-weight:700;line-height:1.5}
-.tk-datepair{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-width:0}
+.tk-datepair{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-width:0;position:relative}
 .tk-datepair input[type=date]{flex:1;min-width:126px}
 .tk-datepair input[type=time]{width:104px;flex:none}
+.tk-quickdate{position:relative}
+.tk-time-native{position:absolute!important;left:0;bottom:0;width:1px!important;height:1px!important;min-width:0!important;padding:0!important;border:0!important;opacity:0;pointer-events:none;clip:rect(0,0,0,0);overflow:hidden}
+.tk-timebtn{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:40px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink2);font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;min-width:88px;font-variant-numeric:tabular-nums}
+.tk-timebtn svg{width:15px;height:15px;flex:none;opacity:.7}
+.tk-timebtn:hover{border-color:var(--tk-accent);color:var(--tk-accent)}
+.tk-timebtn.is-set{color:var(--ink);border-color:var(--tk-accent)}
+.tk-timebtn.is-empty{color:var(--ink3);font-weight:700}
+.tk-quickdate .tk-timebtn{flex:0 0 96px;min-width:0}
+.tk-datepair .tk-timebtn{flex:0 0 108px}
+.tk-tp{position:fixed;inset:0;z-index:86;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(35,48,46,.42);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.tk-tp[hidden]{display:none!important}
+.tk-tp-card{width:min(430px,100%);max-height:calc(100vh - 36px);overflow-y:auto;overscroll-behavior:contain;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 18px 50px rgba(35,48,46,.24)}
+.tk-tp-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.tk-tp-hd b{display:block;font-size:17px;letter-spacing:.01em}
+.tk-tp-sub{display:block;margin-top:2px;font-size:11.5px;color:var(--ink3)}
+.tk-tp-close{width:40px;height:40px;margin:-6px -6px 0 0;border:0;border-radius:50%;background:transparent;color:var(--ink3);font-size:22px;line-height:1;cursor:pointer;font-family:inherit}
+.tk-tp-close:hover{background:var(--tk-soft2);color:var(--ink)}
+.tk-tp-close:focus{outline:none}
+.tk-tp-close:focus-visible{outline:2px solid var(--tk-accent);outline-offset:2px}
+.tk-tp-quick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.tk-tp-chip{min-height:36px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink2);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums}
+.tk-tp-chip:hover{background:var(--tk-soft)}
+.tk-tp-chip.on{background:var(--tk-soft);border-color:var(--tk-accent);color:var(--tk-accent)}
+.tk-tp-preview{display:flex;align-items:baseline;gap:8px;padding:8px 12px;margin-bottom:10px;border-radius:12px;background:var(--tk-soft2);min-height:48px}
+.tk-tp-preview span:first-child{font-size:28px;font-weight:800;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.tk-tp-preview-note{font-size:11.5px;color:var(--ink3)}
+.tk-tp-gridlabel{margin:8px 0 5px;font-size:11px;font-weight:800;color:var(--ink3);letter-spacing:.06em}
+.tk-tp-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
+.tk-tp-cell{min-height:38px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink2);font-family:inherit;font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;cursor:pointer}
+.tk-tp-cell:hover{background:var(--tk-soft)}
+.tk-tp-cell.on{background:var(--tk-accent);border-color:var(--tk-accent);color:#fff}
+.tk-tp-cell.tk-tp-now{box-shadow:inset 0 0 0 1.5px rgba(78,144,130,.35)}
+.tk-tp-exactwrap{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:12px;font-weight:700;color:var(--ink2)}
+.tk-tp-exactwrap span{flex:0 0 auto}
+.tk-tp-exactwrap input{flex:1;min-width:0;min-height:40px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-family:inherit;font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.06em}
+.tk-tp-exactwrap input:focus{outline:2px solid var(--tk-accent);outline-offset:1px;background:var(--card)}
+.tk-tp-err{min-height:16px;margin-top:5px;font-size:11px;font-weight:700;color:#B05A52}
+.tk-tp-foot{display:flex;align-items:center;gap:8px;margin-top:6px;padding-top:10px;border-top:1px solid var(--line)}
+.tk-tp-foot .btn{min-height:40px}
+.tk-tp-foot .btn.on{background:var(--tk-soft);border-color:var(--tk-accent);color:var(--tk-accent)}
+html[data-appearance="dark"] .tk-tp{background:rgba(0,0,0,.62)}
+html[data-appearance="dark"] .tk-tp-preview{background:#16201C}
+html[data-appearance="dark"] .tk-tp-exactwrap input{background:#16201C}
+@media(max-width:640px){
+  .tk-tp{padding:0;align-items:flex-end}
+  .tk-tp-card{width:100%;max-height:92vh;border-radius:20px 20px 0 0;padding:14px 16px calc(14px + env(safe-area-inset-bottom));border-left:0;border-right:0;border-bottom:0}
+  .tk-tp-grid{gap:5px}
+  .tk-tp-cell{min-height:40px}
+  .tk-datepair .tk-timebtn{flex:1 1 96px}
+  .tk-quickdate .tk-timebtn{flex:1 1 100%;justify-content:center}
+}
 .tk-clear{min-height:34px;padding:4px 8px;border:0;background:transparent;border-radius:8px;color:var(--ink3);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
 .tk-clear:hover{background:var(--tk-soft2);color:var(--ink2)}
 .tk-remwrap{display:flex;flex-direction:column;gap:6px;min-width:0}
@@ -4091,7 +4142,8 @@ html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px
         </div>
         <div class="tk-quickdate" id="tkQuickDateRow" hidden>
           <input type="date" id="tkQuickDate" aria-label="截止日期">
-          <input type="time" id="tkQuickTime" aria-label="截止时间">
+          <input type="time" id="tkQuickTime" class="tk-time-native" tabindex="-1" aria-hidden="true">
+          <button class="tk-timebtn is-empty" id="tkQuickTimeBtn" type="button" data-tk-time-for="tkQuickTime" aria-haspopup="dialog" aria-expanded="false" title="选择截止时间"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3.2 1.9"/></svg><span class="tk-timebtn-t">全天</span></button>
           <select id="tkQuickList" aria-label="分组"></select>
           <button class="btn ghost sm" type="button" id="tkQuickDateClear">清除</button>
           <button class="btn sm" type="button" id="tkQuickDateOk">确定</button>
@@ -4215,7 +4267,8 @@ html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px
         </div>
         <div class="tk-datepair">
           <input type="date" id="tkFDate" aria-label="截止日期">
-          <input type="time" id="tkFTime" aria-label="截止时间">
+          <input type="time" id="tkFTime" class="tk-time-native" tabindex="-1" aria-hidden="true">
+          <button class="tk-timebtn is-empty" id="tkFTimeBtn" type="button" data-tk-time-for="tkFTime" aria-haspopup="dialog" aria-expanded="false" title="选择截止时间"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3.2 1.9"/></svg><span class="tk-timebtn-t">全天</span></button>
           <button type="button" class="tk-clear" id="tkFDateClear">清除</button>
         </div>
         <div class="tk-err" id="tkFDateErr" role="alert"></div>
@@ -4292,6 +4345,31 @@ html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px
         <span class="tk-ed-meta" id="tkFMeta"></span>
         <button class="btn sm ghost" id="tkFCancel" type="button">取消</button>
         <button class="btn pri" id="tkFSave" type="button">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tk-tp" id="tkTimePanel" hidden aria-hidden="true">
+    <div class="tk-tp-card" role="dialog" aria-modal="true" aria-labelledby="tkTpTitle">
+      <div class="tk-tp-hd">
+        <div><b id="tkTpTitle">选择时间</b><span class="tk-tp-sub" id="tkTpSub">截止时间</span></div>
+        <button class="tk-tp-close" id="tkTpClose" type="button" aria-label="关闭">×</button>
+      </div>
+      <div class="tk-tp-quick" id="tkTpQuick" aria-label="常用时间"></div>
+      <div class="tk-tp-preview"><span id="tkTpPreview">全天</span><span class="tk-tp-preview-note" id="tkTpPreviewNote">不设具体时间</span></div>
+      <div class="tk-tp-gridwrap">
+        <div class="tk-tp-gridlabel">小时</div>
+        <div class="tk-tp-grid" id="tkTpHours" role="group" aria-label="小时"></div>
+        <div class="tk-tp-gridlabel">分钟</div>
+        <div class="tk-tp-grid" id="tkTpMins" role="group" aria-label="分钟"></div>
+      </div>
+      <label class="tk-tp-exactwrap" for="tkTpExact"><span>直接输入</span><input id="tkTpExact" inputmode="numeric" autocomplete="off" maxlength="5" placeholder="HH:MM" aria-label="直接输入时间"></label>
+      <div class="tk-tp-err" id="tkTpErr" role="alert"></div>
+      <div class="tk-tp-foot">
+        <button class="btn ghost sm" id="tkTpAllDay" type="button" aria-pressed="false">全天</button>
+        <span style="flex:1"></span>
+        <button class="btn sm ghost" id="tkTpCancel" type="button">取消</button>
+        <button class="btn pri" id="tkTpOk" type="button">确定</button>
       </div>
     </div>
   </div>
@@ -6012,6 +6090,152 @@ $("#attClose").addEventListener("click",function(){$("#attPanel").style.display=
 $("#attPanel").addEventListener("click",function(e){if(e.target===this){this.style.display="none";attRevokeView();}});
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&$("#attPanel").style.display!=="none"){$("#attPanel").style.display="none";attRevokeView();}});
 try{window.__ATT_PROBE=function(){return {busy:JSON.parse(JSON.stringify(ATT_BUSY)),lists:{hw:PUBATT.hw.map(function(a){return {n:a.n,s:a.s,l:(a.d||"").length,img:!!a.img};}),task:PUBATT.task.map(function(a){return {n:a.n,s:a.s,l:(a.d||"").length,img:!!a.img};})}};};}catch(e){}
+/* 时间选择器：任务截止时间统一走这里；保留隐藏的 time 输入作为值源/兼容测试。 */
+var TIME_PICK={input:null,trigger:null,h:18,m:0,allDay:true,lastFocus:null,prevOverflow:""};
+function timePickPad(n){return (n<10?"0":"")+n;}
+function timePickFmt(h,m){return timePickPad(h)+":"+timePickPad(m);}
+function timePickParse(v){
+  var s=String(v==null?"":v).trim().replace(/：/g,":");
+  if(!s)return null;
+  var m=s.match(/^(\d{1,2})[.:]?(\d{2})$/);
+  if(!m)m=s.match(/^(\d{1,2})$/);
+  if(!m)return null;
+  var h=+m[1],mm=m[2]==null?0:+m[2];
+  if(h<0||h>23||mm<0||mm>59)return null;
+  return {h:h,m:mm};
+}
+function timePickSync(id){
+  var inp=document.getElementById(id);if(!inp)return;
+  var btn=document.querySelector('[data-tk-time-for="'+id+'"]');if(!btn)return;
+  var t=timePickParse(inp.value),lab=btn.querySelector(".tk-timebtn-t");
+  if(lab)lab.textContent=t?timePickFmt(t.h,t.m):(btn.getAttribute("data-time-empty")||"全天");
+  btn.classList.toggle("is-set",!!t);
+  btn.classList.toggle("is-empty",!t);
+}
+function timePickBuild(){
+  var q=$("#tkTpQuick"),hrs=$("#tkTpHours"),mins=$("#tkTpMins");
+  if(!q||!hrs||!mins)return;
+  var presets=["08:00","12:00","14:00","18:00","20:00","22:00","23:59"];
+  q.innerHTML=presets.map(function(s){return '<button class="tk-tp-chip" type="button" data-tkp-quick="'+s+'">'+s+'</button>';}).join("");
+  var hh="",i;
+  for(i=0;i<24;i++)hh+='<button class="tk-tp-cell" type="button" data-tkp-h="'+i+'">'+timePickPad(i)+'</button>';
+  hrs.innerHTML=hh;
+  var mm="",minsList=[0,5,10,15,20,25,30,35,40,45,50,55];
+  for(i=0;i<minsList.length;i++)mm+='<button class="tk-tp-cell" type="button" data-tkp-m="'+minsList[i]+'">'+timePickPad(minsList[i])+'</button>';
+  mins.innerHTML=mm;
+}
+function timePickEnsureMinute(){
+  var mins=$("#tkTpMins");if(!mins)return;
+  if(TIME_PICK.allDay||TIME_PICK.m%5===0)return;
+  if(mins.querySelector('[data-tkp-m="'+TIME_PICK.m+'"]'))return;
+  var b=document.createElement("button");
+  b.type="button";b.className="tk-tp-cell";b.setAttribute("data-tkp-m",TIME_PICK.m);b.textContent=timePickPad(TIME_PICK.m);
+  mins.appendChild(b);
+}
+function timePickRefresh(syncExact){
+  var all=TIME_PICK.allDay,preview=$("#tkTpPreview"),note=$("#tkTpPreviewNote");
+  var txt=all?"全天":timePickFmt(TIME_PICK.h,TIME_PICK.m);
+  if(preview)preview.textContent=txt;
+  if(note)note.textContent=all?"不设具体时间":"24 小时制 · 可精确到分钟";
+  var ad=$("#tkTpAllDay");if(ad){ad.setAttribute("aria-pressed",all?"true":"false");ad.classList.toggle("on",all);}
+  $$("#tkTpQuick [data-tkp-quick]").forEach(function(b){
+    var on=!all&&b.getAttribute("data-tkp-quick")===txt;
+    b.classList.toggle("on",on);b.setAttribute("aria-pressed",on?"true":"false");
+  });
+  $$("#tkTpHours [data-tkp-h]").forEach(function(b){
+    var on=!all&&+b.getAttribute("data-tkp-h")===TIME_PICK.h;
+    b.classList.toggle("on",on);b.setAttribute("aria-pressed",on?"true":"false");
+  });
+  timePickEnsureMinute();
+  $$("#tkTpMins [data-tkp-m]").forEach(function(b){
+    var on=!all&&+b.getAttribute("data-tkp-m")===TIME_PICK.m;
+    b.classList.toggle("on",on);b.setAttribute("aria-pressed",on?"true":"false");
+  });
+  var ex=$("#tkTpExact");
+  if(ex&&syncExact!==false)ex.value=all?"":txt;
+  var err=$("#tkTpErr");if(err)err.textContent="";
+}
+function timePickOpen(id,trigger){
+  var inp=document.getElementById(id),panel=$("#tkTimePanel");if(!inp||!panel)return;
+  var t=timePickParse(inp.value);
+  TIME_PICK.input=inp;TIME_PICK.trigger=trigger||document.querySelector('[data-tk-time-for="'+id+'"]');
+  TIME_PICK.lastFocus=document.activeElement;
+  TIME_PICK.allDay=!t;TIME_PICK.h=t?t.h:18;TIME_PICK.m=t?t.m:0;
+  TIME_PICK.prevOverflow=document.body.style.overflow||"";
+  document.body.style.overflow="hidden";
+  var sub=$("#tkTpSub");if(sub)sub.textContent=(TIME_PICK.trigger&&TIME_PICK.trigger.getAttribute("data-time-label"))||"截止时间";
+  var err=$("#tkTpErr");if(err)err.textContent="";
+  timePickBuild();timePickRefresh(true);
+  panel.hidden=false;panel.setAttribute("aria-hidden","false");
+  if(TIME_PICK.trigger)TIME_PICK.trigger.setAttribute("aria-expanded","true");
+  setTimeout(function(){try{$("#tkTpClose").focus();}catch(e){}},30);
+}
+function timePickClose(){
+  var panel=$("#tkTimePanel");if(!panel||panel.hidden)return;
+  panel.hidden=true;panel.setAttribute("aria-hidden","true");
+  if(TIME_PICK.trigger)TIME_PICK.trigger.setAttribute("aria-expanded","false");
+  document.body.style.overflow=TIME_PICK.prevOverflow||"";
+  try{if(TIME_PICK.lastFocus&&TIME_PICK.lastFocus.focus)TIME_PICK.lastFocus.focus();}catch(e){}
+  TIME_PICK.input=null;TIME_PICK.trigger=null;TIME_PICK.lastFocus=null;
+}
+function timePickApply(v){
+  var inp=TIME_PICK.input;if(!inp){timePickClose();return;}
+  inp.value=v;
+  try{inp.dispatchEvent(new Event("input",{bubbles:true}));}catch(e){}
+  try{inp.dispatchEvent(new Event("change",{bubbles:true}));}catch(e){}
+  timePickSync(inp.id);
+  timePickClose();
+}
+function timePickOk(){
+  var ex=$("#tkTpExact"),v=ex?String(ex.value||"").trim():"",err=$("#tkTpErr");
+  if(v){
+    var t=timePickParse(v);
+    if(!t){if(err)err.textContent="请输入 00:00–23:59";if(ex)try{ex.focus();}catch(e){}return;}
+    TIME_PICK.h=t.h;TIME_PICK.m=t.m;TIME_PICK.allDay=false;
+  }
+  if(TIME_PICK.allDay){timePickApply("");return;}
+  timePickApply(timePickFmt(TIME_PICK.h,TIME_PICK.m));
+}
+document.addEventListener("click",function(e){
+  var tr=e.target&&e.target.closest?e.target.closest("[data-tk-time-for]"):null;
+  if(tr){e.preventDefault();timePickOpen(tr.getAttribute("data-tk-time-for"),tr);return;}
+  var q=e.target&&e.target.closest?e.target.closest("[data-tkp-quick]"):null;
+  if(q){var qt=timePickParse(q.getAttribute("data-tkp-quick"));if(qt){TIME_PICK.h=qt.h;TIME_PICK.m=qt.m;TIME_PICK.allDay=false;timePickRefresh(true);}return;}
+  var h=e.target&&e.target.closest?e.target.closest("[data-tkp-h]"):null;
+  if(h){TIME_PICK.h=+h.getAttribute("data-tkp-h");TIME_PICK.allDay=false;timePickRefresh(true);return;}
+  var mi=e.target&&e.target.closest?e.target.closest("[data-tkp-m]"):null;
+  if(mi){TIME_PICK.m=+mi.getAttribute("data-tkp-m");TIME_PICK.allDay=false;timePickRefresh(true);return;}
+  if(e.target&&e.target.id==="tkTpAllDay"){TIME_PICK.allDay=true;timePickRefresh(true);return;}
+  if(e.target&&e.target.id==="tkTpOk"){timePickOk();return;}
+  if(e.target&&e.target.id==="tkTpCancel"){timePickClose();return;}
+  if(e.target&&e.target.id==="tkTpClose"){timePickClose();return;}
+  if(e.target&&e.target.id==="tkTimePanel"){timePickClose();}
+});
+document.addEventListener("input",function(e){
+  if(e.target&&(e.target.id==="tkQuickTime"||e.target.id==="tkFTime")){timePickSync(e.target.id);return;}
+  if(e.target&&e.target.id==="tkTpExact"){
+    var t=timePickParse(e.target.value);
+    if(t){TIME_PICK.h=t.h;TIME_PICK.m=t.m;TIME_PICK.allDay=false;timePickRefresh(false);}
+  }
+});
+document.addEventListener("change",function(e){
+  if(e.target&&(e.target.id==="tkQuickTime"||e.target.id==="tkFTime"))timePickSync(e.target.id);
+});
+$("#tkTpExact").addEventListener("keydown",function(e){
+  if(e.key==="Enter"){e.preventDefault();timePickOk();}
+  else if(e.key==="Escape"){e.preventDefault();e.stopPropagation();timePickClose();}
+});
+$("#tkTimePanel").addEventListener("keydown",function(e){
+  if(e.key==="Escape"){e.preventDefault();e.stopPropagation();timePickClose();return;}
+  if(e.key!=="Tab")return;
+  var f=$$("#tkTimePanel button:not([disabled]),#tkTimePanel input:not([disabled])").filter(function(x){return x.offsetParent!==null;});
+  if(!f.length)return;
+  var first=f[0],last=f[f.length-1];
+  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+  else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+});
+try{window.__TIME_PICK=function(){return {open:!$("#tkTimePanel").hidden,h:TIME_PICK.h,m:TIME_PICK.m,allDay:TIME_PICK.allDay,value:TIME_PICK.input?TIME_PICK.input.value:""};};}catch(e){}
+
 
 var HW={on:false,migrated:false,marks:{},loading:false,pulling:null,visited:false,
   toItems:function(list){return (list||[]).map(function(x){return {id:x.id,subject:x.subject||"",content:x.content||"",due:x.due||"",date:x.date||"",time:x.time||"",author:x.author||"",owner:x.owner||"",attachments:x.attachments||"",done:false,ts:Number(x.ts)||0};});},
@@ -23830,6 +24054,7 @@ var TK=(function(){
     TKU.quickStar=false;
     if($("#tkQuickDate"))$("#tkQuickDate").value="";
     if($("#tkQuickTime"))$("#tkQuickTime").value="";
+    timePickSync("tkQuickTime");
     if($("#tkQuickDateRow"))$("#tkQuickDateRow").hidden=true;
     if($("#tkQuickDueBtn"))$("#tkQuickDueBtn").setAttribute("aria-expanded","false");
     tkWriteUi();tkRenderAll();inp.focus();
@@ -23997,6 +24222,7 @@ var TK=(function(){
     if(kind==="clear"){
       if($("#tkFDate"))$("#tkFDate").value="";
       if($("#tkFTime"))$("#tkFTime").value="";
+      timePickSync("tkFTime");
       var r=$("#tkFRemind");
       if(r&&r.value!=="none"&&r.value!=="custom")r.value="none";
       if($("#tkFRemindCustom"))$("#tkFRemindCustom").hidden=true;
@@ -24028,7 +24254,7 @@ var TK=(function(){
     var star=!!TKU.quickStar;
     if(!tkOpenEditor(""))return;
     if(title){$("#tkFTitle").value=title;TKED.title=title;}
-    if(due){$("#tkFDate").value=due;$("#tkFTime").value=time;TKED.due=due;TKED.dueTime=time;}
+    if(due){$("#tkFDate").value=due;$("#tkFTime").value=time;TKED.due=due;TKED.dueTime=time;timePickSync("tkFTime");}
     if(list&&tkFindListExact(list)){$("#tkFList").value=list;TKED.list=list;}
     TKED.starred=star||TKED.starred;
     if(due&&$("#tkFRemind")&&$("#tkFRemind").value==="none"){
@@ -24039,6 +24265,7 @@ var TK=(function(){
     $("#tkQuick").value="";TKU.quickStar=false;
     if($("#tkQuickDate"))$("#tkQuickDate").value="";
     if($("#tkQuickTime"))$("#tkQuickTime").value="";
+    timePickSync("tkQuickTime");
     if($("#tkQuickDateRow"))$("#tkQuickDateRow").hidden=true;
     if($("#tkQuickDueBtn"))$("#tkQuickDueBtn").setAttribute("aria-expanded","false");
     tkWriteUi();tkRenderQuickState();
@@ -24070,6 +24297,7 @@ var TK=(function(){
     if($("#tkFNotes"))$("#tkFNotes").value=TKED.notes;
     if($("#tkFDate"))$("#tkFDate").value=TKED.due;
     if($("#tkFTime"))$("#tkFTime").value=TKED.dueTime;
+    timePickSync("tkFTime");
     if($("#tkFRepeat"))$("#tkFRepeat").value=TKED.repeat||"";
     if($("#tkFList")){tkListOptions($("#tkFList"),TKED.list);}
     if($("#tkFTags"))$("#tkFTags").value=(TKED.tags||[]).join(", ");
@@ -24769,6 +24997,7 @@ var TK=(function(){
     var qdc=$("#tkQuickDateClear");if(qdc)qdc.addEventListener("click",function(){
       if($("#tkQuickDate"))$("#tkQuickDate").value="";
       if($("#tkQuickTime"))$("#tkQuickTime").value="";
+    timePickSync("tkQuickTime");
       tkRenderQuickState();
     });
     var qdo=$("#tkQuickDateOk");if(qdo)qdo.addEventListener("click",function(){
@@ -24968,6 +25197,7 @@ var TK=(function(){
   function tkInit(){
     try{tkReadUi();}catch(e){}
     try{tkBind();}catch(e){}
+    try{timePickSync("tkQuickTime");timePickSync("tkFTime");}catch(e){}
     try{tkRefresh();}catch(e){}
     setTimeout(function(){try{TASKSYNC.boot();}catch(e){}},1600);
     setTimeout(function(){try{tkCheckReminders();}catch(e){}},2200);
