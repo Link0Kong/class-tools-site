@@ -100,7 +100,14 @@ DATA = {
         {"id": "hw2", "subject": "数学", "content": "习题 3.1 第 1–8 题", "due": "上课前",
          "date": "2099-01-02", "time": "", "done": False},
     ],
-    "marks": [], "fitrecs": [], "notices": [],
+    "marks": [], "fitrecs": [], "notices": [
+        {"id": "row_nt1", "ts": NOW, "hidden": False, "edited_at": 0, "override_json": None,
+         "body": "[[CLASS_NOTICE_V1]]" + json.dumps({
+             "id": "nt1", "title": "测试通知加入任务", "cat": "班级事务", "ts": NOW,
+             "summary": "通知摘要", "deadline": "2099-02-03T18:30:00+08:00",
+             "items": [{"kind": "text", "text": "通知正文内容"}]
+         }, ensure_ascii=False)}
+    ],
     "tt": {"c": [], "t": "2026-08-31"},
 }
 
@@ -118,7 +125,11 @@ window.fetch=function(u,o){
   o=o||{};var s=String((u&&u.url!==undefined)?u.url:u),m=String(o.method||"GET").toUpperCase();
   if(s.indexOf("tcloudbasegateway")>=0||s.indexOf("/v1/rdb/rest")>=0){
     if(s.indexOf("rpc/class_members")>=0)return ok(DATA.members);
-    if(s.indexOf("/notices")>=0)return ok(s.indexOf("select=id,ts")>=0?[]:DATA.notices);
+    if(s.indexOf("class_notices_meta")>=0)return Promise.resolve({ok:false,status:404,json:function(){return Promise.resolve([]);},text:function(){return Promise.resolve("");}});
+    if(s.indexOf("/notices")>=0){
+      if(s.indexOf("select=id,ts")>=0)return ok(DATA.notices.map(function(g){return {id:g.id,ts:g.ts,hidden:false,edited_at:0};}));
+      return ok(DATA.notices);
+    }
     if(s.indexOf("/homework")>=0)return ok(DATA.homework);
     if(s.indexOf("/marks")>=0){
       if(m==="POST"){try{window.__posts.push({url:s,method:m,body:JSON.parse(o.body||"[]")});}catch(e){}}
@@ -232,6 +243,8 @@ RUNNER = r"""
         T("全部待完成 4 条", qa("#tkList .tk-item").length===4, qa("#tkList .tk-item").length);
         T("已完成区 1 条", !!(q("#tkDoneWrap")&&!q("#tkDoneWrap").hidden)&&txt("#tkDoneN")==="1", txt("#tkDoneN"));
         T("侧栏分组计数存在", txt("#tkLists").indexOf("学习")>=0&&txt("#tkLists").indexOf("生活")>=0, txt("#tkLists").slice(0,80));
+        T("默认「任务」分组已移除", !qa("#tkLists [data-tklist]").some(function(b){return b.getAttribute("data-tklist")==="inbox";}), txt("#tkLists").slice(0,80));
+        T("支持未分组任务", TASK.items().some(function(t){return t.list==="";}), TASK.items().length);
         T("班级作业角标=2", txt("#tkSegClassN")==="2", txt("#tkSegClassN"));
         T("桌面无横向溢出", document.documentElement.scrollWidth<=document.documentElement.clientWidth+1,
           document.documentElement.scrollWidth+"/"+document.documentElement.clientWidth);
@@ -242,12 +255,14 @@ RUNNER = r"""
         q("#tkQuickAdd").click();await sleep(250);
         T("快速添加后 5 条", qa("#tkList .tk-item").length===5, qa("#tkList .tk-item").length);
         T("快速添加任务在列表中", !!rowByTitle("测试快速添加"), "");
+        T("快速添加默认未分组", (function(){var qk=TASK.items().filter(function(t){return t.title==="测试快速添加";})[0];return !!qk&&qk.list==="";})(), "");
         var raw=localStorage.getItem("zq_tools_v2___SID__")||"";
         T("快速添加写入本机存储", raw.indexOf("测试快速添加")>=0, String(raw.length));
 
         /* ---- 编辑 ---- */
         var row=rowByTitle("测试快速添加");row.click();await sleep(300);
         T("编辑器打开且标题回填", q("#tkPanel").style.display!=="none"&&q("#tkFTitle").value==="测试快速添加", q("#tkFTitle").value);
+        T("分组下拉含未分组", !!q('#tkFList option[value=""]'), q("#tkFList").value);
         setv("#tkFTitle","测试编辑任务");
         setv("#tkFNotes","备注内容 ABC");
         setv("#tkFDate",__IN2__);
@@ -319,7 +334,7 @@ RUNNER = r"""
         else {click("#tkListEdit");await sleep(200);click("#tkLDelete");}
         await sleep(250);
         var moved=taskByTitle("社团任务");
-        T("删除分组任务移回任务", !!moved&&moved.list==="inbox", moved?moved.list:"");
+        T("删除分组任务移回未分组", !!moved&&moved.list==="", moved?moved.list:"");
         T("删除分组后回全部", txt("#tkTitle")==="全部", txt("#tkTitle"));
 
         /* ---- 搜索 / 标签 ---- */
@@ -407,6 +422,7 @@ RUNNER = r"""
         var src1=TASK.items().filter(function(t){return t.sourceHwId==="hw1";})[0];
         T("来源字段/标题/备注已带入", !!src1&&src1.sourceTitle.indexOf("英语")>=0&&src1.title.indexOf("英语")>=0&&src1.notes.indexOf("Unit 3")>=0,
           src1?JSON.stringify({title:src1.title,src:src1.sourceHwId,st:src1.sourceTitle}):"missing");
+        T("班级作业转入的任务默认未分组", !!src1&&src1.list==="", src1?src1.list:"missing");
         T("班级项显示「已在任务」", !!q('#hList [data-hw-id="hw1"]')&&q('#hList [data-hw-id="hw1"]').textContent.indexOf("已在任务")>=0,
           q('#hList [data-hw-id="hw1"]')?q('#hList [data-hw-id="hw1"]').textContent.slice(0,60):"missing");
         click("#hToTask");await sleep(600);
@@ -443,11 +459,15 @@ RUNNER = r"""
           qa("#taskFilesList .att-card").length+" | "+txt("#taskFilesNote"));
         qa("#taskFilesList [data-att-rm]")[0].click();await sleep(120);
         T("再次移除后 1 个", qa("#taskFilesList .att-card").length===1, qa("#taskFilesList .att-card").length);
-        setFiles("#taskFiles",[new File([new Uint8Array(400*1024)],"big.txt",{type:"text/plain"})]);await waitFor(function(){return txt("#taskFilesNote").indexOf("不能超过")>=0;},4000);
-        T("任务大文件被拒绝并提示", qa("#taskFilesList .att-card").length===1&&txt("#taskFilesNote").indexOf("不能超过")>=0,
+        setFiles("#taskFiles",[new File([new Uint8Array(400*1024)],"big.txt",{type:"text/plain"})]);await waitFor(function(){return qa("#taskFilesList .att-card").length===2;},16000);
+        T("任务大文件不再被大小限制", qa("#taskFilesList .att-card").length===2&&txt("#taskFilesNote").indexOf("已添加")>=0,
           qa("#taskFilesList .att-card").length+" | "+txt("#taskFilesNote"));
+        qa("#taskFilesList [data-att-rm]")[0].click();await sleep(120);
         setFiles("#taskFiles",[fileOf("补充.txt","补充")]);await waitFor(function(){return qa("#taskFilesList .att-card").length===2;},12000);
-        T("重新补到 2 个", qa("#taskFilesList .att-card").length===2, qa("#taskFilesList .att-card").length+" | "+txt("#taskFilesNote")+" | "+JSON.stringify(window.__ATT_PROBE&&window.__ATT_PROBE()));
+        T("大附件后可继续补附件", qa("#taskFilesList .att-card").length===2, qa("#taskFilesList .att-card").length+" | "+txt("#taskFilesNote"));
+        qa("#taskFilesList .att-card")[0].click();await sleep(300);
+        T("任务附件可预览", q("#attPanel").style.display!=="none"&&!!q("#attBody pre,.att-full"), q("#attBody").textContent.slice(0,40));
+        q("#attClose").click();
         click("#tkFSave");await sleep(500);
         var savedAtt=taskByTitle("买牙膏和洗衣液");
         T("任务附件写入数据 2 个", attsOf(savedAtt).length===2, attsOf(savedAtt).length);
@@ -537,6 +557,26 @@ RUNNER = r"""
         var newLists=TASK.lists().filter(function(l){return l.id!=="inbox";}).map(function(l){return l.id;});
         var domLists=qa("#tkLists .tk-navrow").map(function(r){var b=r.querySelector("[data-tklist]");return b?b.getAttribute("data-tklist"):"";});
         T("左侧「分组」可拖动排序", oldLists.length>=2&&newLists[0]!==oldLists[0], oldLists.slice(0,3).join(",")+" -> "+newLists.slice(0,3).join(",")+" dom="+domLists.join(","));
+
+        /* ---- 通知加入任务 ---- */
+        click('[data-tab="nt"]');await sleep(2600);
+        var ntf=q("#noticeHost iframe"),ntd=ntf&&ntf.contentDocument;
+        var ntBtn=ntd?ntd.querySelector(".nt-taskbtn"):null;
+        if(!ntBtn){await sleep(1200);ntf=q("#noticeHost iframe");ntd=ntf&&ntf.contentDocument;ntBtn=ntd?ntd.querySelector(".nt-taskbtn"):null;}
+        T("通知卡片有加入任务按钮", !!ntBtn, ntd?ntd.body.textContent.slice(0,60):"no iframe");
+        if(ntBtn){ntBtn.click();await sleep(600);}
+        var ntTask=TASK.items().filter(function(t){return t.sourceNoticeId==="nt1";})[0];
+        T("通知可加入任务且未分组", !!ntTask&&ntTask.list===""&&ntTask.title.indexOf("测试通知")>=0, ntTask?JSON.stringify({t:ntTask.title,l:ntTask.list}):"missing");
+        T("通知按钮变为已在任务", !!ntBtn&&ntBtn.textContent.indexOf("已在任务")>=0&&ntBtn.disabled, ntBtn?ntBtn.textContent:"");
+        if(ntTask){
+          T("通知内容带入备注", String(ntTask.notes||"").indexOf("通知正文内容")>=0, String(ntTask.notes||"").slice(0,60));
+          click('[data-tab="hw"]');await sleep(300);
+          TASK.open(ntTask.id);await sleep(350);
+          T("任务详情显示来自通知", txt("#tkFSource").indexOf("来自班级通知")>=0, txt("#tkFSource").slice(0,60));
+          var nopen=q('#tkFSource [data-tk-ntopen]');
+          T("通知来源有查看入口", !!nopen, "");
+          if(nopen){nopen.click();await sleep(500);}
+        }
 
         /* ---- 390px iframe ---- */
         await new Promise(function(res){
