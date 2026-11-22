@@ -3567,6 +3567,20 @@ body.tk-sorting *{cursor:grabbing!important}
 .tk-star{width:40px;height:40px;flex:none;margin:-4px -5px -4px 0;border:0;border-radius:9px;background:transparent;color:var(--line-strong,#D8CCB8);font-size:17px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:inherit;transition:color .15s,background-color .15s}
 .tk-star:hover{background:var(--tk-soft2);color:var(--sd)}
 .tk-star.on{color:var(--sd)}
+.tk-iacts{display:flex;align-items:center;gap:0;flex:none;margin-right:-4px}
+.tk-iacts .tk-star{width:40px;height:40px;margin:0;font-size:17px}
+.tk-expandbtn,.tk-editbtn{width:40px;height:40px;flex:none;border:0;border-radius:8px;background:transparent;color:var(--ink3);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:inherit}
+.tk-expandbtn:hover,.tk-editbtn:hover{background:var(--tk-soft2);color:var(--tk-accent)}
+.tk-expandbtn svg{width:15px;height:15px;transition:transform .16s ease}
+.tk-expandbtn.on svg{transform:rotate(180deg)}
+.tk-editbtn svg{width:15px;height:15px}
+.tk-substeps{margin:-1px 0 3px 36px;padding:2px 4px 6px 12px;border-left:2px solid var(--tk-soft);display:flex;flex-direction:column;gap:1px}
+.tk-substep{display:flex;align-items:flex-start;gap:5px;min-width:0}
+.tk-substep .tk-check{width:40px;height:40px;margin:0;flex:none}
+.tk-substep .tk-check i{width:17px;height:17px}
+.tk-subtext{min-width:0;padding:10px 0 2px;font-size:12.5px;line-height:1.45;color:var(--ink2);white-space:pre-wrap;word-break:break-word}
+.tk-substep.done .tk-subt{color:var(--ink3);text-decoration:line-through}
+.tk-subnote{margin-top:2px;font-size:11px;line-height:1.5;color:var(--ink3);white-space:pre-wrap}
 .tk-empty{padding:44px 10px 46px;text-align:center;color:var(--ink3)}
 .tk-empty svg{width:38px;height:38px;opacity:.32;margin-bottom:6px}
 .tk-empty b{display:block;font-size:13.5px;font-weight:700;color:var(--ink2)}
@@ -3602,13 +3616,14 @@ body.tk-sorting *{cursor:grabbing!important}
 .tk-ed-head .tk-star{margin:0 -6px 0 0}
 .tk-ed-sec{margin-top:11px}
 .tk-ed-label{font-size:11px;font-weight:800;color:var(--ink3);letter-spacing:.06em;margin:0 0 4px 2px}
-.tk-steps{max-height:168px;overflow-y:auto;overscroll-behavior:contain}
-.tk-step{display:flex;align-items:center;gap:2px;min-height:36px}
+.tk-steps{max-height:260px;overflow-y:auto;overscroll-behavior:contain}
+.tk-step{display:flex;align-items:center;gap:2px;min-height:36px;flex-wrap:wrap}
 .tk-step .tk-check{width:34px;height:34px;margin:0;flex:none}
 .tk-step .tk-check i{width:18px;height:18px}
 .tk-step input{flex:1;min-width:0;border:0!important;background:transparent!important;box-shadow:none!important;padding:6px 3px!important;font-size:13.5px}
 .tk-step button{width:34px;height:34px;flex:none;border:0;border-radius:8px;background:transparent;color:var(--ink3);cursor:pointer;font-size:16px;line-height:1;padding:0}
 .tk-step button:hover{background:var(--tk-soft2);color:var(--danger)}
+.tk-stepnote{flex:1 1 100%;min-height:32px;max-height:96px;margin:0 34px 4px 37px;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink2);font-family:inherit;font-size:12px;line-height:1.45;resize:vertical}
 .tk-stepadd{display:flex;align-items:center;gap:4px;border-top:1px dashed var(--line);margin-top:2px;padding-top:3px}
 .tk-stepadd input{flex:1;min-width:0;border:0!important;background:transparent!important;box-shadow:none!important;padding:8px 3px!important;font-size:13.5px}
 .tk-stepadd button{width:36px;height:36px;flex:none;border:0;border-radius:8px;background:transparent;color:var(--tk-accent);font-size:21px;cursor:pointer;padding:0 0 2px;line-height:1}
@@ -3636,6 +3651,59 @@ body.tk-sorting *{cursor:grabbing!important}
 .tk-datepair .tk-datebtn{flex:1 1 132px;min-width:126px}
 .tk-quickdate .tk-timebtn{flex:0 0 96px;min-width:0}
 .tk-datepair .tk-timebtn{flex:0 0 108px}
+.tk-detailcard{max-width:520px;width:100%;max-height:86vh;padding:0;display:flex;flex-direction:column;overflow:hidden}
+.tk-dt-hd{flex:none;padding:16px 16px 11px;border-bottom:1px solid var(--line)}
+.tk-dt-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.tk-dt-kicker{font-size:10.5px;font-weight:800;letter-spacing:.12em;color:var(--ink3);padding-top:3px}
+.tk-dt-actions{display:flex;align-items:center;gap:2px;margin:-4px -7px 0 0}
+.tk-dt-icon,.tk-dt-star{width:40px;height:40px;flex:none;border:0;border-radius:50%;background:transparent;color:var(--ink3);font-family:inherit;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.tk-dt-icon:hover,.tk-dt-star:hover{background:var(--tk-soft2);color:var(--ink)}
+.tk-dt-icon:focus{outline:none}
+.tk-dt-icon:focus-visible{outline:2px solid var(--tk-accent);outline-offset:2px}
+.tk-dt-icon svg{width:18px;height:18px}
+.tk-dt-edit{color:var(--tk-accent);background:var(--tk-soft)}
+.tk-dt-edit:hover{color:var(--tk-accent);background:var(--tk-soft2)}
+.tk-dt-star{font-size:17px;color:var(--line-strong,#D8CCB8)}
+.tk-dt-star.on{color:var(--sd)}
+.tk-dt-hd h3{margin:9px 0 0;font-size:20px;line-height:1.35;letter-spacing:.01em;word-break:break-word}
+.tk-dt-sub{margin-top:4px;font-size:11.5px;color:var(--ink3);line-height:1.5}
+.tk-dt-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:12px 16px 16px}
+.tk-dt-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:2px}
+.tk-dt-chip{display:inline-flex;align-items:center;gap:4px;min-height:27px;padding:0 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink2);font-size:11.5px;font-weight:700;max-width:100%}
+.tk-dt-chip svg{width:12px;height:12px;flex:none;opacity:.8}
+.tk-dt-chip.overdue{color:#B05A52;border-color:#E8CFCA;background:#FCF4F2}
+.tk-dt-sec{margin-top:13px;padding-top:11px;border-top:1px solid var(--line)}
+.tk-dt-sec:first-child{margin-top:2px;padding-top:0;border-top:0}
+.tk-dt-label{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:11px;font-weight:800;color:var(--ink3);letter-spacing:.05em}
+.tk-dt-label span{font-weight:700;color:var(--ink3);opacity:.8}
+.tk-dt-notes{white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.7;color:var(--ink2)}
+.tk-dt-steps{display:flex;flex-direction:column;gap:1px}
+.tk-dt-step{display:flex;align-items:flex-start;gap:6px;min-width:0;padding:3px 0}
+.tk-dt-step .tk-check{width:40px;height:40px;margin:0;flex:none}
+.tk-dt-step .tk-check i{width:18px;height:18px}
+.tk-dt-steptext{min-width:0;padding-top:9px;font-size:13px;line-height:1.5;color:var(--ink2);word-break:break-word}
+.tk-dt-step.done .tk-dt-steptext{color:var(--ink3);text-decoration:line-through}
+.tk-dt-stepnote{margin-top:3px;font-size:11.5px;line-height:1.55;color:var(--ink3);white-space:pre-wrap;word-break:break-word}
+.tk-dt-atts{display:flex;flex-wrap:wrap;gap:6px}
+.tk-dt-att{display:inline-flex;align-items:center;gap:5px;min-height:34px;max-width:100%;padding:0 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink2);font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer;text-align:left}
+.tk-dt-att:hover{border-color:var(--tk-accent);color:var(--tk-accent)}
+.tk-dt-att span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tk-dt-att i{font-style:normal;color:var(--ink3);font-size:10.5px;flex:none}
+.tk-dt-src{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg)}
+.tk-dt-src div{flex:1;min-width:0}
+.tk-dt-src b{display:block;font-size:12px;color:var(--ink2);word-break:break-word}
+.tk-dt-src span{display:block;margin-top:2px;font-size:10.5px;color:var(--ink3)}
+.tk-dt-src .btn{min-height:34px;padding:5px 9px;font-size:11px}
+.tk-dt-foot{display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.tk-dt-times{margin-left:auto;text-align:right;font-size:10px;line-height:1.5;color:var(--ink3);max-width:58%}
+.tk-dt-empty{font-size:12px;color:var(--ink3);padding:2px 0}
+html[data-appearance="dark"] .tk-dt-chip,html[data-appearance="dark"] .tk-dt-att,html[data-appearance="dark"] .tk-dt-src{background:#16201C}
+@media(max-width:640px){
+  .tk-detailcard{max-height:92vh;border-radius:16px}
+  .tk-dt-hd{padding:14px 14px 10px}
+  .tk-dt-scroll{padding:11px 14px 14px}
+  .tk-dt-hd h3{font-size:18px}
+}
 .tk-tp{position:fixed;inset:0;z-index:86;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(35,48,46,.42);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 .tk-tp[hidden]{display:none!important}
 .tk-tp-card{width:min(430px,100%);max-height:calc(100vh - 36px);overflow-y:auto;overscroll-behavior:contain;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 18px 50px rgba(35,48,46,.24)}
@@ -4397,6 +4465,23 @@ html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px
         <button class="btn sm ghost" id="tkFCancel" type="button">取消</button>
         <button class="btn pri" id="tkFSave" type="button">保存</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal" id="tkDetailPanel" style="display:none" hidden aria-hidden="true">
+    <div class="mcard tk-detailcard" role="dialog" aria-modal="true" aria-labelledby="tkDtTitle">
+      <div class="tk-dt-hd">
+        <div class="tk-dt-top"><span class="tk-dt-kicker">任务详情</span>
+          <div class="tk-dt-actions">
+            <button class="tk-dt-star" id="tkDtStar" type="button" aria-label="标记重要" aria-pressed="false" title="标记重要">★</button>
+            <button class="tk-dt-icon tk-dt-edit" id="tkDtEdit" type="button" aria-label="编辑任务" title="编辑任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4.2-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.2 16z"/><path d="M13.5 6.5l3 3"/></svg></button>
+            <button class="tk-dt-icon" id="tkDtClose" type="button" aria-label="关闭">×</button>
+          </div>
+        </div>
+        <h3 id="tkDtTitle"></h3>
+        <div class="tk-dt-sub" id="tkDtSub"></div>
+      </div>
+      <div class="tk-dt-scroll" id="tkDtBody"></div>
     </div>
   </div>
 
@@ -5484,11 +5569,15 @@ function taskNormItem(x,listIds,idx){
   var steps=[];
   var rawSteps=Array.isArray(x.steps)?x.steps:(typeof x.steps==="string"?x.steps.split("\n"):[]);
   rawSteps.slice(0,50).forEach(function(s){
-    var text="",done=false;
-    if(s&&typeof s==="object"){text=String(s.text!=null?s.text:(s.t!=null?s.t:""));done=!!(s.done!=null?s.done:s.d);}
+    var text="",done=false,note="";
+    if(s&&typeof s==="object"){
+      text=String(s.text!=null?s.text:(s.t!=null?s.t:""));
+      done=!!(s.done!=null?s.done:s.d);
+      note=String(s.note==null?"":s.note).replace(/\r\n?/g,"\n").trim();
+    }
     else text=String(s==null?"":s);
     text=text.trim();
-    if(text)steps.push({text:text.slice(0,120),done:done});
+    if(text)steps.push({text:text.slice(0,120),done:done,note:note.slice(0,500)});
   });
   var tags=[];
   var rawTags=Array.isArray(x.tags)?x.tags:(typeof x.tags==="string"?x.tags.split(/[,，;；#]+/):[]);
@@ -23427,7 +23516,7 @@ var TK=(function(){
   var TKU={seg:"",segAuto:true,view:"all",list:"",sort:"default",quickStar:false,quickList:"",
     doneOpen:false,sound:true,search:"",searchOpen:false,today:"",smartOrder:[]};
   var TKED=null, TKLIST=null, TK_RB={queue:[],cur:""}, tkBound=false, tkInitDone=false;
-  var TKSIDE=null,TKTASK=null;
+  var TKSIDE=null,TKTASK=null,TKEXP={},TKDETAIL={id:"",focus:null};
   var TK_NO_LIST={id:"",name:"未分组",color:"plain",order:-1};
 
   function tkPad(n){return (n<10?"0":"")+n;}
@@ -23836,13 +23925,28 @@ var TK=(function(){
     }
     var canDrag=!done&&tkCanDragTasks();
     var dragHtml=done?"":'<button class="tk-drag'+(canDrag?"":" off")+'" type="button" data-tkdrag="'+esc(t.id)+'" aria-label="拖动排序" aria-disabled="'+(canDrag?"false":"true")+'" title="'+(canDrag?"拖动排序":"默认排序下可拖动")+'">'+tkSvg("grip")+'</button>';
-    return '<div class="tk-item'+(done?" done":"")+'" data-tkid="'+esc(t.id)+'" data-tkopen="'+esc(t.id)+'">'+
+    var expandBtn=steps.length?'<button class="tk-expandbtn'+(TKEXP[t.id]?" on":"")+'" type="button" data-tkexpand="'+esc(t.id)+'" aria-expanded="'+(TKEXP[t.id]?"true":"false")+'" aria-label="'+(TKEXP[t.id]?"收起步骤":"展开步骤")+'" title="'+(TKEXP[t.id]?"收起步骤":"展开步骤")+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>':'';
+    var row='<div class="tk-item'+(done?" done":"")+'" data-tkid="'+esc(t.id)+'" data-tkopen="'+esc(t.id)+'">'+
       dragHtml+
       '<button class="tk-check'+(done?" on":"")+'" type="button" data-tkcheck="'+esc(t.id)+'" aria-label="'+(done?"标记未完成":"标记完成")+'" aria-pressed="'+(done?"true":"false")+'"><i></i></button>'+
       '<div class="tk-ibody"><div class="tk-ititle">'+esc(t.title)+'</div>'+
       (mi?'<div class="tk-imeta">'+mi+'</div>':'')+'</div>'+
+      '<div class="tk-iacts">'+expandBtn+
       '<button class="tk-star'+(t.starred?" on":"")+'" type="button" data-tkstar="'+esc(t.id)+'" aria-label="标记重要" aria-pressed="'+(t.starred?"true":"false")+'">★</button>'+
-      '</div>';
+      '<button class="tk-editbtn" type="button" data-tkedit="'+esc(t.id)+'" aria-label="编辑任务" title="编辑任务">'+tkSvg("edit")+'</button>'+
+      '</div></div>';
+    if(steps.length&&TKEXP[t.id])row+=tkSubstepsHTML(t);
+    return row;
+  }
+  function tkSubstepsHTML(t){
+    var steps=t.steps||[];if(!steps.length)return "";
+    var html=steps.map(function(s,i){
+      return '<div class="tk-substep'+(s.done?" done":"")+'">'+
+        '<button class="tk-check'+(s.done?" on":"")+'" type="button" data-tksubdone="'+esc(t.id)+'|'+i+'" aria-label="步骤完成" aria-pressed="'+(s.done?"true":"false")+'"><i></i></button>'+
+        '<div class="tk-subtext"><div class="tk-subt">'+esc(s.text)+'</div>'+
+        (s.note?'<div class="tk-subnote">'+esc(s.note)+'</div>':'')+'</div></div>';
+    }).join("");
+    return '<div class="tk-substeps" data-tksub="'+esc(t.id)+'">'+html+'</div>';
   }
   function tkEmptyHTML(){
     var q=TKU.search.trim(),txt="还没有任务";
@@ -24398,6 +24502,7 @@ var TK=(function(){
       star:$("#tkFStar")?$("#tkFStar").classList.contains("on"):false,
       myday:$("#tkFMyDay")?$("#tkFMyDay").classList.contains("on"):false,
       done:$("#tkFDone")?$("#tkFDone").classList.contains("on"):false,
+      steps:(TKED?TKED.steps:[]).map(function(s){return (s.text||"")+"|"+(s.done?1:0)+"|"+(s.note||"");}).join("\n"),
       atts:a.map(function(x){return (x.n||"")+"|"+(x.t||"")+"|"+(x.s||0)+"|"+((x.d||"").length);})
     });
   }
@@ -24502,6 +24607,7 @@ var TK=(function(){
   function tkOpenEditor(id){
     var t=id?tkFindTask(id):null;
     if(id&&!t)return false;
+    if(tkIsOpen("#tkDetailPanel"))tkCloseDetail();
     if(tkIsOpen("#tkPanel"))tkCloseEditor(true);
     var prefs=tkPrefs();
     var mode="none";
@@ -24515,7 +24621,7 @@ var TK=(function(){
       myDay:t?(t.myDay===tkToday()):(TKU.view==="myday"),
       due:t?t.due:"",dueTime:t?t.dueTime:"",remindMode:mode,
       remindCustom:t?Number(t.remindCustom||t.remindAt)||0:0,repeat:t?t.repeat:"",
-      tags:t?(t.tags||[]).slice():[],steps:t?(t.steps||[]).map(function(s){return {text:s.text,done:!!s.done};}):[],
+      tags:t?(t.tags||[]).slice():[],steps:t?(t.steps||[]).map(function(s){return {text:s.text,done:!!s.done,note:String(s.note||"")};}):[],
       sourceHwId:t?String(t.sourceHwId||""):"",sourceTitle:t?String(t.sourceTitle||""):"",
       createdAt:t?t.createdAt:0,updatedAt:t?t.updatedAt:0,_snap:""};
     ATT_SESSION.task++;ATT_BUSY.task=false;
@@ -24574,6 +24680,87 @@ var TK=(function(){
     tkClearDirty();
     return true;
   }
+
+  /* 只读任务详情：列表点击进这里；编辑走独立铅笔按钮。 */
+  function tkOpenDetail(id){
+    var t=tkFindTask(id);if(!t)return false;
+    if(tkIsOpen("#tkPanel")){if(!tkCloseEditor(true))return false;}
+    TKDETAIL.id=t.id;TKDETAIL.focus=document.activeElement;
+    tkRenderDetail(t);
+    tkOpenModal("#tkDetailPanel");
+    setTimeout(function(){try{$("#tkDtClose").focus();}catch(e){}},40);
+    return true;
+  }
+  function tkCloseDetail(){
+    if(!tkIsOpen("#tkDetailPanel"))return;
+    tkCloseModal("#tkDetailPanel");
+    TKDETAIL.id="";
+    try{if(TKDETAIL.focus&&TKDETAIL.focus.focus)TKDETAIL.focus.focus();}catch(e){}
+    TKDETAIL.focus=null;
+  }
+  function tkDetailEdit(){
+    var id=TKDETAIL.id;if(!id)return;
+    tkCloseDetail();tkOpenEditor(id);
+  }
+  function tkRenderDetail(t){
+    if(!t){tkCloseDetail();return;}
+    TKDETAIL.id=t.id;
+    var title=$("#tkDtTitle"),sub=$("#tkDtSub"),body=$("#tkDtBody"),star=$("#tkDtStar");
+    if(title)title.textContent=t.title;
+    var listName=t.list?tkFindList(t.list).name:"未分组";
+    var subParts=[listName];
+    if(t.done)subParts.push("已完成");
+    if(t.starred)subParts.push("重要");
+    if(sub)sub.textContent=subParts.join(" · ");
+    if(star){star.classList.toggle("on",!!t.starred);star.setAttribute("aria-pressed",t.starred?"true":"false");}
+    var due=tkDueMeta(t),rem=tkRemMeta(t),chips="";
+    if(due)chips+='<span class="tk-dt-chip '+(due.cls||"")+'">'+tkSvg("calendar")+esc(due.txt)+'</span>';
+    if(rem)chips+='<span class="tk-dt-chip">'+tkSvg("clock")+esc(rem)+'</span>';
+    if(t.repeat)chips+='<span class="tk-dt-chip">'+tkSvg("repeat")+esc(tkRepeatName(t.repeat))+'</span>';
+    if(t.myDay===tkToday())chips+='<span class="tk-dt-chip">'+tkSvg("sun")+'我的一天</span>';
+    (t.tags||[]).forEach(function(tag){chips+='<span class="tk-dt-chip">#'+esc(tag)+'</span>';});
+    var steps=t.steps||[],sd=0;steps.forEach(function(s){if(s.done)sd++;});
+    var atts=tkTaskAtts(t),html="";
+    if(chips)html+='<div class="tk-dt-meta">'+chips+'</div>';
+    if(String(t.notes||"").trim()){
+      html+='<div class="tk-dt-sec"><div class="tk-dt-label">备注</div><div class="tk-dt-notes">'+esc(t.notes)+'</div></div>';
+    }
+    if(steps.length){
+      html+='<div class="tk-dt-sec"><div class="tk-dt-label">步骤 <span>'+sd+"/"+steps.length+'</span></div><div class="tk-dt-steps">'+
+        steps.map(function(s,i){
+          return '<div class="tk-dt-step'+(s.done?" done":"")+'">'+
+            '<button class="tk-check'+(s.done?" on":"")+'" type="button" data-tkdtsdone="'+i+'" aria-label="步骤完成" aria-pressed="'+(s.done?"true":"false")+'"><i></i></button>'+
+            '<div class="tk-dt-steptext">'+esc(s.text)+(s.note?'<div class="tk-dt-stepnote">'+esc(s.note)+'</div>':'')+'</div></div>';
+        }).join("")+'</div></div>';
+    }
+    if(atts.length){
+      html+='<div class="tk-dt-sec"><div class="tk-dt-label">附件 <span>'+atts.length+'</span></div><div class="tk-dt-atts">'+
+        atts.map(function(a,i){return '<button class="tk-dt-att" type="button" data-tkdta="'+i+'" title="'+esc(a.n+" · "+attFmt(a.s))+'">'+tkSvg("paperclip")+'<span>'+esc(a.n)+'</span><i>'+attFmt(a.s)+'</i></button>';}).join("")+'</div></div>';
+    }
+    if(t.sourceHwId||t.sourceNoticeId){
+      var srcTitle=t.sourceTitle||(t.sourceHwId?"班级作业":"班级通知");
+      var srcType=t.sourceNoticeId?"班级通知":"班级作业";
+      html+='<div class="tk-dt-sec"><div class="tk-dt-label">来源</div><div class="tk-dt-src"><div><b>'+esc(srcType+" · "+srcTitle)+'</b><span>'+(t.sourceHwId?"原作业内容与附件仍可查看":"原通知内容可查看")+'</span></div>'+
+        '<button class="btn sm ghost" type="button" data-tkdtsrc="1">查看</button></div></div>';
+    }
+    html+='<div class="tk-dt-foot"><button class="btn sm '+(t.done?"ghost":"pri")+'" type="button" data-tkdtdone="1">'+(t.done?"标记未完成":"标记完成")+'</button>'+
+      '<span class="tk-dt-times">创建 '+esc(tkFmtFull(t.createdAt||t.updatedAt||Date.now()))+'<br>更新 '+esc(tkFmtFull(t.updatedAt||t.createdAt||Date.now()))+'</span></div>';
+    if(body)body.innerHTML=html;
+  }
+  function tkDetailToggleStep(i){
+    var t=tkFindTask(TKDETAIL.id);if(!t||!t.steps||!t.steps[i])return;
+    t.steps[i].done=!t.steps[i].done;t.updatedAt=Date.now();tkSave();tkRenderDetail(t);tkRenderAll();
+  }
+  function tkDetailDone(){
+    var t=tkFindTask(TKDETAIL.id);if(!t)return;
+    var next=tkSetDone(t,!t.done);tkSave();tkRenderDetail(t);tkRenderAll();
+    if(next&&next.due)toast("已完成 · 下次 "+next.due.slice(5));
+  }
+  function tkDetailSrc(){
+    var t=tkFindTask(TKDETAIL.id);if(!t)return;
+    if(t.sourceNoticeId){tkCloseDetail();tkOpenNoticeSource(t.sourceNoticeId);}
+    else if(t.sourceHwId){tkCloseDetail();tkOpenHwSource(t.sourceHwId);}
+  }
   function tkSyncEditorChips(){
     if(!TKED)return;
     var d=$("#tkFDone");
@@ -24591,7 +24778,9 @@ var TK=(function(){
       return '<div class="tk-step">'+
         '<button class="tk-check'+(s.done?" on":"")+'" type="button" data-tkstepdone="'+i+'" aria-label="步骤完成" aria-pressed="'+(s.done?"true":"false")+'"><i></i></button>'+
         '<input data-tksteptext="'+i+'" maxlength="120" autocomplete="off" value="'+esc(s.text)+'" aria-label="步骤">'+
-        '<button type="button" data-tkstepdel="'+i+'" aria-label="删除步骤">×</button></div>';
+        '<button type="button" data-tkstepdel="'+i+'" aria-label="删除步骤">×</button>'+
+        '<textarea class="tk-stepnote" data-tkstepnote="'+i+'" maxlength="500" rows="1" placeholder="步骤备注（可选）" aria-label="步骤备注">'+esc(s.note||"")+'</textarea>'+
+        '</div>';
     }).join("");
     tkUpdateEditorHints();
   }
@@ -24601,7 +24790,7 @@ var TK=(function(){
     var v=String(inp.value||"").trim();
     if(!v)return;
     if(TKED.steps.length>=50){toast("步骤最多 50 条");return;}
-    TKED.steps.push({text:v.slice(0,120),done:false});
+    TKED.steps.push({text:v.slice(0,120),done:false,note:""});
     inp.value="";tkRenderSteps();tkMarkDirty();
     var arr=$$("#tkFSteps [data-tksteptext]");
     if(arr.length){try{arr[arr.length-1].focus();}catch(e){}}
@@ -24660,7 +24849,7 @@ var TK=(function(){
       try{$("#tkFList").focus();}catch(e){}
       return null;
     }
-    var steps=(TKED?TKED.steps:[]).map(function(s){return {text:String(s.text||"").trim(),done:!!s.done};})
+    var steps=(TKED?TKED.steps:[]).map(function(s){return {text:String(s.text||"").trim(),done:!!s.done,note:String(s.note||"").trim().slice(0,500)};})
       .filter(function(s){return !!s.text;}).slice(0,50);
     return {title:title,notes:$("#tkFNotes")?String($("#tkFNotes").value||"").slice(0,5000):"",
       list:list,due:due,dueTime:due?time:"",remindMode:mode,remindCustom:custom,
@@ -25141,6 +25330,24 @@ var TK=(function(){
       }
       e.preventDefault();e.stopPropagation();return;
     }
+    var sb=tkClosest(e.target,"[data-tksubdone]");
+    if(sb){
+      var sp=String(sb.getAttribute("data-tksubdone")||"").split("|"),st=tkFindTask(sp[0]),si=+sp[1];
+      if(st&&st.steps&&st.steps[si]){
+        st.steps[si].done=!st.steps[si].done;st.updatedAt=Date.now();tkSave();
+        if(TKDETAIL.id===st.id)tkRenderDetail(st);
+        tkRenderList();
+      }
+      e.preventDefault();e.stopPropagation();return;
+    }
+    var ex=tkClosest(e.target,"[data-tkexpand]");
+    if(ex){
+      var eid=ex.getAttribute("data-tkexpand");
+      TKEXP[eid]=!TKEXP[eid];tkRenderList();
+      e.preventDefault();e.stopPropagation();return;
+    }
+    var ed=tkClosest(e.target,"[data-tkedit]");
+    if(ed){tkOpenEditor(ed.getAttribute("data-tkedit"));e.preventDefault();e.stopPropagation();return;}
     var s=tkClosest(e.target,"[data-tkstar]");
     if(s){
       tkToggleStar(tkFindTask(s.getAttribute("data-tkstar")));
@@ -25152,7 +25359,7 @@ var TK=(function(){
       e.preventDefault();e.stopPropagation();return;
     }
     var row=tkClosest(e.target,"[data-tkopen]");
-    if(row){tkOpenEditor(row.getAttribute("data-tkopen"));e.preventDefault();}
+    if(row){tkOpenDetail(row.getAttribute("data-tkopen"));e.preventDefault();}
   }
   function tkBind(){
     if(tkBound)return;tkBound=true;
@@ -25267,6 +25474,27 @@ var TK=(function(){
     var fp=$("#tkPanel");if(fp)fp.addEventListener("click",function(e){if(e.target===fp)tkCloseEditor();});
     var fs=$("#tkFSave");if(fs)fs.addEventListener("click",tkSaveEditor);
     var fd=$("#tkFDelete");if(fd)fd.addEventListener("click",tkDeleteEditor);
+    var dtp=$("#tkDetailPanel");
+    if(dtp){
+      dtp.addEventListener("click",function(e){if(e.target===dtp)tkCloseDetail();});
+      dtp.addEventListener("keydown",function(e){
+        if(e.key==="Escape"){e.preventDefault();e.stopPropagation();tkCloseDetail();}
+      });
+    }
+    var dtc=$("#tkDtClose");if(dtc)dtc.addEventListener("click",tkCloseDetail);
+    var dte=$("#tkDtEdit");if(dte)dte.addEventListener("click",tkDetailEdit);
+    var dts=$("#tkDtStar");if(dts)dts.addEventListener("click",function(){
+      var t=tkFindTask(TKDETAIL.id);if(!t)return;tkToggleStar(t);tkRenderDetail(t);
+    });
+    var dtb=$("#tkDtBody");if(dtb)dtb.addEventListener("click",function(e){
+      if(!e.target||!e.target.closest)return;
+      var sd=e.target.closest("[data-tkdtsdone]");
+      if(sd){tkDetailToggleStep(+sd.getAttribute("data-tkdtsdone"));e.preventDefault();return;}
+      var at=e.target.closest("[data-tkdta]");
+      if(at){var t=tkFindTask(TKDETAIL.id),a=t?tkTaskAtts(t)[+at.getAttribute("data-tkdta")]:null;if(a)openAtt(a);e.preventDefault();return;}
+      if(e.target.closest("[data-tkdtdone]")){tkDetailDone();e.preventDefault();return;}
+      if(e.target.closest("[data-tkdtsrc]")){tkDetailSrc();e.preventDefault();}
+    });
     var fdone=$("#tkFDone");if(fdone)fdone.addEventListener("click",function(){
       if(!TKED)return;TKED.done=!TKED.done;tkSyncEditorChips();tkMarkDirty();
     });
@@ -25338,8 +25566,10 @@ var TK=(function(){
         if(x){var j=+x.getAttribute("data-tkstepdel");TKED.steps.splice(j,1);tkRenderSteps();tkMarkDirty();return;}
       });
       fsteps.addEventListener("input",function(e){
-        var inp=tkClosest(e.target,"[data-tksteptext]");if(!inp||!TKED)return;
-        var i=+inp.getAttribute("data-tksteptext");if(TKED.steps[i])TKED.steps[i].text=inp.value;
+        var inp=tkClosest(e.target,"[data-tksteptext]");
+        if(inp&&TKED){var i=+inp.getAttribute("data-tksteptext");if(TKED.steps[i]){TKED.steps[i].text=inp.value;tkMarkDirty();}return;}
+        var nt=tkClosest(e.target,"[data-tkstepnote]");
+        if(nt&&TKED){var j=+nt.getAttribute("data-tkstepnote");if(TKED.steps[j]){TKED.steps[j].note=String(nt.value||"").slice(0,500);tkMarkDirty();}}
       });
     }
     var fsa=$("#tkFStepAddBtn");if(fsa)fsa.addEventListener("click",tkAddStep);

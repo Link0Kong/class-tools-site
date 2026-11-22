@@ -68,7 +68,7 @@ TASKS = {
         {"id": "t1", "title": "复习高数第三章", "notes": "重点看例题 3.2–3.5", "list": "lstudy",
          "due": TODAY, "dueTime": "20:00", "remindMode": "30", "starred": True,
          "myDay": TODAY, "tags": ["复习", "高数"],
-         "steps": [{"text": "看例题", "done": True}, {"text": "做课后习题", "done": False}],
+         "steps": [{"text": "看例题", "done": True, "note": "先看 3.2 节例题"}, {"text": "做课后习题", "done": False}],
          "createdAt": NOW - 10000, "updatedAt": NOW - 10000, "order": 0},
         {"id": "t2", "title": "买牙膏和洗衣液", "notes": "", "list": "llife",
          "due": TOMORROW, "dueTime": "", "remindMode": "none", "starred": False,
@@ -303,6 +303,9 @@ RUNNER = r"""
 
         /* ---- 编辑 ---- */
         var row=rowByTitle("测试快速添加");row.click();await sleep(300);
+        T("点击任务打开详情", q("#tkDetailPanel").style.display!=="none"&&q("#tkPanel").style.display==="none"&&txt("#tkDtTitle")==="测试快速添加", txt("#tkDtTitle"));
+        T("详情有独立编辑图标", !!q("#tkDtEdit")&&q("#tkDtEdit").getAttribute("aria-label")==="编辑任务", "");
+        click("#tkDtEdit");await sleep(300);
         T("编辑器打开且标题回填", q("#tkPanel").style.display!=="none"&&q("#tkFTitle").value==="测试快速添加", q("#tkFTitle").value);
         T("分组下拉含未分组", !!q('#tkFList option[value=""]'), q("#tkFList").value);
         T("编辑器日期按钮回填", q("#tkFDate").value===__TOMORROW__&&txt("#tkFDateBtn").indexOf("月")>=0,
@@ -322,6 +325,8 @@ RUNNER = r"""
         setv("#tkFStepAdd","步骤一");q("#tkFStepAddBtn").click();await sleep(80);
         setv("#tkFStepAdd","步骤二");q("#tkFStepAddBtn").click();await sleep(80);
         T("步骤渲染 2 条", qa("#tkFSteps [data-tksteptext]").length===2, qa("#tkFSteps [data-tksteptext]").length);
+        setv('#tkFSteps [data-tkstepnote="0"]',"先看例题");
+        T("步骤备注可填写", q('#tkFSteps [data-tkstepnote="0"]').value==="先看例题", q('#tkFSteps [data-tkstepnote="0"]').value);
         click('#tkFSteps [data-tkstepdone="0"]');await sleep(50);
         click("#tkFStar");click("#tkFMyDay");await sleep(50);
         click("#tkFSave");await sleep(300);
@@ -331,7 +336,26 @@ RUNNER = r"""
           et?JSON.stringify({due:et.due,time:et.dueTime,rep:et.repeat,list:et.list}):"null");
         T("字段保存：标签/步骤/重要/我的一天", !!et&&et.tags.join(",")==="甲,乙"&&et.steps.length===2&&et.steps[0].done&&et.starred&&et.myDay===__TODAY__,
           et?JSON.stringify({tags:et.tags,steps:et.steps,star:et.starred,my:et.myDay}):"null");
+        T("步骤备注写入数据", !!et&&et.steps[0].note==="先看例题", et?String(et.steps[0].note):"missing");
         T("行内展示截止与步骤进度", txt("#tkList").indexOf("09:30")>=0&&txt("#tkList").indexOf("1/2")>=0, txt("#tkList").slice(0,120));
+
+        /* ---- 步骤展开 / 详情 ---- */
+        var etRow=rowByTitle("测试编辑任务");
+        T("有步骤任务显示展开按钮", !!etRow&&!!etRow.querySelector("[data-tkexpand]"), "");
+        if(etRow&&etRow.querySelector("[data-tkexpand]")){etRow.querySelector("[data-tkexpand]").click();await sleep(150);}
+        T("任务步骤可展开", !!q("#tkList .tk-substeps")&&txt("#tkList").indexOf("步骤一")>=0, txt("#tkList").slice(0,120));
+        T("展开后显示步骤备注", txt("#tkList").indexOf("先看例题")>=0, "");
+        var exRow=rowByTitle("测试编辑任务");
+        if(exRow&&exRow.querySelector("[data-tkexpand]")){exRow.querySelector("[data-tkexpand]").click();await sleep(120);}
+        rowByTitle("测试编辑任务").click();await sleep(250);
+        T("任务详情显示步骤与备注", q("#tkDetailPanel").style.display!=="none"&&txt("#tkDtBody").indexOf("步骤一")>=0&&txt("#tkDtBody").indexOf("先看例题")>=0,
+          txt("#tkDtBody").slice(0,120));
+        click('#tkDtBody [data-tkdtsdone="1"]');await sleep(120);
+        T("详情内可勾选步骤", !!et&&et.steps[1].done===true, et?String(et.steps[1].done):"missing");
+        click('#tkDtBody [data-tkdtsdone="1"]');await sleep(120);
+        T("详情内可取消步骤", !!et&&et.steps[1].done===false, et?String(et.steps[1].done):"missing");
+        click("#tkDtClose");await sleep(120);
+        T("任务详情可关闭", q("#tkDetailPanel").style.display==="none", "");
 
         /* ---- 重复完成 / 撤销 ---- */
         var before=TASK.items().length;
@@ -356,7 +380,9 @@ RUNNER = r"""
         T("我的一天内快速添加自动归入今天", !!md&&md.myDay===__TODAY__, md?md.myDay:"");
         click('[data-tkview="all"]');await sleep(150);
         var mrow=rowByTitle("测试编辑任务");
-        if(mrow)mrow.click();await sleep(200);
+        if(mrow&&mrow.querySelector("[data-tkedit]"))mrow.querySelector("[data-tkedit]").click();
+        await sleep(250);
+        T("任务行编辑图标直接进编辑器", q("#tkPanel").style.display!=="none", q("#tkPanel").style.display);
         click("#tkFMyDay");click("#tkFSave");await sleep(200);
         click('[data-tkview="myday"]');await sleep(150);
         T("移出我的一天后不再显示", !rowByTitle("测试编辑任务"), "");
@@ -508,7 +534,7 @@ RUNNER = r"""
           qa("#taskFilesList .att-card").length+" | "+txt("#taskFilesNote"));
         qa("#taskFilesList [data-att-rm]")[0].click();await sleep(120);
         T("再次移除后 1 个", qa("#taskFilesList .att-card").length===1, qa("#taskFilesList .att-card").length);
-        setFiles("#taskFiles",[new File([new Uint8Array(340*1024)],"big.txt",{type:"text/plain"})]);await waitFor(function(){return qa("#taskFilesList .att-card").length===2;},16000);
+        setFiles("#taskFiles",[new File([new Uint8Array(325*1024)],"big.txt",{type:"text/plain"})]);await waitFor(function(){return qa("#taskFilesList .att-card").length===2;},16000);
         T("任务附件超过旧 320KB 上限", qa("#taskFilesList .att-card").length===2&&txt("#taskFilesNote").indexOf("已添加")>=0,
           qa("#taskFilesList .att-card").length+" | "+txt("#taskFilesNote"));
         qa("#taskFilesList [data-att-rm]")[0].click();await sleep(120);
@@ -650,7 +676,9 @@ RUNNER = r"""
           T("390px 智能列表/分组 chip 可见", md.querySelectorAll("#tkSmart .tk-navbtn").length>=5, md.querySelectorAll("#tkSmart .tk-navbtn").length);
           T("390px 无 JS 报错", (mw.__errs||[]).length===0, JSON.stringify(mw.__errs||[]).slice(0,300));
           var mrow=md.querySelector("#tkList .tk-item");
-          if(mrow){mrow.click();await sleep(450);}
+          if(mrow){mrow.click();await sleep(250);}
+          T("390px 任务详情打开", !!md.querySelector("#tkDetailPanel")&&md.querySelector("#tkDetailPanel").style.display!=="none", "");
+          var med=md.querySelector("#tkDtEdit");if(med){med.click();await sleep(300);}
           var saveBtn=md.querySelector("#tkFSave");
           T("390px 编辑器保存键在首屏可见", !!saveBtn&&saveBtn.getBoundingClientRect().bottom<=mw.innerHeight+1&&saveBtn.getBoundingClientRect().top>0,
             saveBtn?JSON.stringify(saveBtn.getBoundingClientRect()):"missing");
@@ -736,7 +764,7 @@ def main():
         os.remove(REPORT)
     url = BASE + os.path.basename(PREVIEW)
     args = [EDGE, "--headless=new", "--disable-gpu", "--no-first-run", "--force-device-scale-factor=1",
-            "--window-size=1280,900", "--virtual-time-budget=120000",
+            "--window-size=1280,900", "--virtual-time-budget=150000",
             "--screenshot=" + os.path.join(REPORT_DIR, "task_check.png"), url]
     subprocess.run(args, capture_output=True, timeout=300)
     data = None
