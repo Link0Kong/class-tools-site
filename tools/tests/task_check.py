@@ -182,14 +182,20 @@ RUNNER = r"""
   function attsOf(t){
     try{return JSON.parse(t&&t.attachments||"[]")||[];}catch(e){return [];}
   }
-  function dragByPointer(handle,targetEl,down){
-    var h=q(handle);if(!h||!targetEl)return false;
+  function dragHold(handle,targetEl,down){
+    var h=q(handle);if(!h||!targetEl)return null;
     var hr=h.getBoundingClientRect(),tr=targetEl.getBoundingClientRect();
     var x=tr.left+tr.width/2,y=down?tr.bottom-2:tr.top+2;
     h.dispatchEvent(new PointerEvent("pointerdown",{bubbles:true,cancelable:true,pointerId:77,button:0,buttons:1,clientX:hr.left+5,clientY:hr.top+5}));
     document.dispatchEvent(new PointerEvent("pointermove",{bubbles:true,cancelable:true,pointerId:77,button:0,buttons:1,clientX:x,clientY:y}));
-    document.dispatchEvent(new PointerEvent("pointerup",{bubbles:true,cancelable:true,pointerId:77,button:0,buttons:0,clientX:x,clientY:y}));
-    return true;
+    return {x:x,y:y};
+  }
+  function dragEnd(p){
+    document.dispatchEvent(new PointerEvent("pointerup",{bubbles:true,cancelable:true,pointerId:77,button:0,buttons:0,clientX:p.x,clientY:p.y}));
+  }
+  function dragByPointer(handle,targetEl,down){
+    var p=dragHold(handle,targetEl,down);if(!p)return false;
+    dragEnd(p);return true;
   }
   function rowByTitle(title){
     var rows=qa("#tkList .tk-item");
@@ -298,13 +304,20 @@ RUNNER = r"""
         setv("#tkLName","社团");click('#tkLColors [data-tkc="violet"]');click("#tkLSave");await sleep(250);
         T("新建分组后切到该分组", txt("#tkTitle")==="社团", txt("#tkTitle"));
         T("分组写入侧栏", txt("#tkLists").indexOf("社团")>=0, txt("#tkLists").slice(0,100));
+        var cgRow=qa("#tkLists .tk-navrow").filter(function(r){return r.textContent.indexOf("社团")>=0;})[0];
+        T("新分组行有删除按钮和拖动把手", !!cgRow&&!!cgRow.querySelector("[data-tkgdel]")&&!!cgRow.querySelector("[data-tksidedrag]"),
+          cgRow?cgRow.textContent.slice(0,40):"missing");
         setv("#tkQuick","社团任务");q("#tkQuickAdd").click();await sleep(200);
         var st=taskByTitle("社团任务");
         T("分组内任务归属正确", !!st&&st.list!==undefined&&st.list.indexOf("l")===0, st?st.list:"");
         click("#tkListEdit");await sleep(200);
         setv("#tkLName","社团活动");click("#tkLSave");await sleep(200);
         T("分组重命名", txt("#tkLists").indexOf("社团活动")>=0, txt("#tkLists").slice(0,100));
-        click("#tkListEdit");await sleep(200);click("#tkLDelete");await sleep(250);
+        var renameRow=qa("#tkLists .tk-navrow").filter(function(r){return r.textContent.indexOf("社团活动")>=0;})[0];
+        var delBtn=renameRow?renameRow.querySelector("[data-tkgdel]"):null;
+        if(delBtn)delBtn.click();
+        else {click("#tkListEdit");await sleep(200);click("#tkLDelete");}
+        await sleep(250);
         var moved=taskByTitle("社团任务");
         T("删除分组任务移回任务", !!moved&&moved.list==="inbox", moved?moved.list:"");
         T("删除分组后回全部", txt("#tkTitle")==="全部", txt("#tkTitle"));
@@ -498,7 +511,12 @@ RUNNER = r"""
         var beforeTasks=TASK.items().filter(function(t){return !t.done;}).sort(function(a,b){return (Number(a.order)||0)-(Number(b.order)||0);});
         var oldFirst=beforeTasks[0]?beforeTasks[0].title:"";
         var secondRow=q("#tkList .tk-item:nth-of-type(2)")||qa("#tkList .tk-item")[1];
-        if(dragHandles.length>=2&&secondRow){dragByPointer("#tkList [data-tkdrag]",secondRow,true);await sleep(350);}
+        var animHold=null;
+        if(dragHandles.length>=2&&secondRow)animHold=dragHold("#tkList [data-tkdrag]",secondRow,true);
+        await sleep(30);
+        var animCount=qa("#tkList .tk-item").filter(function(el){return el.getAnimations().length>0;}).length;
+        T("任务拖动有让位动画", animCount>0, animCount);
+        if(animHold){dragEnd(animHold);await sleep(350);}
         var afterTasks=TASK.items().filter(function(t){return !t.done;}).sort(function(a,b){return (Number(a.order)||0)-(Number(b.order)||0);});
         T("任务拖动改变顺序并保存", !!oldFirst&&afterTasks[0]&&afterTasks[0].title!==oldFirst,
           "old="+oldFirst+" new="+(afterTasks[0]?afterTasks[0].title:""));

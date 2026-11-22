@@ -2,6 +2,30 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-22 16:3x–16:5x · 拖动让位动画 + 新分组删除按钮 + 任务云端同步（网页端）
+
+> 用户需求：「调整顺序要有对应的让位动画，同时我发现分组新建后无删除按钮，且无法调整顺序，同时把任务模块同步至云端」。
+
+- **让位动画**：`tkFlipMove` 用 FLIP + WAAPI（190ms）让非拖动条目让位；左侧视图/分组与任务行共用，
+  `prefers-reduced-motion` 时直接移动；重复拖动先 finish 旧动画。
+- **分组删除**：非收件箱分组行新增删除按钮（`data-tkgdel`），点击确认后任务移回「任务」并删除分组；
+  弹层删除复用同一逻辑。**新建分组后立即有删除按钮和拖动把手**。
+- **任务云端同步（新表 public.taskdata）**：迁移 `deploy/cloudbase/2026-11-22_taskdata.sql` 已应用；
+  RLS 仅本人行、anon SELECT/INSERT/UPDATE；**不增加 userdata v6 section**，不影响其它端/现有同步契约。
+  `TASKSYNC`：`task.updatedAt` 版本、首次合并、之后整快照 LWW、先 GET 再 POST、删除最后任务/分组可推空快照；
+  `#tkCloud` 状态（已同步/同步中…/仅本机/待保存）；任务附件不上云（本机保留，按 task id 回填）。
+- **数据**：任务新增 `updatedAt`；仅新表，无其它 DB/接口/账号变更；APP_VER 仍 2.0.0。
+- **测试**：`task_check.py` **116/116**（新增 FLIP 动画断言、新分组删除/把手）；`task_cloud_check.py` **8/8**
+  （mock 首次合并/附件保留/推送不含附件/新任务自动推送）；`task_cloud_live_check.py` **5/5**
+  （真实 CloudBase 本人 GET/RLS/POST/回读/清理，仅测试身份）；回归 `v2_ui` 27/27、`overflow 390/430`=0、
+  `optim_v2` GREEN、0 JS/console/外部请求。
+- **上线**：网页 **1,565,408 B / sha256 `9de65e9fe7746175abc4061988c2a1834d392247c8971a83bfc4316eab7427d1`**
+  （OSS check MATCH；ECS 文件与 IP 同字节；gzip 477,581 B；`http://121.196.47.2/` HTTP 200 同字节同 sha）；
+  部署前备份 `tools/_backup/index_online_20261122-1642_preTaskSync.html`（1,555,246 B / `63aa2874…`）。
+- **回滚**：重传备份 → 两条部署命令；DB 回滚 `DROP TABLE IF EXISTS public.taskdata;`（本地任务不受影响）。
+- **已知取舍**：任务同步仅网页端；整快照 LWW（同时改不同任务可能后写覆盖，无逐条 tombstone）；任务附件不上云；
+  首次无基线为合并，删除可能被另一端旧副本短暂恢复；同步失败降级「仅本机」。
+
 ## 2026-11-22 16:1x–16:3x · 左侧栏目 + 任务拖动排序（网页端）
 
 > 用户需求：「允许对右侧栏目的拖动调整顺序，同时对任务也进行处理」；随后明确「我指的是左侧栏目要支持拖动改变顺序」。

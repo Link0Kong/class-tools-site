@@ -3396,6 +3396,10 @@ body{--tk-accent:var(--cy);--tk-soft:var(--mint);--tk-soft2:var(--mint2)}
 .tk-gdrag{width:24px;height:32px;flex:none;display:flex;align-items:center;justify-content:center;border:0;border-radius:7px;background:transparent;color:var(--ink3);opacity:.45;cursor:grab;touch-action:none;padding:0;font-family:inherit}
 .tk-gdrag:hover,.tk-gdrag:focus-visible{opacity:.9;background:var(--tk-soft2);color:var(--tk-accent);outline:none}
 .tk-gdrag svg{width:14px;height:14px;pointer-events:none}
+.tk-gdel{width:24px;height:32px;flex:none;display:flex;align-items:center;justify-content:center;border:0;border-radius:7px;background:transparent;color:var(--ink3);opacity:.34;cursor:pointer;padding:0;font-family:inherit}
+.tk-gdel svg{width:13px;height:13px;pointer-events:none}
+.tk-gdel:hover,.tk-gdel:focus-visible{opacity:.9;color:var(--danger);background:var(--tk-soft2);outline:none}
+.tk-navrow:hover .tk-gdel{opacity:.65}
 .tk-navrow-drag{opacity:.55;background:var(--tk-soft2)}
 .tk-navbtn{display:flex;align-items:center;gap:9px;width:100%;min-height:42px;padding:0 9px;border:0;border-radius:10px;background:transparent;color:var(--ink2);font-family:inherit;font-size:13.5px;font-weight:600;text-align:left;cursor:pointer;transition:background-color .15s,color .15s}
 .tk-navbtn:hover{background:var(--tk-soft2)}
@@ -3493,6 +3497,8 @@ body.tk-sorting *{cursor:grabbing!important}
 .tk-donetoggle[aria-expanded="true"] .tk-chev{transform:rotate(180deg)}
 .tk-donelist{border-top:1px solid var(--line);padding:2px 0}
 .tk-foot{padding:9px 2px 3px;text-align:center;font-size:11px;color:var(--ink3);font-variant-numeric:tabular-nums}
+.tk-cloudst{padding:0 2px 5px;text-align:center;font-size:10px;line-height:1.4;color:var(--ink3);min-height:14px}
+.tk-cloudst.err{color:var(--danger)}
 .tk-class{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px 10px;box-shadow:var(--elev-card,0 1px 2px rgba(72,64,44,.05))}
 .tk-classhd{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px}
 .tk-classhd>b{font-size:18px;font-weight:800;line-height:1.4}
@@ -3643,6 +3649,7 @@ html[data-appearance="dark"] .tk-source-atts button{background:#1A211E}
   .tk-navrow{display:inline-flex;width:auto;border-radius:999px}
   .tk-navrow>.tk-navbtn{flex:0 0 auto;width:auto}
   .tk-gdrag{width:22px;height:28px;opacity:.55}
+  .tk-gdel{width:22px;height:28px;opacity:.5}
   .tk-drag{width:24px;margin-left:-4px;opacity:.4}
   .tk-navbtn{width:auto;min-height:36px;padding:0 10px;font-size:12.5px;gap:6px;border-radius:999px;border:1px solid transparent}
   .tk-navbtn.on{border-color:transparent}
@@ -4032,6 +4039,7 @@ html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px
         </div>
 
         <div class="tk-foot" id="tkFoot"></div>
+        <div class="tk-cloudst" id="tkCloud" aria-live="polite"></div>
       </div>
     </div>
 
@@ -4270,6 +4278,7 @@ html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px
 <!-- __WEB_B2_NTBTN_END__ -->
     <div class="notice-host" id="noticeHost"><div class="notice-empty">—</div></div>
   </section>
+
   <!-- ==================== 体测 ==================== -->
   <section id="s-ft">
     <div class="card">
@@ -5116,7 +5125,7 @@ function taskIdOk(id){return /^[A-Za-z0-9_-]{1,48}$/.test(String(id==null?"":id)
 function taskNewId(prefix){return String(prefix||"t")+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 function taskColorOk(c){return ["cy","bl","sd","violet","rose","teal"].indexOf(String(c))>=0?String(c):"cy";}
 function taskDefaultData(){
-  return {v:1,lists:[{id:"inbox",name:"任务",color:"cy",order:0}],items:[],prefs:{sound:true,defaultRemind:"none"}};
+  return {v:1,lists:[{id:"inbox",name:"任务",color:"cy",order:0}],items:[],prefs:{sound:true,defaultRemind:"none"},updatedAt:0};
 }
 function taskNormItem(x,listIds,idx){
   if(!x||typeof x!=="object")return null;
@@ -5216,6 +5225,8 @@ function taskNormData(raw){
   var dr=String(p.defaultRemind==null?"none":p.defaultRemind);
   if(["none","due","5","15","30","60","1440"].indexOf(dr)<0)dr="none";
   out.prefs={sound:p.sound!==false,defaultRemind:dr};
+  var du=Number(raw.updatedAt);
+  out.updatedAt=(isFinite(du)&&du>0)?du:0;
   return out;
 }
 
@@ -22600,7 +22611,7 @@ var TK=(function(){
   function tkItems(){return tkData().items||[];}
   function tkLists(){return tkData().lists||[];}
   function tkPrefs(){return tkData().prefs||{sound:true,defaultRemind:"none"};}
-  function tkSave(){try{D.d.task=tkData();D.save();}catch(e){}}
+  function tkSave(){try{var t=tkData();t.updatedAt=Date.now();D.d.task=t;D.save();if(window.TASKSYNC){window.TASKSYNC.boot();window.TASKSYNC.touch();}}catch(e){}}
   function tkFindTask(id){var a=tkItems(),i;for(i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null;}
   function tkFindList(id){var a=tkLists(),i;for(i=0;i<a.length;i++)if(a[i].id===id)return a[i];return a[0]||{id:"inbox",name:"任务",color:"cy",order:0};}
   function tkNextOrder(){var a=tkItems(),mn=0,i;for(i=0;i<a.length;i++){var o=Number(a[i].order);if(isFinite(o)&&o<mn)mn=o;}return mn-1;}
@@ -22961,9 +22972,10 @@ var TK=(function(){
       return null;
     }).filter(Boolean);
   }
-  function tkSideRow(inner,type,key,drag){
+  function tkSideRow(inner,type,key,drag,del){
     return '<div class="tk-navrow" data-tkrow="'+type+':'+esc(key)+'">'+inner+
       (drag?'<span class="tk-gdrag" role="button" tabindex="0" data-tksidedrag="'+type+'|'+esc(key)+'" aria-label="拖动排序" title="拖动排序">'+tkSvg("grip")+'</span>':'')+
+      (del?'<button class="tk-gdel" type="button" data-tkgdel="'+esc(key)+'" aria-label="删除分组" title="删除分组">'+tkSvg("trash")+'</button>':'')+
       '</div>';
   }
   function tkCanDragTasks(){
@@ -23016,12 +23028,39 @@ var TK=(function(){
         var btn='<button class="tk-navbtn'+on+'" type="button" data-tkview="list" data-tklist="'+esc(l.id)+'">'+
           '<i class="tk-dot" data-tkc="'+esc(l.color)+'"></i><span class="tk-ell">'+esc(l.name)+'</span>'+
           (n?'<span class="tk-cnt">'+n+'</span>':'')+'</button>';
-        lh+=tkSideRow(btn,"list",l.id,l.id!=="inbox");
+        lh+=tkSideRow(btn,"list",l.id,l.id!=="inbox",l.id!=="inbox");
       });
       lh+='<button class="tk-navbtn tk-newlist" type="button" data-tknewlist="1">'+tkIco("plus")+'<span>新建分组</span></button>';
       lb.innerHTML=lh;
     }
     tkRenderQuickSelect();
+  }
+  function tkMotionOk(){try{return !window.matchMedia||!window.matchMedia("(prefers-reduced-motion: reduce)").matches;}catch(e){return true;}}
+  /* FLIP 让位：先量旧位置，插入 DOM，再让其他条目从旧位置动画回新位置。
+     拖动的这一行本身跟手移动，不参与动画；重复 move 时先 finish 旧动画，避免叠加速度。 */
+  function tkFlipMove(container,row,target,sel){
+    if(target){
+      if(row.nextElementSibling===target)return false;
+    }else if(container.lastElementChild===row)return false;
+    var items=$$(sel,container);
+    if(tkMotionOk()){
+      items.forEach(function(el){try{el.getAnimations().forEach(function(a){a.finish();});}catch(e){}});
+      var before=items.map(function(el){var r=el.getBoundingClientRect();return {el:el,x:r.left,y:r.top};});
+      if(target)container.insertBefore(row,target);else container.appendChild(row);
+      before.forEach(function(it){
+        var el=it.el;
+        if(el===row||!el.isConnected)return;
+        var r=el.getBoundingClientRect(),dx=it.x-r.left,dy=it.y-r.top;
+        if(Math.abs(dx)<0.5&&Math.abs(dy)<0.5)return;
+        try{
+          el.animate([{transform:"translate("+dx+"px,"+dy+"px)"},{transform:"translate(0,0)"}],
+            {duration:190,easing:"cubic-bezier(.2,.8,.2,1)"});
+        }catch(e){}
+      });
+    }else{
+      if(target)container.insertBefore(row,target);else container.appendChild(row);
+    }
+    return true;
   }
   function tkSideDragStart(e,h){
     if(e.button!=null&&e.button!==0)return;
@@ -23047,7 +23086,7 @@ var TK=(function(){
         var hr=hit&&hit.closest?hit.closest(".tk-navrow"):null;
         if(hr&&hr!==d.row&&d.cont.contains(hr)){
           var hb=hr.getBoundingClientRect();
-          d.cont.insertBefore(d.row,ev.clientX<hb.left+hb.width/2?hr:hr.nextSibling);
+          tkFlipMove(d.cont,d.row,ev.clientX<hb.left+hb.width/2?hr:hr.nextSibling,".tk-navrow");
           return;
         }
       }
@@ -23058,14 +23097,14 @@ var TK=(function(){
         if(horizontal?ev.clientX<r.left+r.width/2:ev.clientY<r.top+r.height/2){target=rows[i];break;}
       }
       if(target){
-        d.cont.insertBefore(d.row,target);
+        tkFlipMove(d.cont,d.row,target,".tk-navrow");
         return;
       }
       if(d.type==="list"){
         var nb=$("#tkLists [data-tknewlist]");
-        if(nb&&d.cont.contains(nb))d.cont.insertBefore(d.row,nb);
-        else d.cont.appendChild(d.row);
-      }else d.cont.appendChild(d.row);
+        if(nb&&d.cont.contains(nb))tkFlipMove(d.cont,d.row,nb,".tk-navrow");
+        else tkFlipMove(d.cont,d.row,null,".tk-navrow");
+      }else tkFlipMove(d.cont,d.row,null,".tk-navrow");
     }
     function up(){
       var d=TKSIDE;if(!d)return;
@@ -23114,8 +23153,8 @@ var TK=(function(){
         r=rows[i].getBoundingClientRect();
         if(ev.clientY<r.top+r.height/2){target=rows[i];break;}
       }
-      if(target)d.box.insertBefore(d.row,target);
-      else d.box.appendChild(d.row);
+      if(target)tkFlipMove(d.box,d.row,target,".tk-item");
+      else tkFlipMove(d.box,d.row,null,".tk-item");
     }
     function up(){
       var d=TKTASK;if(!d)return;
@@ -23281,6 +23320,7 @@ var TK=(function(){
   }
   function tkEnter(){
     try{tkRefresh();}catch(e){}
+    try{if(typeof TASKSYNC!=="undefined")TASKSYNC.boot();}catch(e){}
   }
   function tkClassChanged(){
     try{
@@ -23787,17 +23827,22 @@ var TK=(function(){
     tkWriteUi();tkRenderAll();
     toast("已保存分组");
   }
-  function tkDeleteList(){
-    if(!TKLIST||TKLIST.isNew)return;
-    if(TKLIST.id==="inbox"){toast("默认分组不能删除");return;}
-    var id=TKLIST.id,cnt=tkItems().filter(function(t){return t.list===id;}).length;
+  function tkDeleteListById(id){
+    if(!id||id==="inbox"){toast("默认分组不能删除");return;}
+    var cnt=tkItems().filter(function(t){return t.list===id;}).length;
     if(!confirm(cnt?("删除分组？其中 "+cnt+" 项任务会移到「任务」"):"删除这个分组？"))return;
     var arr=tkItems();
     for(var i=0;i<arr.length;i++)if(arr[i].list===id)arr[i].list="inbox";
     var ls=tkLists();
     for(var j=ls.length-1;j>=0;j--)if(ls[j].id===id)ls.splice(j,1);
     if(TKU.view==="list"&&TKU.list===id){TKU.view="all";TKU.list="inbox";}
-    tkSave();tkCloseListEditor();tkWriteUi();tkRenderAll();toast("已删除分组");
+    tkSave();
+    if(TKLIST&&TKLIST.id===id)tkCloseListEditor();
+    tkWriteUi();tkRenderAll();toast("已删除分组");
+  }
+  function tkDeleteList(){
+    if(!TKLIST||TKLIST.isNew)return;
+    tkDeleteListById(TKLIST.id);
   }
 
   /* ---------------- 更多菜单 ---------------- */
@@ -24205,6 +24250,8 @@ var TK=(function(){
       });
       lists.addEventListener("click",function(e){
         if(tkClosest(e.target,"[data-tksidedrag]")){e.preventDefault();e.stopPropagation();return;}
+        var del=tkClosest(e.target,"[data-tkgdel]");
+        if(del){e.preventDefault();e.stopPropagation();tkDeleteListById(del.getAttribute("data-tkgdel"));return;}
         var nl=tkClosest(e.target,"[data-tknewlist]");
         if(nl){tkOpenListEditor("");return;}
         var b=tkClosest(e.target,"[data-tkview='list']");if(!b)return;
@@ -24432,10 +24479,15 @@ var TK=(function(){
       if(document.hidden)return;
       try{tkCheckReminders();}catch(e){}
       try{tkShowNextReminder();}catch(e){}
+      try{if(typeof TASKSYNC!=="undefined"){TASKSYNC.boot();TASKSYNC.pull();}}catch(e){}
       if(TKU.today!==tkToday()){TKU.today=tkToday();try{tkRenderAll();}catch(e){}}
     });
     window.addEventListener("focus",function(){
       try{tkShowNextReminder();}catch(e){}
+      try{if(typeof TASKSYNC!=="undefined"){TASKSYNC.boot();TASKSYNC.pull();}}catch(e){}
+    });
+    window.addEventListener("beforeunload",function(){
+      try{if(typeof TASKSYNC!=="undefined")TASKSYNC.flush();}catch(e){}
     });
   }
 
@@ -24443,6 +24495,7 @@ var TK=(function(){
     try{tkReadUi();}catch(e){}
     try{tkBind();}catch(e){}
     try{tkRefresh();}catch(e){}
+    setTimeout(function(){try{TASKSYNC.boot();}catch(e){}},1600);
     setTimeout(function(){try{tkCheckReminders();}catch(e){}},2200);
     setInterval(function(){try{tkCheckReminders();}catch(e){}},20000);
     /* 班级作业渲染后更新班级角标；进入班级后重绘任务页 */
@@ -24467,6 +24520,157 @@ var TK=(function(){
       }
     }catch(e){}
   }
+
+  /* ---------------- 任务云端同步（public.taskdata，web 专用） ----------------
+     只同步任务文字/分组/排序/提醒/步骤/来源；attachments 不上云（仍本机），
+     拉取时按 task id 保留本机附件。表未部署/网络失败时仅提示「仅本机」，不影响本地任务。 */
+  var TASKSYNC=(function(){
+    var SID="",bootSid="",pullP=null,pushP=null,timer=0,applying=false,lastPull=0,dirty=false;
+    function sidNow(){return (typeof AUTH!=="undefined"&&AUTH.sid)?String(AUTH.sid):"";}
+    function baseKey(){return "zq_task_cloud_"+SID;}
+    function readBase(){try{return JSON.parse(localStorage.getItem(baseKey())||"null");}catch(e){return null;}}
+    function writeBase(ts){try{localStorage.setItem(baseKey(),JSON.stringify({ts:Number(ts)||0}));}catch(e){}}
+    function setStatus(t,err){var e=$("#tkCloud");if(!e)return;e.textContent=t||"";e.className="tk-cloudst"+(err?" err":"");}
+    function localTask(){return taskNormData(D.d.task);}
+    function hasData(t){return !!(t&&((t.items&&t.items.length)||(t.lists&&t.lists.length>1)||(t.prefs&&(t.prefs.sound===false||t.prefs.defaultRemind!=="none"))));}
+    function cloudView(t){
+      var c=JSON.parse(JSON.stringify(t));
+      c.items=(c.items||[]).map(function(x){x.attachments="";return x;});
+      return c;
+    }
+    function attMap(t){var m={};(t&&t.items||[]).forEach(function(x){if(x.attachments)m[x.id]=x.attachments;});return m;}
+    function applySnapshot(t,ts){
+      if(TKED){setStatus("待保存");return false;}
+      var local=localTask(),att=attMap(local),next=taskNormData(t);
+      next.items.forEach(function(x){x.attachments=att[x.id]||"";});
+      next.updatedAt=Number(ts)||Number(next.updatedAt)||Date.now();
+      applying=true;
+      D.d.task=next;
+      try{D.save();}catch(e){}
+      applying=false;
+      writeBase(next.updatedAt);dirty=false;
+      try{tkRefresh();}catch(e){}
+      setStatus("已同步");
+      return true;
+    }
+    function ensureLocal(){
+      var t=localTask();
+      if(!Number(t.updatedAt)&&hasData(t)){
+        t.updatedAt=Date.now();D.d.task=t;
+        try{D.save();}catch(e){}
+      }
+      return localTask();
+    }
+    function fetchRow(){
+      return fetch(CB+"taskdata?select=*&id=eq."+encodeURIComponent(SID),{headers:cbH(false),cache:"no-store"})
+        .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();})
+        .then(function(rows){return (rows&&rows[0])||null;});
+    }
+    function parseRow(row){
+      try{
+        if(!row||row.blob==null||row.blob==="")return null;
+        var t=taskNormData(JSON.parse(row.blob));
+        return t;
+      }catch(e){return null;}
+    }
+    function union(local,remote,rts){
+      var out=taskNormData(remote),lts=Number(local.updatedAt)||0;
+      var seen={};out.items.forEach(function(x){seen[x.id]=x;});
+      local.items.forEach(function(li){
+        var ri=seen[li.id];
+        if(!ri){out.items.push(li);seen[li.id]=li;return;}
+        if((Number(li.updatedAt)||0)>(Number(ri.updatedAt)||0)){
+          var i=out.items.indexOf(ri);if(i>=0)out.items[i]=li;seen[li.id]=li;
+        }
+      });
+      var lmap={};local.lists.forEach(function(l){lmap[l.id]=l;});
+      out.lists=out.lists.map(function(rl){var ll=lmap[rl.id];return (ll&&lts>rts)?ll:rl;});
+      var rseen={};out.lists.forEach(function(l){rseen[l.id]=1;});
+      local.lists.forEach(function(ll){if(!rseen[ll.id])out.lists.push(ll);});
+      if(lts>rts)out.prefs=local.prefs;
+      out.updatedAt=Math.max(lts,rts,Date.now());
+      return out;
+    }
+    function pull(force){
+      if(!SID)return Promise.resolve(false);
+      if(pullP)return pullP;
+      if(!force&&Date.now()-lastPull<60000)return Promise.resolve(false);
+      setStatus("同步中…");
+      pullP=fetchRow().then(function(row){
+        lastPull=Date.now();
+        var local=localTask(),lts=Number(local.updatedAt)||0;
+        if(!row){
+          writeBase(0);
+          if(!hasData(local)){setStatus("已同步");return true;}
+          if(!lts){local.updatedAt=Date.now();D.d.task=local;try{D.save();}catch(e){}}
+          return push(true);
+        }
+        var remote=parseRow(row),rts=Number(row.ts)||Number(remote&&remote.updatedAt)||0;
+        if(!remote){
+          if(hasData(local))return push(true);
+          setStatus("已同步");return true;
+        }
+        var base=readBase();
+        if(!base){
+          if(hasData(local)){
+            var merged=union(local,remote,rts);
+            if(!applySnapshot(merged,merged.updatedAt))return true;
+            return push(true);
+          }
+          return applySnapshot(remote,rts);
+        }
+        if(rts>lts){
+          if(TKED){setStatus("待保存");return true;}
+          return applySnapshot(remote,rts);
+        }
+        if(lts>rts)return push(true);
+        writeBase(rts);setStatus("已同步");return true;
+      }).catch(function(){setStatus("仅本机",true);return false;}).then(function(x){pullP=null;return x;});
+      return pullP;
+    }
+    function push(force){
+      if(!SID)return Promise.resolve(false);
+      if(pushP)return pushP;
+      var local=ensureLocal(),lts=Number(local.updatedAt)||0;
+      setStatus("同步中…");
+      pushP=fetchRow().then(function(row){
+        if(!hasData(local)&&!row){setStatus("已同步");return true;}
+        var rts=row?(Number(row.ts)||0):0;
+        if(row&&rts>lts&&!force){
+          var remote=parseRow(row);
+          if(remote&&!TKED)return applySnapshot(remote,rts);
+          setStatus("待保存");return false;
+        }
+        var cloud=cloudView(local);cloud.updatedAt=lts;
+        var body=[{id:SID,blob:JSON.stringify(cloud),ts:lts}];
+        var h=cbH(true);h["Prefer"]="return=representation,resolution=merge-duplicates";
+        return fetch(CB+"taskdata",{method:"POST",headers:h,body:JSON.stringify(body)}).then(function(r){
+          if(!r.ok)throw new Error("http"+r.status);
+          writeBase(lts);dirty=false;setStatus("已同步");return true;
+        });
+      }).catch(function(){setStatus("仅本机",true);return false;}).then(function(x){pushP=null;return x;});
+      return pushP;
+    }
+    function touch(){
+      if(applying||!SID)return;
+      dirty=true;setStatus("同步中…");
+      clearTimeout(timer);
+      timer=setTimeout(function(){if(readBase())push();else pull(true);},1200);
+    }
+    function boot(){
+      var s=sidNow();
+      if(!s){setStatus("登录后同步");return;}
+      if(bootSid===s)return;
+      bootSid=s;SID=s;lastPull=0;
+      pull(true);
+    }
+    function flush(){
+      if(!SID)return;
+      if(dirty){if(readBase())push();else pull(true);}
+    }
+    return {boot:boot,pull:pull,push:push,touch:touch,flush:flush,state:function(){return {sid:SID,dirty:dirty,status:$("#tkCloud")?$("#tkCloud").textContent:""};}};
+  })();
+  try{window.TASKSYNC=TASKSYNC;}catch(e){}
 
   tkInit();
 
