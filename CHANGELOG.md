@@ -2,6 +2,35 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-22 22:5x–23:0x · 修复通知页下滑「不停刷新」：单条回填不再整表重绘（网页端）
+
+> 用户反馈：「修复网页端通知下滑时会不停刷新，没有连贯的体验」。
+
+- **根因**：lite 列表的图片进入视口会自动请求单行完整 body，回填函数 `__zqHydrate` 收到 body 后调
+  **整表 `render()`** 再 `scrollTo` 恢复位置。下滑经过多张图时，每张图回填都重建整个 `#list`
+  （线上 69 组 DOM + data URI 重新解码），连续重绘 → 闪烁/滚动抖动，看起来「不停刷新」。
+  附带隐患：重绘后占位会重新出现并被再次自动请求（期次卡从基础组克隆，最易退化），形成「回填 → 重绘 →
+  再回填」循环（`AUTO_PREVIEW.max` 18 次内）。
+- **修复（通知模板，`web/briefdesk/build_notice_board.py` 同步重建 demo → 重新 embed）**：
+  ① 新增 `patchHydratedItem()`：回填只替换该条 `.gitem`（按 `data-gid`+`data-idx` 命中，高度变化补偿滚动），
+  找不到卡片/条目才退回整表重绘；② 完整 `items` 仍写回基础组（期次卡克隆后不再退化），
+  `openImg` 改用 `findGroup`（期次卡图片弹层不再取不到组）；③ 自动图片预览按 `gid|idx` 去重
+  （失败 15s 后可重试，重绘不会重复请求）；④ 模板根节点 `html{overscroll-behavior-y:contain}`
+  （只加在 html：加到 body 会让 Chrome 滚轮先命中 body 的 contain 而滚不动整页，实测确认）。
+- **测试**：新增 `tools/tests/v2_notice_scroll_check.py` **18/18**（真实 wheel 下滑：修复前 6 次整表
+  render/6 次 `#list` 重建 → 修复后 0/0，图片照常自动回填、滚动位置不回跳、body 请求各 1 次、
+  期次卡重绘不退化、0 JS 报错）；回归 `v2_notice_auto_preview` 8/8、`v2_notice_period` 53/53、
+  `v2_notice_longterm` 27/27、`v2_notice_fix` 11/11、`v2_notice_data` 27/27、`v2_ui` 27/27、
+  `v2_pos_restore` 12/12。
+- **上线/回滚**：部署前线上备份 `tools/_backup/index_online_20261122-2300_preNoticeScroll.html`
+  （1,675,611 B / `9da0e2c0…`）；已上传 OSS + ECS **1,679,331 B / sha256
+  `1c9cd892067c44650d6d6ec529937269cb0f5a8b0a55eec39e30ecb196a6900c`**，`oss_object.py get/check`
+  与 `ecs_site.py verify` MATCH、gzip 506,806 B、`http://121.196.47.2/` 同字节。回滚 = 重传该备份 +
+  `python deploy/ecs_site.py apply`；仅回退模板可用旧 `NOTICE_TPL_B64` 重新 embed。
+- **已知取舍（如实）**：`/board` 独立简报页是另一条旧部署链（`briefdesk/scripts/deploy_ecs.py` 走 SSH），
+  本次未推送，仍是旧副本；小程序/安卓/鸿蒙/Windows 通知模板不受影响（网页 iframe 模板独立）；
+  自动预览上限仍是 18 张/页，超出可手动点击加载。
+
 ## 2026-11-22 21:5x · 分组与抽签拆成两个独立工具（五端同步）
 
 > 用户需求：「将分组功能与抽签功能独立，优化两者的使用逻辑和界面，对所有端生效」。

@@ -943,6 +943,10 @@ body{
 .mcard .mact{margin-top:12px}
 @media(max-width:700px){
   html,body{overflow-x:hidden}
+  /* 2026-11-22：下滑到边界时不要把滚动链交给父页/浏览器（否则触发整页回弹或下拉刷新）。
+     只加在 html 根滚动容器上 —— 同时加在 body（overflow-x:hidden 已使其成为滚动容器）会让
+     Chrome 的滚轮命中先落到 body、被 contain 拦住而滚不动整页（实测）。 */
+  html{overscroll-behavior-y:contain}
   .wrap{width:100%;min-width:0;padding:14px 14px 72px}
   .brief{padding:17px 16px;border-radius:20px;max-width:100%}
   .brief-top{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
@@ -2427,7 +2431,7 @@ function closeModal(){
   if(window.parent&&window.parent!==window){try{parent.postMessage({type:'class-notice-modal-close'},'*');}catch(e){}}
 }
 function openImg(gid,idx){
-  var g=GROUPS.filter(function(x){return x.id===gid})[0];var it=g.items[idx];
+  var g=findGroup(gid);if(!g)return;var it=(g.items||[])[idx]||{};if(!it.src)return;
   presentModal('<img src="'+it.src+'"><div style="font-size:12px;color:var(--ink3);margin-top:8px;text-align:center">'+esc(disp(it.caption||'',it.time||cardAnchorTs(g)))+'</div>');
 }
 function openFile(gid,idx){
@@ -2459,23 +2463,56 @@ function lazyBody(gid,idx,act){
   }
   toast('请稍后重试');
 }
+/* 2026-11-22 用户反馈「通知下滑时会不停刷新，没有连贯的体验」：
+   回填单条 body（图片/附件/压缩包）时**只换这一条 .gitem**，不再整表 render()。
+   旧实现每回填一张进入视口的图片就重建整个 #list（69 组 DOM + data URI 重新解码），
+   下滑经过多张图时连续重绘 → 闪烁/滚动抖动，看起来像「不停刷新」。
+   只有找不到卡片或条目时才退回整表重绘（并恢复滚动位置）。 */
+function patchHydratedItem(gid,idx,group){
+  if(!(idx>=0))return false;
+  var card=cardElOf(gid); if(!card)return false;
+  var it=(group.items||[])[idx]; if(!it)return false;
+  var phs=card.querySelectorAll('[data-act="lazybody"]'),ph=null,i;
+  for(i=0;i<phs.length;i++){
+    if(String(phs[i].getAttribute('data-gid')||'')!==String(gid))continue;
+    if((Number(phs[i].getAttribute('data-idx'))||0)!==Number(idx))continue;
+    ph=phs[i];break;
+  }
+  if(!ph)return false;
+  var item=ph.closest?ph.closest('.gitem'):null; if(!item)return false;
+  /* 期次卡用卡片自己的 key 渲染（data-gid 保持 <base>@occ:...，弹层按 findGroup 回落基础组） */
+  var rg={};for(var k in group){if(Object.prototype.hasOwnProperty.call(group,k))rg[k]=group[k];}
+  rg.id=gid;
+  var tmp=document.createElement('div');
+  tmp.innerHTML=itemHTML(rg,it,idx);
+  var neu=tmp.firstElementChild; if(!neu)return false;
+  /* 条目高度变化时补偿滚动，避免正在看的卡片被顶走 */
+  var before=item.getBoundingClientRect().top;
+  item.parentNode.replaceChild(neu,item);
+  var after=neu.getBoundingClientRect().top;
+  if(after!==before){try{window.scrollBy(0,after-before);}catch(e){}}
+  return true;
+}
 function __zqHydrate(gid,group,idx,act){
   if(!group)return;
+  idx=Number(idx)||0;
   var base=String(gid||'').split('@occ:')[0],target=null;
   for(var i=0;i<GROUPS.length;i++){
     if(GROUPS[i].id===gid||GROUPS[i].__baseId===gid||GROUPS[i].id===base){target=GROUPS[i];break;}
   }
   if(target){
-    /* 期次卡只替换附件数据，保留 __occ/期次时间等字段；基础组直接更新 items。 */
+    /* 基础组/期次定义组都要写回完整 items：期次卡每次 render 从基础组克隆，
+       只改克隆而不改基础组会退化回「预览加载中」→ 再请求 → 反复重绘。 */
     target.items=group.items;
     if(group.attachments!==undefined)target.attachments=group.attachments;
     target.__full=true;
   }else{
     target=group;GROUPS.push(target);
   }
-  if(act==='img'){openImg(gid,idx);return;}
-  if(act==='preview'){openFile(gid,idx);return;}
-  /* archive / 其它：重渲染让刚加载的下载链接出现，并保持滚动位置 */
+  if(act==='img'){patchHydratedItem(gid,idx,target);openImg(gid,idx);return;}
+  if(act==='preview'){patchHydratedItem(gid,idx,target);openFile(gid,idx);return;}
+  if(patchHydratedItem(gid,idx,target))return;
+  /* archive / 其它：找不到目标条目才整表重绘让下载链接出现，并保持滚动位置 */
   var y=0;try{y=window.scrollY||window.pageYOffset||0;}catch(e){}
   render();
   try{window.scrollTo(0,y);}catch(e){}
@@ -2484,14 +2521,20 @@ try{window.__zqHydrate=__zqHydrate;}catch(e){}
 
 /* 图片预览自动加载（2026-11-19 用户要求）：lite 列表只为图片保留了 lazy 占位，
    进入视口就向父页请求该卡完整 body，回填后直接显示图片；不必再点「点击加载」。
-   每张卡只请求一次，最多自动回填 18 张卡；超出/失败的仍可手动点击。 */
-var AUTO_PREVIEW={io:null,n:0,max:18};
+   每张卡只请求一次（2026-11-22：按 gid|idx 去重，失败 15s 后可重试；回填不再整表重绘），
+   最多自动回填 18 张卡；超出/失败的仍可手动点击。 */
+var AUTO_PREVIEW={io:null,n:0,max:18,seen:{},retryMs:15000};
 function autoPreviewImages(){
   try{
     var nodes=[].slice.call(document.querySelectorAll('.imgrow.lazyimg[data-gid]'));
     if(!nodes.length){if(AUTO_PREVIEW.io){AUTO_PREVIEW.io.disconnect();AUTO_PREVIEW.io=null;}return;}
     function request(el){
-      if(!el||el.getAttribute('data-autoload')==='1'||AUTO_PREVIEW.n>=AUTO_PREVIEW.max)return;
+      if(!el||el.getAttribute('data-autoload')==='1')return;
+      var key=String(el.getAttribute('data-gid')||'')+'|'+(Number(el.getAttribute('data-idx'))||0);
+      var at=AUTO_PREVIEW.seen[key]||0,now=Date.now();
+      if(at&&now-at<AUTO_PREVIEW.retryMs)return;   /* 同一张卡不重复请求（重绘后也不会再打一次） */
+      if(AUTO_PREVIEW.n>=AUTO_PREVIEW.max)return;
+      AUTO_PREVIEW.seen[key]=now;
       el.setAttribute('data-autoload','1');AUTO_PREVIEW.n++;
       lazyBody(el.getAttribute('data-gid'),Number(el.getAttribute('data-idx'))||0,'inline');
     }
