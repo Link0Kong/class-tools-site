@@ -2,6 +2,38 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-22 08:3x–09:2x · 作业工具升级「任务」：个人任务 + 分组 + 提醒 + 班级作业自动同步（网页端）
+
+> 用户原话：「升级作业工具为任务功能，在保留自动更新班级作业的基础上仿照市面上类似 Microsoft To Do
+> 以及 GitHub 上类似项目，做到完全的个人任务创建、分组分类、提醒等等类似项目所具有功能的系统，先从网页端做起」。
+
+- **网页**（`tools/index.html` 新增任务块，APP_VER 仍 2.0.0、单文件零依赖、零外部请求）：
+  - `TOOLS` 的 `hw` 显示名改为「任务」（key 不变，保住 homeTools/拖动/历史/旧测试选择器）；
+  - `#s-hw` = 「我的任务 / 班级作业」两段；个人任务区左侧智能列表（我的一天/重要/计划中/全部/已完成）+
+    分组（新建/重命名/删除/颜色），右侧快速添加 + 任务列表 + 已完成折叠；手机端左栏换行 chip；
+  - 任务终态编辑（标题/备注/截止日期时间/提醒/重复/分组/标签/步骤/我的一天/重要）、完成/撤销、
+    重复任务下一次、搜索/排序/计数/空态；桌面 1280 与 390px 真视口无横向溢出、深色主题适配；
+  - 提醒：20s 页内调度 + 可见时补查；横幅（完成/稍后 10 分钟/关闭）+ 浏览器 Notification（需授权）；
+    提醒设置（状态/授权/测试/提示音/默认提醒）；关闭页面后不提醒，提供 ICS 导出写入系统日历；
+  - 导出：`exportCard()` 任务图片、JSON 备份/恢复（合并）、ICS（VEVENT/VALARM/CRLF/75 字节折行）；
+  - 班级作业保留 `#hPub/#hImg/#hClean/#hSyncSt/#hList` 原 ID/原行为；`renderHW` 钩子只加任务角标与
+    自动分段；`hwMeta` 合并班级未完成 + 个人任务摘要。
+- **数据**：`D.d.task={v:1,lists,items,prefs}` 随 `zq_tools_v2_<sid>` 本机保存；`taskNormData()` 归一/限幅；
+  **未改 userdata v6**（个人任务暂不跨端；跨端需先改 UD 契约并征得用户同意）；无 DB/表/接口变更。
+- **测试**：新增 `tools/tests/task_check.py`（mock 云端 + 测试身份 3260799999）**72/72**，覆盖快速添加/终态编辑/
+  重复完成撤销/分组增删改/搜索标签/提醒稍后完成/ICS/图片/JSON 恢复/班级 marks/无个人任务时自动落班级段/
+  390px iframe 无溢出/390px 编辑器首屏保存键/0 报错/0 外部请求；回归 `optim_v1_check` GREEN、`optim_v2_check` GREEN、
+  `v2_drag_check` 69/69、`v2_ui_check` 27/27、`v2_web_reminder_check` 37/37、`v2_pos_restore_check` 12/12、
+  `overflow_check 430` overflow=0、`export_check hw` 出图正常；`perf_check` 45/63、`sync_check` 91/99 与 HEAD 基线一致；
+  `v2_sync_check` 的 11/12 在 HEAD 副本同样复现（通知 iframe frameDoc 为空，非本次引入）。
+- **上线**：网页 **1,508,419 B / sha256 `47522baf9c9cab4ff6d890f2b11d50589dd63f8c49ae8641c4677fcc10616249`**
+  （OSS check MATCH / ECS verify MATCH；gzip 462,207 B；`http://121.196.47.2/` HTTP 200 1,508,419 B）；
+  部署前线上备份 `tools/_backup/index_online_20261122-0904_preTask.html`（1,396,936 B / `e7ef5bb8…`，= 部署前 HEAD 字节）。
+  **无 DB / 表 / 接口 / 账号变更**。
+- **回滚**：重传上述备份 → `python deploy/sync_tools.py index.html` + `python deploy/ecs_site.py apply`。
+- **已知取舍**：个人任务默认本机不跨端；提醒只在网页打开时生效（另有 ICS）；分组/任务无拖拽排序；
+  班级作业与个人任务分栏不混排；老 `#h*` ID 保留不可删。
+
 ## 2026-11-22 08:0x–08:4x · 修复「11-22 12:00 前进打卡群」上下文断裂：进群补充并回龙狮活动卡 + 报名截止后不再整卡提前过期（数据已同步云端，网页模板未变无需重发）
 
 > 用户反馈：「我发现11月22日（今天） 12:00 前进打卡群的上下文联系有问题」。

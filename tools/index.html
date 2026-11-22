@@ -3372,6 +3372,255 @@ html[data-appearance="dark"] .opt-ov,html[data-appearance="dark"] .modal,html[da
 /* 通知 iframe：深色由模板内置（build_notice_embed 注入），父页只负责切换属性 */
 html[data-appearance="dark"] #noticeHost .notice-empty,html[data-appearance="dark"] #noticeHost .notice-fail{color:var(--ink3)}
 /* __DARK_THEME_END__ */
+/* __TASK_V1_CSS__ 任务（作业升级）2026-11-22 */
+body{--tk-accent:var(--cy);--tk-soft:var(--mint);--tk-soft2:var(--mint2)}
+#s-hw{--tk-accent:var(--cy);--tk-soft:var(--mint);--tk-soft2:var(--mint2)}
+#tkMy[hidden],#tkClass[hidden],.tk-quickdate[hidden],.tk-search[hidden],.tk-donelist[hidden],.tk-remindbar[hidden],#tkSegClassN[hidden],.tk-remwrap [hidden],#tkListEdit[hidden],#tkFDelete[hidden],#tkRemindEnable[hidden]{display:none!important}
+.tk-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.tk-seg{display:inline-flex;align-items:center;gap:3px;padding:4px;border-radius:12px;background:var(--tint-panel,#FBF6EC);border:1px solid var(--line)}
+.tk-seg button{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 14px;border:0;border-radius:9px;background:transparent;color:var(--ink2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:background-color var(--ui-dur-fast) var(--ui-ease),color var(--ui-dur-fast) var(--ui-ease),box-shadow var(--ui-dur-fast) var(--ui-ease)}
+.tk-seg button.on{background:var(--card);color:var(--tk-accent);box-shadow:0 1px 3px rgba(72,64,44,.10)}
+.tk-segn{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--sd);color:#fff;font-size:10.5px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.tk-seg button.on .tk-segn{background:var(--tk-accent)}
+.tk-topacts{margin-left:auto;display:flex;align-items:center;gap:6px}
+.tk-iconbtn{width:40px;height:40px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:11px;background:transparent;color:var(--ink3);cursor:pointer;padding:0;transition:background-color .16s,color .16s}
+.tk-iconbtn:hover{background:var(--tk-soft2);color:var(--ink2)}
+.tk-iconbtn svg{width:19px;height:19px}
+.tk-shell{display:grid;grid-template-columns:236px minmax(0,1fr);gap:14px;align-items:start}
+.tk-side{position:sticky;top:60px;z-index:6;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px;box-shadow:var(--elev-card,0 1px 2px rgba(72,64,44,.05))}
+.tk-side-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 8px 6px;font-size:11px;font-weight:800;color:var(--ink3);letter-spacing:.10em}
+.tk-side-hd2{margin-top:5px}
+.tk-nav{display:flex;flex-direction:column;gap:2px}
+.tk-navbtn{display:flex;align-items:center;gap:9px;width:100%;min-height:42px;padding:0 9px;border:0;border-radius:10px;background:transparent;color:var(--ink2);font-family:inherit;font-size:13.5px;font-weight:600;text-align:left;cursor:pointer;transition:background-color .15s,color .15s}
+.tk-navbtn:hover{background:var(--tk-soft2)}
+.tk-navbtn.on{background:var(--tk-soft);color:var(--tk-accent);font-weight:800}
+.tk-ico{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;flex:none;color:inherit}
+.tk-ico svg{width:18px;height:18px}
+.tk-cnt{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--ink3);font-variant-numeric:tabular-nums;letter-spacing:0}
+.tk-navbtn.on .tk-cnt{color:var(--tk-accent)}
+.tk-navbtn .tk-ell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.tk-navbtn>span:not(.tk-cnt){min-width:0}
+.tk-dot{width:9px;height:9px;border-radius:3px;flex:none;background:var(--ink3)}
+.tk-dot[data-tkc="cy"]{background:#5E8F87}
+.tk-dot[data-tkc="bl"]{background:#7D9EBB}
+.tk-dot[data-tkc="sd"]{background:#C6A475}
+.tk-dot[data-tkc="violet"]{background:#9B8FB5}
+.tk-dot[data-tkc="rose"]{background:#C08F89}
+.tk-dot[data-tkc="teal"]{background:#6FA6A0}
+.tk-groups{margin-top:1px}
+.tk-newlist{color:var(--ink3);font-weight:600}
+.tk-newlist:hover{color:var(--tk-accent)}
+.tk-side-ft{display:flex;gap:6px;padding:9px 4px 1px;margin-top:8px;border-top:1px solid var(--line)}
+.tk-side-ft .btn{flex:1;min-width:0;padding:7px 6px;font-size:12px;border-radius:9px}
+.tk-main{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px 8px;box-shadow:var(--elev-card,0 1px 2px rgba(72,64,44,.05))}
+.tk-head{display:flex;align-items:flex-start;gap:8px}
+.tk-headl{flex:1;min-width:0}
+.tk-head h2{margin:0;font-size:21px;font-weight:800;line-height:1.35;letter-spacing:.01em;overflow-wrap:anywhere}
+.tk-sub{font-size:12px;color:var(--ink3);margin-top:1px;line-height:1.6}
+.tk-heada{display:flex;align-items:center;gap:2px;flex:none;margin-top:-4px}
+.tk-quick{display:flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:12px;padding:2px 5px;margin:12px 0 8px;background:var(--card);transition:border-color .16s,box-shadow .16s}
+.tk-quick:focus-within{border-color:var(--tk-accent);box-shadow:0 0 0 3px rgba(94,143,135,.10)}
+.tk-quick input{flex:1;min-width:0;border:0!important;background:transparent!important;box-shadow:none!important;outline:none!important;padding:9px 5px!important;font-size:14.5px}
+.tk-plus{width:36px;height:36px;flex:none;border:0;border-radius:9px;background:transparent;color:var(--tk-accent);font-size:22px;font-weight:500;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 0 2px;font-family:inherit}
+.tk-plus:hover{background:var(--tk-soft)}
+.tk-qbtn{width:38px;height:38px;flex:none;border:0;border-radius:9px;background:transparent;color:var(--ink3);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.tk-qbtn:hover{background:var(--tk-soft2);color:var(--ink2)}
+.tk-qbtn.on{color:var(--sd)}
+.tk-qbtn svg{width:18px;height:18px}
+.tk-quickdate{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:-2px 0 10px;padding:8px;border:1px dashed var(--line);border-radius:12px;background:var(--tk-soft2)}
+.tk-quickdate input[type=date]{flex:1;min-width:130px}
+.tk-quickdate input[type=time]{width:108px}
+.tk-quickdate select{flex:1;min-width:96px;width:auto}
+.tk-quickdate .btn{min-height:38px}
+.tk-toolbar{display:flex;align-items:center;gap:8px;min-height:36px;margin:3px 0 1px;flex-wrap:wrap}
+.tk-search{display:flex;align-items:center;gap:2px;flex:1;min-width:150px;border:1px solid var(--line);border-radius:9px;padding:0 3px;background:var(--card)}
+.tk-search input{flex:1;min-width:0;border:0!important;background:transparent!important;box-shadow:none!important;outline:none!important;padding:7px 5px!important;font-size:13px}
+.tk-search button{width:32px;height:32px;flex:none;border:0;border-radius:7px;background:transparent;color:var(--ink3);font-size:17px;line-height:1;cursor:pointer;padding:0}
+.tk-search button:hover{background:var(--tk-soft2)}
+.tk-toolbar>select{width:auto;min-width:96px;padding:7px 26px 7px 9px;font-size:12.5px;border-radius:8px;background-color:transparent}
+.tk-count{margin-left:auto;font-size:11.5px;color:var(--ink3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tk-list{margin-top:1px}
+.tk-group{margin:12px 0 1px;padding:0 2px;font-size:11px;font-weight:800;color:var(--ink3);letter-spacing:.08em;display:flex;align-items:center;gap:7px}
+.tk-group span{font-weight:700;letter-spacing:0;color:var(--ink3)}
+.tk-group.overdue{color:var(--danger)}
+.tk-item{display:flex;align-items:flex-start;gap:5px;padding:5px 0;border-top:1px solid var(--line);min-height:52px;cursor:pointer;transition:background-color .14s}
+.tk-list .tk-item:first-child{border-top:0}
+.tk-item:hover{background:var(--tk-soft2)}
+.tk-item.done{opacity:.62}
+.tk-item.done .tk-ititle{text-decoration:line-through;color:var(--ink3)}
+.tk-check{width:40px;height:40px;flex:none;margin:-7px 0 -7px -7px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.tk-check i{position:relative;display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1.6px solid var(--line-strong,#D8CCB8);border-radius:50%;background:var(--card);transition:background-color .15s,border-color .15s,transform .15s;font-style:normal}
+.tk-check:hover i{border-color:var(--tk-accent)}
+.tk-check.on i{background:var(--tk-accent);border-color:var(--tk-accent);color:#fff}
+.tk-check.on i:after{content:"✓";font-size:13px;font-weight:800;line-height:1;transform:translateY(-1px)}
+.tk-ibody{flex:1;min-width:0;padding:2px 0}
+.tk-ititle{font-size:14.5px;font-weight:650;line-height:1.5;overflow-wrap:anywhere;word-break:break-word}
+.tk-imeta{display:flex;flex-wrap:wrap;align-items:center;gap:1px 9px;margin-top:1px;font-size:11.5px;color:var(--ink3);line-height:1.65}
+.tk-imeta .tk-mi{display:inline-flex;align-items:center;gap:3px;min-width:0;max-width:100%}
+.tk-imeta svg{width:12px;height:12px;flex:none;opacity:.85}
+.tk-imeta .tk-ell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:16em}
+.tk-due.overdue{color:var(--danger);font-weight:700}
+.tk-due.today{color:var(--tk-accent);font-weight:700}
+.tk-mi.tk-tag{color:var(--bl);cursor:pointer}
+.tk-mi.tk-tag:hover{text-decoration:underline}
+.tk-listchip{display:inline-flex;align-items:center;gap:4px;min-width:0}
+.tk-listchip i{width:7px;height:7px;border-radius:2px;flex:none}
+.tk-star{width:40px;height:40px;flex:none;margin:-4px -5px -4px 0;border:0;border-radius:9px;background:transparent;color:var(--line-strong,#D8CCB8);font-size:17px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:inherit;transition:color .15s,background-color .15s}
+.tk-star:hover{background:var(--tk-soft2);color:var(--sd)}
+.tk-star.on{color:var(--sd)}
+.tk-empty{padding:44px 10px 46px;text-align:center;color:var(--ink3)}
+.tk-empty svg{width:38px;height:38px;opacity:.32;margin-bottom:6px}
+.tk-empty b{display:block;font-size:13.5px;font-weight:700;color:var(--ink2)}
+.tk-empty span{display:block;font-size:11.5px;margin-top:2px}
+.tk-donewrap{margin-top:13px;border-top:1px solid var(--line)}
+.tk-donetoggle{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:0 3px;border:0;background:transparent;color:var(--ink2);font-family:inherit;font-size:13px;font-weight:800;text-align:left;cursor:pointer}
+.tk-donetoggle:hover{color:var(--ink)}
+.tk-doneN{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:var(--tk-soft);color:var(--tk-accent);font-size:10.5px;font-weight:800;font-variant-numeric:tabular-nums}
+.tk-chev{margin-left:auto;width:16px;height:16px;color:var(--ink3);transition:transform .2s var(--ui-ease)}
+.tk-donetoggle[aria-expanded="true"] .tk-chev{transform:rotate(180deg)}
+.tk-donelist{border-top:1px solid var(--line);padding:2px 0}
+.tk-foot{padding:9px 2px 3px;text-align:center;font-size:11px;color:var(--ink3);font-variant-numeric:tabular-nums}
+.tk-class{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px 10px;box-shadow:var(--elev-card,0 1px 2px rgba(72,64,44,.05))}
+.tk-classhd{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.tk-classhd>b{font-size:18px;font-weight:800;line-height:1.4}
+.tk-classnote{font-size:11.5px;color:var(--ink3);margin-left:7px;font-weight:600}
+.tk-classacts{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.tk-classacts .btn{min-height:36px}
+.tk-class .syncst{margin:2px 0 6px}
+.tk-ed{max-width:560px;width:100%;display:flex;flex-direction:column;max-height:84vh;overflow:hidden;padding-bottom:0}
+.tk-ed>.mclose{z-index:6}
+.tk-ed-head{display:flex;align-items:center;gap:4px;margin:0 22px 1px 0;flex:none}
+.tk-ed-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:1px 3px 2px;margin:0 -3px}
+.tk-ed-head .tk-check{width:40px;height:40px;margin:0 -2px 0 -6px}
+.tk-titleinput{flex:1;min-width:0;border:0!important;background:transparent!important;box-shadow:none!important;outline:none!important;-webkit-appearance:none;appearance:none;padding:6px 2px!important;font-size:19px!important;font-weight:800;line-height:1.45;border-radius:8px!important}
+.tk-titleinput:focus{outline:2px solid rgba(94,143,135,.38)!important;outline-offset:-2px;box-shadow:none!important;border-color:transparent!important}
+.tk-ed input:focus,.tk-ed textarea:focus,.tk-ed select:focus{outline:none!important;border-color:var(--tk-accent)!important;box-shadow:0 0 0 3px rgba(94,143,135,.10)!important}
+.tk-ed .tk-titleinput:focus{box-shadow:none!important;border-color:transparent!important}
+.tk-titleinput::placeholder{color:var(--ink3);font-weight:600}
+.tk-ed-head .tk-star{margin:0 -6px 0 0}
+.tk-ed-sec{margin-top:11px}
+.tk-ed-label{font-size:11px;font-weight:800;color:var(--ink3);letter-spacing:.06em;margin:0 0 4px 2px}
+.tk-steps{max-height:168px;overflow-y:auto;overscroll-behavior:contain}
+.tk-step{display:flex;align-items:center;gap:2px;min-height:36px}
+.tk-step .tk-check{width:34px;height:34px;margin:0;flex:none}
+.tk-step .tk-check i{width:18px;height:18px}
+.tk-step input{flex:1;min-width:0;border:0!important;background:transparent!important;box-shadow:none!important;padding:6px 3px!important;font-size:13.5px}
+.tk-step button{width:34px;height:34px;flex:none;border:0;border-radius:8px;background:transparent;color:var(--ink3);cursor:pointer;font-size:16px;line-height:1;padding:0}
+.tk-step button:hover{background:var(--tk-soft2);color:var(--danger)}
+.tk-stepadd{display:flex;align-items:center;gap:4px;border-top:1px dashed var(--line);margin-top:2px;padding-top:3px}
+.tk-stepadd input{flex:1;min-width:0;border:0!important;background:transparent!important;box-shadow:none!important;padding:8px 3px!important;font-size:13.5px}
+.tk-stepadd button{width:36px;height:36px;flex:none;border:0;border-radius:8px;background:transparent;color:var(--tk-accent);font-size:21px;cursor:pointer;padding:0 0 2px;line-height:1}
+.tk-stepadd button:hover{background:var(--tk-soft)}
+.tk-ed textarea{min-height:76px;max-height:220px}
+.tk-ed-grid{display:grid;grid-template-columns:74px minmax(0,1fr);gap:8px 12px;align-items:center;margin-top:14px}
+.tk-ed-grid>label{font-size:12px;color:var(--ink3);font-weight:700;line-height:1.5}
+.tk-datepair{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-width:0}
+.tk-datepair input[type=date]{flex:1;min-width:126px}
+.tk-datepair input[type=time]{width:104px;flex:none}
+.tk-clear{min-height:34px;padding:4px 8px;border:0;background:transparent;border-radius:8px;color:var(--ink3);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.tk-clear:hover{background:var(--tk-soft2);color:var(--ink2)}
+.tk-remwrap{display:flex;flex-direction:column;gap:6px;min-width:0}
+.tk-remwrap input[type=datetime-local]{padding:8px 10px;font-size:13px}
+.tk-chips{display:flex;flex-wrap:wrap;gap:6px}
+.tk-chip{display:inline-flex;align-items:center;gap:5px;min-height:36px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--ink2);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.tk-chip:hover{background:var(--tk-soft2)}
+.tk-chip.on{background:var(--tk-soft);border-color:transparent;color:var(--tk-accent)}
+.tk-ed-foot{display:flex;align-items:center;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid var(--line);flex-wrap:wrap}
+.tk-ed-meta{flex:1;min-width:110px;font-size:10.5px;color:var(--ink3);line-height:1.5}
+.tk-small{max-width:400px}
+.tk-colors{display:flex;gap:11px;flex-wrap:wrap;padding:6px 2px 2px}
+.tk-color{width:34px;height:34px;border:2px solid var(--card);border-radius:50%;cursor:pointer;padding:0;box-shadow:0 0 0 1px var(--line);transition:transform .14s,box-shadow .14s}
+.tk-color:hover{transform:scale(1.06)}
+.tk-color.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px currentColor}
+.tk-menu{max-width:370px;padding:12px}
+.tk-menu-hd{font-size:12px;font-weight:800;color:var(--ink3);letter-spacing:.08em;padding:2px 10px 6px}
+.tk-mrow{display:flex;align-items:center;gap:10px;width:100%;min-height:46px;padding:0 10px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--ink);font-family:inherit;font-size:13.5px;font-weight:600;text-align:left;cursor:pointer;border-radius:9px}
+.tk-mrow:hover{background:var(--tk-soft2)}
+.tk-mrow .tk-ico{color:var(--ink3)}
+.tk-mrow.danger{color:var(--danger)}
+.tk-mrow.danger .tk-ico{color:var(--danger)}
+.tk-mrow .tk-k{margin-left:auto;font-size:10.5px;color:var(--ink3);font-weight:600;letter-spacing:.04em}
+.tk-note{font-size:11px;color:var(--ink3);line-height:1.6;margin:10px 2px 0}
+.tk-remind-state{font-size:12.5px;font-weight:700;border-radius:10px;padding:9px 11px;background:var(--tk-soft2);color:var(--ink2);line-height:1.55}
+.tk-remind-state.ok{background:var(--tk-soft);color:var(--tk-accent)}
+.tk-remind-state.warn{background:var(--tint-sand);color:var(--sd)}
+.tk-remind-state.err{background:var(--tint-rose);color:var(--danger)}
+.tk-remindbar{position:fixed;left:50%;bottom:18px;z-index:55;width:min(540px,calc(100vw - 26px));transform:translateX(-50%);display:flex;align-items:flex-start;gap:10px;padding:12px 12px 12px 14px;border:1px solid var(--line-strong);border-radius:16px;background:var(--card);box-shadow:0 16px 44px rgba(35,48,46,.22);animation:tkUp .24s var(--ui-ease)}
+.tk-rb-ico{width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--tk-soft);color:var(--tk-accent);font-size:17px}
+.tk-rb-body{flex:1;min-width:0;padding-top:1px}
+.tk-rb-body b{display:block;font-size:13.5px;font-weight:800;line-height:1.45;overflow-wrap:anywhere}
+.tk-rb-body span{display:block;font-size:11.5px;color:var(--ink3);margin-top:1px}
+.tk-rb-acts{display:flex;align-items:center;gap:4px;flex:none}
+.tk-rb-acts button{min-height:36px;padding:0 9px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink2);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.tk-rb-acts button:hover{background:var(--tk-soft2)}
+.tk-rb-acts button[data-tkrb="done"]{background:var(--tk-accent);border-color:var(--tk-accent);color:#fff}
+.tk-rb-acts button[data-tkrb="close"]{width:34px;padding:0;font-size:17px;color:var(--ink3);border-color:transparent;background:transparent}
+@keyframes tkUp{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+.tk-fade{animation:tkFade .18s ease}
+@keyframes tkFade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.tk-remindbar,.tk-fade{animation:none}.tk-chev{transition:none}}
+@media (max-width:959px){
+  .tk-shell{display:block}
+  .tk-side{position:static;padding:9px 9px 8px;margin-bottom:10px}
+  .tk-side-hd,.tk-side-ft{display:none}
+  .tk-nav{display:flex;flex-direction:row;flex-wrap:wrap;gap:3px}
+  .tk-navbtn{width:auto;min-height:36px;padding:0 10px;font-size:12.5px;gap:6px;border-radius:999px;border:1px solid transparent}
+  .tk-navbtn.on{border-color:transparent}
+  .tk-navbtn .tk-ico{width:15px;height:15px}
+  .tk-navbtn .tk-ico svg{width:15px;height:15px}
+  .tk-cnt{font-size:10.5px;margin-left:1px}
+  .tk-dot{width:8px;height:8px}
+  .tk-groups{display:flex;flex:1 1 100%;margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)}
+  .tk-main{padding:14px 13px 8px}
+  .tk-head h2{font-size:19px}
+  .tk-quick{margin-top:10px}
+  .tk-quick input{font-size:14px}
+  .tk-quickdate input[type=date]{flex:1 1 100%}
+  .tk-quickdate input[type=time]{width:104px}
+  .tk-quickdate select{flex:1 1 100%}
+  .tk-class{padding:14px 13px 9px}
+  .tk-classhd>b{font-size:17px}
+  .tk-classacts{width:100%;margin-left:0}
+  .tk-classacts .btn{flex:1}
+  .tk-ed-grid{grid-template-columns:1fr;gap:4px 0}
+  .tk-ed-grid>label{margin-top:7px}
+  .tk-ed-head .tk-star{display:none}
+  .tk-ed{max-width:100%;max-height:92vh}
+  .tk-ed-foot{padding:10px 0 12px}
+  .tk-ed-foot .btn{padding:9px 13px}
+  .tk-ed-meta{display:none}
+  .tk-remindbar{bottom:12px;padding:11px;gap:8px;flex-wrap:wrap}
+  .tk-rb-acts{width:100%;justify-content:flex-end;border-top:1px solid var(--line);padding-top:8px}
+}
+@media (max-width:420px){
+  .tk-top{flex-wrap:nowrap;gap:6px}
+  .tk-seg{width:auto;flex:1;min-width:0}
+  .tk-seg button{flex:1;justify-content:center;padding:0 9px}
+  .tk-topacts{margin-left:0;width:auto;flex:none}
+  .tk-toolbar>select{min-width:0;flex:1}
+  .tk-count{display:none}
+  .tk-titleinput{font-size:17.5px!important}
+}
+html[data-appearance="dark"] .tk-side,html[data-appearance="dark"] .tk-main,html[data-appearance="dark"] .tk-class,html[data-appearance="dark"] .tk-remindbar{box-shadow:0 1px 2px rgba(0,0,0,.30),0 12px 26px -18px rgba(0,0,0,.55)}
+html[data-appearance="dark"] .tk-seg{background:#1A201D}
+html[data-appearance="dark"] .tk-seg button.on{background:#232B27;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+html[data-appearance="dark"] .tk-check i{background:#151B18;border-color:#3A4640}
+html[data-appearance="dark"] .tk-check.on i{background:#5E8F87;border-color:#5E8F87}
+html[data-appearance="dark"] .tk-star{color:#3A4640}
+html[data-appearance="dark"] .tk-star.on{color:#C6A475}
+html[data-appearance="dark"] .tk-quickdate{background:#16201C}
+html[data-appearance="dark"] .tk-quick:focus-within{box-shadow:0 0 0 3px rgba(94,143,135,.20)}
+html[data-appearance="dark"] .tk-navbtn:hover,html[data-appearance="dark"] .tk-item:hover,html[data-appearance="dark"] .tk-mrow:hover{background:#181F1C}
+html[data-appearance="dark"] .tk-navbtn.on{background:#14221E}
+html[data-appearance="dark"] .tk-segn{background:#C6A475;color:#1A1510}
+html[data-appearance="dark"] .tk-remind-state{background:#181F1C}
+html[data-appearance="dark"] .tk-remind-state.ok{background:#14221E;color:#8DC1B6}
+html[data-appearance="dark"] .tk-remindbar{background:#1A211E;border-color:#35413A;box-shadow:0 16px 44px rgba(0,0,0,.55)}
+html[data-appearance="dark"] .tk-rb-acts button{background:#1A211E}
+html[data-appearance="dark"] .tk-rb-acts button[data-tkrb="done"]{background:#5E8F87;border-color:#5E8F87}
+html[data-appearance="dark"] .tk-color{border-color:#1A211E}
+html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px currentColor}
+
 </style>
 </head>
 <body class="auth-pending">
@@ -3621,19 +3870,110 @@ html[data-appearance="dark"] #noticeHost .notice-empty,html[data-appearance="dar
     </div>
   </div>
 
-  <!-- ==================== 作业 ==================== -->
+  <!-- ==================== 任务（作业升级：个人任务 + 班级作业自动同步） ==================== -->
   <section id="s-hw">
-    <div class="card">
-      <div class="row" style="margin-top:0"><button class="btn pri" id="hPub" style="flex:1">发布作业</button></div>
-    </div>
-    <div class="card">
-      <div class="row" style="margin-top:0">
-        <button class="btn sm" id="hImg">导出清单图片</button>
-        <button class="btn sm ghost" id="hClean">清除已完成</button>
+    <div class="tk-top">
+      <div class="tk-seg" id="tkSeg" role="tablist" aria-label="任务视图">
+        <button type="button" data-tkseg="my" class="on" role="tab" aria-selected="true">我的任务</button>
+        <button type="button" data-tkseg="class" role="tab" aria-selected="false">班级作业<span class="tk-segn" id="tkSegClassN" hidden>0</span></button>
       </div>
-      <div class="syncst" id="hSyncSt"></div><div id="hList"></div>
+      <div class="tk-topacts">
+        <button class="tk-iconbtn" id="tkMore" type="button" aria-label="更多" title="更多"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>
+      </div>
     </div>
+
+    <div class="tk-shell" id="tkMy">
+      <aside class="tk-side" aria-label="任务分组">
+        <div class="tk-side-hd">视图</div>
+        <div class="tk-nav" id="tkSmart" role="navigation" aria-label="智能列表"></div>
+        <div class="tk-side-hd tk-side-hd2">分组</div>
+        <div class="tk-nav tk-groups" id="tkLists" role="navigation" aria-label="任务分组"></div>        <div class="tk-side-ft">
+          <button class="btn ghost" id="tkIcs" type="button">导出日历</button>
+          <button class="btn ghost" id="tkBk" type="button">备份</button>
+        </div>
+      </aside>
+
+      <div class="tk-main">
+        <header class="tk-head">
+          <div class="tk-headl">
+            <h2 id="tkTitle">我的一天</h2>
+            <div class="tk-sub" id="tkSub"></div>
+          </div>
+          <div class="tk-heada">
+            <button class="tk-iconbtn" id="tkListEdit" type="button" aria-label="编辑分组" title="编辑分组" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4.2-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.2 16z"/><path d="M13.5 6.5l3 3"/></svg></button>
+            <button class="tk-iconbtn" id="tkSearchBtn" type="button" aria-label="搜索任务" title="搜索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.2 4.2"/></svg></button>
+          </div>
+        </header>
+
+        <div class="tk-quick">
+          <button class="tk-plus" id="tkQuickAdd" type="button" aria-label="添加任务" title="添加任务">+</button>
+          <input id="tkQuick" maxlength="200" autocomplete="off" placeholder="添加任务，回车保存" aria-label="添加任务">
+          <button class="tk-qbtn" id="tkQuickStar" type="button" aria-label="标记重要" aria-pressed="false" title="标记重要">★</button>
+          <button class="tk-qbtn" id="tkQuickDueBtn" type="button" aria-label="设置截止日期" aria-expanded="false" title="截止日期"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.6"/><path d="M7.5 3.5V7M16.5 3.5V7M3.5 10h17"/></svg></button>
+        </div>
+        <div class="tk-quickdate" id="tkQuickDateRow" hidden>
+          <input type="date" id="tkQuickDate" aria-label="截止日期">
+          <input type="time" id="tkQuickTime" aria-label="截止时间">
+          <select id="tkQuickList" aria-label="分组"></select>
+          <button class="btn ghost sm" type="button" id="tkQuickDateClear">清除</button>
+          <button class="btn sm" type="button" id="tkQuickDateOk">确定</button>
+        </div>
+
+        <div class="tk-toolbar">
+          <div class="tk-search" id="tkSearchWrap" hidden>
+            <input id="tkSearch" type="search" autocomplete="off" placeholder="搜索任务" aria-label="搜索任务">
+            <button type="button" id="tkSearchClear" aria-label="清除搜索">×</button>
+          </div>
+          <select id="tkSort" aria-label="排序">
+            <option value="default">默认排序</option>
+            <option value="due">按截止时间</option>
+            <option value="created">按创建时间</option>
+            <option value="important">按重要性</option>
+          </select>
+          <span class="tk-count" id="tkVisibleCount"></span>
+        </div>
+
+        <div id="tkList" class="tk-list" aria-live="polite"></div>
+
+        <div class="tk-donewrap" id="tkDoneWrap" hidden>
+          <button type="button" class="tk-donetoggle" id="tkDoneToggle" aria-expanded="false">
+            <span>已完成</span><span class="tk-doneN" id="tkDoneN">0</span>
+            <svg class="tk-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div id="tkDoneList" class="tk-list tk-donelist" hidden></div>
+        </div>
+
+        <div class="tk-foot" id="tkFoot"></div>
+      </div>
+    </div>
+
+    <div class="tk-class" id="tkClass" hidden>
+      <div class="tk-classhd">
+        <div><b>班级作业</b><span class="tk-classnote" id="tkClassNote">自动同步</span></div>
+        <div class="tk-classacts">
+          <button class="btn sm pri" id="hPub" type="button">发布作业</button>
+          <button class="btn sm" id="hImg" type="button">导出清单</button>
+          <button class="btn sm ghost" id="hClean" type="button">清除已完成</button>
+        </div>
+      </div>
+      <div class="syncst" id="hSyncSt"></div>
+      <div id="hList"></div>
+    </div>
+
+    <input type="file" id="tkImportFile" accept=".json,application/json" hidden>
   </section>
+
+  <!-- 任务提醒横幅（页内；系统通知不可用时仍然有效） -->
+  <div class="tk-remindbar" id="tkRemindBar" hidden role="alert" aria-live="assertive">
+    <div class="tk-rb-ico" aria-hidden="true">⏰</div>
+    <div class="tk-rb-body"><b id="tkRbTitle"></b><span id="tkRbMeta"></span></div>
+    <div class="tk-rb-acts">
+      <button type="button" data-tkrb="done">完成</button>
+      <button type="button" data-tkrb="snooze">稍后</button>
+      <button type="button" data-tkrb="close" aria-label="关闭提醒">×</button>
+    </div>
+  </div>
+
   <div class="modal" id="hwPanel" style="display:none">
     <div class="mcard" role="dialog" aria-modal="true" aria-label="发布作业">
       <button class="mclose" id="hwClose" aria-label="关闭">×</button>
@@ -3652,6 +3992,144 @@ html[data-appearance="dark"] #noticeHost .notice-empty,html[data-appearance="dar
       <div class="row"><button class="btn pri" id="hAdd" style="flex:1">发布</button></div>
     </div>
   </div>
+
+  <!-- ==================== 任务（个人任务）弹层 ==================== -->
+  <div class="modal" id="tkPanel" style="display:none" hidden aria-hidden="true">
+    <div class="mcard tk-ed" role="dialog" aria-modal="true" aria-label="任务详情">
+      <button class="mclose" id="tkFClose" type="button" aria-label="关闭">×</button>
+      <div class="tk-ed-head">
+        <button class="tk-check" id="tkFDone" type="button" aria-label="标记完成" aria-pressed="false"><i></i></button>
+        <input class="tk-titleinput" id="tkFTitle" maxlength="200" autocomplete="off" placeholder="任务标题" aria-label="任务标题">
+        <button class="tk-star" id="tkFStar" type="button" aria-label="标记重要" aria-pressed="false">★</button>
+      </div>
+
+      <div class="tk-ed-body" id="tkFBody">
+      <div class="tk-ed-sec">
+        <div class="tk-ed-label">步骤</div>
+        <div class="tk-steps" id="tkFSteps"></div>
+        <div class="tk-stepadd">
+          <input id="tkFStepAdd" maxlength="120" autocomplete="off" placeholder="添加步骤" aria-label="添加步骤">
+          <button type="button" id="tkFStepAddBtn" aria-label="添加步骤">+</button>
+        </div>
+      </div>
+
+      <div class="tk-ed-sec">
+        <div class="tk-ed-label">备注</div>
+        <textarea id="tkFNotes" maxlength="5000" placeholder="备注（可选）"></textarea>
+      </div>
+
+      <div class="tk-ed-grid">
+        <label>截止</label>
+        <div class="tk-datepair">
+          <input type="date" id="tkFDate" aria-label="截止日期">
+          <input type="time" id="tkFTime" aria-label="截止时间">
+          <button type="button" class="tk-clear" id="tkFDateClear">清除</button>
+        </div>
+
+        <label for="tkFRemind">提醒</label>
+        <div class="tk-remwrap">
+          <select id="tkFRemind">
+            <option value="none">不提醒</option>
+            <option value="due">到期时</option>
+            <option value="5">提前 5 分钟</option>
+            <option value="15">提前 15 分钟</option>
+            <option value="30">提前 30 分钟</option>
+            <option value="60">提前 1 小时</option>
+            <option value="1440">提前 1 天</option>
+            <option value="custom">指定时间</option>
+          </select>
+          <input type="datetime-local" id="tkFRemindCustom" aria-label="提醒时间" hidden>
+        </div>
+
+        <label for="tkFRepeat">重复</label>
+        <select id="tkFRepeat">
+          <option value="">不重复</option>
+          <option value="daily">每天</option>
+          <option value="weekday">工作日</option>
+          <option value="weekly">每周</option>
+          <option value="monthly">每月</option>
+          <option value="yearly">每年</option>
+        </select>
+
+        <label for="tkFList">分组</label>
+        <select id="tkFList"></select>
+
+        <label for="tkFTags">标签</label>
+        <input type="text" id="tkFTags" maxlength="120" autocomplete="off" placeholder="逗号分隔，如 复习, 截止">
+
+        <label>我的一天</label>
+        <div class="tk-chips">
+          <button type="button" class="tk-chip" id="tkFMyDay" aria-pressed="false">加入我的一天</button>
+        </div>
+      </div>
+      </div>
+
+      <div class="tk-ed-foot">
+        <button class="btn sm danger" id="tkFDelete" type="button">删除</button>
+        <span class="tk-ed-meta" id="tkFMeta"></span>
+        <button class="btn sm ghost" id="tkFCancel" type="button">取消</button>
+        <button class="btn pri" id="tkFSave" type="button">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="tkListPanel" style="display:none" hidden aria-hidden="true">
+    <div class="mcard tk-small" role="dialog" aria-modal="true" aria-label="任务分组">
+      <button class="mclose" id="tkLClose" type="button" aria-label="关闭">×</button>
+      <div class="lghead"><span class="lgico">▤</span><div><b id="tkLTitle">新建分组</b><div class="lgsub">任务分组</div></div></div>
+      <label class="f" for="tkLName">名称</label>
+      <input type="text" id="tkLName" maxlength="20" autocomplete="off" placeholder="如 学习、生活、社团">
+      <label class="f">颜色</label>
+      <div class="tk-colors" id="tkLColors" role="radiogroup" aria-label="分组颜色">
+        <button type="button" class="tk-color on" data-tkc="cy" style="background:#5E8F87;color:#5E8F87" aria-label="雾青" aria-checked="true" role="radio"></button>
+        <button type="button" class="tk-color" data-tkc="bl" style="background:#7D9EBB;color:#7D9EBB" aria-label="灰蓝" aria-checked="false" role="radio"></button>
+        <button type="button" class="tk-color" data-tkc="sd" style="background:#C6A475;color:#C6A475" aria-label="暖沙" aria-checked="false" role="radio"></button>
+        <button type="button" class="tk-color" data-tkc="violet" style="background:#9B8FB5;color:#9B8FB5" aria-label="紫" aria-checked="false" role="radio"></button>
+        <button type="button" class="tk-color" data-tkc="rose" style="background:#C08F89;color:#C08F89" aria-label="玫瑰" aria-checked="false" role="radio"></button>
+        <button type="button" class="tk-color" data-tkc="teal" style="background:#6FA6A0;color:#6FA6A0" aria-label="青" aria-checked="false" role="radio"></button>
+      </div>
+      <div class="row" style="margin-top:16px">
+        <button class="btn sm danger" id="tkLDelete" type="button">删除分组</button>
+        <span style="flex:1"></span>
+        <button class="btn sm ghost" id="tkLCancel" type="button">取消</button>
+        <button class="btn pri" id="tkLSave" type="button">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="tkMenu" style="display:none" hidden aria-hidden="true">
+    <div class="mcard tk-menu" role="dialog" aria-modal="true" aria-label="任务操作">
+      <button class="mclose" id="tkMenuClose" type="button" aria-label="关闭">×</button>
+      <div class="tk-menu-hd">任务</div>
+      <div id="tkMenuRows"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="tkRemindPanel" style="display:none" hidden aria-hidden="true">
+    <div class="mcard tk-small" role="dialog" aria-modal="true" aria-label="提醒设置">
+      <button class="mclose" id="tkRemindClose" type="button" aria-label="关闭">×</button>
+      <div class="lghead"><span class="lgico">⏰</span><div><b>提醒</b><div class="lgsub">任务到期提醒</div></div></div>
+      <div class="tk-remind-state" id="tkRemindState">—</div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn pri" id="tkRemindEnable" type="button">开启系统通知</button>
+        <button class="btn" id="tkRemindTest" type="button">测试提醒</button>
+      </div>
+      <label class="f" for="tkRemindDefault">新任务默认提醒</label>
+      <select id="tkRemindDefault">
+        <option value="none">不提醒</option>
+        <option value="due">到期时</option>
+        <option value="5">提前 5 分钟</option>
+        <option value="15">提前 15 分钟</option>
+        <option value="30">提前 30 分钟</option>
+        <option value="60">提前 1 小时</option>
+      </select>
+      <div class="row" style="margin-top:10px">
+        <label class="ck"><input type="checkbox" id="tkRemindSound" checked> 提示音</label>
+      </div>
+      <div class="tk-note">网页打开时弹出提醒；关闭网页后可用「导出日历」把提醒写进系统日历。</div>
+    </div>
+  </div>
+
 
   <!-- ==================== 通知 ==================== -->
   <section id="s-nt">
@@ -4430,7 +4908,7 @@ html[data-appearance="dark"] #noticeHost .notice-empty,html[data-appearance="dar
 <script>
 /* ============================================================
    班级工具 · 单文件应用
-   抽签工作流（抽签 → 分组 → 结果单）+ 课表 / 作业 / 通知
+   抽签工作流（抽签 → 分组 → 结果单）+ 课表 / 任务 / 通知
    导出图片统一：规范命名 + 水印 + 配置信息
    ============================================================ */
 (function(){
@@ -4466,9 +4944,140 @@ var DEF={course:[],homework:[],notices:[],termStart:"",roster:"",classRoster:"",
   group:{source:"prev",names:"",mode:"groups",n:4,shuffle:false},
   fit:{sex:"m",grade:"12",h:"",w:"",vc:"",r50:"",sit:"",jump:"",pull:"",durM:"",durS:""},
   water:{rooms:{}},
-  settings:{kind:"webhook",url:""}};
+  settings:{kind:"webhook",url:""},task:null};
 function readKey(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}}
 function storeKey(){return (typeof AUTH!=="undefined"&&AUTH.acc)?(KEY+"_"+AUTH.acc):KEY;}
+/* ---------------- 任务（作业升级）数据层：归一化 / 日期与提醒计算 ---------------- */
+function taskPad2(n){return (n<10?"0":"")+n;}
+function taskYmd(d){return d.getFullYear()+"-"+taskPad2(d.getMonth()+1)+"-"+taskPad2(d.getDate());}
+function taskDateOk(s){
+  s=String(s==null?"":s);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;
+  var p=s.split("-"),y=+p[0],m=+p[1],d=+p[2],dt=new Date(y,m-1,d);
+  return dt.getFullYear()===y&&dt.getMonth()===m-1&&dt.getDate()===d;
+}
+function taskTimeOk(s){return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s==null?"":s));}
+function taskParseDue(date,time){
+  if(!taskDateOk(date))return 0;
+  var p=String(date).split("-"),hm=taskTimeOk(time)?String(time).split(":"):[0,0];
+  var d=new Date(+p[0],+p[1]-1,+p[2],+hm[0],+hm[1],0,0);
+  return d.getTime();
+}
+/* 全天任务按当天 23:59:59 判定是否过期；有具体时间的按时间点 */
+function taskDeadlineMs(t){
+  if(!t||!taskDateOk(t.due))return 0;
+  var ms=taskParseDue(t.due,t.dueTime);
+  return (ms&&!taskTimeOk(t.dueTime))?(ms+86399999):ms;
+}
+function taskCalcRemindAt(due,dueTime,mode,custom){
+  mode=String(mode||"none");
+  if(mode==="none")return 0;
+  if(mode==="custom"){var c=Number(custom);return isFinite(c)&&c>0?c:0;}
+  var ms=taskParseDue(due,dueTime);
+  if(!ms)return 0;
+  if(!taskTimeOk(dueTime))ms+=86399999; /* 全天任务：按当天结束时刻计算提前量 */
+  if(mode==="due")return ms;
+  var m=Number(mode);
+  return isFinite(m)&&m>=0?Math.max(0,ms-m*60000):0;
+}
+function taskIdOk(id){return /^[A-Za-z0-9_-]{1,48}$/.test(String(id==null?"":id));}
+function taskNewId(prefix){return String(prefix||"t")+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function taskColorOk(c){return ["cy","bl","sd","violet","rose","teal"].indexOf(String(c))>=0?String(c):"cy";}
+function taskDefaultData(){
+  return {v:1,lists:[{id:"inbox",name:"任务",color:"cy",order:0}],items:[],prefs:{sound:true,defaultRemind:"none"}};
+}
+function taskNormItem(x,listIds,idx){
+  if(!x||typeof x!=="object")return null;
+  var title=String(x.title==null?"":x.title).replace(/\s+/g," ").trim();
+  if(!title)return null;
+  if(title.length>200)title=title.slice(0,200);
+  var id=taskIdOk(x.id)?String(x.id):taskNewId("t");
+  var list=String(x.list==null?"inbox":x.list);
+  if((listIds||[]).indexOf(list)<0)list="inbox";
+  var due=taskDateOk(x.due)?String(x.due):"";
+  var dueTime=(due&&taskTimeOk(x.dueTime))?String(x.dueTime):"";
+  var mode=String(x.remindMode==null?"none":x.remindMode);
+  if(["none","due","5","15","30","60","1440","custom"].indexOf(mode)<0)mode="none";
+  var custom=Number(x.remindCustom); if(!isFinite(custom)||custom<=0)custom=0;
+  if(mode==="custom"&&!custom){var ra=Number(x.remindAt);if(isFinite(ra)&&ra>0)custom=ra;}
+  if(mode==="none"&&Number(x.remindAt)>0){mode="custom";custom=Number(x.remindAt);}
+  if(mode==="custom"&&!custom)mode="none";
+  if(mode!=="none"&&mode!=="custom"&&!due)mode="none";
+  var repeat=String(x.repeat==null?"":x.repeat);
+  if(["","daily","weekday","weekly","monthly","yearly"].indexOf(repeat)<0)repeat="";
+  var steps=[];
+  var rawSteps=Array.isArray(x.steps)?x.steps:(typeof x.steps==="string"?x.steps.split("\n"):[]);
+  rawSteps.slice(0,50).forEach(function(s){
+    var text="",done=false;
+    if(s&&typeof s==="object"){text=String(s.text!=null?s.text:(s.t!=null?s.t:""));done=!!(s.done!=null?s.done:s.d);}
+    else text=String(s==null?"":s);
+    text=text.trim();
+    if(text)steps.push({text:text.slice(0,120),done:done});
+  });
+  var tags=[];
+  var rawTags=Array.isArray(x.tags)?x.tags:(typeof x.tags==="string"?x.tags.split(/[,，;；#]+/):[]);
+  rawTags.forEach(function(t){
+    t=String(t==null?"":t).replace(/^#+/,"").trim();
+    if(t&&tags.indexOf(t)<0&&tags.length<6)tags.push(t.slice(0,16));
+  });
+  var done=!!x.done;
+  var now=Date.now();
+  var created=Number(x.createdAt); if(!isFinite(created)||created<=0)created=now;
+  var updated=Number(x.updatedAt); if(!isFinite(updated)||updated<=0)updated=done&&Number(x.doneAt)>0?Number(x.doneAt):created;
+  var myDay=taskDateOk(x.myDay)?String(x.myDay):"";
+  var item={
+    id:id,title:title,notes:String(x.notes==null?"":x.notes).slice(0,5000),list:list,
+    done:done,doneAt:done?(Number(x.doneAt)>0?Number(x.doneAt):updated):0,
+    due:due,dueTime:dueTime,remindMode:mode,remindAt:0,remindCustom:custom,
+    repeat:repeat,starred:!!x.starred,myDay:myDay,tags:tags,steps:steps,
+    createdAt:created,updatedAt:updated,order:(isFinite(Number(x.order))?Number(x.order):idx),
+    fromId:taskIdOk(x.fromId)?String(x.fromId):"",
+    lastNotifyAt:Number(x.lastNotifyAt)>0?Number(x.lastNotifyAt):0,
+    snoozeUntil:Number(x.snoozeUntil)>0?Number(x.snoozeUntil):0
+  };
+  item.remindAt=taskCalcRemindAt(item.due,item.dueTime,item.remindMode,item.remindCustom);
+  if(item.remindMode==="custom"&&item.remindAt>0)item.remindCustom=item.remindAt;
+  return item;
+}
+function taskNormData(raw){
+  var out=taskDefaultData();
+  if(!raw||typeof raw!=="object"||raw instanceof Array)return out;
+  var seen={},lists=[];
+  var rawLists=Array.isArray(raw.lists)?raw.lists:[];
+  rawLists.slice(0,30).forEach(function(l){
+    if(!l||typeof l!=="object")return;
+    var id=taskIdOk(l.id)?String(l.id):taskNewId("l");
+    if(seen[id])id=taskNewId("l");
+    seen[id]=true;
+    var name=String(l.name==null?"":l.name).replace(/\s+/g," ").trim();
+    if(!name)return;
+    name=name.slice(0,20);
+    if(id==="inbox")name="任务";
+    lists.push({id:id,name:name,color:taskColorOk(l.color),order:isFinite(Number(l.order))?Number(l.order):lists.length});
+  });
+  if(!lists.some(function(l){return l.id==="inbox";}))lists.unshift({id:"inbox",name:"任务",color:"cy",order:0});
+  lists.sort(function(a,b){
+    if(a.id==="inbox")return -1;if(b.id==="inbox")return 1;
+    return (a.order-b.order)||String(a.name).localeCompare(String(b.name),"zh");
+  });
+  out.lists=lists;
+  var ids=lists.map(function(l){return l.id;});
+  var used={};
+  out.items=[];
+  (Array.isArray(raw.items)?raw.items:[]).slice(-2000).forEach(function(x,i){
+    var it=taskNormItem(x,ids,i);
+    if(!it)return;
+    while(used[it.id])it.id=taskNewId("t");
+    used[it.id]=true;
+    out.items.push(it);
+  });
+  var p=(raw.prefs&&typeof raw.prefs==="object")?raw.prefs:{};
+  var dr=String(p.defaultRemind==null?"none":p.defaultRemind);
+  if(["none","due","5","15","30","60","1440"].indexOf(dr)<0)dr="none";
+  out.prefs={sound:p.sound!==false,defaultRemind:dr};
+  return out;
+}
+
 function mkD(raw){
   raw=raw||{};
   var d=Object.assign({},DEF,raw);
@@ -4493,6 +5102,7 @@ function mkD(raw){
   d.fitRecs=Array.isArray(raw.fitRecs)?raw.fitRecs.slice(0,2):[];
   d.verify=(raw.verify&&raw.verify.ok)?raw.verify:null;
   d.water=(raw.water&&typeof raw.water==="object"&&raw.water.rooms&&typeof raw.water.rooms==="object"&&!(raw.water.rooms instanceof Array))?{rooms:raw.water.rooms}:{rooms:{}};
+  d.task=taskNormData(raw.task);
   return d;
 }
 var D=(function(){
@@ -6614,7 +7224,7 @@ var TOOLS=[
  {k:"draw",n:"抽签",d:"抽签、分组与结果导出"},
  {k:"tt",n:"课表",d:"班级课表与下一节课"},
  {k:"committee",n:"名单",d:"班委、团员与全班名单"},
- {k:"hw",n:"作业",d:"作业发布与完成进度"},
+ {k:"hw",n:"任务",d:"个人任务、分组、提醒与班级作业自动同步"},
  {k:"nt",n:"通知",d:"班级通知与附件"},
  {k:"ft",n:"体测",d:"体测算分与等级"},
  {k:"roll",n:"点名",d:"点名记录到课、请假"},
@@ -6690,7 +7300,7 @@ function gotoTab(k,noScroll){
   $$("section").forEach(function(s){s.classList.remove("on");});
   var el=$("#s-"+k); if(el) el.classList.add("on");
   if(k==="tt") setTimeout(function(){ttHint();ttLayout();},0);
-  if(k==="hw"){HW.pull();marksPull(true);}
+  if(k==="hw"){HW.pull();marksPull(true);try{if(typeof TK!=="undefined"&&TK&&TK.enter)TK.enter();}catch(e){}}
   if(k==="nt"){renderNoticeFrame();NT.pull();marksPull(true);}
   if(k==="roll"){renderRoll();marksPull(true);}
   if(k==="committee") renderCommittee();
@@ -17164,15 +17774,20 @@ try{window.VOTE=VOTE;}catch(e){}
   }
   function hwMeta(){
     return safe(function(){
-      if(typeof hwArr!=="function"||typeof dueInfo!=="function")return "";
-      var a=hwArr();
-      if(a.length){
-        var first=a[0], di=dueInfo(first);
-        var near=first.date?first.date.slice(5):(first.due||"");
-        return "未完成 "+a.length+(near?" · 最近 "+near:" · "+di.txt);
+      var parts=[];
+      if(typeof hwArr==="function"&&typeof dueInfo==="function"){
+        var a=hwArr();
+        if(a.length){
+          var first=a[0], di=dueInfo(first);
+          var near=first.date?first.date.slice(5):(first.due||"");
+          parts.push("未完成 "+a.length+(near?" · 最近 "+near:" · "+di.txt));
+        }else{
+          var all=(D.d.homework||[]).filter(function(h){return !hwHidden(h);});
+          if(all.length)parts.push("全部完成 · "+all.length+" 项");
+        }
       }
-      var all=(D.d.homework||[]).filter(function(h){return !hwHidden(h);});
-      return all.length?("全部完成 · "+all.length+" 项"):"";
+      try{if(typeof TK!=="undefined"&&TK&&TK.metaText){var mt=TK.metaText();if(mt)parts.push(mt);}}catch(e){}
+      return parts.join(" · ");
     });
   }
   function drawMeta(){
@@ -21107,9 +21722,9 @@ var UG=(function(){
     {id:"tt",cat:"study",title:"课表",sub:"周 / 日视图，点课程看详情",scene:"grid",tone:"blue",
      steps:["左右箭头切换周次","周 / 日视图一键切换","点任意课程看教室、时间与周次"],
      tip:"课表来自教务同步，只读不能改；全部课程默认收起"},
-    {id:"hw",cat:"study",title:"作业",sub:"发布即同步，勾完成，看截止",scene:"list",tone:"sand",
-     steps:["进班级后可发布作业与截止时间","勾「完成」按账号同步","附件图片会自动压缩"],
-     tip:"删除后所有人都看不到，隐藏只影响自己的视图"},
+    {id:"hw",cat:"study",title:"任务",sub:"个人任务、分组与提醒；班级作业自动同步",scene:"list",tone:"sand",
+     steps:["输入任务回车保存，点任务设截止、提醒与重复","左侧按分组整理，我的一天安排今天","班级作业自动同步，勾选完成按账号同步"],
+     tip:"删除班级作业后所有人都看不到；隐藏只影响自己的视图"},
     {id:"nt",cat:"study",title:"通知",sub:"通知、附件与提醒，一处看完",scene:"list",tone:"rose",
      steps:["通知按时间排列，点开看全文","附件图片与 QQ 压缩包可在页内看","右下「提醒」可开桌面通知"],
      tip:"置顶与已处理按账号同步，重复通知会自动合并"},
@@ -21562,6 +22177,1449 @@ try{
       stored:(function(){try{return localStorage.getItem(APPEARANCE.KEY)||"";}catch(e){return "";}})()};
   };
 }catch(e){}
+/* __TASK_V1_JS__ 任务（作业升级：个人任务 + 班级作业自动同步）2026-11-22
+   约束：单文件零依赖 / 零外部请求 / 不改 APP_VER / 任务数据默认只存本机
+   （随 zq_tools_v2_<sid> 进入「设置 · 数据备份」，不新增 UD v6 section）。 */
+var TK=(function(){
+  "use strict";
+  var UI_KEY="zq_task_ui_v1";
+  var TK_COLORS=["cy","bl","sd","violet","rose","teal"];
+  var TK_SMART=[
+    {k:"myday",n:"我的一天",ico:"sun"},
+    {k:"important",n:"重要",ico:"star"},
+    {k:"planned",n:"计划中",ico:"calendar"},
+    {k:"all",n:"全部",ico:"layers"},
+    {k:"done",n:"已完成",ico:"check"}
+  ];
+  var TK_ICON={
+    sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4"/></svg>',
+    star:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.6l2.5 5.1 5.6.8-4.1 4 1 5.6-5-2.6-5 2.6 1-5.6-4.1-4 5.6-.8z"/></svg>',
+    calendar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.6"/><path d="M7.5 3.5V7M16.5 3.5V7M3.5 10h17"/></svg>',
+    layers:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7.5h16M4 12h16M4 16.5h16"/><path d="M7 4.5h10"/></svg>',
+    check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M8 12.3l2.6 2.6 5.4-5.6"/></svg>',
+    plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+    clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.5V12l3 1.8"/></svg>',
+    repeat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5a8 8 0 0 1 13.4-4.2L20 8.6"/><path d="M20 4.5v4.1h-4.1M20 13.5a8 8 0 0 1-13.4 4.2L4 15.4"/><path d="M4 19.5v-4.1h4.1"/></svg>',
+    tag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 12.2l8-8h7.3v7.3l-8 8a2 2 0 0 1-2.8 0l-4.5-4.5a2 2 0 0 1 0-2.8z"/><circle cx="15.5" cy="8.5" r="1.2"/></svg>',
+    edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4.2-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.2 16z"/><path d="M13.5 6.5l3 3"/></svg>',
+    image:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M4.5 17l4.5-4.2 3.4 3.1 2.4-2.3 4.7 4.4"/></svg>',
+    download:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M4 17.5v1A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5v-1"/></svg>',
+    bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9.5a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6.2H4c.5-.7 2-2.2 2-6.2z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>',
+    save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3.5h11l3 3V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M7.5 3.5V9h8V3.5M7.5 21v-6.5h9V21"/></svg>',
+    upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16.5v-11"/><path d="M7.5 9.5L12 5l4.5 4.5"/><path d="M4 17.5v1A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5v-1"/></svg>',
+    trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7h15M9 7V4.5h6V7M6.5 7l.8 13h9.4l.8-13"/><path d="M10 11v5M14 11v5"/></svg>',
+    search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.2 4.2"/></svg>',
+    inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5h16v15H4z"/><path d="M4 13h4l1.5 2h5L16 13h4"/></svg>',
+    empty:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M8 12.2l2.6 2.6 5.4-5.6"/></svg>'
+  };
+  var TKU={seg:"",segAuto:true,view:"all",list:"inbox",sort:"default",quickStar:false,quickList:"inbox",
+    doneOpen:false,sound:true,search:"",searchOpen:false,today:""};
+  var TKED=null, TKLIST=null, TK_RB={queue:[],cur:""}, tkBound=false, tkInitDone=false;
+
+  function tkPad(n){return (n<10?"0":"")+n;}
+  function tkToday(){return taskYmd(new Date());}
+  function tkStartOfDay(ms){var d=new Date(ms);d.setHours(0,0,0,0);return d.getTime();}
+  function tkFmtMD(ms){var d=new Date(ms);return tkPad(d.getMonth()+1)+"-"+tkPad(d.getDate());}
+  function tkFmtClock(ms){var d=new Date(ms);return tkPad(d.getHours())+":"+tkPad(d.getMinutes());}
+  function tkFmtFull(ms){var d=new Date(ms);return d.getFullYear()+"-"+tkPad(d.getMonth()+1)+"-"+tkPad(d.getDate())+" "+tkPad(d.getHours())+":"+tkPad(d.getMinutes());}
+  function tkSvg(n){return TK_ICON[n]||"";}
+  function tkIco(n){return '<span class="tk-ico" aria-hidden="true">'+tkSvg(n)+'</span>';}
+  function tkClosest(el,sel){
+    while(el&&el!==document){if(el.nodeType===1&&el.matches&&el.matches(sel))return el;el=el.parentNode;}
+    return null;
+  }
+  function tkData(){
+    if(!D.d.task||typeof D.d.task!=="object"||D.d.task instanceof Array)D.d.task=taskNormData(D.d.task);
+    return D.d.task;
+  }
+  function tkItems(){return tkData().items||[];}
+  function tkLists(){return tkData().lists||[];}
+  function tkPrefs(){return tkData().prefs||{sound:true,defaultRemind:"none"};}
+  function tkSave(){try{D.d.task=tkData();D.save();}catch(e){}}
+  function tkFindTask(id){var a=tkItems(),i;for(i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null;}
+  function tkFindList(id){var a=tkLists(),i;for(i=0;i<a.length;i++)if(a[i].id===id)return a[i];return a[0]||{id:"inbox",name:"任务",color:"cy",order:0};}
+  function tkNextOrder(){var a=tkItems(),mn=0,i;for(i=0;i<a.length;i++){var o=Number(a[i].order);if(isFinite(o)&&o<mn)mn=o;}return mn-1;}
+  function tkNextListOrder(){var a=tkLists(),mx=0,i;for(i=0;i<a.length;i++){var o=Number(a[i].order);if(isFinite(o)&&o>mx)mx=o;}return mx+1;}
+
+  function tkReadUi(){
+    TKU.segAuto=true;
+    try{
+      var o=JSON.parse(localStorage.getItem(UI_KEY)||"null");
+      if(o&&typeof o==="object"){
+        if(o.view&&["myday","important","planned","all","done","list"].indexOf(o.view)>=0)TKU.view=o.view;
+        if(o.list)TKU.list=String(o.list);
+        if(o.seg==="my"||o.seg==="class"){TKU.seg=o.seg;TKU.segAuto=false;}
+        if(["default","due","created","important"].indexOf(o.sort)>=0)TKU.sort=o.sort;
+        TKU.quickStar=!!o.quickStar;
+        if(o.quickList)TKU.quickList=String(o.quickList);
+        TKU.doneOpen=!!o.doneOpen;
+        TKU.sound=o.sound!==false;
+      }
+    }catch(e){}
+    if(TKU.view==="list"&&!tkFindList(TKU.list))TKU.view="all";
+    if(!tkFindList(TKU.quickList))TKU.quickList="inbox";
+    TKU.today=tkToday();
+  }
+  function tkWriteUi(){
+    try{localStorage.setItem(UI_KEY,JSON.stringify({seg:TKU.seg,view:TKU.view,list:TKU.list,
+      sort:TKU.sort,quickStar:TKU.quickStar,quickList:TKU.quickList,doneOpen:TKU.doneOpen,sound:TKU.sound}));}catch(e){}
+  }
+  function tkPickSeg(){
+    if(TKU.seg==="my"||TKU.seg==="class")return TKU.seg;
+    if(tkItems().length)return "my";
+    if(tkClassPending()>0)return "class";
+    return "my";
+  }
+  function tkClassPending(){
+    try{
+      var a=D.d.homework||[];
+      return a.filter(function(h){return !hwDoneOf(h)&&!hwHidden(h);}).length;
+    }catch(e){return 0;}
+  }
+  function tkClassDoneCount(){
+    try{return (D.d.homework||[]).filter(function(h){return !hwHidden(h)&&hwDoneOf(h);}).length;}catch(e){return 0;}
+  }
+  function tkFmtRelDay(ms,withTime){
+    var now=Date.now(),today=tkStartOfDay(now),day=tkStartOfDay(ms);
+    var diff=Math.round((day-today)/86400000);
+    var t=withTime?" "+tkFmtClock(ms):"";
+    if(diff===0)return "今天"+t;
+    if(diff===1)return "明天"+t;
+    if(diff===-1)return "昨天"+t;
+    if(diff>1&&diff<7){var d=new Date(ms);return "周"+"日一二三四五六".charAt(d.getDay())+t;}
+    var y=new Date(ms).getFullYear()!==new Date(now).getFullYear()?(new Date(ms).getFullYear()+"-"):"";
+    return y+tkFmtMD(ms)+t;
+  }
+  function tkDueMeta(t){
+    if(!t.due)return null;
+    var ms=taskParseDue(t.due,t.dueTime);
+    if(!ms)return null;
+    var dl=taskDeadlineMs(t)||ms;
+    var now=Date.now();
+    var overdue=!t.done&&dl<now;
+    var cls=overdue?"overdue":(tkStartOfDay(ms)===tkStartOfDay(now)?"today":"");
+    var txt;
+    if(overdue){
+      var day=tkStartOfDay(ms),today=tkStartOfDay(now),diff=Math.round((day-today)/86400000);
+      txt="已过期 "+(diff===-1?"昨天":(diff===0?"今天":tkFmtMD(ms)))+(t.dueTime?" "+t.dueTime:"");
+    }else{
+      txt=tkFmtRelDay(ms,!!t.dueTime);
+    }
+    return {txt:txt,cls:cls,ms:ms};
+  }
+  function tkRemMeta(t){
+    if(!t.remindAt)return "";
+    var now=Date.now();
+    if(t.snoozeUntil&&t.snoozeUntil>now)return "稍后 "+tkFmtRelDay(t.snoozeUntil,true);
+    if(t.remindAt<=now)return "已提醒";
+    return "提醒 "+tkFmtRelDay(t.remindAt,true);
+  }
+  function tkRepeatName(r){
+    return {daily:"每天",weekday:"工作日",weekly:"每周",monthly:"每月",yearly:"每年"}[r]||"";
+  }
+  function tkSmartCount(k){
+    var n=0,t=tkToday(),now=Date.now();
+    tkItems().forEach(function(x){
+      if(k==="done"){if(x.done)n++;return;}
+      if(x.done)return;
+      if(k==="myday"&&x.myDay===t)n++;
+      else if(k==="important"&&x.starred)n++;
+      else if(k==="planned"&&(x.due||x.remindAt))n++;
+      else if(k==="all")n++;
+      else if(k==="overdue"&&taskDeadlineMs(x)&&taskDeadlineMs(x)<now)n++;
+    });
+    return n;
+  }
+  function tkBaseItems(){
+    var t=tkToday();
+    switch(TKU.view){
+      case "myday":return tkItems().filter(function(x){return !x.done&&x.myDay===t;});
+      case "important":return tkItems().filter(function(x){return !x.done&&x.starred;});
+      case "planned":return tkItems().filter(function(x){return !x.done&&(x.due||x.remindAt);});
+      case "done":return tkItems().filter(function(x){return x.done;});
+      case "list":return tkItems().filter(function(x){return !x.done&&x.list===TKU.list;});
+      default:return tkItems().filter(function(x){return !x.done;});
+    }
+  }
+  function tkDoneCtx(){
+    var t=tkToday();
+    switch(TKU.view){
+      case "myday":return tkItems().filter(function(x){return x.done&&x.myDay===t;});
+      case "important":return tkItems().filter(function(x){return x.done&&x.starred;});
+      case "planned":return tkItems().filter(function(x){return x.done&&(x.due||x.remindAt);});
+      case "list":return tkItems().filter(function(x){return x.done&&x.list===TKU.list;});
+      case "all":return tkItems().filter(function(x){return x.done;});
+      default:return [];
+    }
+  }
+  function tkSearchItems(q){
+    q=String(q||"").toLowerCase();
+    if(!q)return [];
+    return tkItems().filter(function(t){
+      var hay=String(t.title||"")+" "+String(t.notes||"")+" "+(t.tags||[]).join(" ")+" "+
+        (t.steps||[]).map(function(s){return s.text;}).join(" ")+" "+tkFindList(t.list).name;
+      return hay.toLowerCase().indexOf(q)>=0;
+    });
+  }
+  function tkSortItems(arr){
+    var out=arr.slice();
+    function dueMs(t){return taskParseDue(t.due,t.dueTime)||Number(t.remindAt)||Number.MAX_SAFE_INTEGER;}
+    if(TKU.view==="done"&&!TKU.search){
+      out.sort(function(a,b){return (Number(b.doneAt)||0)-(Number(a.doneAt)||0);});
+      return out;
+    }
+    if(TKU.search){
+      out.sort(function(a,b){
+        if(a.done!==b.done)return a.done?1:-1;
+        return (dueMs(a)-dueMs(b))||((Number(a.order)||0)-(Number(b.order)||0));
+      });
+      return out;
+    }
+    if(TKU.sort==="due"||TKU.view==="planned"){
+      out.sort(function(a,b){return (dueMs(a)-dueMs(b))||((Number(a.order)||0)-(Number(b.order)||0));});
+    }else if(TKU.sort==="created"){
+      out.sort(function(a,b){return (Number(b.createdAt)||0)-(Number(a.createdAt)||0);});
+    }else if(TKU.sort==="important"){
+      out.sort(function(a,b){
+        if(!!a.starred!==!!b.starred)return a.starred?-1:1;
+        return (dueMs(a)-dueMs(b))||((Number(a.order)||0)-(Number(b.order)||0));
+      });
+    }else{
+      out.sort(function(a,b){return ((Number(a.order)||0)-(Number(b.order)||0))||((Number(b.createdAt)||0)-(Number(a.createdAt)||0));});
+    }
+    return out;
+  }
+  function tkPlannedGroups(arr){
+    var now=Date.now(),today=tkStartOfDay(now),tomorrow=today+86400000,week=today+7*86400000;
+    var buckets=[
+      {k:"overdue",n:"已过期",items:[]},
+      {k:"today",n:"今天",items:[]},
+      {k:"tomorrow",n:"明天",items:[]},
+      {k:"week",n:"本周",items:[]},
+      {k:"later",n:"以后",items:[]},
+      {k:"none",n:"无日期",items:[]}
+    ];
+    arr.forEach(function(t){
+      var ms=taskParseDue(t.due,t.dueTime)||Number(t.remindAt)||0;
+      if(!ms){buckets[5].items.push(t);return;}
+      var day=tkStartOfDay(ms);
+      if(!t.done&&taskDeadlineMs(t)&&taskDeadlineMs(t)<now)buckets[0].items.push(t);
+      else if(day===today)buckets[1].items.push(t);
+      else if(day===tomorrow)buckets[2].items.push(t);
+      else if(day>tomorrow&&day<week)buckets[3].items.push(t);
+      else if(day>=week)buckets[4].items.push(t);
+      else buckets[1].items.push(t);
+    });
+    return buckets.filter(function(b){return b.items.length;});
+  }
+  function tkDoneGroups(arr){
+    var today=tkStartOfDay(Date.now()),yesterday=today-86400000,map={},order=[];
+    arr.forEach(function(t){
+      var d=tkStartOfDay(Number(t.doneAt)||Number(t.updatedAt)||Date.now());
+      var key=d===today?"今天":(d===yesterday?"昨天":tkFmtMD(d));
+      if(!map[key]){map[key]={k:key,n:key,items:[]};order.push(key);}
+      map[key].items.push(t);
+    });
+    order.sort(function(a,b){
+      if(a==="今天")return -1;if(b==="今天")return 1;
+      if(a==="昨天")return -1;if(b==="昨天")return 1;
+      return b<a?1:-1;
+    });
+    return order.map(function(k){return map[k];});
+  }
+  function tkRowHTML(t,done,showList){
+    var due=tkDueMeta(t),rem=tkRemMeta(t),tags=(t.tags||[]).slice(0,2),moreTags=(t.tags||[]).length-tags.length;
+    var steps=(t.steps||[]),sd=0;
+    steps.forEach(function(s){if(s.done)sd++;});
+    var mi="";
+    if(due)mi+='<span class="tk-mi tk-due '+due.cls+'">'+tkSvg("calendar")+'<span>'+esc(due.txt)+'</span></span>';
+    if(rem)mi+='<span class="tk-mi">'+tkSvg("clock")+'<span>'+esc(rem)+'</span></span>';
+    if(t.repeat)mi+='<span class="tk-mi">'+tkSvg("repeat")+'<span>'+esc(tkRepeatName(t.repeat))+'</span></span>';
+    if(t.myDay===tkToday()&&TKU.view!=="myday")mi+='<span class="tk-mi">'+tkSvg("sun")+'<span>我的一天</span></span>';
+    if(steps.length)mi+='<span class="tk-mi">'+tkSvg("check")+'<span>'+sd+"/"+steps.length+'</span></span>';
+    tags.forEach(function(tag){mi+='<span class="tk-mi tk-tag" data-tktag="'+esc(tag)+'" title="'+esc(tag)+'">'+tkSvg("tag")+'<span>#'+esc(tag)+'</span></span>';});
+    if(moreTags>0)mi+='<span class="tk-mi">+'+" "+moreTags+"</span>";
+    if(showList){
+      var l=tkFindList(t.list);
+      mi+='<span class="tk-mi tk-listchip"><i data-tkc="'+esc(l.color)+'"></i><span class="tk-ell">'+esc(l.name)+'</span></span>';
+    }
+    return '<div class="tk-item'+(done?" done":"")+'" data-tkid="'+esc(t.id)+'" data-tkopen="'+esc(t.id)+'">'+
+      '<button class="tk-check'+(done?" on":"")+'" type="button" data-tkcheck="'+esc(t.id)+'" aria-label="'+(done?"标记未完成":"标记完成")+'" aria-pressed="'+(done?"true":"false")+'"><i></i></button>'+
+      '<div class="tk-ibody"><div class="tk-ititle">'+esc(t.title)+'</div>'+
+      (mi?'<div class="tk-imeta">'+mi+'</div>':'')+'</div>'+
+      '<button class="tk-star'+(t.starred?" on":"")+'" type="button" data-tkstar="'+esc(t.id)+'" aria-label="标记重要" aria-pressed="'+(t.starred?"true":"false")+'">★</button>'+
+      '</div>';
+  }
+  function tkEmptyHTML(){
+    var q=TKU.search.trim(),txt="还没有任务";
+    if(q)txt="没有匹配的任务";
+    else if(TKU.view==="myday")txt="今天没有安排";
+    else if(TKU.view==="important")txt="没有重要任务";
+    else if(TKU.view==="planned")txt="没有计划中的任务";
+    else if(TKU.view==="done")txt="还没有已完成的任务";
+    else if(TKU.view==="list")txt="这个分组还没有任务";
+    return '<div class="tk-empty">'+tkSvg("empty")+'<b>'+txt+'</b></div>';
+  }
+  function tkListOptions(sel,selected){
+    if(!sel)return;
+    var h="";
+    tkLists().forEach(function(l){h+='<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>';});
+    sel.innerHTML=h;
+    sel.value=selected||"inbox";
+  }
+  function tkRenderQuickSelect(){
+    var sel=$("#tkQuickList");if(!sel)return;
+    var cur=TKU.quickList;
+    if(!tkFindList(cur))cur="inbox";
+    tkListOptions(sel,cur);
+  }
+  function tkRenderQuickState(){
+    var st=$("#tkQuickStar");if(st){st.classList.toggle("on",!!TKU.quickStar);st.setAttribute("aria-pressed",TKU.quickStar?"true":"false");}
+    var db=$("#tkQuickDueBtn"),dv=$("#tkQuickDate")?$("#tkQuickDate").value:"";
+    if(db)db.classList.toggle("on",!!dv);
+  }
+  function tkRenderSide(){
+    var box=$("#tkSmart");if(!box)return;
+    var h="";
+    TK_SMART.forEach(function(s){
+      var n=tkSmartCount(s.k);
+      h+='<button class="tk-navbtn'+(TKU.view===s.k?" on":"")+'" type="button" data-tkview="'+s.k+'">'+
+        tkIco(s.ico)+'<span>'+s.n+'</span>'+(n?'<span class="tk-cnt">'+n+'</span>':'')+'</button>';
+    });
+    box.innerHTML=h;
+    var lb=$("#tkLists");if(lb){
+      var lh="";
+      tkLists().forEach(function(l){
+        var n=tkItems().filter(function(x){return !x.done&&x.list===l.id;}).length;
+        var on=(TKU.view==="list"&&TKU.list===l.id)?" on":"";
+        lh+='<button class="tk-navbtn'+on+'" type="button" data-tkview="list" data-tklist="'+esc(l.id)+'">'+
+          '<i class="tk-dot" data-tkc="'+esc(l.color)+'"></i><span class="tk-ell">'+esc(l.name)+'</span>'+
+          (n?'<span class="tk-cnt">'+n+'</span>':'')+'</button>';
+      });
+      lh+='<button class="tk-navbtn tk-newlist" type="button" data-tknewlist="1">'+tkIco("plus")+'<span>新建分组</span></button>';
+      lb.innerHTML=lh;
+    }
+    tkRenderQuickSelect();
+  }
+  function tkViewTitle(){
+    if(TKU.search.trim())return "搜索";
+    switch(TKU.view){
+      case "myday":return "我的一天";
+      case "important":return "重要";
+      case "planned":return "计划中";
+      case "all":return "全部";
+      case "done":return "已完成";
+      case "list":return tkFindList(TKU.list).name;
+    }
+    return "任务";
+  }
+  function tkViewSub(){
+    var q=TKU.search.trim(),arr=q?tkSearchItems(q):tkBaseItems();
+    if(q)return "“"+q+"” · "+arr.length+" 项";
+    if(TKU.view==="myday"){
+      var d=new Date(),w="日一二三四五六".charAt(d.getDay());
+      return (d.getMonth()+1)+"月"+d.getDate()+"日 周"+w+" · "+arr.length+" 项";
+    }
+    if(TKU.view==="done")return arr.length+" 项";
+    if(TKU.view==="planned")return arr.length+" 项 · 按截止时间";
+    return arr.length+" 项待完成";
+  }
+  function tkRenderHeader(){
+    var t=$("#tkTitle"),s=$("#tkSub");
+    if(t)t.textContent=tkViewTitle();
+    if(s)s.textContent=tkViewSub();
+    var e=$("#tkListEdit");
+    if(e)e.hidden=!(TKU.view==="list"&&TKU.list!=="inbox");
+    if($("#tkSort"))$("#tkSort").value=TKU.sort;
+  }
+  function tkRenderList(){
+    var box=$("#tkList");if(!box)return;
+    var q=TKU.search.trim();
+    var arr=q?tkSearchItems(q):tkBaseItems();
+    arr=tkSortItems(arr);
+    var showList=(!!q||TKU.view==="all"||TKU.view==="planned"||TKU.view==="important"||TKU.view==="done");
+    var groups=null;
+    if(!q&&TKU.view==="planned")groups=tkPlannedGroups(arr);
+    else if(!q&&TKU.view==="done")groups=tkDoneGroups(arr);
+    var html="";
+    if(groups){
+      groups.forEach(function(g){
+        html+='<div class="tk-group'+(g.k==="overdue"?" overdue":"")+'">'+esc(g.n)+'<span>'+g.items.length+'</span></div>';
+        html+=g.items.map(function(t){return tkRowHTML(t,TKU.view==="done",showList);}).join("");
+      });
+    }else{
+      html=arr.map(function(t){return tkRowHTML(t,!!t.done,showList);}).join("");
+    }
+    box.innerHTML=arr.length?html:tkEmptyHTML();
+
+    var wrap=$("#tkDoneWrap"),list=$("#tkDoneList"),toggle=$("#tkDoneToggle"),dn=$("#tkDoneN");
+    var doneArr=(q||TKU.view==="done")?[]:tkDoneCtx();
+    doneArr=doneArr.sort(function(a,b){return (Number(b.doneAt)||0)-(Number(a.doneAt)||0);});
+    if(wrap){
+      if(!doneArr.length){wrap.hidden=true;if(list)list.hidden=true;}
+      else{
+        wrap.hidden=false;
+        if(dn)dn.textContent=String(doneArr.length);
+        if(toggle)toggle.setAttribute("aria-expanded",TKU.doneOpen?"true":"false");
+        if(list){
+          list.hidden=!TKU.doneOpen;
+          if(TKU.doneOpen)list.innerHTML=doneArr.slice(0,60).map(function(t){return tkRowHTML(t,true,showList);}).join("");
+        }
+      }
+    }
+    var vc=$("#tkVisibleCount");
+    if(vc)vc.textContent=q?("结果 "+arr.length):(arr.length+" 项");
+    var foot=$("#tkFoot");
+    if(foot){
+      if(q)foot.textContent="搜索到 "+arr.length+" 项";
+      else{
+        var total=arr.length+doneArr.length;
+        foot.textContent="共 "+total+" 项 · 已完成 "+doneArr.length;
+      }
+    }
+    tkRenderHeader();
+    tkRenderQuickState();
+  }
+  function tkRenderAll(){
+    if(!$("#tkSmart"))return;
+    TKU.today=tkToday();
+    tkRenderSide();
+    tkRenderHeader();
+    tkRenderList();
+    tkRenderQuickState();
+    tkRenderClassBadge();
+    tkRenderClassNote();
+    tkInitDone=true;
+  }
+  function tkRenderClassBadge(){
+    var n=tkClassPending(),b=$("#tkSegClassN"),btn=null;
+    try{btn=$('#tkSeg [data-tkseg="class"]');}catch(e){}
+    if(b){b.textContent=String(n);b.hidden=!(n>0);}
+    if(btn)btn.setAttribute("aria-label","班级作业"+(n?("，"+n+" 项未完成"):""));
+  }
+  function tkRenderClassNote(){
+    var e=$("#tkClassNote");if(!e)return;
+    var n=tkClassPending();
+    if(n>0)e.textContent="自动同步 · "+n+" 项未完成";
+    else e.textContent="自动同步";
+  }
+  function tkApplySeg(){
+    var isClass=TKU.seg==="class";
+    var my=$("#tkMy"),cl=$("#tkClass");
+    if(my)my.hidden=isClass;
+    if(cl)cl.hidden=!isClass;
+    $$("#tkSeg [data-tkseg]").forEach(function(b){
+      var on=b.getAttribute("data-tkseg")===(isClass?"class":"my");
+      b.classList.toggle("on",on);
+      b.setAttribute("aria-selected",on?"true":"false");
+    });
+    if(isClass)tkRenderClassNote();
+  }
+  function tkSetSeg(s){
+    s=s==="class"?"class":"my";
+    TKU.seg=s;TKU.segAuto=false;tkWriteUi();tkApplySeg();
+    if(s==="class"){
+      tkRenderClassNote();
+      try{if(AUTH.ready){if(typeof HW!=="undefined"&&HW&&HW.pull)HW.pull();if(typeof marksPull==="function")marksPull(true);}}catch(e){}
+    }else{
+      tkRenderAll();
+    }
+  }
+  function tkRefresh(){
+    tkData();
+    TKU.today=tkToday();
+    if(!TKU.seg||(TKU.seg!=="my"&&TKU.seg!=="class")){TKU.seg=tkPickSeg();TKU.segAuto=true;}
+    if(TKU.view==="list"&&!tkFindList(TKU.list))TKU.view="all";
+    tkApplySeg();
+    tkRenderAll();
+    tkRenderClassBadge();
+  }
+  function tkEnter(){
+    try{tkRefresh();}catch(e){}
+  }
+  function tkClassChanged(){
+    try{
+      tkRenderClassBadge();tkRenderClassNote();
+      /* 首次使用且没有个人任务：班级作业加载出来后自动落在「班级作业」，
+         不把自动落地当成用户选择；用户点过分段后 segAuto=false，不再自动切。 */
+      if(TKU.segAuto&&TKU.seg!=="class"&&!tkItems().length&&tkClassPending()>0){
+        TKU.seg="class";tkApplySeg();tkRenderClassNote();
+      }
+    }catch(e){}
+    if(!tkInitDone){try{tkRefresh();}catch(e){}}
+  }
+  function tkMetaText(){
+    try{
+      var my=tkSmartCount("myday"),all=tkSmartCount("all"),od=tkSmartCount("overdue");
+      if(my)return "今日 "+my+(od?" · 过期 "+od:"");
+      if(all)return "任务 "+all;
+    }catch(e){}
+    return "";
+  }
+
+  /* ---------------- 任务操作 ---------------- */
+  function tkAddQuick(){
+    var inp=$("#tkQuick");if(!inp)return;
+    var title=String(inp.value||"").replace(/\s+/g," ").trim();
+    if(!title){toast("填写任务标题");inp.focus();return;}
+    if(title.length>200)title=title.slice(0,200);
+    var due=$("#tkQuickDate")?$("#tkQuickDate").value:"";
+    var time=$("#tkQuickTime")?$("#tkQuickTime").value:"";
+    if(time&&!due){toast("请先选择截止日期");return;}
+    if(due&&!taskDateOk(due)){toast("日期无效");return;}
+    if(time&&!taskTimeOk(time)){toast("时间无效");return;}
+    var list=$("#tkQuickList")?$("#tkQuickList").value:"inbox";
+    if(!tkFindList(list))list="inbox";
+    var prefs=tkPrefs(),mode="none";
+    if(due&&prefs.defaultRemind&&prefs.defaultRemind!=="none"&&prefs.defaultRemind!=="custom")mode=prefs.defaultRemind;
+    var remindAt=taskCalcRemindAt(due,time,mode,0);
+    var now=Date.now();
+    var t={id:taskNewId("t"),title:title,notes:"",list:list,done:false,doneAt:0,due:due,dueTime:due?time:"",
+      remindMode:mode,remindAt:remindAt,remindCustom:0,repeat:"",starred:!!TKU.quickStar||TKU.view==="important",
+      myDay:TKU.view==="myday"?tkToday():"",tags:[],steps:[],createdAt:now,updatedAt:now,order:tkNextOrder(),fromId:"",
+      lastNotifyAt:(remindAt>0&&remindAt<=now?now:0),snoozeUntil:0};
+    tkItems().push(t);
+    tkSave();
+    inp.value="";
+    TKU.quickStar=false;
+    if($("#tkQuickDate"))$("#tkQuickDate").value="";
+    if($("#tkQuickTime"))$("#tkQuickTime").value="";
+    if($("#tkQuickDateRow"))$("#tkQuickDateRow").hidden=true;
+    if($("#tkQuickDueBtn"))$("#tkQuickDueBtn").setAttribute("aria-expanded","false");
+    tkWriteUi();tkRenderAll();inp.focus();
+    var visible=tkBaseItems().some(function(x){return x.id===t.id;});
+    if(!visible)toast("已加入「"+tkFindList(list).name+"」");
+  }
+  function tkToggleStar(t){
+    if(!t)return;
+    t.starred=!t.starred;t.updatedAt=Date.now();tkSave();tkRenderAll();
+  }
+  function tkHasNext(t){
+    return tkItems().some(function(x){return x.fromId===t.id&&!x.done;});
+  }
+  function tkAdvanceDate(d,repeat){
+    var x=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+    if(repeat==="daily"){x.setDate(x.getDate()+1);return x;}
+    if(repeat==="weekly"){x.setDate(x.getDate()+7);return x;}
+    if(repeat==="weekday"){
+      do{x.setDate(x.getDate()+1);}while(x.getDay()===0||x.getDay()===6);
+      return x;
+    }
+    if(repeat==="monthly"){
+      var day=x.getDate();x.setDate(1);x.setMonth(x.getMonth()+1);
+      var dim=new Date(x.getFullYear(),x.getMonth()+1,0).getDate();
+      x.setDate(Math.min(day,dim));return x;
+    }
+    if(repeat==="yearly"){
+      var mo=x.getMonth(),dd=x.getDate();x.setDate(1);x.setFullYear(x.getFullYear()+1);x.setMonth(mo);
+      var dimY=new Date(x.getFullYear(),mo+1,0).getDate();
+      x.setDate(Math.min(dd,dimY));return x;
+    }
+    return x;
+  }
+  function tkMakeNext(t,now){
+    var baseMs=t.due?taskParseDue(t.due,t.dueTime):taskParseDue(tkToday(),t.dueTime||"");
+    var baseDate=baseMs?new Date(baseMs):new Date();
+    var nextDate=tkAdvanceDate(baseDate,t.repeat);
+    var nextDue=taskYmd(nextDate);
+    var guard=0;
+    while(guard++<12){
+      var dl=taskDeadlineMs({due:nextDue,dueTime:t.dueTime||""});
+      if(dl&&dl>now)break;
+      nextDate=tkAdvanceDate(nextDate,t.repeat);nextDue=taskYmd(nextDate);
+    }
+    var n=JSON.parse(JSON.stringify(t));
+    n.id=taskNewId("t");n.fromId=t.id;n.done=false;n.doneAt=0;
+    n.createdAt=now;n.updatedAt=now;n.order=tkNextOrder();
+    n.myDay="";n.lastNotifyAt=0;n.snoozeUntil=0;
+    n.steps=(t.steps||[]).map(function(s){return {text:s.text,done:false};});
+    n.due=nextDue;n.dueTime=t.dueTime||"";
+    if(t.remindMode==="custom"&&t.remindAt){
+      var delta=taskParseDue(nextDue,n.dueTime)-baseMs;
+      n.remindCustom=Math.max(0,Number(t.remindCustom||t.remindAt)+delta);
+      n.remindAt=n.remindCustom;
+    }else{
+      n.remindAt=taskCalcRemindAt(n.due,n.dueTime,n.remindMode,n.remindCustom);
+    }
+    var arr=tkItems(),idx=arr.indexOf(t);
+    arr.splice(idx+1,0,n);
+    return n;
+  }
+  function tkSetDone(t,val){
+    if(!t||!!t.done===!!val)return null;
+    var now=Date.now(),next=null;
+    if(val){
+      t.done=true;t.doneAt=now;t.updatedAt=now;
+      t.lastNotifyAt=t.remindAt||now;t.snoozeUntil=0;
+      if(t.repeat&&!tkHasNext(t))next=tkMakeNext(t,now);
+    }else{
+      t.done=false;t.doneAt=0;t.updatedAt=now;
+      t.lastNotifyAt=(t.remindAt&&t.remindAt<=now)?now:0;
+      t.snoozeUntil=0;
+      var arr=tkItems();
+      for(var i=arr.length-1;i>=0;i--){
+        if(arr[i].fromId===t.id&&!arr[i].done&&Number(arr[i].updatedAt)===Number(arr[i].createdAt))arr.splice(i,1);
+      }
+    }
+    tkSave();
+    return next;
+  }
+  function tkParseTags(s){
+    var out=[];
+    String(s==null?"":s).split(/[,，;；#]+/).forEach(function(x){
+      x=String(x).trim();
+      if(x&&out.indexOf(x)<0&&out.length<6)out.push(x.slice(0,16));
+    });
+    return out;
+  }
+
+  /* ---------------- 任务编辑弹层 ---------------- */
+  function tkOpenModal(id){
+    var m=$(id);if(!m)return;
+    m.hidden=false;m.style.display="flex";m.setAttribute("aria-hidden","false");
+  }
+  function tkCloseModal(id){
+    var m=$(id);if(!m)return;
+    m.style.display="none";m.hidden=true;m.setAttribute("aria-hidden","true");
+  }
+  function tkToLocalInput(ms){
+    var d=new Date(Number(ms)||Date.now());
+    return d.getFullYear()+"-"+tkPad(d.getMonth()+1)+"-"+tkPad(d.getDate())+"T"+tkPad(d.getHours())+":"+tkPad(d.getMinutes());
+  }
+  function tkOpenEditor(id){
+    var t=id?tkFindTask(id):null;
+    if(id&&!t)return false;
+    var prefs=tkPrefs();
+    var mode="none";
+    if(t)mode=t.remindMode||"none";
+    else if(prefs.defaultRemind&&prefs.defaultRemind!=="none")mode=prefs.defaultRemind;
+    if(mode!=="none"&&mode!=="custom"&&!((t&&t.due)||""))mode="none";
+    var list=t?t.list:(TKU.view==="list"?TKU.list:"inbox");
+    if(!tkFindList(list))list="inbox";
+    TKED={id:t?t.id:"",isNew:!t,title:t?t.title:"",notes:t?t.notes:"",list:list,
+      done:t?!!t.done:false,starred:t?!!t.starred:(TKU.view==="important"),
+      myDay:t?(t.myDay===tkToday()):(TKU.view==="myday"),
+      due:t?t.due:"",dueTime:t?t.dueTime:"",remindMode:mode,
+      remindCustom:t?Number(t.remindCustom||t.remindAt)||0:0,repeat:t?t.repeat:"",
+      tags:t?(t.tags||[]).slice():[],steps:t?(t.steps||[]).map(function(s){return {text:s.text,done:!!s.done};}):[],
+      createdAt:t?t.createdAt:0,updatedAt:t?t.updatedAt:0};
+    if($("#tkFTitle"))$("#tkFTitle").value=TKED.title;
+    if($("#tkFNotes"))$("#tkFNotes").value=TKED.notes;
+    if($("#tkFDate"))$("#tkFDate").value=TKED.due;
+    if($("#tkFTime"))$("#tkFTime").value=TKED.dueTime;
+    if($("#tkFRepeat"))$("#tkFRepeat").value=TKED.repeat||"";
+    if($("#tkFList")){tkListOptions($("#tkFList"),TKED.list);}
+    if($("#tkFTags"))$("#tkFTags").value=(TKED.tags||[]).join(", ");
+    if($("#tkFRemind"))$("#tkFRemind").value=TKED.remindMode;
+    if($("#tkFRemindCustom")){
+      $("#tkFRemindCustom").value=TKED.remindMode==="custom"?tkToLocalInput(TKED.remindCustom||Date.now()+3600000):"";
+      $("#tkFRemindCustom").hidden=TKED.remindMode!=="custom";
+    }
+    if($("#tkFDelete"))$("#tkFDelete").hidden=!t;
+    if($("#tkFMeta")){
+      $("#tkFMeta").textContent=t?("创建 "+tkFmtFull(t.createdAt||t.updatedAt||Date.now())+" · 更新 "+tkFmtFull(t.updatedAt||t.createdAt||Date.now())):"";
+    }
+    tkRenderSteps();
+    tkSyncEditorChips();
+    tkOpenModal("#tkPanel");
+    setTimeout(function(){
+      try{$("#tkFTitle").focus();$("#tkFTitle").setSelectionRange(TKED&&TKED.title?TKED.title.length:0,TKED&&TKED.title?TKED.title.length:0);}catch(e){}
+    },50);
+    return true;
+  }
+  function tkCloseEditor(){tkCloseModal("#tkPanel");TKED=null;}
+  function tkSyncEditorChips(){
+    if(!TKED)return;
+    var d=$("#tkFDone");
+    if(d){d.classList.toggle("on",!!TKED.done);d.setAttribute("aria-pressed",TKED.done?"true":"false");d.setAttribute("aria-label",TKED.done?"标记未完成":"标记完成");}
+    var s=$("#tkFStar");
+    if(s){s.classList.toggle("on",!!TKED.starred);s.setAttribute("aria-pressed",TKED.starred?"true":"false");}
+    var m=$("#tkFMyDay");
+    if(m){m.classList.toggle("on",!!TKED.myDay);m.setAttribute("aria-pressed",TKED.myDay?"true":"false");m.textContent=TKED.myDay?"已在我的一天":"加入我的一天";}
+  }
+  function tkRenderSteps(){
+    var box=$("#tkFSteps");if(!box)return;
+    if(!TKED)return;
+    if(!TKED.steps.length){box.innerHTML="";return;}
+    box.innerHTML=TKED.steps.map(function(s,i){
+      return '<div class="tk-step">'+
+        '<button class="tk-check'+(s.done?" on":"")+'" type="button" data-tkstepdone="'+i+'" aria-label="步骤完成" aria-pressed="'+(s.done?"true":"false")+'"><i></i></button>'+
+        '<input data-tksteptext="'+i+'" maxlength="120" autocomplete="off" value="'+esc(s.text)+'" aria-label="步骤">'+
+        '<button type="button" data-tkstepdel="'+i+'" aria-label="删除步骤">×</button></div>';
+    }).join("");
+  }
+  function tkAddStep(){
+    if(!TKED)return;
+    var inp=$("#tkFStepAdd");if(!inp)return;
+    var v=String(inp.value||"").trim();
+    if(!v)return;
+    if(TKED.steps.length>=50){toast("步骤最多 50 条");return;}
+    TKED.steps.push({text:v.slice(0,120),done:false});
+    inp.value="";tkRenderSteps();
+    var arr=$$("#tkFSteps [data-tksteptext]");
+    if(arr.length){try{arr[arr.length-1].focus();}catch(e){}}
+  }
+  function tkReadEditor(){
+    var title=$("#tkFTitle")?String($("#tkFTitle").value||"").replace(/\s+/g," ").trim():"";
+    if(!title){toast("填写任务标题");try{$("#tkFTitle").focus();}catch(e){}return null;}
+    if(title.length>200)title=title.slice(0,200);
+    var due=$("#tkFDate")?$("#tkFDate").value:"";
+    var time=$("#tkFTime")?$("#tkFTime").value:"";
+    if(due&&!taskDateOk(due)){toast("日期无效");return null;}
+    if(time&&!due){toast("请先选择截止日期");return null;}
+    if(time&&!taskTimeOk(time)){toast("时间无效");return null;}
+    var mode=$("#tkFRemind")?$("#tkFRemind").value:"none";
+    if(mode!=="none"&&mode!=="custom"&&!due){toast("相对提醒需要截止日期");return null;}
+    var custom=0;
+    if(mode==="custom"){
+      var v=$("#tkFRemindCustom")?$("#tkFRemindCustom").value:"";
+      if(!v){toast("选择提醒时间");return null;}
+      var dt=new Date(v);
+      if(isNaN(dt.getTime())){toast("提醒时间无效");return null;}
+      custom=dt.getTime();
+    }
+    var list=$("#tkFList")?$("#tkFList").value:"inbox";
+    if(!tkFindList(list))list="inbox";
+    var steps=(TKED?TKED.steps:[]).map(function(s){return {text:String(s.text||"").trim(),done:!!s.done};})
+      .filter(function(s){return !!s.text;}).slice(0,50);
+    return {title:title,notes:$("#tkFNotes")?String($("#tkFNotes").value||"").slice(0,5000):"",
+      list:list,due:due,dueTime:due?time:"",remindMode:mode,remindCustom:custom,
+      remindAt:taskCalcRemindAt(due,due?time:"",mode,custom),repeat:$("#tkFRepeat")?$("#tkFRepeat").value:"",
+      starred:$("#tkFStar")?$("#tkFStar").classList.contains("on"):false,
+      myDay:$("#tkFMyDay")?$("#tkFMyDay").classList.contains("on"):false,
+      done:$("#tkFDone")?$("#tkFDone").classList.contains("on"):false,
+      tags:tkParseTags($("#tkFTags")?$("#tkFTags").value:""),steps:steps};
+  }
+  function tkSaveEditor(){
+    if(!TKED)return;
+    var f=tkReadEditor();if(!f)return;
+    var now=Date.now(),isNew=TKED.isNew;
+    var t=isNew?null:tkFindTask(TKED.id);
+    if(!isNew&&!t){tkCloseEditor();return;}
+    var oldRemind=t?t.remindAt:0;
+    if(!t){
+      t={id:taskNewId("t"),notes:"",done:false,doneAt:0,remindCustom:0,fromId:"",lastNotifyAt:0,snoozeUntil:0,
+        createdAt:now,updatedAt:now,order:tkNextOrder()};
+      tkItems().push(t);
+    }
+    t.title=f.title;t.notes=f.notes;t.list=f.list;t.due=f.due;t.dueTime=f.dueTime;
+    t.remindMode=f.remindMode;t.remindCustom=f.remindCustom;t.remindAt=f.remindAt;
+    t.repeat=f.repeat;t.starred=f.starred;t.tags=f.tags;t.steps=f.steps;
+    t.myDay=f.myDay?tkToday():"";
+    t.updatedAt=now;
+    if(oldRemind!==t.remindAt){t.lastNotifyAt=0;t.snoozeUntil=0;}
+    if(t.remindAt>0&&t.remindAt<=now)t.lastNotifyAt=now;
+    if(isNew&&f.done){t.done=true;t.doneAt=now;}
+    else if(!isNew&&!!t.done!==!!f.done){tkSetDone(t,!!f.done);}
+    tkSave();
+    tkCloseEditor();
+    tkRenderAll();
+    toast(isNew?"已添加":"已保存");
+  }
+  function tkDeleteEditor(){
+    if(!TKED)return;
+    if(TKED.isNew){tkCloseEditor();return;}
+    if(!confirm("删除这项任务？"))return;
+    var id=TKED.id,arr=tkItems();
+    for(var i=arr.length-1;i>=0;i--)if(arr[i].id===id)arr.splice(i,1);
+    if(TK_RB.cur===id)tkHideBar();
+    tkSave();tkCloseEditor();tkRenderAll();toast("已删除");
+  }
+
+  /* ---------------- 分组管理 ---------------- */
+  function tkRenderListColors(){
+    if(!TKLIST)return;
+    $$("#tkLColors [data-tkc]").forEach(function(b){
+      var on=b.getAttribute("data-tkc")===TKLIST.color;
+      b.classList.toggle("on",on);b.setAttribute("aria-checked",on?"true":"false");
+    });
+  }
+  function tkOpenListEditor(id){
+    var l=id?tkFindList(id):null;
+    var isNew=!l;
+    if(id==="inbox")return;
+    TKLIST={id:isNew?"":l.id,isNew:isNew,color:isNew?"cy":l.color};
+    if($("#tkLTitle"))$("#tkLTitle").textContent=isNew?"新建分组":"编辑分组";
+    if($("#tkLName"))$("#tkLName").value=isNew?"":l.name;
+    if($("#tkLDelete"))$("#tkLDelete").hidden=isNew||l.id==="inbox";
+    tkRenderListColors();
+    tkOpenModal("#tkListPanel");
+    setTimeout(function(){try{$("#tkLName").focus();}catch(e){}},50);
+  }
+  function tkCloseListEditor(){tkCloseModal("#tkListPanel");TKLIST=null;}
+  function tkFindListExact(id){var a=tkLists(),i;for(i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null;}
+  function tkSaveList(){
+    if(!TKLIST)return;
+    var name=$("#tkLName")?String($("#tkLName").value||"").replace(/\s+/g," ").trim():"";
+    if(!name){toast("填写分组名称");return;}
+    if(name.length>20)name=name.slice(0,20);
+    var dup=tkLists().some(function(l){return l.id!==TKLIST.id&&l.name===name;});
+    if(dup){toast("分组名称已存在");return;}
+    var newId="";
+    if(TKLIST.isNew){
+      newId="l"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+      tkLists().push({id:newId,name:name,color:TKLIST.color,order:tkNextListOrder()});
+    }else{
+      var l=tkFindList(TKLIST.id);
+      l.name=name;l.color=TKLIST.color;
+    }
+    tkSave();tkCloseListEditor();
+    if(newId){TKU.view="list";TKU.list=newId;TKU.quickList=newId;}
+    tkWriteUi();tkRenderAll();
+    toast("已保存分组");
+  }
+  function tkDeleteList(){
+    if(!TKLIST||TKLIST.isNew)return;
+    if(TKLIST.id==="inbox"){toast("默认分组不能删除");return;}
+    var id=TKLIST.id,cnt=tkItems().filter(function(t){return t.list===id;}).length;
+    if(!confirm(cnt?("删除分组？其中 "+cnt+" 项任务会移到「任务」"):"删除这个分组？"))return;
+    var arr=tkItems();
+    for(var i=0;i<arr.length;i++)if(arr[i].list===id)arr[i].list="inbox";
+    var ls=tkLists();
+    for(var j=ls.length-1;j>=0;j--)if(ls[j].id===id)ls.splice(j,1);
+    if(TKU.view==="list"&&TKU.list===id){TKU.view="all";TKU.list="inbox";}
+    tkSave();tkCloseListEditor();tkWriteUi();tkRenderAll();toast("已删除分组");
+  }
+
+  /* ---------------- 更多菜单 ---------------- */
+  function tkBuildMenu(){
+    var box=$("#tkMenuRows");if(!box)return;
+    var h="";
+    h+='<button class="tk-mrow" type="button" data-tkm="new">'+tkIco("plus")+'<span>新建任务</span></button>';
+    if(TKU.view==="list"&&TKU.list!=="inbox"){
+      h+='<button class="tk-mrow" type="button" data-tkm="editlist">'+tkIco("edit")+'<span>编辑分组「'+esc(tkFindList(TKU.list).name)+'」</span></button>';
+    }
+    h+='<button class="tk-mrow" type="button" data-tkm="img">'+tkIco("image")+'<span>导出任务图片</span><span class="tk-k">PNG</span></button>';
+    h+='<button class="tk-mrow" type="button" data-tkm="ics">'+tkIco("calendar")+'<span>导出日历</span><span class="tk-k">.ics</span></button>';
+    h+='<button class="tk-mrow" type="button" data-tkm="remind">'+tkIco("bell")+'<span>提醒设置</span></button>';
+    h+='<button class="tk-mrow" type="button" data-tkm="export">'+tkIco("download")+'<span>备份任务</span><span class="tk-k">.json</span></button>';
+    h+='<button class="tk-mrow" type="button" data-tkm="import">'+tkIco("upload")+'<span>恢复任务</span><span class="tk-k">.json</span></button>';
+    h+='<button class="tk-mrow danger" type="button" data-tkm="clear">'+tkIco("trash")+'<span>清除已完成</span></button>';
+    box.innerHTML=h;
+  }
+  function tkOpenMenu(){tkBuildMenu();tkOpenModal("#tkMenu");}
+  function tkCloseMenu(){tkCloseModal("#tkMenu");}
+  function tkClearDone(){
+    var done=tkItems().filter(function(t){return t.done;});
+    if(!done.length){toast("没有已完成任务");return;}
+    if(!confirm("清除已完成任务（"+done.length+" 项）？"))return;
+    D.d.task.items=tkItems().filter(function(t){return !t.done;});
+    tkSave();tkRenderAll();toast("已清除 "+done.length+" 项");
+  }
+  function tkMenuAction(k){
+    tkCloseMenu();
+    if(k==="new"){tkOpenEditor("");return;}
+    if(k==="editlist"){tkOpenListEditor(TKU.list);return;}
+    if(k==="img"){tkExportImage();return;}
+    if(k==="ics"){tkExportIcs();return;}
+    if(k==="remind"){tkOpenRemind();return;}
+    if(k==="export"){tkExportJson();return;}
+    if(k==="import"){var f=$("#tkImportFile");if(f)f.click();return;}
+    if(k==="clear"){tkClearDone();return;}
+  }
+
+  /* ---------------- 提醒设置 / 系统通知 ---------------- */
+  function tkOpenRemind(){tkRenderRemind();tkOpenModal("#tkRemindPanel");}
+  function tkCloseRemind(){tkCloseModal("#tkRemindPanel");}
+  function tkRenderRemind(){
+    var el=$("#tkRemindState"),btn=$("#tkRemindEnable");
+    var supported=(typeof window.Notification!=="undefined"&&!!window.Notification);
+    var secure=(window.isSecureContext!==false);
+    var perm=supported?String(window.Notification.permission||"default"):"unsupported";
+    var cls="",txt="",label="",disabled=false;
+    if(!supported){cls="err";txt="当前浏览器不支持系统通知 · 页内提醒仍可用";label="不支持系统通知";disabled=true;}
+    else if(!secure){cls="warn";txt="非 HTTPS 连接 · 系统通知不可用，使用页内提醒";label="仅页内提醒";disabled=true;}
+    else if(perm==="denied"){cls="err";txt="系统通知权限已被拒绝 · 请在浏览器站点设置中允许";label="权限已拒绝";disabled=true;}
+    else if(perm==="granted"){cls="ok";txt="系统通知已开启 · 提醒会同时弹出系统通知";label="已开启";disabled=true;}
+    else{cls="warn";txt="系统通知未开启 · 目前仅页内提醒";label="开启系统通知";}
+    if(el){el.className="tk-remind-state"+(cls?" "+cls:"");el.textContent=txt;}
+    if(btn){btn.textContent=label;btn.hidden=disabled;btn.disabled=disabled;}
+    var snd=$("#tkRemindSound");if(snd)snd.checked=TKU.sound!==false;
+    var dr=$("#tkRemindDefault");if(dr)dr.value=tkPrefs().defaultRemind||"none";
+  }
+  function tkRequestNotify(){
+    if(typeof window.Notification==="undefined"||!window.Notification){toast("当前浏览器不支持系统通知");return;}
+    if(window.isSecureContext===false){toast("仅 HTTPS 页面可申请系统通知");return;}
+    if(window.Notification.permission==="denied"){toast("通知权限已被拒绝，请在浏览器设置中允许");return;}
+    if(window.Notification.permission==="granted"){tkRenderRemind();return;}
+    try{
+      window.Notification.requestPermission().then(function(res){
+        tkRenderRemind();
+        toast(String(res)==="granted"?"已开启系统通知":"未授予通知权限");
+      },function(){toast("通知权限申请失败");});
+    }catch(e){toast("通知权限申请失败");}
+  }
+  function tkNotifySystem(title,body,tag){
+    try{
+      if(typeof window.Notification==="undefined"||!window.Notification)return false;
+      if(String(window.Notification.permission||"")!=="granted")return false;
+      if(window.isSecureContext===false)return false;
+      var n=new window.Notification(title,{body:String(body||""),tag:String(tag||"zq-task"),renotify:true});
+      n.onclick=function(){try{window.focus();}catch(e){}try{n.close();}catch(e){}};
+      return true;
+    }catch(e){return false;}
+  }
+  function tkBeep(){
+    if(TKU.sound===false)return;
+    try{
+      var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+      var ctx=new AC(),o=ctx.createOscillator(),g=ctx.createGain();
+      o.type="sine";o.frequency.value=880;g.gain.value=.04;
+      o.connect(g);g.connect(ctx.destination);o.start();
+      setTimeout(function(){try{o.stop();}catch(e){}try{ctx.close();}catch(e){}},160);
+    }catch(e){}
+  }
+  function tkTestRemind(){
+    var ok=tkNotifySystem("任务提醒 · 测试","收到这条提醒说明系统通知可用","zq-task-test");
+    tkBeep();
+    toast(ok?"已发送系统提醒":"已发送页内提醒");
+  }
+
+  /* ---------------- 提醒调度 ---------------- */
+  function tkBarMeta(t){
+    var d=tkDueMeta(t),parts=[];
+    if(d)parts.push(d.txt);
+    if(t.remindAt)parts.push("提醒 "+tkFmtFull(t.remindAt));
+    return parts.join(" · ");
+  }
+  function tkShowNextReminder(){
+    if(document.hidden||TK_RB.cur)return;
+    while(TK_RB.queue.length){
+      var id=TK_RB.queue.shift(),t=tkFindTask(id);
+      if(!t||t.done)continue;
+      TK_RB.cur=id;
+      if($("#tkRbTitle"))$("#tkRbTitle").textContent=t.title;
+      if($("#tkRbMeta"))$("#tkRbMeta").textContent=tkBarMeta(t);
+      var bar=$("#tkRemindBar");if(bar)bar.hidden=false;
+      return;
+    }
+  }
+  function tkHideBar(){
+    var bar=$("#tkRemindBar");if(bar)bar.hidden=true;
+    TK_RB.cur="";
+    setTimeout(function(){try{tkShowNextReminder();}catch(e){}},260);
+  }
+  function tkQueueReminder(t){
+    if(!t)return;
+    if(TK_RB.cur===t.id)return;
+    if(TK_RB.queue.indexOf(t.id)<0)TK_RB.queue.push(t.id);
+    tkShowNextReminder();
+  }
+  function tkOnBar(action){
+    var t=TK_RB.cur?tkFindTask(TK_RB.cur):null;
+    if(!t){tkHideBar();return;}
+    if(action==="done"){
+      tkSetDone(t,true);tkHideBar();tkRenderAll();
+      return;
+    }
+    if(action==="snooze"){
+      t.snoozeUntil=Date.now()+10*60000;t.lastNotifyAt=Date.now();t.updatedAt=Date.now();
+      tkSave();tkHideBar();toast("10 分钟后提醒");
+      return;
+    }
+    t.lastNotifyAt=Date.now();t.snoozeUntil=0;t.updatedAt=Date.now();
+    tkSave();tkHideBar();
+  }
+  function tkCheckReminders(){
+    var arr=tkItems(),now=Date.now(),fired=[],changed=false;
+    arr.forEach(function(t){
+      if(t.done||!t.remindAt)return;
+      if(t.remindAt>now)return;
+      if(t.snoozeUntil){
+        if(now<t.snoozeUntil)return;
+      }else if(t.lastNotifyAt&&t.lastNotifyAt>=t.remindAt){
+        return;
+      }
+      t.lastNotifyAt=now;t.snoozeUntil=0;t.updatedAt=now;
+      fired.push(t);changed=true;
+    });
+    if(changed)tkSave();
+    fired.forEach(function(t,i){
+      if(i<3)tkNotifySystem("任务提醒 · "+t.title,tkBarMeta(t),"zq-task-"+t.id);
+      tkQueueReminder(t);
+    });
+    if(fired.length)tkBeep();
+    if(TKU.today!==tkToday()){
+      TKU.today=tkToday();
+      try{tkRenderAll();}catch(e){}
+    }
+  }
+
+  /* ---------------- 导出：日历 / 图片 / JSON ---------------- */
+  function tkDownload(name,text,mime){
+    try{
+      var blob=new Blob([text],{type:mime||"application/octet-stream"});
+      if(window.navigator&&window.navigator.msSaveBlob){window.navigator.msSaveBlob(blob,name);return true;}
+      var url=URL.createObjectURL(blob),a=document.createElement("a");
+      a.href=url;a.download=name;a.rel="noopener";
+      a.style.cssText="position:fixed;left:-9999px;top:-9999px;width:0;height:0;overflow:hidden";
+      document.body.appendChild(a);a.click();
+      setTimeout(function(){try{a.parentNode.removeChild(a);}catch(e){}try{URL.revokeObjectURL(url);}catch(e){}},1200);
+      return true;
+    }catch(e){toast("导出失败");return false;}
+  }
+  function tkU8(s){
+    if(typeof window.TextEncoder!=="undefined"){
+      try{return new window.TextEncoder().encode(s).length;}catch(e){}
+    }
+    var n=0,i,c;
+    for(i=0;i<s.length;i++){
+      c=s.charCodeAt(i);
+      if(c<128)n+=1;else if(c<2048)n+=2;else if(c>=0xD800&&c<=0xDBFF){n+=4;i++;}else n+=3;
+    }
+    return n;
+  }
+  function tkIcsFold(line){
+    line=String(line==null?"":line);
+    if(tkU8(line)<=75)return line;
+    var out="",cur="",i,ch;
+    for(i=0;i<line.length;i++){
+      ch=line.charAt(i);
+      if(tkU8(cur+ch)>75){out+=cur+"\r\n ";cur=" "+ch;}
+      else cur+=ch;
+    }
+    return out+cur;
+  }
+  function tkIcsEsc(s){
+    return String(s==null?"":s).replace(/\\/g,"\\\\").replace(/\r?\n/g,"\\n").replace(/;/g,"\\;").replace(/,/g,"\\,");
+  }
+  function tkIcsLocal(ms){
+    var d=new Date(ms);
+    return d.getFullYear()+tkPad(d.getMonth()+1)+tkPad(d.getDate())+"T"+tkPad(d.getHours())+tkPad(d.getMinutes())+tkPad(d.getSeconds());
+  }
+  function tkIcsDate(ms){
+    var d=new Date(ms);
+    return d.getFullYear()+tkPad(d.getMonth()+1)+tkPad(d.getDate());
+  }
+  function tkIcsUtc(ms){
+    var d=new Date(ms);
+    return d.getUTCFullYear()+tkPad(d.getUTCMonth()+1)+tkPad(d.getUTCDate())+"T"+tkPad(d.getUTCHours())+tkPad(d.getUTCMinutes())+tkPad(d.getUTCSeconds())+"Z";
+  }
+  function tkIcsText(){
+    var arr=tkItems().filter(function(t){return !t.done&&(t.due||t.remindAt);});
+    if(!arr.length)return "";
+    var lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//ClassTools//Tasks//CN","CALSCALE:GREGORIAN","METHOD:PUBLISH",
+      "X-WR-CALNAME:班级工具 · 任务","X-WR-TIMEZONE:Asia/Shanghai"];
+    var stamp=tkIcsUtc(Date.now());
+    arr.forEach(function(t){
+      var start=t.due?taskParseDue(t.due,t.dueTime):Number(t.remindAt)||0;
+      if(!start)return;
+      var allDay=!!(t.due&&!taskTimeOk(t.dueTime));
+      var end=allDay?start+86400000:start+3600000;
+      var l=tkFindList(t.list);
+      var desc=[];
+      if(t.notes)desc.push(t.notes);
+      if((t.steps||[]).length)desc.push((t.steps||[]).map(function(s){return (s.done?"[x] ":"[ ] ")+s.text;}).join("\n"));
+      desc.push("分组："+l.name);
+      if((t.tags||[]).length)desc.push("标签："+t.tags.join("、"));
+      lines.push("BEGIN:VEVENT");
+      lines.push("UID:"+t.id+"@tool.furina.fun");
+      lines.push("DTSTAMP:"+stamp);
+      lines.push("LAST-MODIFIED:"+stamp);
+      if(allDay){
+        lines.push("DTSTART;VALUE=DATE:"+tkIcsDate(start));
+        lines.push("DTEND;VALUE=DATE:"+tkIcsDate(end));
+      }else{
+        lines.push("DTSTART:"+tkIcsLocal(start));
+        lines.push("DTEND:"+tkIcsLocal(end));
+      }
+      lines.push("SUMMARY:"+tkIcsEsc(t.title));
+      lines.push("DESCRIPTION:"+tkIcsEsc(desc.join("\n")));
+      var cats=[l.name].concat(t.tags||[]);
+      if(cats.length)lines.push("CATEGORIES:"+tkIcsEsc(cats.join(",")));
+      if(t.starred)lines.push("PRIORITY:1");
+      if(t.remindAt){
+        lines.push("BEGIN:VALARM");
+        lines.push("ACTION:DISPLAY");
+        lines.push("DESCRIPTION:"+tkIcsEsc(t.title));
+        lines.push("TRIGGER;VALUE=DATE-TIME:"+tkIcsUtc(t.remindAt));
+        lines.push("END:VALARM");
+      }
+      lines.push("END:VEVENT");
+    });
+    lines.push("END:VCALENDAR");
+    return lines.map(tkIcsFold).join("\r\n")+"\r\n";
+  }
+  function tkExportIcs(){
+    var txt=tkIcsText();
+    if(!txt){toast("没有可导出的日程");return;}
+    tkDownload("班级工具任务_"+taskYmd(new Date()).replace(/-/g,"")+".ics",txt,"text/calendar;charset=utf-8");
+    toast("已导出日历");
+  }
+  function tkExportJson(){
+    try{
+      var payload={app:"tool.furina.fun",kind:"task-backup",v:1,exportedAt:new Date().toISOString(),
+        lists:JSON.parse(JSON.stringify(tkLists())),items:JSON.parse(JSON.stringify(tkItems())),
+        prefs:JSON.parse(JSON.stringify(tkPrefs()))};
+      tkDownload("班级工具任务_"+taskYmd(new Date()).replace(/-/g,"")+".json",
+        JSON.stringify(payload,null,2),"application/json;charset=utf-8");
+      toast("已导出任务备份");
+    }catch(e){toast("导出失败");}
+  }
+  function tkImportPayload(obj){
+    var src=null;
+    if(obj&&obj.kind==="task-backup"&&obj.lists&&obj.items)src={lists:obj.lists,items:obj.items,prefs:obj.prefs};
+    else if(obj&&obj.task&&typeof obj.task==="object")src=obj.task;
+    else if(obj&&obj.lists&&obj.items)src=obj;
+    if(!src){toast("不是任务备份文件");return;}
+    var norm=taskNormData(src),added=0,addedLists=0,map={};
+    norm.lists.forEach(function(l){
+      if(l.id==="inbox"){map.inbox="inbox";return;}
+      var ex=tkFindListExact(l.id);
+      if(ex){map[l.id]=ex.id;return;}
+      var byName=tkLists().filter(function(x){return x.name===l.name;})[0];
+      if(byName){map[l.id]=byName.id;return;}
+      var nid=taskNewId("l");
+      tkLists().push({id:nid,name:l.name,color:l.color,order:tkNextListOrder()});
+      map[l.id]=nid;addedLists++;
+    });
+    norm.items.forEach(function(it){
+      it.list=map[it.list]||"inbox";
+      var ex=tkFindTask(it.id);
+      if(ex){if(ex.title===it.title)return;it.id=taskNewId("t");}
+      tkItems().push(it);added++;
+    });
+    tkSave();tkRenderAll();
+    toast("已恢复 "+added+" 项"+(addedLists?(" · "+addedLists+" 个分组"):""));
+  }
+  function tkExportImage(){
+    try{
+      var q=TKU.search.trim();
+      var arr=q?tkSearchItems(q):tkBaseItems();
+      if(TKU.view==="done"&&!q)arr=tkItems().filter(function(t){return t.done;});
+      if(!arr.length){toast("没有可导出的任务");return;}
+      arr=tkSortItems(arr).slice(0,100);
+      var title=tkViewTitle();
+      var lines=arr.map(function(t){
+        var d=tkDueMeta(t);
+        return (t.done?"✓ ":"○ ")+t.title+(d?("  ·  "+d.txt):"")+(TKU.view==="list"?"":("  ·  "+tkFindList(t.list).name));
+      });
+      var blocks=[],i;
+      for(i=0;i<lines.length;i+=9)blocks.push({label:(i===0?title:"续"),lines:lines.slice(i,i+9)});
+      exportCard({title:"任务清单"+(TKU.view==="done"?"（已完成）":"（未完成）"),sub:"Tasks",
+        file:safeName("任务清单_"+stamp()+"_"+title+"_"+arr.length+"项")+".png",rec:recId("TASK"),
+        config:[["视图",title],["条目",String(arr.length)],["已完成",String(tkSmartCount("done"))],["导出时间",timeStr()]],
+        blocks:blocks,foot:"生成时间 "+timeStr()});
+    }catch(e){toast("导出失败");}
+  }
+
+  /* ---------------- 事件绑定 ---------------- */
+  function tkIsOpen(id){var m=$(id);return !!(m&&m.style.display!=="none"&&!m.hidden);}
+  function tkToggleSearch(force){
+    var wrap=$("#tkSearchWrap");if(!wrap)return;
+    var show=(force===undefined)?wrap.hidden:!!force;
+    TKU.searchOpen=show;wrap.hidden=!show;
+    if(show){
+      setTimeout(function(){try{$("#tkSearch").focus();}catch(e){}},30);
+    }else{
+      TKU.search="";
+      if($("#tkSearch"))$("#tkSearch").value="";
+      tkRenderList();
+    }
+  }
+  function tkSetView(view,list){
+    if(["myday","important","planned","all","done","list"].indexOf(view)<0)view="myday";
+    if(view==="list"&&!tkFindList(list))view="myday";
+    TKU.view=view;
+    if(view==="list"){TKU.list=list||"inbox";TKU.quickList=TKU.list;}
+    TKU.search="";TKU.searchOpen=false;
+    if($("#tkSearch"))$("#tkSearch").value="";
+    if($("#tkSearchWrap"))$("#tkSearchWrap").hidden=true;
+    TKU.doneOpen=false;
+    tkWriteUi();tkRenderAll();
+  }
+  function tkOpenTagSearch(tag){
+    TKU.search=String(tag||"");
+    if($("#tkSearch"))$("#tkSearch").value=TKU.search;
+    if($("#tkSearchWrap"))$("#tkSearchWrap").hidden=false;
+    TKU.searchOpen=true;tkRenderList();
+  }
+  function tkOnListClick(e){
+    var c=tkClosest(e.target,"[data-tkcheck]");
+    if(c){
+      var t1=tkFindTask(c.getAttribute("data-tkcheck"));
+      if(t1){
+        var nx=tkSetDone(t1,!t1.done);
+        if(nx&&nx.due)toast("已完成 · 下次 "+nx.due.slice(5));
+        tkRenderAll();
+      }
+      e.preventDefault();e.stopPropagation();return;
+    }
+    var s=tkClosest(e.target,"[data-tkstar]");
+    if(s){
+      tkToggleStar(tkFindTask(s.getAttribute("data-tkstar")));
+      e.preventDefault();e.stopPropagation();return;
+    }
+    var g=tkClosest(e.target,"[data-tktag]");
+    if(g){
+      tkOpenTagSearch(g.getAttribute("data-tktag"));
+      e.preventDefault();e.stopPropagation();return;
+    }
+    var row=tkClosest(e.target,"[data-tkopen]");
+    if(row){tkOpenEditor(row.getAttribute("data-tkopen"));e.preventDefault();}
+  }
+  function tkBind(){
+    if(tkBound)return;tkBound=true;
+    var seg=$("#tkSeg");
+    if(seg)seg.addEventListener("click",function(e){
+      var b=tkClosest(e.target,"[data-tkseg]");if(!b)return;
+      tkSetSeg(b.getAttribute("data-tkseg"));
+    });
+    var smart=$("#tkSmart");
+    if(smart)smart.addEventListener("click",function(e){
+      var b=tkClosest(e.target,"[data-tkview]");if(!b)return;
+      tkSetView(b.getAttribute("data-tkview"),"");
+    });
+    var lists=$("#tkLists");
+    if(lists)lists.addEventListener("click",function(e){
+      var nl=tkClosest(e.target,"[data-tknewlist]");
+      if(nl){tkOpenListEditor("");return;}
+      var b=tkClosest(e.target,"[data-tkview='list']");if(!b)return;
+      tkSetView("list",b.getAttribute("data-tklist"));
+    });
+    var more=$("#tkMore");if(more)more.addEventListener("click",tkOpenMenu);
+    var bk=$("#tkBk");if(bk)bk.addEventListener("click",tkOpenMenu);
+    var ics=$("#tkIcs");if(ics)ics.addEventListener("click",tkExportIcs);
+    var le=$("#tkListEdit");if(le)le.addEventListener("click",function(){tkOpenListEditor(TKU.list);});
+    var sb=$("#tkSearchBtn");if(sb)sb.addEventListener("click",function(){tkToggleSearch();});
+    var sc=$("#tkSearchClear");if(sc)sc.addEventListener("click",function(){
+      TKU.search="";if($("#tkSearch"))$("#tkSearch").value="";tkRenderList();
+    });
+    var si=$("#tkSearch");if(si)si.addEventListener("input",function(){
+      TKU.search=String(this.value||"");tkRenderList();
+    });
+    si&&si.addEventListener("keydown",function(e){
+      if(e.key==="Escape"){e.preventDefault();tkToggleSearch(false);}
+    });
+    var sort=$("#tkSort");if(sort)sort.addEventListener("change",function(){
+      TKU.sort=this.value||"default";tkWriteUi();tkRenderList();
+    });
+    var qa=$("#tkQuickAdd");if(qa)qa.addEventListener("click",tkAddQuick);
+    var qi=$("#tkQuick");
+    if(qi){
+      qi.addEventListener("keydown",function(e){
+        if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();tkAddQuick();}
+      });
+    }
+    var qs=$("#tkQuickStar");if(qs)qs.addEventListener("click",function(){
+      TKU.quickStar=!TKU.quickStar;tkWriteUi();tkRenderQuickState();
+    });
+    var qd=$("#tkQuickDueBtn");
+    if(qd)qd.addEventListener("click",function(){
+      var row=$("#tkQuickDateRow");if(!row)return;
+      var show=row.hidden;
+      row.hidden=!show;qd.setAttribute("aria-expanded",show?"true":"false");
+      if(show)setTimeout(function(){try{$("#tkQuickDate").focus();}catch(e){}},30);
+    });
+    var qdc=$("#tkQuickDateClear");if(qdc)qdc.addEventListener("click",function(){
+      if($("#tkQuickDate"))$("#tkQuickDate").value="";
+      if($("#tkQuickTime"))$("#tkQuickTime").value="";
+      tkRenderQuickState();
+    });
+    var qdo=$("#tkQuickDateOk");if(qdo)qdo.addEventListener("click",function(){
+      var row=$("#tkQuickDateRow");if(row)row.hidden=true;
+      if(qd)qd.setAttribute("aria-expanded","false");
+      tkRenderQuickState();
+    });
+    var ql=$("#tkQuickList");if(ql)ql.addEventListener("change",function(){
+      TKU.quickList=this.value||"inbox";tkWriteUi();
+    });
+    var dt=$("#tkDoneToggle");if(dt)dt.addEventListener("click",function(){
+      TKU.doneOpen=!TKU.doneOpen;tkWriteUi();tkRenderList();
+    });
+    var lb=$("#tkList");if(lb)lb.addEventListener("click",tkOnListClick);
+    var dl=$("#tkDoneList");if(dl)dl.addEventListener("click",tkOnListClick);
+
+    /* 更多菜单 */
+    var mc=$("#tkMenuClose");if(mc)mc.addEventListener("click",tkCloseMenu);
+    var mm=$("#tkMenu");if(mm)mm.addEventListener("click",function(e){if(e.target===mm)tkCloseMenu();});
+    var mr=$("#tkMenuRows");if(mr)mr.addEventListener("click",function(e){
+      var b=tkClosest(e.target,"[data-tkm]");if(b)tkMenuAction(b.getAttribute("data-tkm"));
+    });
+
+    /* 任务编辑 */
+    var fc=$("#tkFClose");if(fc)fc.addEventListener("click",tkCloseEditor);
+    var fca=$("#tkFCancel");if(fca)fca.addEventListener("click",tkCloseEditor);
+    var fp=$("#tkPanel");if(fp)fp.addEventListener("click",function(e){if(e.target===fp)tkCloseEditor();});
+    var fs=$("#tkFSave");if(fs)fs.addEventListener("click",tkSaveEditor);
+    var fd=$("#tkFDelete");if(fd)fd.addEventListener("click",tkDeleteEditor);
+    var fdone=$("#tkFDone");if(fdone)fdone.addEventListener("click",function(){
+      if(!TKED)return;TKED.done=!TKED.done;tkSyncEditorChips();
+    });
+    var fstar=$("#tkFStar");if(fstar)fstar.addEventListener("click",function(){
+      if(!TKED)return;TKED.starred=!TKED.starred;tkSyncEditorChips();
+    });
+    var fmy=$("#tkFMyDay");if(fmy)fmy.addEventListener("click",function(){
+      if(!TKED)return;TKED.myDay=!TKED.myDay;tkSyncEditorChips();
+    });
+    var fdc=$("#tkFDateClear");if(fdc)fdc.addEventListener("click",function(){
+      if($("#tkFDate"))$("#tkFDate").value="";
+      if($("#tkFTime"))$("#tkFTime").value="";
+      var r=$("#tkFRemind");
+      if(r&&r.value!=="none"&&r.value!=="custom"){r.value="none";}
+      if($("#tkFRemindCustom"))$("#tkFRemindCustom").hidden=true;
+    });
+    var fdate=$("#tkFDate");
+    if(fdate)fdate.addEventListener("change",function(){
+      if(TKED&&TKED.isNew&&this.value&&$("#tkFRemind")&&$("#tkFRemind").value==="none"){
+        var dr=tkPrefs().defaultRemind;
+        if(dr&&dr!=="none"&&dr!=="custom"){
+          $("#tkFRemind").value=dr;
+        }
+      }
+    });
+    var fr=$("#tkFRemind");if(fr)fr.addEventListener("change",function(){
+      var custom=$("#tkFRemindCustom");
+      if(custom){
+        custom.hidden=this.value!=="custom";
+        if(this.value==="custom"&&!custom.value)custom.value=tkToLocalInput(Date.now()+3600000);
+      }
+    });
+    var fsteps=$("#tkFSteps");
+    if(fsteps){
+      fsteps.addEventListener("click",function(e){
+        if(!TKED)return;
+        var d=tkClosest(e.target,"[data-tkstepdone]");
+        if(d){var i=+d.getAttribute("data-tkstepdone");if(TKED.steps[i]){TKED.steps[i].done=!TKED.steps[i].done;tkRenderSteps();}return;}
+        var x=tkClosest(e.target,"[data-tkstepdel]");
+        if(x){var j=+x.getAttribute("data-tkstepdel");TKED.steps.splice(j,1);tkRenderSteps();return;}
+      });
+      fsteps.addEventListener("input",function(e){
+        var inp=tkClosest(e.target,"[data-tksteptext]");if(!inp||!TKED)return;
+        var i=+inp.getAttribute("data-tksteptext");if(TKED.steps[i])TKED.steps[i].text=inp.value;
+      });
+    }
+    var fsa=$("#tkFStepAddBtn");if(fsa)fsa.addEventListener("click",tkAddStep);
+    var fsi=$("#tkFStepAdd");if(fsi)fsi.addEventListener("keydown",function(e){
+      if(e.key==="Enter"&&!e.isComposing){e.preventDefault();tkAddStep();}
+    });
+
+    /* 分组编辑 */
+    var lc=$("#tkLClose");if(lc)lc.addEventListener("click",tkCloseListEditor);
+    var lca=$("#tkLCancel");if(lca)lca.addEventListener("click",tkCloseListEditor);
+    var lp=$("#tkListPanel");if(lp)lp.addEventListener("click",function(e){if(e.target===lp)tkCloseListEditor();});
+    var ls=$("#tkLSave");if(ls)ls.addEventListener("click",tkSaveList);
+    var ld=$("#tkLDelete");if(ld)ld.addEventListener("click",tkDeleteList);
+    var lcolors=$("#tkLColors");
+    if(lcolors)lcolors.addEventListener("click",function(e){
+      var b=tkClosest(e.target,"[data-tkc]");if(!b||!TKLIST)return;
+      TKLIST.color=b.getAttribute("data-tkc");tkRenderListColors();
+    });
+    var lname=$("#tkLName");if(lname)lname.addEventListener("keydown",function(e){
+      if(e.key==="Enter"&&!e.isComposing){e.preventDefault();tkSaveList();}
+    });
+
+    /* 提醒设置 */
+    var rc=$("#tkRemindClose");if(rc)rc.addEventListener("click",tkCloseRemind);
+    var rp=$("#tkRemindPanel");if(rp)rp.addEventListener("click",function(e){if(e.target===rp)tkCloseRemind();});
+    var re=$("#tkRemindEnable");if(re)re.addEventListener("click",tkRequestNotify);
+    var rt=$("#tkRemindTest");if(rt)rt.addEventListener("click",tkTestRemind);
+    var rs=$("#tkRemindSound");if(rs)rs.addEventListener("change",function(){
+      TKU.sound=!!this.checked;tkWriteUi();if(this.checked)tkBeep();
+    });
+    var rd=$("#tkRemindDefault");if(rd)rd.addEventListener("change",function(){
+      tkPrefs().defaultRemind=this.value||"none";tkSave();
+    });
+
+    /* 提醒横幅 */
+    var rb=$("#tkRemindBar");if(rb)rb.addEventListener("click",function(e){
+      var b=tkClosest(e.target,"[data-tkrb]");if(b)tkOnBar(b.getAttribute("data-tkrb"));
+    });
+
+    /* 导入 */
+    var imp=$("#tkImportFile");
+    if(imp)imp.addEventListener("change",function(){
+      var f=this.files&&this.files[0];if(!f)return;
+      var self=this;
+      var r=new FileReader();
+      r.onload=function(){
+        try{tkImportPayload(JSON.parse(String(r.result||"")));}
+        catch(e){toast("备份文件解析失败");}
+        try{self.value="";}catch(e){}
+      };
+      r.onerror=function(){toast("读取文件失败");try{self.value="";}catch(e){}};
+      r.readAsText(f,"utf-8");
+    });
+
+    /* 键盘：Esc 关最上层；Ctrl/Cmd+Enter 保存任务 */
+    document.addEventListener("keydown",function(e){
+      var k=String(e.key||"");
+      if(k==="Escape"||k==="Esc"){
+        if(tkIsOpen("#tkRemindPanel")){tkCloseRemind();e.preventDefault();return;}
+        if(tkIsOpen("#tkListPanel")){tkCloseListEditor();e.preventDefault();return;}
+        if(tkIsOpen("#tkPanel")){tkCloseEditor();e.preventDefault();return;}
+        if(tkIsOpen("#tkMenu")){tkCloseMenu();e.preventDefault();return;}
+        if(TKU.searchOpen){tkToggleSearch(false);e.preventDefault();return;}
+        return;
+      }
+      if((e.ctrlKey||e.metaKey)&&k==="Enter"&&tkIsOpen("#tkPanel")){e.preventDefault();tkSaveEditor();}
+    });
+
+    document.addEventListener("visibilitychange",function(){
+      if(document.hidden)return;
+      try{tkCheckReminders();}catch(e){}
+      try{tkShowNextReminder();}catch(e){}
+      if(TKU.today!==tkToday()){TKU.today=tkToday();try{tkRenderAll();}catch(e){}}
+    });
+    window.addEventListener("focus",function(){
+      try{tkShowNextReminder();}catch(e){}
+    });
+  }
+
+  function tkInit(){
+    try{tkReadUi();}catch(e){}
+    try{tkBind();}catch(e){}
+    try{tkRefresh();}catch(e){}
+    setTimeout(function(){try{tkCheckReminders();}catch(e){}},2200);
+    setInterval(function(){try{tkCheckReminders();}catch(e){}},20000);
+    /* 班级作业渲染后更新班级角标；进入班级后重绘任务页 */
+    try{
+      if(typeof renderHW==="function"){
+        var _renderHW=renderHW;
+        renderHW=function(){
+          var r=_renderHW.apply(this,arguments);
+          try{tkClassChanged();}catch(e){}
+          return r;
+        };
+      }
+    }catch(e){}
+    try{
+      if(typeof enterClass==="function"){
+        var _enterClass=enterClass;
+        enterClass=function(){
+          var r=_enterClass.apply(this,arguments);
+          try{tkRefresh();}catch(e){}
+          return r;
+        };
+      }
+    }catch(e){}
+  }
+
+  tkInit();
+
+  return {
+    refresh:tkRefresh,
+    enter:tkEnter,
+    open:tkOpenEditor,
+    openList:tkOpenListEditor,
+    setSeg:tkSetSeg,
+    setView:tkSetView,
+    tick:tkCheckReminders,
+    ics:tkIcsText,
+    metaText:tkMetaText,
+    classPending:tkClassPending,
+    items:function(){return tkItems();},
+    lists:function(){return tkLists();},
+    state:function(){
+      return {seg:TKU.seg,view:TKU.view,list:TKU.list,sort:TKU.sort,search:TKU.search,
+        today:TKU.today,items:tkItems().length,done:tkSmartCount("done"),
+        myday:tkSmartCount("myday"),planned:tkSmartCount("planned"),important:tkSmartCount("important"),
+        classPending:tkClassPending(),remindQueue:TK_RB.queue.length,remindCur:TK_RB.cur};
+    }
+  };
+})();
+try{window.TASK=TK;}catch(e){}
+
 })();
 </script>
 </body>
