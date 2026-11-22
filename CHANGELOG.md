@@ -2,6 +2,32 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-22 17:0x–17:2x · 通知附件「待获取」误报修复（网页 + 数据管线）
+
+> 用户反馈：「有的我已经下载获取了还是显示待获取」。
+
+- **根因（4 类）**：① 文件条目可能把 data URI 放在 `src` 而非 `url`（示例附件），模板只看 `url` → 误标；
+  ② 压缩包已解压识别（`archiveOk`）后原包仍无 `url`，管理页把原包和 3 个包内文件都当成待获取；
+  ③ 本机 `data/qq-files` 已有字节但超过 1.5MB 内嵌上限（榕疾控 PDF 1.9MB / 6.0MB），builder 返回空 `url` 且无标记；
+  ④ 微信群 36MB pptx 已在微信 `msg/file`，但超过 30MB 导入上限 / 1.5MB 内嵌上限，前端无从得知已下载。
+- **数据管线**：builder 新增 `apply_file_presence()`——按 `data/qq-files` → 微信媒体落地目录 → 本机下载目录
+  依次确认字节，写入 `present/localSize`（不再带 `pending`）；`sync_notices_cloud.compact_group` 对 `present`
+  的附件剥离 `pending`。通知模板：文件 `furl=it.url||it.src`，`present` 分支显示 **已获取**（未内嵌），
+  `openFile` 同样兼容 `src`；压缩包保持 **已识别**。
+- **管理页**：`pending_files()` 只列真正需要去群里拿的文件——跳过 `url/src/present`、压缩包已识别、
+  微信媒体已落地、`data/qq-files` 已有、下载目录已有（尚未导入也算用户已下载）；不再单独列包内文件。
+  管理页待获取 **12 → 1**（只剩确实未下载的 `民族器乐大赛招募志愿者名单.xlsx`）。
+- **测试**：真实 board 轻量渲染（7 张卡）只剩 1 个「待获取」徽标，6 个「已获取/已识别」；`v2_notice_fix_check`
+  **11/11**、`v2_notice_data_check` **27/27**、`v2_nt_admin_check` **65/65**；云端通知 body 已确认
+  `present=true` 且 `pending` 已移除。
+- **上线**：网页 **1,605,566 B / sha256 `7753daeeb2f1dacf4948925f158d12776b0135bd0ffe3f49a9d503d16ebbb7a5`**
+  （OSS 与 ECS 均为该字节；用 **HEAD + 新模板** 合成，避免把并行会话未提交的任务 UI 改动带上线）。
+  部署前线上备份 `tools/_backup/index_online_20261122-1723_prePresentFix.html`（1,604,750 B / `b0508020…`）。
+- **回滚**：重传上述备份 + `ecs_site.py apply`；数据侧回退 builder 的 `apply_file_presence` 与模板分支
+  （`sync_notices_cloud.py` 下次同步即恢复原样）。
+- **已知取舍**：36MB 微信群文件只标「已获取」，网页仍不提供下载（超过内嵌/导入上限，原件在微信
+  `msg/file`）；要在线提供需接 ECS 附件外置服务（`NOTICE_ATTACH_EXTERNALIZE=1`，尚未开启）。
+
 ## 2026-11-22 16:0x–16:5x · 通知管理（仅管理员：QQ/微信群采集 + 逐群可见人群 + 待获取文件）
 
 > 用户需求：「在网页端的通知工具内添加仅管理员可见的页面，方便我对 qq/微信截取群聊，以及各个群聊的通知可见人群的管控，同时支持直接列出还需要获取的文件」。

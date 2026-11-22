@@ -1852,7 +1852,7 @@ function itemHTML(g,it,idx){
     });
     h+='</div></details>';
   } else if(it.kind==='file'){
-    var furl=it.url||'';
+    var furl=it.url||it.src||'';
     var groupName=g.group||g.source||'QQ 群';
     var arch=it.archive;
     if(furl){
@@ -1870,6 +1870,12 @@ function itemHTML(g,it,idx){
          '<div class="lu">'+esc(it.note||('压缩包 · 已识别 '+arch.count+' 个文件'))+'</div></div>'+
          '<span class="okbadge">已识别</span></div>';
       h+=archiveHTML(arch,g,idx);
+    } else if(it.present){
+      /* 2026-11-22 用户反馈：文件已下载（本机已有字节 / 压缩包已识别 / 微信缓存已有），
+         但超过 1.5MB 无法内嵌 → 显示「已获取」，不再误标「待获取」。 */
+      h+='<div class="linkrow"><span class="ico">文件</span><div class="lb"><div class="lt">'+esc(disp(it.name,it.time||cardAnchorTs(g)))+'</div>'+
+         '<div class="lu">'+esc(it.note||('已下载'+(it.localSize?' · '+it.localSize:'')+'（未内嵌）'))+'</div></div>'+
+         '<span class="okbadge">已获取</span></div>';
     } else if(it.lazy){
       /* 2026-11-18 列表轻量化：完整附件字节在单行 body 里，点击时才拉取。 */
       h+='<div class="linkrow missing" data-act="lazybody" data-lazyact="preview" data-gid="'+g.id+'" data-idx="'+idx+'"><span class="ico">文件</span>'+
@@ -2426,7 +2432,7 @@ function openImg(gid,idx){
 }
 function openFile(gid,idx){
   var g=findGroup(gid);if(!g)return;var it=(g.items||[])[idx];if(!it)return;
-  var url=it.url||'',mime=fileMime(it,url),body='';
+  var url=it.url||it.src||'',mime=fileMime(it,url),body='';
   if(/^image\//.test(mime)) body='<img src="'+esc(url)+'" alt="">';
   else if(mime==='application/pdf') body='<iframe src="'+esc(url)+'"></iframe>';
   else if(url&&!mime&&!isHttpUrl(url)) body='<iframe src="'+esc(url)+'"></iframe>';
@@ -5429,6 +5435,97 @@ def apply_archive_items(groups):
     return groups
 
 
+_EXTERNAL_FILES_CACHE = None
+
+
+def _external_files():
+    global _EXTERNAL_FILES_CACHE
+    if _EXTERNAL_FILES_CACHE is None:
+        try:
+            _EXTERNAL_FILES_CACHE = qq_file_names.scan_dirs()
+        except Exception:  # noqa: BLE001
+            _EXTERNAL_FILES_CACHE = []
+    return _EXTERNAL_FILES_CACHE
+
+
+def _external_present(name):
+    if not name:
+        return None
+    try:
+        return qq_file_names.best_match(name, _external_files(), threshold=0.8)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def apply_file_presence(groups):
+    """标记「本机已获取但太大无法内嵌」的文件，避免前端误显示「待获取」。
+
+    2026-11-22 用户反馈：榕疾控 PDF（1.9MB/6.3MB）已在 data/qq-files、微信群 pptx（36MB）
+    已在微信缓存，但 builder 的 qq_file_uri() 对 >1.5MB 一律返回空 → 通知卡仍显示待获取。
+    这里按 data/qq-files → 微信媒体落地 → 下载目录的顺序确认字节存在，写入 present/localSize；
+    模板据此显示「已获取（未内嵌）」。
+    """
+    wm = load_wechat_media_manifest()
+    marked = 0
+    for g in groups:
+        for it in g.get("items") or []:
+            if not isinstance(it, dict) or it.get("kind") != "file":
+                continue
+            if it.get("url") or it.get("src"):
+                continue
+            name = str(it.get("name") or "")
+            arch = it.get("archive")
+            arch_ok = bool(isinstance(arch, dict) and arch.get("status") in ("ok", "empty")
+                           and arch.get("count"))
+            present, size = False, 0
+            if it.get("archiveOk") or arch_ok:
+                present = True
+                note = it.get("note") or ("压缩包 · 已识别 %d 个文件" % int((arch or {}).get("count") or 0))
+            else:
+                note = ""
+                p = resolve_qq_file(name)
+                if p is not None:
+                    present = True
+                    try:
+                        size = p.stat().st_size
+                    except OSError:
+                        size = 0
+                else:
+                    rec = wm.get(str(it.get("mediaKey") or "")) if it.get("mediaKey") else None
+                    stored = str(rec.get("storedPath") or "") if isinstance(rec, dict) else ""
+                    if stored:
+                        try:
+                            if Path(stored).exists():
+                                present = True
+                                size = Path(stored).stat().st_size
+                        except OSError:
+                            present = False
+                    if not present:
+                        m = _external_present(name)
+                        if m is not None:
+                            present = True
+                            try:
+                                size = m.stat().st_size
+                            except OSError:
+                                size = 0
+            if not present:
+                continue
+            it["present"] = True
+            it.pop("pending", None)  # 已获取：不再让其它端按 pending 显示「待获取」
+            if size:
+                it["localSize"] = fmt_bytes_simple(size)
+            if not arch_ok and it.get("archiveOk") is not True:
+                it["note"] = "已下载" + ((" · " + fmt_bytes_simple(size)) if size else "") + "（未内嵌）"
+            elif note:
+                it["note"] = note
+            marked += 1
+    try:
+        print("file presence: present=%d" % marked)
+    except Exception:  # noqa: BLE001
+        pass
+    return groups
+
+
 def _merged_msg_hash(merged):
     """与 ai_merged.py 完全一致的内容指纹：聊天记录消息变了必须重新聚类。"""
     lines = []
@@ -6540,6 +6637,9 @@ def main():
     groups = apply_wechat_media_items(groups)
     # 压缩包附件：包内文件清单 + 解压识别摘要（失败保留原包 + 待识别）
     groups = apply_archive_items(groups)
+    # 2026-11-22：本机已有字节但 >1.5MB 无法内嵌的文件（含微信群 36MB 文件）标 present，
+    # 前端显示「已获取」，不再误标「待获取」。
+    groups = apply_file_presence(groups)
     attach_sender_roles(groups)
     # v2.0.0 需求 8/9：AI 摘要/要点/长期安排统一透传（含自动识别通知）
     attach_ai(groups)
