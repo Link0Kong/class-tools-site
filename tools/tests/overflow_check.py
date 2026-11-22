@@ -22,8 +22,8 @@ html = html.replace('<div id="toast"></div>',
 html = html.replace("</body>", """<script>window.addEventListener("load",function(){setTimeout(function(){
   var log=[];
   function c(s){var e=document.querySelector(s);if(e)e.click();}
-  function ot(k){if(k==="tt"||k==="ft"){c("[data-tab='all']");c("[data-open='"+k+"']");if(k==="tt")c("[data-ttview='week']");}else{c("[data-tab='"+k+"']");}}
-  c("#aRun");c("[data-step='2']");c("#gRun");c("[data-step='3']");
+  function ot(k){if(k==="tt"||k==="ft"||k==="group"){c("[data-tab='all']");c("[data-open='"+k+"']");if(k==="tt")c("[data-ttview='week']");}else{c("[data-tab='"+k+"']");}}
+  c("#aRun");c("#gSrcSeg [data-gsrc='prev']");c("#gRun");
   setTimeout(function(){
     ot("tt");
     setTimeout(function(){
@@ -34,7 +34,7 @@ html = html.replace("</body>", """<script>window.addEventListener("load",functio
       var ftv={fH:"175",fW:"65",fVc:"4300",fR50:"7.1",fSit:"17.7",fJump:"248",fPull:"15",fDurM:"3",fDurS:"42"};
       for(var fk in ftv){var fe=document.querySelector("#"+fk);fe.value=ftv[fk];fe.dispatchEvent(new Event("input",{bubbles:true}));}
       var de=document.documentElement, total=0, per=[], all=[];
-      ["draw","tt","hw","nt","ft"].forEach(function(t){
+      ["draw","group","tt","hw","nt","ft"].forEach(function(t){
         ot(t);
         var bad=[];
         document.querySelectorAll("*").forEach(function(e){

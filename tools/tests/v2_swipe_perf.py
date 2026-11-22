@@ -472,7 +472,7 @@ def do_notice_vertical(cdp):
 
 
 def do_step_swipe(cdp):
-    """抽签页内容左滑（STEP1→STEP2）：起点在内容卡片上，避免命中横向滚动区。"""
+    """抽签页内容左滑（2026-11-22 起 = 切到下一个工具；抽签/分组已无 STEP 手势）：起点在内容卡片上。"""
     x0, y0 = 330, 520
     touch(cdp, [(x0, y0)], "touchStart")
     for i in range(1, 13):
@@ -614,10 +614,10 @@ def main():
     print("指标")
     print("%-28s %-12s %-12s %-12s" % ("metric", "baseline", "prefix", "fixed"))
     rows = [
-        ("step reactionRate", ("step", "reactionRate")),
-        ("step syncErrP50(px)", ("step", "syncErrP50")),
-        ("step applyLatencyP50(ms)", ("step", "applyLatencyP50")),
-        ("step frameP95(ms)", ("step", "frameP95")),
+        ("抽签页左滑 reactionRate", ("step", "reactionRate")),
+        ("抽签页左滑 syncErrP50(px)", ("step", "syncErrP50")),
+        ("抽签页左滑 applyLatencyP50(ms)", ("step", "applyLatencyP50")),
+        ("抽签页左滑 frameP95(ms)", ("step", "frameP95")),
         ("slow4px firstFollowDx", ("slow", "firstFollowDx")),
         ("slow4px followRate", ("slow", "followRateAfterLock")),
         ("slow4px diagPrevented", ("slow", "diagPrevented")),

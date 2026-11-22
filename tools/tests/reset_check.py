@@ -170,42 +170,32 @@ async function run(){
     T("抽签结果 3 个", qa(f,"#aOut .rcell").length===3, qa(f,"#aOut .rcell").length);
     T("结果都带姓名（参与名单 10 人）", qa(f,"#aOut .rname").length===3, qa(f,"#aOut .rname").length);
     T("抽签后排序行可见", q(f,"#aSortRow").style.display!=="none", q(f,"#aSortRow").style.display);
-    T("抽签后「导出/下一步」行可见", q(f,"#aNextRow").style.display!=="none", q(f,"#aNextRow").style.display);
     click(f,"#aOut .rcell .rx"); await sleep(100);
     T("剔除一个后自动重抽：仍 3 个", qa(f,"#aOut .rcell").length===3, qa(f,"#aOut .rcell").length);
     T("剔除记录 data-log=1", q(f,"#aOut").getAttribute("data-log")==="1", q(f,"#aOut").getAttribute("data-log"));
 
-    /* ---- F. 分组（用上一步序号） ---- */
-    click(f,"[data-step='2']"); await sleep(80);
+    /* ---- F. 分组（2026-11-22 起为独立工具；默认「最近抽签」= 本机保存的上次抽签） ---- */
+    click(f,"#gSrcSeg [data-gsrc='prev']"); await sleep(80);
     click(f,"#gRun"); await sleep(150);
     T("分组结果 2 组", qa(f,"#gOut .gcard").length===2, qa(f,"#gOut .gcard").length);
     T("分组结果共 3 人", qa(f,"#gOut .gcard .bd span").length===3, qa(f,"#gOut .gcard .bd span").length);
 
-    /* ---- G. STEP3 结果单有内容 ---- */
-    click(f,"[data-step='3']"); await sleep(80);
-    T("STEP3 结果单含抽签与分组", /抽签 · 范围/.test(txt(f,"#sOut")) && /第 1 组/.test(txt(f,"#sOut")), txt(f,"#sOut").slice(0,60));
-
     /* ---- H. 取消确认：不清空 ---- */
-    click(f,"[data-step='1']"); await sleep(60);
     w.__confirms=[]; w.__confirmReturn=false;
     click(f,"#aReset"); await sleep(120);
     T("点重置弹确认框，文案含「重置本轮抽签」", w.__confirms.length===1 && /重置本轮抽签/.test(w.__confirms[0]), JSON.stringify(w.__confirms));
     T("取消后抽签结果保留 3 个", qa(f,"#aOut .rcell").length===3, qa(f,"#aOut .rcell").length);
     T("取消后分组结果保留 2 组", qa(f,"#gOut .gcard").length===2, qa(f,"#gOut .gcard").length);
-    T("取消后无「已重置」toast", !/已重置抽签与分组/.test(txt(f,"#toast")), txt(f,"#toast"));
+    T("取消后无「已重置」toast", !/已重置抽签/.test(txt(f,"#toast")), txt(f,"#toast"));
 
-    /* ---- I. 确定重置：全部清空 ---- */
+    /* ---- I. 确定重置：只清空抽签（分组是独立工具，不受影响） ---- */
     w.__confirms=[]; w.__confirmReturn=true;
     click(f,"#aReset"); await sleep(150);
     T("确定后抽签结果清空（0 个 / 显示 —）", qa(f,"#aOut .rcell").length===0 && txt(f,"#aOut").indexOf("—")>=0,
       qa(f,"#aOut .rcell").length+"|"+txt(f,"#aOut").trim());
     T("确定后排序行隐藏", q(f,"#aSortRow").style.display==="none", q(f,"#aSortRow").style.display);
-    T("确定后「导出/下一步」行隐藏", q(f,"#aNextRow").style.display==="none", q(f,"#aNextRow").style.display);
-    T("确定后分组结果清空（0 组 / 显示 —）", qa(f,"#gOut .gcard").length===0 && txt(f,"#gOut").indexOf("—")>=0,
-      qa(f,"#gOut .gcard").length+"|"+txt(f,"#gOut").trim());
-    T("确定后 toast「已重置抽签与分组」", /已重置抽签与分组/.test(txt(f,"#toast")), txt(f,"#toast"));
-    click(f,"[data-step='3']"); await sleep(80);
-    T("确定后 STEP3 结果单清空", txt(f,"#sOut").trim()==="—", txt(f,"#sOut").trim().slice(0,40));
+    T("确定后 toast「已重置抽签」", /已重置抽签/.test(txt(f,"#toast")), txt(f,"#toast"));
+    T("确定后分组结果保留（重置抽签不影响分组）", qa(f,"#gOut .gcard").length===2, qa(f,"#gOut .gcard").length);
 
     /* ---- J. 参数与参与名单保留 ---- */
     var st=loadState(f);
@@ -218,23 +208,22 @@ async function run(){
     T("页面参与名单摘要仍 10 个气泡", qa(f,"#aRosterSum button.rchip").length===10, qa(f,"#aRosterSum button.rchip").length);
 
     /* ---- K. 重置后再点：回到「无结果」语义 ---- */
-    click(f,"[data-step='1']"); await sleep(60);
     w.__confirms=[];
     click(f,"#aReset"); await sleep(100);
     T("重置后再点：提示「本轮还没有抽签结果」且不弹确认", /本轮还没有抽签结果/.test(txt(f,"#toast")) && w.__confirms.length===0,
       txt(f,"#toast")+"|"+JSON.stringify(w.__confirms));
 
-    /* ---- L. 只有分组结果（无抽签结果）也能重置 ---- */
-    click(f,"[data-step='2']"); await sleep(60);
-    click(f,'input[name=gsrc][value="names"]'); await sleep(80);
+    /* ---- L. 只有分组结果（无抽签结果）：重置不处理分组（分组是独立工具） ---- */
+    click(f,"#gSrcSeg [data-gsrc='pick']"); await sleep(60);
     q(f,"#gNum").value="2";
     click(f,"#gRun"); await sleep(150);
-    T("仅分组：选择名单 6 人 → 2 组", qa(f,"#gOut .gcard").length===2, qa(f,"#gOut .gcard").length);
-    click(f,"[data-step='1']"); await sleep(60);
+    T("仅分组：自选名单 6 人 → 2 组", qa(f,"#gOut .gcard").length===2, qa(f,"#gOut .gcard").length);
     w.__confirms=[]; w.__confirmReturn=true;
     click(f,"#aReset"); await sleep(120);
-    T("仅分组状态：点重置会确认并清空分组", w.__confirms.length===1 && qa(f,"#gOut .gcard").length===0, JSON.stringify(w.__confirms)+"|"+qa(f,"#gOut .gcard").length);
-    T("仅分组状态：toast「已重置抽签与分组」", /已重置抽签与分组/.test(txt(f,"#toast")), txt(f,"#toast"));
+    T("仅分组状态：点重置提示无抽签结果且不弹确认",
+      /本轮还没有抽签结果/.test(txt(f,"#toast")) && w.__confirms.length===0,
+      txt(f,"#toast")+"|"+JSON.stringify(w.__confirms));
+    T("仅分组状态：分组结果保持不变", qa(f,"#gOut .gcard").length===2, qa(f,"#gOut .gcard").length);
 
     /* ---- M. 0 报错 / 无外部请求 ---- */
     var ext=(w.performance.getEntriesByType("resource")||[]).filter(function(e){
@@ -424,14 +413,16 @@ def static_checks(html):
                           html.count('id="aReset"') == 1 and html.count('id="aRun"') == 1
                           and 'id="aRun">开始抽签</button>' in html
                           and 'id="aReset" type="button">重置</button>' in html, ""))
-    STATIC_CHECKS.append(("重置逻辑：清空抽签/剔除/分组并重渲染",
+    STATIC_CHECKS.append(("重置逻辑：只清空抽签/剔除（分组为独立工具，不清空）",
                           all(k in html for k in ["A.result=null;A.cfg=null;A.log=[];A.removed=[];A.pool=null;",
-                                                  "G.result=null;G.cfg=null;", "renderA();renderG();renderSum();"]), ""))
+                                                  "renderA();renderProofLine();renderRecSum();"]), ""))
     STATIC_CHECKS.append(("重置逻辑：无结果提示 + 确认框", "本轮还没有抽签结果" in html and "重置本轮抽签？" in html, ""))
-    STATIC_CHECKS.append(("使用说明已写明「重置」", "点「重置」清空本轮抽签与分组结果，参数和参与名单保留" in html, ""))
-    STATIC_CHECKS.append(("无 CDN / 外部资源引用", not re.search(r'(src|href)\s*=\s*["\']https?://', html), ""))
-    STATIC_CHECKS.append(("既有抽签按钮未被破坏（导出/下一步/排序）",
-                          all(k in html for k in ['id="aImg"', 'id="aNext"', 'data-asort="desc"', 'data-asort="asc"', 'data-asort="rand"']), ""))
+    STATIC_CHECKS.append(("使用说明已写明「重置」", "点「重置」只清空本轮抽签，参数和参与名单保留" in html, ""))
+    STATIC_CHECKS.append(("无 CDN / 外部资源引用",
+                          not re.search(r'<(script|link|img|iframe|source|video)[^>]+(src|href)\s*=\s*["\']https?://', html), ""))
+    STATIC_CHECKS.append(("既有抽签按钮未被破坏（导出/排序；下一步已随拆分移除）",
+                          all(k in html for k in ['id="aImg"', 'data-asort="desc"', 'data-asort="asc"', 'data-asort="rand"'])
+                          and 'id="aNext"' not in html, ""))
 
 
 def main():

@@ -383,8 +383,8 @@ RUNNER = r"""
           await waitFor(function(){var s=q("#s-draw");return s&&s.classList.contains("on");},3000);
           var sec=q("#s-draw");
           T("hashchange 可切回工具", !!sec && sec.classList.contains("on"), "set="+hset+" now="+String(location.hash||"")+" cls="+(sec?sec.className:"none"));
-          /* 打印按钮 + 备份存储用量 */
-          T("打印入口存在（作业/结果单）", !!q("#opt2Print_hImg")&&!!q("#opt2Print_sImg"), "");
+          /* 打印按钮 + 备份存储用量（2026-11-22：结果单删除，改为抽签 / 分组 / 作业三个导出入口） */
+          T("打印入口存在（作业/抽签/分组）", !!q("#opt2Print_hImg")&&!!q("#opt2Print_aImg")&&!!q("#opt2Print_gImg"), "");
           T("非管理员无大屏入口", !q("#opt2StageBtn"), "");
           click('[data-tab="all"]'); await sleep(300);
           click("#optBkBtn"); await sleep(500);

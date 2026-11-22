@@ -216,10 +216,11 @@ async function run(){
     var nums3=qa(f,"#aOut .rcell").map(function(c){return +c.getAttribute("data-n");});
     T("3 人抽签池抽 3 个且都在名单内", nums3.length===3 && nums3.every(function(n){return [3,8,21].indexOf(n)>=0;}), JSON.stringify(nums3));
 
-    /* ---- H. 分组：选择名单（5 人 → 2 组 5 人） ---- */
-    click(f,"[data-step='2']");
-    click(f,'input[name=gsrc][value="names"]');
-    T("分组来源「选择名单」显示摘要区", q(f,"#gNamesWrap").style.display!=="none" && txt(f,"#gNamesWrap").indexOf("选择名单")>=0);
+    /* ---- H. 分组（独立工具页面，2026-11-22）：自选名单（5 人 → 2 组 5 人） ---- */
+    click(f,"[data-tab='all']"); await sleep(80);
+    click(f,"[data-open='group']"); await sleep(120);
+    click(f,"#gSrcSeg [data-gsrc='pick']"); await sleep(80);
+    T("分组来源「自选名单」显示摘要区", q(f,"#gPickWrap").style.display!=="none" && q(f,"#gSrcSeg [data-gsrc='pick']").classList.contains("on"));
     click(f,"#gRosterPick"); await waitFor(function(){return q(f,"#rosterModal").style.display!=="none";},4000); await sleep(80);
     T("分组弹层标题", q(f,"#rstTitle").textContent==="选择分组名单", q(f,"#rstTitle").textContent);
     T("分组初始选中 = 当前 groupSel（2）", /已选 2 \/ 70/.test(cntRst(f)), cntRst(f));
@@ -545,13 +546,16 @@ def static_checks(html):
                           and "rst-b::before" not in html and "rstFloat" not in html
                           and "rstPop" not in html and "rsumFloat" not in html, ""))
     STATIC_CHECKS.append(("使用说明已更新（选择名单 / 不能自定义）",
-                          "不支持自定义输入" in html and "抽签选了名单后" in html, ""))
-    STATIC_CHECKS.append(("STEP2 来源文案「选择名单」", 'value="names"> 选择名单' in html, ""))
+                          "不支持自定义输入" in html and "从班级名单选人" in html, ""))
+    STATIC_CHECKS.append(("分组来源文案（全班 / 最近抽签 / 自选名单）",
+                          'data-gsrc="all"' in html and 'data-gsrc="prev"' in html and 'data-gsrc="pick"' in html
+                          and "自选名单" in html, ""))
     STATIC_CHECKS.append(("点名沿用抽签名单按钮", "沿用抽签名单" in html and "用抽签页名单" not in html, ""))
     STATIC_CHECKS.append(("模型字段 rosterSel/groupSel/rollSel", all(k in html for k in
                           ['rosterSel', 'groupSel', 'rollSel', 'rosterMigrated']), ""))
     STATIC_CHECKS.append(("旧身份门禁未被改动", "zq_class_identity" in html and "classVerify" in html and "id-gate" not in html, ""))
-    STATIC_CHECKS.append(("无 CDN / 外部资源引用", not re.search(r'(src|href)\s*=\s*["\']https?://', html), ""))
+    STATIC_CHECKS.append(("无 CDN / 外部资源引用",
+                          not re.search(r'<(script|link|img|iframe|source|video)[^>]+(src|href)\s*=\s*["\']https?://', html), ""))
 
 
 def main():

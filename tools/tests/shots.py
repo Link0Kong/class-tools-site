@@ -43,8 +43,9 @@ SEED = {
 
 AUTO = {
     "s1": 'c("#aRun");',
-    "s2": 'c("#aRun");c("[data-step=\'2\']");c("#gRun");',
-    "s3": 'c("#aRun");c("[data-step=\'2\']");c("#gRun");c("[data-step=\'3\']");',
+    "s2": 'c("#aRun");c("#gSrcSeg [data-gsrc=\'prev\']");c("#gRun");',
+    "s3": 'c("#aRun");c("#gSrcSeg [data-gsrc=\'all\']");c("#gRun");',
+    "s2_desktop": 'c("#aRun");c("#gSrcSeg [data-gsrc=\'prev\']");c("#gRun");',
     "tt": 'c("[data-tab=\'all\']");c("[data-open=\'tt\']");c("[data-ttview=\'week\']");',
     "tt_day": 'c("[data-tab=\'all\']");c("[data-open=\'tt\']");c("[data-ttview=\'day\']");',
     "tt_prev": 'c("[data-tab=\'all\']");c("[data-open=\'tt\']");c("[data-ttview=\'week\']");c("#tPrevW");',
@@ -109,7 +110,7 @@ shots = [("s1", 430, 1500), ("s2", 430, 1500), ("s3", 430, 1900),
          ("tt_admin", 430, 1700), ("tt_desktop", 1280, 1200), ("tt_wide", 1440, 1200),
          ("tt_day_desktop", 1280, 1100), ("s2_desktop", 1280, 1200),
          ("hw_desktop", 1280, 1100), ("nt_desktop", 1280, 1100),
-         ("s1_desktop", 1280, 1100), ("ft_desktop", 1280, 1250)]
+         ("s1_desktop", 1280, 1100), ("s3_desktop", 1280, 1200), ("ft_desktop", 1280, 1250)]
 shots += [("s1_360", 360, 1500), ("s2_360", 360, 1500), ("ft_360", 360, 1500), ("tt_360", 360, 1400), ("s1_wide", 1440, 1100)]
 
 PORT = 8899

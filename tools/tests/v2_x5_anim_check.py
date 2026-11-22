@@ -4,7 +4,7 @@
 背景：手机微信 X5 对「含 iframe 的整块 section 做 transform」会出现合成残影（手指拖动时最明显）。
 本测试的静态/行为断言（Chrome headless 无法复现 X5 残影本身，只能消除高风险写法）：
   S. 静态：fly() 不再改 opacity、只动 transform 且用 translate3d；通知页横向手势路径不位移 section；
-          commit 时通知页/directSwitch 直接切；CSS 在 fly 期间禁用 section/stpane fade；thumb 用 translate3d。
+          commit 时通知页/directSwitch 直接切；CSS 在 fly 期间禁用 section fade；thumb 用 translate3d。
   B1. 通知页拖动：section 无 transform 样式、iframe 元素 rect 不变；toolbar thumb 跟手。
   B2. 通知页松手：直接切 tab（iframe 不做位移动画）、body.zq-flying 清理、320ms 点击抑制语义正确。
   B3. 其它页面：fly 仍正常（translate3d 位移、无 opacity、动画结束后内联样式/will-change/body 类清理）。
@@ -81,9 +81,9 @@ def static_checks():
     T("S1 fly() 不再修改 opacity（避免 X5 alpha 合层残影）", "opacity" not in fly_src, "")
     T("S2 fly() 使用 translate3d 位移", "translate3d(" in fly_src, "")
     T("S3 fly() 不写 will-change（层切换闪烁源）", "willChange" not in fly_src, "")
-    T("S4 section.on/.stpane.on 已无 fade 动画、无 @keyframes fade",
+    T("S4 section.on 已无 fade 动画、无 @keyframes fade（STEP 面板已随 2026-11-22 拆分移除）",
       "animation:fade" not in flat and "@keyframesfade" not in flat and
-      "section.on{display:block" in flat and ".stpane.on{display:block" in flat, "")
+      "section.on{display:block" in flat and ".stpane" not in flat, "")
     T("S5 通知页（含 iframe）横向手势不位移 section（isNoticeSection 判断）",
       html.count("isNoticeSection") >= 3, html.count("isNoticeSection"))
     T("S6 通知页/directSwitch 松手直接切 tab（不 fly iframe），且无 zq-flying 类逻辑",
@@ -95,7 +95,7 @@ def static_checks():
       html.count("will-change") == 1 and "will-change:transform" in ghost_src and "willChange" not in html,
       "count=%d ghost=%s" % (html.count("will-change"), "will-change:transform" in ghost_src))
     T("S9 gotoTab 切页前幂等清理并取消未完成 fly",
-      "__zqKillFly" in html[k2:k2 + 900], "")
+      "__zqKillFly" in html[k2:k2 + 1800], "")
     T("S10 fly 单实例：新 fly 会先取消旧定时器", "flyClearTimers()" in fly_src, "")
 
 
@@ -162,12 +162,12 @@ FLY_JS = r"""
 CLEANUP_JS = r"""
 (function(){
   var gone=true,secs=[];
-  document.querySelectorAll("section,.stpane,.ttmain").forEach(function(el){
+  document.querySelectorAll("section,.ttmain").forEach(function(el){
     var st=el.getAttribute("style")||"";
     if(/transform|will-change|opacity/.test(st)){gone=false;secs.push({id:el.id,cls:String(el.className),st:st});}
   });
   var animFree=true;
-  document.querySelectorAll("section,.stpane,.ttmain").forEach(function(el){
+  document.querySelectorAll("section,.ttmain").forEach(function(el){
     var st=el.getAttribute("style")||"";
     if(/animation|transition/.test(st))animFree=false;
   });
@@ -249,7 +249,6 @@ def run():
         # ---------- B3 其它页面 fly 动画 ----------
         cdp.eval("__v2.gotoTab('draw')")
         time.sleep(0.6)
-        cdp.eval("try{document.querySelector('.steps button[data-step=\"1\"]').click();}catch(e){}")
         time.sleep(0.7)
         cdp.eval(FLY_JS)
         time.sleep(0.15)
@@ -262,9 +261,11 @@ def run():
             recs = {"styles": [], "classes": []}
         styles = recs.get("styles") or []
         tforms = [s for s in styles if "translate3d(" in (s.get("st") or "")]
-        opac = [s for s in styles if "opacity" in (s.get("st") or "")]
+        # 只关心 section 页面本体的 fly；工具栏滑块（tabs-thumb）的 opacity 是既有液体动效，不算页面淡入
+        opac = [s for s in styles if "opacity" in (s.get("st") or "")
+                and (String(s.get("tag")) == "SECTION" or String(s.get("id") or "").startswith("s-"))]
         T("B11 非通知页 fly：发生 translate3d 位移动画", len(tforms) > 0, len(tforms))
-        T("B12 非通知页 fly：全程无 opacity 内联动画", len(opac) == 0, json.dumps(opac[:2], ensure_ascii=False)[:180])
+        T("B12 非通知页 fly：section 本体无 opacity 内联动画", len(opac) == 0, json.dumps(opac[:2], ensure_ascii=False)[:180])
         clean = json.loads(cdp.eval(CLEANUP_JS) or "{}")
         T("B13 fly 结束后内联 transform/transition 已清理", bool(clean.get("gone")), json.dumps(clean.get("secs"), ensure_ascii=False)[:200])
         T("B14 fly 后无 zq-flying/内联 animation 残留", (not clean.get("flying")) if clean.get("animFree", True) else False, "")
@@ -272,9 +273,8 @@ def run():
         # ---- B15/B16: fly 进行中点击 tab / 连续拖动 → 700ms 后无残留 ----
         cdp.eval("__v2.gotoTab('draw')")
         time.sleep(0.5)
-        cdp.eval("try{document.querySelector('.steps button[data-step=\"1\"]').click();}catch(e){}")
         time.sleep(0.7)
-        cdp.eval(FLY_JS)  # 触发一次 step fly
+        cdp.eval(FLY_JS)  # 触发一次工具页 fly（抽签/分组已无 STEP 手势）
         time.sleep(0.36)  # 等 320ms 点击抑制窗口过去，但 fly 仍在进行（约 530ms 结束）
         cdp.eval("try{document.querySelector('#tabsBar button[data-tab=\"hw\"]').click();}catch(e){}");
         time.sleep(0.8)

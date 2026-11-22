@@ -159,9 +159,10 @@ async function run(){
       String(w.getComputedStyle(f.contentDocument.documentElement).getPropertyValue("--ui-dur")).trim()===".26s" &&
       String(w.getComputedStyle(f.contentDocument.documentElement).getPropertyValue("--ui-ease")).trim()==="cubic-bezier(.2,.8,.3,1)",
       "");
-    var sec=cs(f,"#s-draw","animationName"), stp=cs(f,".stpane.on","animationName");
+    var sec=cs(f,"#s-draw","animationName"), stp=cs(f,"#s-group .dgwrap","animationName");
     T("B2 切页不再用 fade 动画（animationName=none，切页视觉交给 fly）", sec=="none", sec);
-    T("B3 步骤切换不再用 fade 动画（animationName=none）", stp=="none", stp);
+    T("B3 抽签/分组为独立工具（STEP 步骤条与面板已移除，无步骤淡入动画）",
+      !q(f,".steps")&&!q(f,".stpane")&&stp=="none", "steps="+!!q(f,".steps")+" stpane="+!!q(f,".stpane")+" ani="+stp);
     var modalDur=cs(f,"#ntModal","transitionDuration");
     T("B4 通知弹层过渡在 .22–.32s 区间", durInRange(modalDur,0.22,0.32), modalDur);
     var tabDur=cs(f,".tabs button","transitionDuration");

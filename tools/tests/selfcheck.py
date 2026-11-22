@@ -40,33 +40,26 @@ html = html.replace("</body>", """<script>window.addEventListener("load",functio
   var log=[];
   function c(sel){var e=document.querySelector(sel);if(!e){log.push("MISS"+sel);return;}e.click();}
   try{
-    // 抽签工作流
+    // 抽签（2026-11-22 起为独立工具：无 STEP 步骤条、无「下一步：分组」）
     c("#aRun");
     function nums(){return Array.prototype.map.call(document.querySelectorAll("#aOut .rcell"),function(e){return parseInt(e.getAttribute("data-n"),10);});}
     c("#aSortRow [data-asort='desc']"); var _d=nums(); window.__descOK=_d.every(function(v,i){return i===0||_d[i-1]>=v;});
     c("#aSortRow [data-asort='asc']"); var _a=nums(); window.__ascOK=_a.every(function(v,i){return i===0||_a[i-1]<=v;});
     c("#aSortRow [data-asort='rand']");
-    var rn=[]; for(var i=1;i<=70;i++) rn.push("名字"+i);
-    document.querySelector("#aRoster").value=rn.join("\\n");
-    document.querySelector("#aRoster").dispatchEvent(new Event("input",{bubbles:true}));
-    var fc=document.querySelector("#aOut .rcell"); var fn=parseInt(fc.getAttribute("data-n"),10);
-    var fnm=fc.querySelector(".rname");
-    window.__mapOK=!!fnm&&fnm.textContent==="名字"+fn;
-    var ta=document.querySelector("#aRoster"); ta.setSelectionRange(ta.value.length,ta.value.length);
-    ta.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true,cancelable:true}));
-    window.__entOK=/\\n71\\s$/.test(ta.value);
     c("#aImg");
     var rx=document.querySelector("#aOut .rx"); if(rx)rx.click();
     window.__rmOK=document.querySelector("#aOut").getAttribute("data-log")==="1"&&document.querySelectorAll("#aOut .rcell").length===10;
-    c("[data-step='2']"); c("#gRun");
+    c("#aReset");
+    window.__clrOK=document.querySelectorAll("#aOut .rcell").length===0;
+    c("#aRun");
+    // 分组（独立工具：入口在全部页；默认「最近抽签」= 上一次抽签结果）
+    c("[data-tab='all']"); c("[data-open='group']");
+    c("#gRun");
     window.__grpOK=!!document.querySelector("#gOut .gcard .bd b");
     var g1=document.querySelector("#gOut").textContent;
     c("#gRun");
     window.__detOK=document.querySelector("#gOut").textContent===g1;
     c("#gImg"); c("#gCopy");
-    c("[data-step='3']");
-    window.__sumOK=document.querySelectorAll("#sOut .dn").length>0;
-    c("#sImg"); c("#sCopy");
     // 其它工具
     c("[data-tab='all']"); c("[data-open='tt']"); c("#tImg");
     c("[data-tab='hw']"); c("#hImg");
@@ -80,11 +73,6 @@ html = html.replace("</body>", """<script>window.addEventListener("load",functio
     window.__pinOK=!document.querySelector("#nList .item.pin");
     var p2=document.querySelector("#nList [data-pin]"); p2.click();
     window.__pinOK=window.__pinOK&&!!document.querySelector("#nList .item.pin");
-    var ta2=document.querySelector("#aRoster"); ta2.value="甲\\n乙"; ta2.setSelectionRange(3,3);
-    ta2.dispatchEvent(new Event("input",{bubbles:true}));
-    window.__preOK=ta2.value.split("\\n")[0]==="1 甲"&&ta2.value.split("\\n")[1]==="2 乙";
-    c("#aClear");
-    window.__clrOK=ta2.value===""&&!document.querySelector("#aOut .rname");
     // 体测（男·大一大二，全 80 分档 → 标准分 83.0）
     c("[data-tab='all']"); c("[data-open='ft']");
     var ftv={fH:"175",fW:"65",fVc:"4300",fR50:"7.1",fSit:"17.7",fJump:"248",fPull:"15",fDurM:"3",fDurS:"42"};
@@ -122,7 +110,7 @@ html = html.replace("</body>", """<script>window.addEventListener("load",functio
       +" | groups="+sv("groups")
       +" | drawN="+sv("drawN")
       +" | descOK="+(window.__descOK?1:0)+" | ascOK="+(window.__ascOK?1:0)+" | mapOK="+(window.__mapOK?1:0)
-      +" | entOK="+(window.__entOK?1:0)+" | preOK="+(window.__preOK?1:0)
+      +" | entOK="+(window.__entOK?1:0)
       +" | grpOK="+(window.__grpOK?1:0)+" | sumOK="+(window.__sumOK?1:0)+" | detOK="+(window.__detOK?1:0)
       +" | clrOK="+(window.__clrOK?1:0)+" | doneOK="+(window.__doneOK?1:0)+" | pinOK="+(window.__pinOK?1:0)
       +" | rmOK="+(window.__rmOK?1:0)
@@ -182,9 +170,8 @@ try:
     ok = ("ERR=(none)" in out and "THROW" not in out and "MISS" not in out
           and "groups=4" in out and "hwItems=1" in out and "ntItems=1" in out
           and "ttCourses=1" in out and "navCount=0" in out
-          and "descOK=1" in out and "ascOK=1" in out and "mapOK=1" in out
-          and "entOK=1" in out and "preOK=1" in out
-          and "grpOK=1" in out and "sumOK=1" in out and "detOK=1" in out
+          and "descOK=1" in out and "ascOK=1" in out
+          and "grpOK=1" in out and "detOK=1" in out
           and "clrOK=1" in out and "doneOK=1" in out and "pinOK=1" in out
           and "rmOK=1" in out
           and "ftOK=1" in out and "ftRows=7" in out and "ftClrOK=1" in out and "ftGuard=1" in out and "prtOK=1" in out

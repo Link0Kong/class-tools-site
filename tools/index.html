@@ -99,15 +99,6 @@ textarea{min-height:92px;resize:vertical;line-height:1.6}
 .btn.danger{color:var(--danger);border-color:#EFD6D3}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
 .ck{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:#fff;cursor:pointer}
-/* 步骤条 */
-.steps{display:flex;gap:6px;margin-bottom:12px}
-.steps button{flex:1;background:#fff;border:1px solid var(--line);border-radius:11px;padding:9px 4px;cursor:pointer;font-family:inherit;font-weight:700;font-size:13.5px;color:var(--ink3);line-height:1.35;transition:background-color var(--ui-dur-fast) var(--ui-ease),border-color var(--ui-dur-fast) var(--ui-ease),color var(--ui-dur-fast) var(--ui-ease)}
-.steps button b{display:block;font-size:10.5px;letter-spacing:.14em;font-weight:700;color:var(--ink3);opacity:.8}
-.steps button.on{border-color:var(--cy);color:var(--cy);background:#F1F7F5}
-.steps button.on b{color:var(--cy);opacity:1}
-.steps button.done{border-color:#CFE3DD;color:var(--ink2)}
-.stpane{display:none}
-.stpane.on{display:block}
 /* 结果 */
 .result{border:1px solid var(--line);border-radius:12px;background:#fff;padding:14px 16px;margin-top:12px}
 .rnum{font-variant-numeric:tabular-nums;font-weight:800;font-size:24px;line-height:1.7;letter-spacing:.02em;color:var(--cy);word-break:break-word}
@@ -123,6 +114,42 @@ textarea{min-height:92px;resize:vertical;line-height:1.6}
 .gcard .bd span{display:inline-block;min-width:2.4em;margin:0 12px 4px 0}
 .gcard .bd span i{font-style:normal;font-size:11px;color:var(--ink3);font-weight:600;margin-right:4px;vertical-align:2px}
 .gcard .bd span b{font-weight:700}
+/* ===== 抽签 / 分组：两个独立工具（2026-11-22 拆分；手机单列，桌面左右分栏） ===== */
+.dgwrap{display:block}
+.dgcfg{margin-bottom:12px}
+.dgout{min-width:0}
+.dgout-hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:2px 2px 8px;font-size:13.5px;font-weight:700;color:var(--ink)}
+.dgout-hd .rpool{font-weight:600;margin:0}
+.dgopts{gap:18px;margin-top:12px}
+.dgsc{margin-top:10px;gap:8px;flex-wrap:wrap}
+.dgsc .btn{min-height:40px}
+.subblock{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.seg{display:flex;gap:6px;margin-top:6px}
+.seg button{flex:1 1 0;min-height:46px;padding:7px 6px;border:1px solid var(--line);border-radius:11px;background:var(--card);color:var(--ink2);font-family:inherit;font-weight:700;font-size:13px;line-height:1.3;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;transition:background-color var(--ui-dur-fast) var(--ui-ease),border-color var(--ui-dur-fast) var(--ui-ease),color var(--ui-dur-fast) var(--ui-ease)}
+.seg button b{font-weight:700}
+.seg button i{font-style:normal;font-size:11px;font-weight:600;color:var(--ink3);white-space:nowrap}
+.seg button.on{border-color:var(--cy);color:var(--cy);background:#F1F7F5}
+.seg button.on i{color:var(--cy);opacity:.85}
+.seg button[disabled]{opacity:.45;cursor:not-allowed}
+.seg button[disabled]:active{transform:none}
+.gnumrow{display:flex;align-items:center;gap:10px;margin-top:10px}
+.gnumrow input{width:92px;text-align:center;font-weight:800;font-size:17px}
+.gnbtn{width:44px;height:44px;flex:none;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:20px;font-weight:700;line-height:1;cursor:pointer;font-family:inherit;transition:background-color var(--ui-dur-fast) var(--ui-ease),transform .12s var(--ui-ease)}
+.gnbtn:active{transform:scale(.95)}
+.gnlbl{font-size:13px;font-weight:700;color:var(--ink3)}
+.src-hint{margin-top:8px;font-size:12px;font-weight:600;color:var(--ink3);line-height:1.5}
+/* 抽签结果胶囊：× 剔除按钮的视觉保持克制，但命中区扩到 ≥40px（移动端可点） */
+.rcell{padding:4px 8px 6px;border-radius:12px;transition:background-color var(--ui-dur-fast) var(--ui-ease)}
+.rcell:hover{background:rgba(78,144,130,.07)}
+.rx{width:22px;height:22px;font-size:13px;opacity:.5;transition:opacity var(--ui-dur-fast) var(--ui-ease),border-color var(--ui-dur-fast) var(--ui-ease),color var(--ui-dur-fast) var(--ui-ease)}
+.rx::after{content:"";position:absolute;inset:-9px;border-radius:50%}
+.rcell:hover .rx,.rx:focus-visible{opacity:1;border-color:var(--cy);color:var(--cy)}
+@media (hover:none){.rx{opacity:.85;width:24px;height:24px}}
+.vhidden{position:absolute!important;left:-9999px!important;width:1px!important;height:1px!important;opacity:0!important;overflow:hidden!important;pointer-events:none!important}
+#s-draw .result{min-height:120px}
+#s-draw .empty,#s-group .empty{color:var(--ink3)}
+#s-group #gOut .empty{grid-column:1/-1;display:flex;align-items:center;justify-content:center;min-height:120px;border:1px dashed var(--line-strong);border-radius:12px;background:transparent}
+@media (min-width:960px){#s-group #gOut .empty{min-height:240px}}
 .dn{color:var(--ink3);font-size:.72em;font-weight:600;margin-right:2px}
 .sn{font-weight:700}
 .empty{text-align:center;color:var(--ink3);font-size:13px;padding:18px 8px}
@@ -469,16 +496,10 @@ body.card-drag-on{cursor:grabbing;-webkit-user-select:none;user-select:none}
 .ttside>#tList{order:4}
 /* ---------- 桌面端内容排布（≥1024px）：多栏/侧栏，而非单纯拉宽 ---------- */
 @media (min-width:1024px){
-  /* 抽签 STEP1：配置在左、结果在右 */
-  #p1.on{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:12px;align-items:start}
-  #p1.on>.card{grid-column:1;grid-row:1;margin-bottom:0}
-  #p1.on>#aOut{grid-column:2;grid-row:1;margin-top:0}
-  #p1.on>#aSortRow{grid-column:2;grid-row:2;margin-top:0}
-  #p1.on>#aNextRow{grid-column:1/-1;grid-row:3;margin-top:0}
-  /* 抽签 STEP2：配置在左、分组结果在右 */
-  #p2.on{display:grid;grid-template-columns:minmax(280px,.58fr) minmax(0,1.42fr);gap:12px;align-items:start}
-  #p2.on>.card{grid-column:1;margin-bottom:0}
-  #p2.on>#gOut{grid-column:2;margin-top:0}
+  /* 抽签 / 分组：配置在左、结果在右（两个独立工具共用同一分栏） */
+  .dgwrap{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,.98fr);gap:12px;align-items:start}
+  .dgcfg{margin-bottom:0}
+  #s-group .dgwrap{grid-template-columns:minmax(300px,.72fr) minmax(0,1.28fr)}
   /* 体测：录入在左、成绩在右 */
   #s-ft.on{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr);gap:12px;align-items:start}
   #s-ft.on>.card{margin-bottom:0}
@@ -743,7 +764,7 @@ body{background:
 .item,.gcard,.card{transition:background-color var(--ui-dur-fast) var(--ui-ease),border-color var(--ui-dur-fast) var(--ui-ease),box-shadow var(--ui-dur-fast) var(--ui-ease)}
 input[type=text],input[type=password],input[type=date],input[type=time],input[type=number],select,textarea{background:#FDFAF2;border-color:#DFD1BA;box-shadow:inset 0 1px 2px rgba(72,64,44,.04)}
 .ck{background:var(--surface);border-color:#DFD1BA}
-.steps button{background:var(--surface);border-color:#DFD1BA;box-shadow:0 1px 2px rgba(72,64,44,.05)}
+.seg button{background:var(--surface);border-color:#DFD1BA;box-shadow:0 1px 2px rgba(72,64,44,.05)}
 /* ===== 手机比例：顶部标题栏减负（隐藏装饰点与角标，收紧身份胶囊） ===== */
 @media (max-width:600px){
   .brand{gap:10px;padding:calc(15px + env(safe-area-inset-top)) 0 12px}
@@ -1373,18 +1394,15 @@ body.rst-lock{overflow:hidden}
   #s-fb>.card:first-of-type{max-width:820px;margin-left:auto;margin-right:auto}
   .stnote{max-width:70ch}
 
-  /* 抽签 STEP1：右栏撑满左卡高度；结果面板垂直居中，排序/动作固定在右栏底部 */
-  #p1.on{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);
-    grid-template-rows:minmax(0,1fr) auto auto;
-    grid-template-areas:"cfg out" "cfg sort" "cfg next";align-items:stretch}
-  #p1.on>.card{grid-area:cfg;align-self:stretch;margin-bottom:0}
-  #p1.on>#aOut{grid-area:out;margin-top:0;align-self:stretch;display:flex;flex-direction:column;justify-content:center}
-  #p1.on>#aSortRow{grid-area:sort;margin-top:10px}
-  #p1.on>#aNextRow{grid-area:next;margin-top:10px;align-self:end}
-
-  /* 抽签 STEP2：分组结果卡更大更舒展 */
-  #p2.on>#gOut{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
-  #p2.on>#gOut .gcard .bd{padding:11px 14px;font-size:14.5px;line-height:2.05}
+  /* 抽签 / 分组（2026-11-22 拆分）：左右分栏，左配置卡 + 右结果区；
+     分组结果组卡在宽屏更大更舒展 */
+  .dgwrap{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,.98fr);gap:12px;align-items:start}
+  .dgcfg{margin-bottom:0}
+  .dgout{display:flex;flex-direction:column}
+  #s-draw .result{min-height:240px;display:flex;flex-direction:column;justify-content:center}
+  #s-draw .result .rnum{margin:0}
+  #s-group #gOut{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+  #s-group #gOut .gcard .bd{padding:11px 14px;font-size:14.5px;line-height:2.05}
 
   /* 统计 v2：摘要四格、趋势/登录端整行、版本/设备双栏（其余由 .st-dash 控制） */
   #s-stats .stsum{max-width:none}
@@ -1965,7 +1983,7 @@ body.opt2-lock{overflow:hidden!important}
   body.opt-printing .brand,body.opt-printing .tabs,body.opt-printing .idchip,body.opt-printing .syncst,
   body.opt-printing .btn,body.opt-printing .card-handle,body.opt-printing #toast,body.opt-printing .modal,
   body.opt-printing .opt-ov,body.opt-printing .opt2-ov,body.opt-printing .opt2-stage,
-  body.opt-printing .steps,body.opt-printing .skel,body.opt-printing .drag-src{display:none!important}
+  body.opt-printing .skel,body.opt-printing .drag-src{display:none!important}
   body.opt-printing section{display:none!important}
   body.opt-printing section.on{display:block!important}
   body.opt-printing .card{box-shadow:none!important;border:0!important;padding:0!important}
@@ -2836,7 +2854,7 @@ html[data-appearance="dark"] .tabs button.on,
 html[data-appearance="dark"] input[type=text], html[data-appearance="dark"] input[type=password], html[data-appearance="dark"] input[type=date], html[data-appearance="dark"] input[type=time], html[data-appearance="dark"] input[type=number], html[data-appearance="dark"] select, html[data-appearance="dark"] textarea,
 html[data-appearance="dark"] .btn,
 html[data-appearance="dark"] .ck,
-html[data-appearance="dark"] .steps button,
+html[data-appearance="dark"] .seg button,
 html[data-appearance="dark"] .result,
 html[data-appearance="dark"] .gcard,
 html[data-appearance="dark"] .rx,
@@ -2888,7 +2906,7 @@ html[data-appearance="dark"] .ug-ov-sheet,
 html[data-appearance="dark"] .nextbox .nmap,
 html[data-appearance="dark"] .ap-opt{background:#181818}
 html[data-appearance="dark"] .ubtn.on,
-html[data-appearance="dark"] .steps button.on,
+html[data-appearance="dark"] .seg button.on,
 html[data-appearance="dark"] .rst-b.on,
 html[data-appearance="dark"] .ppt-st.up,
 html[data-appearance="dark"] .ppt-tag,
@@ -2926,7 +2944,6 @@ html[data-appearance="dark"] .ppt-cv,
 html[data-appearance="dark"] .ppt-bar,
 html[data-appearance="dark"] .ug-prog{background:#1A1F1D}
 html[data-appearance="dark"] .btn.danger{border-color:#4C2924}
-html[data-appearance="dark"] .steps button.done{border-color:#2A473F}
 html[data-appearance="dark"] .rhint,
 html[data-appearance="dark"] .an-orig,
 html[data-appearance="dark"] .an-seg,
@@ -3146,7 +3163,7 @@ html[data-appearance="dark"] .item{border-color:#4D3E25}
 html[data-appearance="dark"] .rhint{background:#251F14;border-color:#4E3E25}
 html[data-appearance="dark"] input[type=text], html[data-appearance="dark"] input[type=password], html[data-appearance="dark"] input[type=date], html[data-appearance="dark"] input[type=time], html[data-appearance="dark"] input[type=number], html[data-appearance="dark"] select, html[data-appearance="dark"] textarea{background:#221E12;border-color:#4E3E25}
 html[data-appearance="dark"] .ck,
-html[data-appearance="dark"] .steps button,
+html[data-appearance="dark"] .seg button,
 html[data-appearance="dark"] .wt-mo.now{border-color:#4E3E25}
 html[data-appearance="dark"] @media (max-width:600px){color:#CAC6BD}
   .idchip{max-width:7.4em}
@@ -4033,17 +4050,10 @@ html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px
   </div>
 <div class="tabs" id="tabsBar"></div>
 
-  <!-- ==================== 抽签工作流 ==================== -->
+  <!-- ==================== 抽签（独立工具） ==================== -->
   <section id="s-draw" class="on">
-    <div class="steps">
-      <button data-step="1" class="on"><b>STEP 1</b>抽签</button>
-      <button data-step="2"><b>STEP 2</b>分组</button>
-      <button data-step="3"><b>STEP 3</b>结果单</button>
-    </div>
-
-    <!-- STEP 1 -->
-    <div class="stpane on" id="p1">
-      <div class="card">
+    <div class="dgwrap">
+      <div class="card dgcfg">
         <div class="grid2">
           <div><label class="f">范围 · 起始</label><input type="number" id="aStart" value="1" min="0" placeholder="起始数字"></div>
           <div><label class="f">范围 · 结束</label><input type="number" id="aEnd" value="70" min="0" placeholder="结束数字"></div>
@@ -4063,8 +4073,9 @@ html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px
             </div>
           </div>
         </div>
-        <div class="row">
+        <div class="row dgopts">
           <label class="ck"><input type="checkbox" id="aDup"> 允许重复</label>
+          <label class="ck"><input type="checkbox" id="aAutoRe" checked> 剔除后自动重抽</label>
         </div>
         <div class="row">
           <button class="btn pri" id="aRun">开始抽签</button>
@@ -4073,61 +4084,61 @@ html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px
           <span class="rpool" id="aRecSum"></span>
         </div>
       </div>
-      <div class="result" id="aOut"><div class="empty">—</div></div>
-      <div class="proof-line" id="aProof" style="display:none"></div>
-      <div class="row" id="aSortRow" style="display:none">
-        <button class="btn" data-asort="desc">从大到小</button>
-        <button class="btn" data-asort="asc">从小到大</button>
-        <button class="btn" data-asort="rand">随机打乱</button>
-        <label class="ck"><input type="checkbox" id="aAutoRe" checked> 剔除后自动重抽</label>
-      </div>
-      <div class="row" id="aNextRow" style="display:none">
-        <button class="btn" id="aImg" style="flex:1">导出图片</button>
-        <button class="btn pri" id="aNext" style="flex:1">下一步：分组</button>
+      <div class="dgout">
+        <div class="dgout-hd"><b>抽签结果</b><span class="rpool" id="aOutMeta"></span></div>
+        <div class="result" id="aOut"><div class="empty">—</div></div>
+        <div class="proof-line" id="aProof" style="display:none"></div>
+        <div class="row dgsc" id="aSortRow" style="display:none">
+          <button class="btn sm" data-asort="desc">从大到小</button>
+          <button class="btn sm" data-asort="asc">从小到大</button>
+          <button class="btn sm" data-asort="rand">随机打乱</button>
+          <button class="btn sm ghost" id="aImg" type="button">导出图片</button>
+        </div>
       </div>
     </div>
+  </section>
 
-    <!-- STEP 2 -->
-    <div class="stpane" id="p2">
-      <div class="card">
-        <div class="row" style="margin-top:0">
-          <label class="ck"><input type="radio" name="gsrc" value="prev" checked> 用上一步序号</label>
-          <label class="ck"><input type="radio" name="gsrc" value="names"> 选择名单</label>
+  <!-- ==================== 分组（独立工具） ==================== -->
+  <section id="s-group">
+    <div class="dgwrap">
+      <div class="card dgcfg">
+        <label class="f">成员来源</label>
+        <div class="seg" id="gSrcSeg" role="tablist">
+          <button type="button" data-gsrc="all" role="tab"><b>全班</b><i id="gAllN">—</i></button>
+          <button type="button" data-gsrc="prev" role="tab"><b>最近抽签</b><i id="gPrevN">—</i></button>
+          <button type="button" data-gsrc="pick" role="tab"><b>自选名单</b><i id="gPickN">—</i></button>
         </div>
-        <div id="gNamesWrap" style="display:none">
-          <label class="f">分组名单</label>
+        <div class="src-hint" id="gSrcHint" style="display:none"></div>
+        <div class="subblock" id="gPickWrap" style="display:none">
           <div class="rsum" id="gRosterSum"><span class="rsum-empty">未选择</span></div>
           <div class="row" style="margin-top:8px">
             <button class="btn" id="gRosterPick" type="button">选择名单</button>
+            <button class="btn ghost" id="gRosterClear" type="button">清空</button>
             <span class="rpool" id="gRosterCnt"></span>
           </div>
         </div>
-        <div class="grid2">
-          <div><label class="f">分组方式</label>
-            <select id="gMode"><option value="groups">按组数</option><option value="pergroup">按每组人数</option></select>
-          </div>
-          <div><label class="f" id="gNumLabel">组数</label><input type="number" id="gNum" value="4" min="2" max="99"></div>
+        <label class="f" style="margin-top:14px">分组方式</label>
+        <div class="seg" id="gModeSeg" role="tablist">
+          <button type="button" data-gmode="groups" role="tab" class="on"><b>按组数</b></button>
+          <button type="button" data-gmode="pergroup" role="tab"><b>每组人数</b></button>
         </div>
-        <div class="row">
-          <label class="ck"><input type="checkbox" id="gShuffle"> 打乱成员再分组</label>
+        <select id="gMode" class="vhidden" tabindex="-1" aria-hidden="true"><option value="groups">按组数</option><option value="pergroup">按每组人数</option></select>
+        <div class="gnumrow">
+          <button class="gnbtn" id="gMinus" type="button" aria-label="减少">−</button>
+          <input type="number" id="gNum" value="4" min="1" max="99" inputmode="numeric" aria-label="分组数量">
+          <button class="gnbtn" id="gPlus" type="button" aria-label="增加">+</button>
+          <span class="gnlbl" id="gNumLabel">组</span>
         </div>
-        <div class="row">
-          <button class="btn pri" id="gRun">开始分组</button>
-          <button class="btn" id="gImg">导出图片</button>
-          <button class="btn ghost" id="gCopy">复制</button>
-        </div>
+        <div class="row dgopts"><label class="ck"><input type="checkbox" id="gShuffle"> 打乱成员再分组</label></div>
+        <div class="row"><button class="btn pri" id="gRun">开始分组</button></div>
       </div>
-      <div class="groups" id="gOut"></div>
-    </div>
-
-    <!-- STEP 3 -->
-    <div class="stpane" id="p3">
-      <div class="card">
-        <div class="row" style="margin-top:0">
-          <button class="btn pri" id="sImg">导出结果单图片</button>
-          <button class="btn ghost" id="sCopy">复制全部</button>
+      <div class="dgout">
+        <div class="dgout-hd"><b>分组结果</b><span class="rpool" id="gSum"></span></div>
+        <div class="groups" id="gOut"><div class="empty" style="grid-column:1/-1">—</div></div>
+        <div class="row dgsc" id="gActs" style="display:none">
+          <button class="btn sm" id="gImg" type="button">导出图片</button>
+          <button class="btn sm ghost" id="gCopy" type="button">复制</button>
         </div>
-        <div class="result" id="sOut"><div class="empty">—</div></div>
       </div>
     </div>
   </section>
@@ -7722,12 +7733,14 @@ var UD={
   },
   groupDom:function(g){
     try{
-      $$('input[name=gsrc]').forEach(function(r){r.checked=(r.value===g.source);});
-      var m=$("#gMode"); if(m)m.value=g.mode;
-      var n=$("#gNum"); if(n)n.value=g.n;
-      var sh=$("#gShuffle"); if(sh)sh.checked=!!g.shuffle;
-      var w=$("#gNamesWrap"); if(w)w.style.display=(g.source==="names")?"":"none";
-      var lb=$("#gNumLabel"); if(lb)lb.textContent=(g.mode==="groups")?"组数":"每组人数";
+      if(!g)return;
+      if(typeof renderGroupUI==="function")renderGroupUI();
+      else{
+        var m=$("#gMode"); if(m)m.value=g.mode;
+        var n=$("#gNum"); if(n)n.value=g.n;
+        var sh=$("#gShuffle"); if(sh)sh.checked=!!g.shuffle;
+      }
+      if(typeof renderG==="function"&&typeof G!=="undefined"&&G.result)renderG();
     }catch(e){}
   },
   fetchRemote:function(){
@@ -8061,10 +8074,10 @@ function refreshAll(){
   $("#aStart").value=dr.start; $("#aEnd").value=dr.end; $("#aCount").value=dr.count;
   $("#aExcl").value=dr.excl||""; $("#aDup").checked=!!dr.dup;
   var g=D.d.group;
-  $$('input[name=gsrc]').forEach(function(r){r.checked=(r.value===g.source);});
-  $("#gMode").value=g.mode; $("#gNum").value=g.n; $("#gShuffle").checked=!!g.shuffle;
-  $("#gNamesWrap").style.display=g.source==="names"?"":"none";
-  $("#gNumLabel").textContent=g.mode==="groups"?"组数":"每组人数";
+  if(typeof renderGroupUI==="function")renderGroupUI();
+  else{
+    $("#gMode").value=g.mode; $("#gNum").value=g.n; $("#gShuffle").checked=!!g.shuffle;
+  }
   var f=D.d.fit;
   $$('input[name=ftsex]').forEach(function(r){r.checked=(r.value===(f.sex==="f"?"f":"m"));});
   $("#fGrade").value=(f.grade==="34")?"34":"12";
@@ -8073,7 +8086,7 @@ function refreshAll(){
   renderRosterSums();
   if(typeof renderNamesSum==="function")renderNamesSum();
   if(typeof renderProofLine==="function")renderProofLine();
-  renderA(); renderG(); renderTT(); renderHW(); renderNT(); renderSum(); renderFT(); renderRoll(); renderFTRecs(); renderCommittee(); gateUI(); syncSt();
+  renderA(); renderG(); renderTT(); renderHW(); renderNT(); renderFT(); renderRoll(); renderFTRecs(); renderCommittee(); gateUI(); syncSt();
 }
 /* ---------------- 班级身份：认证、名单、门禁 ---------------- */
 function isVerified(){return !!AUTH.token;}
@@ -8167,6 +8180,7 @@ function applyGroupSel(sel){
   D.d.groupSel=normSeats(sel);
   D.d.group.names=groupNamesText(D.d.groupSel);
   D.save(); renderRosterSums();
+  try{if(typeof renderGroupUI==="function")renderGroupUI();}catch(e){}
 }
 function applyRollSel(sel){
   D.d.rollSel=normSeats(sel);
@@ -8514,7 +8528,8 @@ function bodyLockAudit(){
 }
 /* ---------------- 标签栏 · 首页三栏 + 全部 ---------------- */
 var TOOLS=[
- {k:"draw",n:"抽签",d:"抽签、分组与结果导出"},
+ {k:"draw",n:"抽签",d:"随机抽签与结果导出"},
+ {k:"group",n:"分组",d:"全班 / 最近抽签 / 自选名单随机分组"},
  {k:"tt",n:"课表",d:"班级课表与下一节课"},
  {k:"committee",n:"名单",d:"班委、团员与全班名单"},
  {k:"hw",n:"任务",d:"个人任务、分组、提醒与班级作业自动同步"},
@@ -8596,6 +8611,7 @@ function gotoTab(k,noScroll){
   $$("section").forEach(function(s){s.classList.remove("on");});
   var el=$("#s-"+k); if(el) el.classList.add("on");
   if(k==="tt") setTimeout(function(){ttHint();ttLayout();},0);
+  if(k==="draw"||k==="group"){try{if(typeof renderGroupUI==="function"&&k==="group")groupEnter();}catch(e){}}
   if(k==="hw"){HW.pull();marksPull(true);try{if(typeof TK!=="undefined"&&TK&&TK.enter)TK.enter();}catch(e){}}
   if(k==="nt"){renderNoticeFrame();NT.pull();marksPull(true);}
   if(k==="ntadmin"){try{if(typeof NTADMIN!=="undefined"&&NTADMIN&&NTADMIN.enter)NTADMIN.enter();}catch(e){}}
@@ -8674,7 +8690,7 @@ function renderTabs(noScroll){
 }
 
 /* 全部栏卡片色调：课表雾蓝 · 作业/反馈睡莲青 · 抽签/体测暖沙 · 班委/点名/统计紫 · 通知灰粉 · 使用说明中性 */
-var ALL_TONE={draw:"sand",tt:"blue",committee:"violet",hw:"mint",nt:"rose",ntadmin:"teal",ft:"sand",roll:"violet",stats:"violet",water:"blue",vote:"teal",stage:"violet",settings:"plain",map:"teal",jw:"blue",chsi:"blue"};
+var ALL_TONE={draw:"sand",group:"blue",tt:"blue",committee:"violet",hw:"mint",nt:"rose",ntadmin:"teal",ft:"sand",roll:"violet",stats:"violet",water:"blue",vote:"teal",stage:"violet",settings:"plain",map:"teal",jw:"blue",chsi:"blue"};
 /* ============================================================
    全部页卡片拖动 v2（2026-11-06；2026-11-11 定位基准 = 卡片本体）
    - 起点：卡片右上 handle（三条横线）；移动 >6px 才进入拖动
@@ -10968,13 +10984,7 @@ var WATER={
   }
 };
 
-function stepGo(n){
-  $$(".steps button").forEach(function(x){x.classList.toggle("on",+x.dataset.step===n);});
-  $$(".stpane").forEach(function(p){p.classList.remove("on");});
-  var el=$("#p"+n); if(el) el.classList.add("on");
-  if(n===3) renderSum();
-}
-$$(".steps button").forEach(function(b){b.addEventListener("click",function(){stepGo(+b.dataset.step);});});
+/* 2026-11-22：抽签 / 分组拆成两个独立工具，STEP 步骤条已移除（无 stepGo）。 */
 
 /* ============================================================
    导出图片（统一规范）
@@ -11644,14 +11654,23 @@ function memberRuns(gp,sep){
   return runs;
 }
 function renderA(){
-  if(!A.result){$("#aOut").innerHTML='<div class="empty">—</div>';$("#aSortRow").style.display="none";$("#aNextRow").style.display="none";if(typeof renderProofLine==="function")renderProofLine();return;}
+  if(!A.result){
+    $("#aOut").innerHTML='<div class="empty">—</div>';
+    $("#aSortRow").style.display="none";
+    var m0=$("#aOutMeta"); if(m0)m0.textContent="";
+    var r0=$("#aRun"); if(r0)r0.textContent="开始抽签";
+    if(typeof renderProofLine==="function")renderProofLine();
+    return;
+  }
   var c=A.cfg;
   $("#aOut").innerHTML=
     '<div class="rnum">'+A.result.map(function(n,i){var nm=nameOf(n);
       return '<span class="rcell'+(nm?' mapped':'')+'" data-n="'+n+'">'+(nm?'<span class="rno">'+n+'</span><span class="rname">'+esc(nm)+'</span>':String(n))+'<button class="rx" data-rm="'+i+'">×</button></span>';}).join("")+
     '<div style="margin-top:8px"><small>共 '+A.result.length+' 个 · 排序：'+esc(c.sort)+(A.log&&A.log.length?' · 已剔除 '+A.log.length:'')+'</small></div></div>';
   $("#aOut").setAttribute("data-log",String((A.log||[]).length));
-  $("#aSortRow").style.display="";$("#aNextRow").style.display="";
+  $("#aSortRow").style.display="";
+  var m=$("#aOutMeta"); if(m)m.textContent="范围 "+c.range+" · "+c.count+" 个";
+  var r=$("#aRun"); if(r)r.textContent="重新抽签";
   if(typeof renderProofLine==="function")renderProofLine();
 }
 function logBytes(s){var n=0;for(var i=0;i<s.length;i++){var c=s.charCodeAt(i);n+=(c<128)?1:(c<2048?2:3);}return n;}
@@ -11690,18 +11709,17 @@ $("#aOut").addEventListener("click",function(e){
   if(b) removeFlow(+b.getAttribute("data-rm"));
 });
 $("#aRun").addEventListener("click",function(){ if(doDraw()) toast("已抽取"); });
-/* 重置本轮：清空抽签结果 / 剔除记录 / 分组结果，参数与参与名单保留（与小程序「重置」同义） */
+/* 重置本轮：只清空抽签结果 / 剔除记录（分组已是独立工具，不再连带清空）；参数与参与名单保留 */
 $("#aReset").addEventListener("click",function(){
-  if(!A.result&&!G.result){toast("本轮还没有抽签结果");return;}
-  if(!confirm("重置本轮抽签？将清空抽签结果与分组结果（参数与名单保留）"))return;
+  if(!A.result){toast("本轮还没有抽签结果");return;}
+  if(!confirm("重置本轮抽签？将清空抽签结果与剔除记录（参数与名单保留）"))return;
   if(A.proof&&A.proof.status==="ok")drawProofEvent("reset",null,null);
   A.result=null;A.cfg=null;A.log=[];A.removed=[];A.pool=null;
   A.proof=null;A.proofPayload=null;A.proofSeed=null;A.proofOrder=null;
-  G.result=null;G.cfg=null;
-  renderA();renderG();renderSum();renderProofLine();renderRecSum();
-  toast("已重置抽签与分组");
+  renderA();renderProofLine();renderRecSum();
+  toast("已重置抽签");
 });
-$$("#aSortRow .btn").forEach(function(b){ b.addEventListener("click",function(){
+$$("#aSortRow .btn[data-asort]").forEach(function(b){ b.addEventListener("click",function(){
   if(!A.result){toast("先抽签");return;}
   var k=b.getAttribute("data-asort");
   if(k==="desc"){ A.result=A.result.slice().sort(function(x,y){return y-x;}); A.cfg.sort="从大到小"; }
@@ -11711,7 +11729,6 @@ $$("#aSortRow .btn").forEach(function(b){ b.addEventListener("click",function(){
     A.result=p; A.cfg.sort="随机"; }
   renderA();
 });});
-$("#aNext").addEventListener("click",function(){ stepGo(2); });
 /* 参与名单：只允许从班级名单中选，页面显示不可输入的名字气泡摘要 */
 $("#aRosterPick").addEventListener("click",function(){ openPicker("draw"); });
 $("#aRosterClear").addEventListener("click",function(){
@@ -12202,55 +12219,167 @@ window.DRAWPROOF={
 };
 
 /* ============================================================
-   STEP 2 · 分组
+   分组（2026-11-22 起为独立工具，不再是抽签的 STEP 2）
+   - 成员来源：全班（班级名单全选）/ 最近抽签（本机持久化）/ 自选名单
+   - 数据仍写 D.d.group{source:"prev"|"pick",mode,n,shuffle} + D.d.groupSel（UD v6 兼容，「全班」不新增 source 值）
+   - 契约 web/group/CONTRACT.md
    ============================================================ */
 var G={result:null,cfg:null};
-(function(){var g=D.d.group;
-  $$('input[name=gsrc]').forEach(function(r){r.checked=(r.value===g.source);});
-  $("#gMode").value=g.mode; $("#gNum").value=g.n; $("#gShuffle").checked=!!g.shuffle;
-  $("#gNamesWrap").style.display=g.source==="names"?"":"none";
-  $("#gNumLabel").textContent=g.mode==="groups"?"组数":"每组人数";
-})();
-$$('input[name=gsrc]').forEach(function(r){r.addEventListener("change",function(){
-  D.d.group.source=this.value; D.save();
-  $("#gNamesWrap").style.display=this.value==="names"?"":"none";
-});});
-$("#gRosterPick").addEventListener("click",function(){ openPicker("group"); });
-$("#gMode").addEventListener("change",function(){
-  D.d.group.mode=this.value; D.save();
-  $("#gNumLabel").textContent=this.value==="groups"?"组数":"每组人数";
-});
+function gAllSeats(){ return allMemberSeats(); }
+function gSelSeats(){ return normSeats(D.d.groupSel||[]); }
+function gEqSeats(a,b){
+  a=a||[];b=b||[];
+  if(a.length!==b.length)return false;
+  for(var i=0;i<a.length;i++){if(a[i]!==b[i])return false;}
+  return true;
+}
+/* 「全班」判定 = 已选集合正好等于班级名单全部座号（不新增 source 值，跨端兼容） */
+function gIsAll(){ var all=gAllSeats(); return all.length>0&&gEqSeats(gSelSeats(),all); }
+function gHasPrev(){ var l=gLastDraw(); return !!(l&&l.result instanceof Array&&l.result.length); }
+/* 来源：stored prev 但没有抽签记录时回落到「全班/自选」，避免置灰却仍被选中 */
+function gSource(){
+  if(D.d.group&&D.d.group.source==="prev")return gHasPrev()?"prev":(gAllSeats().length?"all":"pick");
+  return gIsAll()?"all":"pick";
+}
+/* 最近一次抽签结果：本机持久化（zq_draw_last_v1，OPTIM V1 写入）→ 无则 null */
+function gLastDraw(){
+  try{ if(window.__zqDrawLast&&window.__zqDrawLast.read)return window.__zqDrawLast.read(); }catch(e){}
+  return null;
+}
+function gPrevSeats(){ var l=gLastDraw(); return (l&&l.result instanceof Array)?l.result.slice():[]; }
+/* 沿用最近抽签：按序号去重（允许重复抽签时同一个人不应出现在两个组里；与 Windows 端同口径） */
+function gPrevMembers(){
+  var seen={},out=[];
+  gPrevSeats().forEach(function(n){
+    var k=String(n);
+    if(seen[k])return;
+    seen[k]=1;
+    out.push({n:n,nm:nameOf(n)});
+  });
+  return out;
+}
 function gMembers(){
-  var g=D.d.group;
-  if(g.source==="prev"){
-    if(!A.result||!A.result.length){toast("请先在 Step 1 抽签");return null;}
-    return A.result.map(function(x){return {n:x,nm:nameOf(x)};});
+  var src=gSource();
+  if(src==="prev"){
+    var list=gPrevMembers();
+    if(!list.length){toast("还没有抽签结果，先抽签或换成员来源");return null;}
+    if(list.length<2){toast("至少 2 人才能分组");return null;}
+    return list;
   }
-  var sel=D.d.groupSel||[];
+  var sel=gSelSeats();
   if(!sel.length){toast("请先选择名单");return null;}
   var mem=[];
   sel.forEach(function(seat){var m=memberBySeat(seat);if(m)mem.push({n:m.seat,nm:m.name});});
   if(mem.length<2){toast("名单至少 2 人");return null;}
   return mem;
 }
+function gModeLabel(){ return D.d.group.mode==="groups"?"组":"人/组"; }
+function gModeBounds(){
+  var g=D.d.group;
+  return g.mode==="groups"?[2,99]:[1,99];
+}
+function gClampNum(v,isStep){
+  var b=gModeBounds(),n=Math.round(Number(v));
+  if(!isFinite(n)||n<=0)n=isStep?b[0]:b[0];
+  return Math.max(b[0],Math.min(b[1],n));
+}
+function renderGroupUI(){
+  var g=D.d.group,src=gSource(),last=gLastDraw();
+  $$("#gSrcSeg button").forEach(function(b){
+    var on=b.getAttribute("data-gsrc")===src;
+    b.classList.toggle("on",on);
+    b.setAttribute("aria-selected",on?"true":"false");
+  });
+  var pb=$("#gSrcSeg button[data-gsrc='prev']");
+  if(pb){
+    var has=!!(last&&last.result&&last.result.length);
+    pb.disabled=!has;
+    pb.title=has?"":"还没有抽签结果";
+  }
+  var an=$("#gAllN"); if(an)an.textContent=gAllSeats().length?(gAllSeats().length+" 人"):"—";
+  var hasLast=!!(last&&last.result&&last.result.length);
+  var pn=$("#gPrevN"); if(pn)pn.textContent=hasLast?(last.result.length+" 个"):"—";
+  var kn=$("#gPickN"); if(kn)kn.textContent=gSelSeats().length?(gSelSeats().length+" 人"):"—";
+  var hint=$("#gSrcHint");
+  if(hint){
+    var ht="";
+    if(src==="prev"&&hasLast){
+      ht="上次抽签 "+(last.at?drawTimeText(last.at):"")+(last.cfg&&last.cfg.range?(" · 范围 "+last.cfg.range):"")+" · "+last.result.length+" 个";
+    }else if(src==="all"&&gAllSeats().length){
+      ht="班级名单全部 "+gAllSeats().length+" 人";
+    }
+    hint.textContent=ht;
+    hint.style.display=ht?"":"none";
+  }
+  var pw=$("#gPickWrap"); if(pw)pw.style.display=src==="pick"?"":"none";
+  $$("#gModeSeg button").forEach(function(b){ b.classList.toggle("on",b.getAttribute("data-gmode")===g.mode); });
+  var sel=$("#gMode"); if(sel)sel.value=g.mode;
+  var num=$("#gNum"); if(num){ var b=gModeBounds(); num.min=String(b[0]); num.value=String(gClampNum(g.n,false)); }
+  var lbl=$("#gNumLabel"); if(lbl)lbl.textContent=gModeLabel();
+  var sh=$("#gShuffle"); if(sh)sh.checked=!!g.shuffle;
+  var run=$("#gRun"); if(run)run.textContent=G.result?"重新分组":"开始分组";
+}
+function gSetSource(src){
+  var g=D.d.group;
+  if(src==="prev")g.source="prev";
+  else if(src==="all"){ g.source="pick"; D.d.groupSel=gAllSeats().slice(); D.d.group.names=groupNamesText(D.d.groupSel); }
+  else g.source="pick";
+  D.save();
+  renderRosterSums();
+  renderGroupUI();
+}
+function gSetMode(mode){
+  var g=D.d.group;
+  g.mode=(mode==="pergroup")?"pergroup":"groups";
+  if(g.mode==="groups")g.n=Math.max(2,g.n||4);
+  D.save();
+  renderGroupUI();
+}
+function gSetNum(v,isStep){
+  var g=D.d.group;
+  g.n=gClampNum(v,isStep);
+  D.save();
+  var num=$("#gNum"); if(num)num.value=String(g.n);
+}
 function doGroup(){
   var g=D.d.group;
-  g.mode=$("#gMode").value; g.n=+$("#gNum").value||2; g.shuffle=!!$("#gShuffle").checked;
+  g.mode=$("#gMode").value||g.mode;
+  g.n=gClampNum($("#gNum").value,false);
+  g.shuffle=!!$("#gShuffle").checked;
   D.save();
-  var mem=gMembers(); if(!mem) return false;
-  var groups = g.mode==="groups" ? Math.min(Math.max(2,g.n),mem.length) : Math.max(1,Math.ceil(mem.length/Math.max(1,g.n)));
+  var mem=gMembers(); if(!mem)return false;
+  var groups=g.mode==="groups" ? Math.min(Math.max(2,g.n),mem.length) : Math.max(1,Math.ceil(mem.length/Math.max(1,g.n)));
   var list=mem.slice();
   if(g.shuffle){ for(var j=list.length-1;j>0;j--){var r=rndInt(j+1);var t=list[j];list[j]=list[r];list[r]=t;} }
   var out=[]; for(var i=0;i<groups;i++) out.push([]);
   list.forEach(function(p,i){ out[i%groups].push(p); });
   G.result=out;
-  G.cfg={source:g.source==="prev"?"上一步抽签序号":"选择名单", mode:g.mode==="groups"?"按组数("+groups+"组)":"按每组人数("+g.n+"人)",
-         total:String(mem.length), groups:String(groups), inner:g.shuffle?"打乱后随机分配":"按原顺序轮流分配"};
+  var src=gSource();
+  G.cfg={
+    source:src==="prev"?"最近抽签":(src==="all"?"全班名单":"自选名单"),
+    mode:g.mode==="groups"?"按组数("+groups+"组)":"按每组人数("+g.n+"人)",
+    total:String(mem.length), groups:String(groups),
+    inner:g.shuffle?"打乱后随机分配":"按原顺序轮流分配"
+  };
   renderG(); return true;
+}
+function gSumText(){
+  if(!G.result||!G.result.length)return "";
+  var sizes=G.result.map(function(gp){return gp.length;});
+  var mn=Math.min.apply(null,sizes),mx=Math.max.apply(null,sizes),total=0;
+  sizes.forEach(function(n){total+=n;});
+  var per=(mn===mx)?("每组 "+mn+" 人"):("每组 "+mn+"–"+mx+" 人");
+  return "共 "+total+" 人 · "+G.result.length+" 组 · "+per;
 }
 function renderG(){
   var o=$("#gOut");
-  if(!G.result){o.innerHTML='<div class="empty" style="grid-column:1/-1">—</div>';return;}
+  if(!G.result){
+    o.innerHTML='<div class="empty" style="grid-column:1/-1">—</div>';
+    var s0=$("#gSum"); if(s0)s0.textContent="";
+    var a0=$("#gActs"); if(a0)a0.style.display="none";
+    var r0=$("#gRun"); if(r0)r0.textContent="开始分组";
+    return;
+  }
   o.innerHTML=G.result.map(function(gp,i){
     return '<div class="gcard"><div class="hd"><span>第 '+(i+1)+' 组</span><span class="n">'+gp.length+' 人</span></div><div class="bd">'+gp.map(function(m){
       if(m.nm&&m.n!=null) return '<span><i>'+m.n+'</i><b>'+esc(m.nm)+'</b></span>';
@@ -12258,8 +12387,29 @@ function renderG(){
       return '<span>'+m.n+'</span>';
     }).join("")+'</div></div>';
   }).join("");
+  var s=$("#gSum"); if(s)s.textContent=gSumText();
+  var a=$("#gActs"); if(a)a.style.display="";
+  var r=$("#gRun"); if(r)r.textContent="重新分组";
 }
-$("#gRun").addEventListener("click",function(){ if(doGroup()){toast("已分组");stepGo(2);} });
+$$("#gSrcSeg button").forEach(function(b){
+  b.addEventListener("click",function(){
+    if(b.disabled)return;
+    gSetSource(b.getAttribute("data-gsrc"));
+  });
+});
+$$("#gModeSeg button").forEach(function(b){
+  b.addEventListener("click",function(){ gSetMode(b.getAttribute("data-gmode")); });
+});
+$("#gMinus").addEventListener("click",function(){ gSetNum((+$("#gNum").value||0)-1,true); });
+$("#gPlus").addEventListener("click",function(){ gSetNum((+$("#gNum").value||0)+1,true); });
+$("#gNum").addEventListener("change",function(){ gSetNum(this.value,false); });
+$("#gShuffle").addEventListener("change",function(){ D.d.group.shuffle=!!this.checked; D.save(); });
+$("#gRosterPick").addEventListener("click",function(){ openPicker("group"); });
+$("#gRosterClear").addEventListener("click",function(){
+  if(!gSelSeats().length){toast("分组名单已为空");return;}
+  applyGroupSel([]); toast("已清空分组名单");
+});
+$("#gRun").addEventListener("click",function(){ if(doGroup())toast("已分组"); });
 $("#gCopy").addEventListener("click",function(){
   if(!G.result){toast("先分组");return;}
   copy(G.result.map(function(gp,i){return "第 "+(i+1)+" 组："+gp.map(function(m){return memLabel(m);}).join("、");}).join("\n"));
@@ -12270,7 +12420,7 @@ $("#gImg").addEventListener("click",function(){
   var groups=G.result.map(function(gp){return gp.map(function(m){return {n:m.n,nm:m.nm};});});
   exportCard({
     title:"随机分组结果",
-    sub:"Step 2",
+    sub:"分组",
     file:safeName("分组结果_"+stamp()+"_"+c.total+"人_"+c.groups+"组_"+c.mode)+".png",
     rec:recId("GROUP"),
     config:[["成员来源",c.source],["分组方式",c.mode],["总人数",c.total],["组数",c.groups],["成员分配",c.inner]],
@@ -12278,57 +12428,37 @@ $("#gImg").addEventListener("click",function(){
     foot:"生成时间 "+timeStr()
   });
 });
-
-/* ============================================================
-   STEP 3 · 结果单
-   ============================================================ */
-function sumData(){
-  var cfg=[], blocks=[], xblocks=[], ok=false;
-  if(A.result){
-    ok=true;
-    cfg.push(["抽签 · 范围",A.cfg.range],["抽签 · 个数",A.cfg.count],["抽签 · 允许重复",A.cfg.dup],
-             ["抽签 · 排除",A.cfg.excl],["抽签 · 排序",A.cfg.sort]);
-    var rn=(D.d.rosterSel||[]).length||rosterCount(); if(rn) cfg.push(["抽签 · 参与名单",rn+" 人"]);
-    if(rn){
-      var runs=[]; A.result.forEach(function(n){var nm=nameOf(n);
-        if(nm){runs.push({t:String(n)+" ",dim:true});runs.push({t:nm+"  ",strong:true,glue:true});}
-        else runs.push({t:String(n)+"  "});});
-      blocks.push({label:"抽签结果",lines:[runs],mono:true});
-    } else blocks.push({label:"抽签结果",lines:[aLines()],mono:true,atomic:true});
-    xblocks.push({label:"抽签结果",chips:A.result.map(function(n){return {n:n,nm:nameOf(n)};})});
-  }
-  if(G.result){
-    ok=true;
-    cfg.push(["分组 · 成员来源",G.cfg.source],["分组 · 方式",G.cfg.mode],["分组 · 人数",G.cfg.total],["分组 · 组数",G.cfg.groups],["分组 · 成员分配",G.cfg.inner]);
-    G.result.forEach(function(gp,i){blocks.push({label:"第 "+(i+1)+" 组（"+gp.length+" 人）",lines:[memberRuns(gp,"   ")]});});
-    xblocks.push({label:"分组结果",groups:G.result.map(function(gp){return gp.map(function(m){return {n:m.n,nm:m.nm};});})});
-  }
-  return ok?{cfg:cfg,blocks:blocks,xblocks:xblocks}:null;
+/* 进入分组页：恢复参数/判「全班」/刷新最近抽签可用性（成员名单后台补拉） */
+function groupEnter(){
+  renderRosterSums();
+  renderGroupUI();
+  try{
+    if(isVerified()&&!(D.d.members||[]).length){
+      ensureMembers().then(function(){ renderRosterSums(); renderGroupUI(); },function(){});
+    }
+  }catch(e){}
 }
-function renderSum(){
-  var s=sumData();
-  if(!s){$("#sOut").innerHTML='<div class="empty">—</div>';return;}
-  var h="";
-  s.cfg.forEach(function(kv){h+='<div style="font-size:13.5px"><span style="color:var(--ink3)">'+esc(kv[0])+'：</span>'+esc(kv[1])+'</div>';});
-  s.blocks.forEach(function(b){h+='<div style="margin-top:10px;font-weight:700;font-size:13px;color:var(--cy)">'+esc(b.label)+'</div>';
-    b.lines.forEach(function(t){
-      var inner;
-      if(typeof t==="string"){ inner=b.atomic?esc(t).split(" ").filter(Boolean).map(function(tk){return '<span style="white-space:nowrap">'+tk+'</span>';}).join(" "):esc(t); }
-      else { inner=t.map(function(r){return r.dim?'<span class="dn">'+esc(r.t)+'</span>':'<span class="'+(r.strong?"sn":"")+'">'+esc(r.t)+'</span>';}).join(""); }
-      h+='<div'+(b.mono?' class="mono" style="font-weight:800;font-size:18px;color:#2E5B52"':' style="font-size:14px"')+'>'+inner+'</div>';});});
-  $("#sOut").innerHTML=h;
-}
-$("#sImg").addEventListener("click",function(){
-  var s=sumData(); if(!s){toast("先去抽签/分组");return;}
-  exportCard({title:"抽签工作流结果单",sub:"Step 1 + Step 2",file:safeName("抽签工作流结果单_"+stamp())+".png",rec:recId("FLOW"),
-    config:s.cfg,blocks:s.xblocks,foot:"生成时间 "+timeStr()});
-});
-$("#sCopy").addEventListener("click",function(){
-  var s=sumData(); if(!s){toast("先去抽签/分组");return;}
-  var t=s.cfg.map(function(kv){return kv[0]+"："+kv[1];}).join("\n")+"\n";
-  s.blocks.forEach(function(b){t+="\n"+b.label+"\n"+b.lines.map(lineTxt).join("\n")+"\n";});
-  copy(t);
-});
+/* 测试探针（只读） */
+window.GROUP={
+  state:function(){
+    return {
+      source:gSource(), storedSource:D.d.group.source, mode:D.d.group.mode, n:D.d.group.n,
+      shuffle:!!D.d.group.shuffle, sel:gSelSeats(), all:gAllSeats(), isAll:gIsAll(),
+      prev:gPrevSeats(), prevAt:(gLastDraw()||{}).at||0,
+      result:G.result?G.result.map(function(gp){return gp.map(function(m){return {n:m.n,nm:m.nm};});}):null,
+      cfg:G.cfg?JSON.parse(JSON.stringify(G.cfg)):null, sum:gSumText()
+    };
+  },
+  run:doGroup, setSource:gSetSource, setMode:gSetMode,
+  /* 预设（OPTIM V2）直接改 DOM 后调用：把 #gMode / #gNum / #gShuffle 写回 D.d.group 并刷新分段按钮 */
+  syncFromDom:function(){
+    var m=$("#gMode"),n=$("#gNum"),sh=$("#gShuffle");
+    if(m&&m.value)D.d.group.mode=(m.value==="pergroup")?"pergroup":"groups";
+    if(n&&n.value!==undefined&&n.value!=="")D.d.group.n=gClampNum(n.value,false);
+    if(sh)D.d.group.shuffle=!!sh.checked;
+    D.save(); renderGroupUI();
+  }
+};
 
 /* ============================================================
    课表
@@ -14902,7 +15032,6 @@ var DIAG=(function(){
   }
   function tabBtns(){ return [].slice.call(document.querySelectorAll("#tabsBar button[data-tab]")); }
   function tabIndex(k){ var bs=tabBtns(); for(var i=0;i<bs.length;i++)if(bs[i].dataset.tab===k)return i; return -1; }
-  function currentStep(){ var b=document.querySelector(".steps button.on"); return b?(+b.dataset.step||1):1; }
   function currentView(){
     var b=document.querySelector("#tViewSeg button.on");
     if(b)return b.dataset.ttview;
@@ -14999,13 +15128,11 @@ var DIAG=(function(){
     if(closest(t,"#tViewSeg"))return null; /* 周/日视图只点击切换 */
     if(closest(t,"#tabsBar")) return tabIndex(CURTAB)>=0?{kind:"tool"}:null;
     if(CURTAB==="tt")return {kind:"view"};
-    if(CURTAB==="draw")return {kind:"step"};
     if(tabIndex(CURTAB)>=0)return {kind:"tool"};
     return null;
   }
   function curEl(k){
     if(k==="tool")return document.querySelector("section.on");
-    if(k==="step")return document.querySelector(".stpane.on");
     if(k==="view")return document.querySelector(".ttmain");
     return null;
   }
@@ -15022,16 +15149,6 @@ var DIAG=(function(){
       var j=nextPageTabIdx(bs,i,dir);
       return (j>=0)?{type:"tool",dir:dir,tab:bs[j].dataset.tab}:null;
     }
-    if(k==="step"){
-      var step=currentStep(), idx=tabIndex(CURTAB);
-      if((step===3&&dir>0)||(step===1&&dir<0)){
-        if(idx<0)return null;
-        var b2=tabBtns(), j2=nextPageTabIdx(b2,idx,dir);
-        return (j2>=0)?{type:"tool",dir:dir,tab:b2[j2].dataset.tab}:null;
-      }
-      var n=step+dir;
-      return (n>=1&&n<=3)?{type:"step",dir:dir,step:n}:null;
-    }
     if(k==="view"){
       var wk=ttViewWeek();
       if(wk==null)return null;
@@ -15043,7 +15160,6 @@ var DIAG=(function(){
   }
   function nextEl(type){
     if(type==="tool")return document.querySelector("section.on");
-    if(type==="step")return document.querySelector(".stpane.on");
     if(type==="view"||type==="week")return document.querySelector(".ttmain");
     return null;
   }
@@ -15052,10 +15168,10 @@ var DIAG=(function(){
     if(!e)return;
     try{ e.style.transition=""; e.style.transform=""; e.style.opacity=""; e.style.animation=""; }catch(err){}
   }
-  /* 切页幂等清理：所有 section/stpane 从 0 位移、无残留动画/内联样式 */
+  /* 切页幂等清理：所有 section 从 0 位移、无残留动画/内联样式 */
   function cleanAllSections(){
     try{
-      var els=document.querySelectorAll("section,.stpane,.ttmain"),i;
+      var els=document.querySelectorAll("section,.ttmain"),i;
       for(i=0;i<els.length;i++)cleanEl(els[i]);
     }catch(e){}
   }
@@ -15157,8 +15273,6 @@ var DIAG=(function(){
       } else {
         fly(cur,dir,"tool",function(){ gotoTab(t.tab); });
       }
-    } else if(t.type==="step"){
-      fly(cur,dir,"step",function(){ stepGo(t.step); });
     } else if(t.type==="view"){
       fly(cur,dir,"view",function(){ D.d.ttView=t.view; D.save(); renderTT(); });
     } else if(t.type==="week"){
@@ -19283,7 +19397,15 @@ try{window.VOTE=VOTE;}catch(e){}
     }
     if(typeof renderA==="function"){
       var _rA=renderA;
-      renderA=function(){var r=_rA.apply(null,arguments);try{paintDrawStatus();}catch(e){}return r;};
+      renderA=function(){
+        var r=_rA.apply(null,arguments);
+        try{paintDrawStatus();}catch(e){}
+        /* 2026-11-22：抽签结果变化（抽签/剔除/补抽/排序）即刷新「最近一次抽签」本机记忆，
+           供已独立的分组工具「最近抽签」来源读取 */
+        try{if(typeof A!=="undefined"&&A&&A.result&&A.result.length)drawLastSave();}catch(e){}
+        try{if(typeof renderGroupUI==="function")renderGroupUI();}catch(e){}
+        return r;
+      };
     }
     if(typeof doDraw==="function"){
       var _dD=doDraw;
@@ -19295,6 +19417,8 @@ try{window.VOTE=VOTE;}catch(e){}
   try{paintCardMeta();}catch(e){}
   try{paintDrawStatus();}catch(e){}
   try{ensureBackupUI();}catch(e){}
+  /* 分组工具读取「最近一次抽签」的唯一入口（只读；分组页不依赖抽签页是否打开过） */
+  try{window.__zqDrawLast={read:drawLastRead,save:drawLastSave,restore:restoreDraw};}catch(e){}
 })();
 /* ============================================================
    OPTIM V2（2026-11-09）：按用户确认范围落地
@@ -19534,7 +19658,7 @@ function optSaveCanvas(c,o){
   }
   function opt2AddPrint(){
     try{
-      [["hImg","作业清单"],["sImg","结果单"]].forEach(function(p){
+      [["hImg","作业清单"],["aImg","抽签结果"],["gImg","分组结果"]].forEach(function(p){
         var anchor=el(p[0]); if(!anchor||el("opt2Print_"+p[0]))return;
         var b=document.createElement("button"); b.type="button"; b.id="opt2Print_"+p[0]; b.className="btn sm ghost";
         b.textContent="打印"; b.setAttribute("aria-label","打印"+p[1]+"（存 PDF）");
@@ -19568,6 +19692,7 @@ function optSaveCanvas(c,o){
       if(g.mode!=null)el("gMode").value=g.mode;
       if(g.num!=null)el("gNum").value=g.num;
       if(el("gShuffle"))el("gShuffle").checked=!!g.shuffle;
+      try{if(window.GROUP&&GROUP.syncFromDom)GROUP.syncFromDom();}catch(e){}
       return true;
     }catch(e){ return false; }
   }
@@ -23018,9 +23143,12 @@ var UG=(function(){
     {id:"nav",cat:"start",title:"工具栏与全部",sub:"常用工具放上面，全部页可拖动排序",scene:"grid",tone:"mint",
      steps:["顶部切换条放 3–4 个常用工具","进「全部」把卡片拖到顶部栏","全部页内拖动可调整本机顺序"],
      tip:"工具栏顺序随账号同步，全部页卡片顺序只存本机"},
-    {id:"draw",cat:"study",title:"抽签工作流",sub:"抽签 → 分组 → 结果单，三步都能导出",scene:"picks",tone:"sand",
-     steps:["设范围、个数，可选允许重复与排除序号","结果可点单个剔除，勾选后自动补抽","分组按组数或每组人数分配"],
-     tip:"点「重置」清空本轮抽签与分组结果，参数和参与名单保留"},
+    {id:"draw",cat:"study",title:"抽签",sub:"独立工具：设范围抽号，结果可剔除重抽与存证",scene:"picks",tone:"sand",
+     steps:["设范围、个数，可选允许重复与排除序号","结果可点单个剔除，勾选后自动补抽","「抽签记录」可查存证与扫码核验"],
+     tip:"点「重置」只清空本轮抽签，参数和参与名单保留"},
+    {id:"group",cat:"study",title:"分组",sub:"独立工具：全班 / 最近抽签 / 自选名单都能分组",scene:"people",tone:"blue",
+     steps:["选成员来源：全班、最近抽签或自选名单","按组数或每组人数，可打乱后再分","结果可复制或导出图片"],
+     tip:"最近抽签读取本机保存的上一次抽签结果，换端不跟随"},
     {id:"roster",cat:"study",title:"参与名单",sub:"从班级名单选人，只从名单里抽",scene:"people",tone:"mint",
      steps:["点「选择名单」打开班级名单","顶部全班 / 班委 / 团员可快捷套用","逐个点选或全选后点「确定」"],
      tip:"名单不支持自定义输入，只来自班级名单"},

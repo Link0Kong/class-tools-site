@@ -37,9 +37,8 @@ html = html.replace("</body>", """<script>window.addEventListener("load",functio
   function c(s){var e=document.querySelector(s);if(e)e.click();}
   c("#aRun");
   if("%s"==="drawqr"){var rm=document.querySelector("[data-rm]");if(rm)rm.click();}
-  if("%s"==="group"||"%s"==="flow"){c("[data-step='2']");c("#gRun");}
-  if("%s"==="flow"){c("[data-step='3']");}
-  var btn={draw:"#aImg",drawqr:"#aImg",group:"#gImg",flow:"#sImg",tt:"#tImg",hw:"#hImg",ft:"#fImg",nt:"#nImg"}["%s"];
+  if("%s"==="group"||"%s"==="flow"){c("#gSrcSeg [data-gsrc='prev']");c("#gRun");}
+  var btn={draw:"#aImg",drawqr:"#aImg",group:"#gImg",flow:"#gImg",tt:"#tImg",hw:"#hImg",ft:"#fImg",nt:"#nImg"}["%s"];
   if("%s"==="tt"){c("[data-tab='all']");c("[data-open='tt']");}
   if("%s"==="ft"){c("[data-tab='all']");c("[data-open='ft']");var ftv={fH:"175",fW:"65",fVc:"4300",fR50:"7.1",fSit:"17.7",fJump:"248",fPull:"15",fDurM:"3",fDurS:"42"};for(var fk in ftv){var fe=document.querySelector("#"+fk);fe.value=ftv[fk];fe.dispatchEvent(new Event("input",{bubbles:true}));}}
   if("%s"==="hw"){document.querySelector("#hSubject").value="英语";document.querySelector("#hContent").value="Unit 3 课后练习";document.querySelector("#hDate").value="2099-01-01";c("#hAdd");}
@@ -51,7 +50,7 @@ html = html.replace("</body>", """<script>window.addEventListener("load",functio
     r.onload=function(){var d=document.createElement("div");d.id="OUT";d.textContent="NAME="+window.__name+"\\n"+r.result;document.body.appendChild(d);try{fetch("/_report",{method:"POST",body:d.textContent});}catch(e){}};
     r.readAsDataURL(window.__blobs[0]);
   },700);
-},200);});</script>""" % (WHICH, WHICH, WHICH, WHICH, WHICH, WHICH, WHICH, WHICH, WHICH))
+},200);});</script>""" % (WHICH, WHICH, WHICH, WHICH, WHICH, WHICH, WHICH, WHICH))
 tmp = "_export_preview.html"
 open(os.path.join(ROOT, tmp), "w", encoding="utf-8").write(html)
 
