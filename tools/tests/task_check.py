@@ -182,6 +182,15 @@ RUNNER = r"""
   function attsOf(t){
     try{return JSON.parse(t&&t.attachments||"[]")||[];}catch(e){return [];}
   }
+  function dragByPointer(handle,targetEl,down){
+    var h=q(handle);if(!h||!targetEl)return false;
+    var hr=h.getBoundingClientRect(),tr=targetEl.getBoundingClientRect();
+    var x=tr.left+tr.width/2,y=down?tr.bottom-2:tr.top+2;
+    h.dispatchEvent(new PointerEvent("pointerdown",{bubbles:true,cancelable:true,pointerId:77,button:0,buttons:1,clientX:hr.left+5,clientY:hr.top+5}));
+    document.dispatchEvent(new PointerEvent("pointermove",{bubbles:true,cancelable:true,pointerId:77,button:0,buttons:1,clientX:x,clientY:y}));
+    document.dispatchEvent(new PointerEvent("pointerup",{bubbles:true,cancelable:true,pointerId:77,button:0,buttons:0,clientX:x,clientY:y}));
+    return true;
+  }
   function rowByTitle(title){
     var rows=qa("#tkList .tk-item");
     for(var i=0;i<rows.length;i++){
@@ -480,6 +489,36 @@ RUNNER = r"""
         window.confirm=oldConfirm;
         click("#tkFCancel");await sleep(220);
         T("确认放弃后关闭且不新增任务", q("#tkPanel").style.display==="none"&&TASK.items().length===tc1, TASK.items().length);
+
+        /* ---- 左侧栏目 / 任务拖动排序 ---- */
+        click('[data-tkview="all"]');await sleep(250);
+        if(q("#tkSort")){setv("#tkSort","default");await sleep(200);}
+        var dragHandles=qa("#tkList [data-tkdrag]");
+        T("任务行有拖动把手", dragHandles.length>=2, dragHandles.length);
+        var beforeTasks=TASK.items().filter(function(t){return !t.done;}).sort(function(a,b){return (Number(a.order)||0)-(Number(b.order)||0);});
+        var oldFirst=beforeTasks[0]?beforeTasks[0].title:"";
+        var secondRow=q("#tkList .tk-item:nth-of-type(2)")||qa("#tkList .tk-item")[1];
+        if(dragHandles.length>=2&&secondRow){dragByPointer("#tkList [data-tkdrag]",secondRow,true);await sleep(350);}
+        var afterTasks=TASK.items().filter(function(t){return !t.done;}).sort(function(a,b){return (Number(a.order)||0)-(Number(b.order)||0);});
+        T("任务拖动改变顺序并保存", !!oldFirst&&afterTasks[0]&&afterTasks[0].title!==oldFirst,
+          "old="+oldFirst+" new="+(afterTasks[0]?afterTasks[0].title:""));
+
+        var smartRows=qa("#tkSmart .tk-navrow");
+        var oldSmart=smartRows[0]?smartRows[0].querySelector("[data-tkview]").getAttribute("data-tkview"):"";
+        if(smartRows.length>=2){dragByPointer("#tkSmart [data-tksidedrag]",smartRows[1],true);await sleep(350);}
+        var newSmart=q("#tkSmart [data-tkview]")?q("#tkSmart [data-tkview]").getAttribute("data-tkview"):"";
+        T("左侧「视图」可拖动排序", !!oldSmart&&newSmart&&newSmart!==oldSmart, oldSmart+" -> "+newSmart);
+        var uiSaved={};try{uiSaved=JSON.parse(localStorage.getItem("zq_task_ui_v1")||"{}");}catch(e){}
+        T("视图顺序写入本机偏好", Array.isArray(uiSaved.smartOrder)&&uiSaved.smartOrder[0]===newSmart,
+          JSON.stringify(uiSaved.smartOrder||[]).slice(0,100));
+
+        var groupRows=qa("#tkLists .tk-navrow").filter(function(r){return !!r.querySelector("[data-tksidedrag]");});
+        var oldLists=TASK.lists().filter(function(l){return l.id!=="inbox";}).map(function(l){return l.id;});
+        T("分组拖动前置", groupRows.length>=2, "rows="+groupRows.length+" handles="+qa("#tkLists [data-tksidedrag]").length+" list="+JSON.stringify(oldLists));
+        if(groupRows.length>=2){dragByPointer("#tkLists [data-tksidedrag]",groupRows[1],true);await sleep(350);}
+        var newLists=TASK.lists().filter(function(l){return l.id!=="inbox";}).map(function(l){return l.id;});
+        var domLists=qa("#tkLists .tk-navrow").map(function(r){var b=r.querySelector("[data-tklist]");return b?b.getAttribute("data-tklist"):"";});
+        T("左侧「分组」可拖动排序", oldLists.length>=2&&newLists[0]!==oldLists[0], oldLists.slice(0,3).join(",")+" -> "+newLists.slice(0,3).join(",")+" dom="+domLists.join(","));
 
         /* ---- 390px iframe ---- */
         await new Promise(function(res){
