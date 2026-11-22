@@ -4370,6 +4370,100 @@ def apply_supplements(groups):
     return groups
 
 
+# ---------------------------------------------------------------- 2026-11-23 组队/分组事项归并
+# 用户反馈：「穴位打卡寻宝分组及组名报送识别错误，分组是军事理论的分组」。
+# 现场：11-19「军事理论组队每队6人」先成了一张卡；11-22 23:32 的两条活动宣发名（「穴位打卡寻宝」
+# 「识艾护己，闯关同行」）连同 23:43 的 @分组名单、23:47「分组结果已出，明天中午12点前把组名给学委」
+# 又被 AI 归成一张「穴位打卡寻宝分组及组名报送」——分组其实是军事理论的随机分组，活动名只是碎片。
+# 规则：同一来源群里「组队→随机分组→组名报送」是同一条线，并成一张（保留最早发布的卡，后续消息作为
+# 补充通知、更晚的报送截止覆盖旧的）；合并时丢掉「纯活动名 / [image] 占位」这类 ≤12 字且不含
+# 组队/分组/组名/名单/@/报 的碎片条目，避免把别的活动名字挂到分组卡上。
+# 只认纯文本行政卡（带附件/图片的活动宣发、带报名/活动时间的活动卡一律不参与）。
+_GROUPING_TOPIC_RE = re.compile(r"组队|分组|组名|随机分组")
+_GROUPING_KEEP_RE = re.compile(r"组队|分组|组名|名单|@|报|学委|队长|成员")
+
+
+def _source_key(g):
+    """来源群键：同一群的两种写法（…聊天群 / …群 / 微信…）视为同一来源。"""
+    s = _norm_title(str(g.get("source") or g.get("group") or ""))
+    return re.sub(r"(聊天群|群)$", "", s)
+
+
+def _card_min_ts(g):
+    """卡片最早一条消息时间（判断谁是最早发布的安排）。"""
+    best = None
+    for it in g.get("items") or []:
+        if not isinstance(it, dict):
+            continue
+        dt = _parse_ref_time(it.get("time"))
+        if dt and (best is None or dt < best):
+            best = dt
+    return best
+
+
+def merge_grouping_notices(groups):
+    """同一来源群里「组队 → 随机分组 → 组名报送」的碎片卡并成一张（幂等）。"""
+    def _is_grouping(g):
+        if not isinstance(g, dict):
+            return False
+        if isinstance(g.get("recurrence"), dict) and g["recurrence"].get("freq"):
+            return False
+        if g.get("eventAt") or g.get("signupStart") or g.get("signupEnd"):
+            return False  # 活动卡不参与
+        items = [it for it in (g.get("items") or []) if isinstance(it, dict)]
+        if not items:
+            return False
+        if any(it.get("kind") in ("file", "img", "link", "mini", "form", "article") for it in items):
+            return False  # 带附件/图片的活动宣发不参与
+        text = _group_all_text(g)
+        if not _GROUPING_TOPIC_RE.search(text):
+            return False
+        return not _ACTIVITY_FRAME_RE.search(text)
+
+    cand = [g for g in groups if _is_grouping(g)]
+    if len(cand) < 2:
+        return groups
+    by_src = {}
+    for g in cand:
+        by_src.setdefault(_source_key(g), []).append(g)
+    drop = set()
+    for rows in by_src.values():
+        if len(rows) < 2:
+            continue
+        rows = sorted(rows, key=lambda g: (_card_min_ts(g) or datetime.max, str(g.get("id") or "")))
+        keep = rows[0]
+        for other in rows[1:]:
+            incoming = []
+            for it in other.get("items") or []:
+                if not isinstance(it, dict):
+                    continue
+                it = dict(it)
+                kind = it.get("kind") or "text"
+                text = str(it.get("text") or it.get("name") or "").strip()
+                if kind == "text":
+                    clean = re.sub(r"\s+", "", text)
+                    # 纯活动名/[image] 占位：不是组队/分组内容，丢掉（别的活动有自己的卡）
+                    if clean and len(clean) <= 12 and not _GROUPING_KEEP_RE.search(clean):
+                        continue
+                    it["label"] = "补充通知"
+                    it["supplement"] = True
+                incoming.append(it)
+            if _append_items(keep, incoming):
+                keep["supplement"] = True
+            o_dl = _parse_ref_time(other.get("deadline"))
+            k_dl = _parse_ref_time(keep.get("deadline"))
+            if o_dl and (not k_dl or o_dl > k_dl):
+                keep["deadline"] = _iso_of(o_dl)
+                if other.get("deadlineAction"):
+                    keep["deadlineAction"] = str(other.get("deadlineAction"))[:6]
+            drop.add(str(other.get("id") or ""))
+            print("grouping-merge:", keep.get("id"), "<-", other.get("id"),
+                  "|", str(keep.get("title") or "")[:30])
+    if not drop:
+        return groups
+    return [g for g in groups if str(g.get("id") or "") not in drop]
+
+
 # ---------------------------------------------------------------- 契约 §1.4：更新/更正通知合并
 def load_notice_threads():
     """AI notice_threads.py 产物：keep/merge + 最终有效字段 + reason。
@@ -4547,6 +4641,8 @@ def apply_manual_patches(groups):
     2026-11-19 扩展：
       - mergeInto: 把 id 指向的重复/局部组并入目标组（保留目标组身份，去重追加 items）；
       - dropImages: 删除该组所有图片 item（用户反馈「底部图片与通知内容无关」的兜底）。
+    2026-11-23 扩展：
+      - dropItems: 按正文/文件名精确删除条目（用户反馈分组卡里混进了别的活动名等上下文碎片）。
     """
     patches = load_manual_patches()
     if not patches:
@@ -4575,6 +4671,12 @@ def apply_manual_patches(groups):
         if p.get("dropImages"):
             target["items"] = [it for it in (target.get("items") or [])
                                if not (isinstance(it, dict) and it.get("kind") == "img")]
+        if p.get("dropItems"):
+            drops = {str(x).strip() for x in (p.get("dropItems") or []) if str(x).strip()}
+            if drops:
+                target["items"] = [it for it in (target.get("items") or [])
+                                   if not (isinstance(it, dict)
+                                           and str(it.get("text") or it.get("name") or "").strip() in drops)]
         added = _append_items(target, p.get("appendItems") or [])
         _apply_patch_to_group(target, p.get("set") or {}, appended=added,
                               updated_at=str(p.get("updatedAt") or ""))
@@ -6676,6 +6778,8 @@ def main():
     groups = [g for g in groups if not is_lianlong_group(g)]
     # v2.0.0 需求 6：AI 识别的补充通知并入已有通知（追加 items + 修正字段 + updatedAt）
     groups = apply_supplements(groups)
+    # 2026-11-23：同一来源群「组队→随机分组→组名报送」碎片卡并成一张（分组要挂在它真正所属的事项上）
+    groups = merge_grouping_notices(groups)
     # 微信附件：items[].mediaKey → data URI；无字节（图片 V2 加密等）标「待获取」
     groups = apply_wechat_media_items(groups)
     # 压缩包附件：包内文件清单 + 解压识别摘要（失败保留原包 + 待识别）

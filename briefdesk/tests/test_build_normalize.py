@@ -466,6 +466,85 @@ g_win = {"id": "g_win", "title": "多窗口活动", "signupEnd": _past, "deadlin
 bnb._drop_passed_signup_end([g_win])
 eq("多报名窗口保留 signupEnd", g_win.get("signupEnd"), _past)
 
+# ---------------------------------------------------------------- 10. 组队/分组事项归并（2026-11-23）
+# 用户反馈：「穴位打卡寻宝分组及组名报送识别错误，分组是军事理论的分组」。组队 / 随机分组 / 组名报送
+# 是同一条线；活动宣发名（穴位打卡寻宝 / 识艾护己）只是上下文碎片，不得挂到分组卡上。
+print("---- §3.13 组队/分组碎片卡并回军事理论组队卡 ----")
+g_team = {
+    "id": "g_team", "cat": "班级事务", "title": "军事理论课组队报送",
+    "source": "QQ 群 · 2026级信息管理与信息系统",
+    "deadline": "2026-11-22T23:59:00+08:00", "deadlineAction": "报送截止",
+    "items": [{"kind": "text", "label": "通知", "time": "11-19 20:42",
+               "text": "请各位同学在11.22号(周日)内把军事理论的组队发我，每队6人"},
+              {"kind": "text", "label": "补充通知", "time": "11-22 12:00", "supplement": True,
+               "text": "军事理论小组名单请尽快交给我包括组名，晚自习后没有的组队的同学将随机分组"}],
+}
+g_grp = {
+    "id": "g_grp", "cat": "活动", "title": "穴位打卡寻宝分组及组名报送",
+    "source": "QQ 群 · 2026级信息管理与信息系统聊天群",
+    "deadline": "2026-11-23T12:00:00+08:00", "deadlineAction": "报送截止",
+    "items": [{"kind": "text", "label": "通知", "time": "11-22 23:32", "text": "穴位打卡寻宝"},
+              {"kind": "text", "label": "通知", "time": "11-22 23:32", "text": "识艾护己，闯关同行"},
+              {"kind": "text", "label": "通知", "time": "11-22 23:42", "text": "[image]"},
+              {"kind": "text", "label": "通知", "time": "11-22 23:43",
+               "text": "@11刘迎姿 @18张培鑫 @20刘妍妍 @54陈思平 @55曾婷慧 @22程韩 一组"},
+              {"kind": "text", "label": "通知", "time": "11-22 23:47",
+               "text": "分组结果已出，请各组明天中午12点前把组名给学委"}],
+}
+g_activity = {
+    "id": "g_activity", "cat": "活动", "title": "11-29 穴位打卡定向越野",
+    "source": "QQ 群 · 2026级信息管理与信息系统聊天群",
+    "eventAt": "2026-11-29T09:00:00+08:00", "signupStart": "2026-11-24T12:00:00+08:00",
+    "items": [{"kind": "text", "label": "通知", "time": "11-22 23:32",
+               "text": "穴位打卡寻宝定向越野，活动对象：全体学生，活动时间：11月29日，报名方式：服务号报名，每校5人组队参赛"}],
+}
+merged_groups = bnb.merge_grouping_notices([g_team, g_grp, g_activity])
+ids = [g.get("id") for g in merged_groups]
+check("分组碎片卡并入军事理论组队卡", "g_grp" not in ids and "g_team" in ids, ids)
+eq("活动卡不参与（保留）", "g_activity" in ids, True)
+target = next(g for g in merged_groups if g.get("id") == "g_team")
+check("后发卡并入组队卡（含 @名单条目）",
+      any("@" in str(it.get("text") or "") for it in target.get("items") or []),
+      [it.get("text") for it in target.get("items") or []][:3])
+check("活动名碎片（穴位打卡寻宝/识艾护己/[image]）被丢掉",
+      not any(str(it.get("text") or "") in ("穴位打卡寻宝", "识艾护己，闯关同行", "[image]")
+              for it in target.get("items") or []),
+      [it.get("text") for it in target.get("items") or []])
+eq("报送截止取更晚的 11-23 12:00", target.get("deadline"), "2026-11-23T12:00:00+08:00")
+check("合并后标 supplement（已更新）", target.get("supplement") is True, target.get("supplement"))
+check("归并幂等", [g.get("id") for g in bnb.merge_grouping_notices(merged_groups)] == ids, ids)
+
+# ---------------------------------------------------------------- 11. 人工补丁 dropItems（2026-11-23）
+print("---- §3.14 人工补丁 dropItems 精确删除条目 ----")
+fd, tmp_name = tempfile.mkstemp(prefix="patch_", suffix=".json", dir=str(Path(__file__).parent))
+os.close(fd)
+tmp_patch = Path(tmp_name)
+try:
+    tmp_patch.write_text(json.dumps({"patches": [{
+        "id": "g_drop_test", "dropItems": ["穴位打卡寻宝", "[image]"],
+        "set": {"title": "军事理论课组队与分组"},
+    }]}, ensure_ascii=False), encoding="utf-8")
+    old_mp = bnb.MANUAL_PATCHES
+    bnb.MANUAL_PATCHES = tmp_patch
+    try:
+        g_drop = {"id": "g_drop_test", "title": "旧标题",
+                  "items": [{"kind": "text", "text": "穴位打卡寻宝"},
+                            {"kind": "text", "text": "[image]"},
+                            {"kind": "text", "text": "分组结果已出，请各组明天中午12点前把组名给学委"}]}
+        bnb.apply_manual_patches([g_drop])
+    finally:
+        bnb.MANUAL_PATCHES = old_mp
+    eq("dropItems 后剩 1 条", len(g_drop.get("items") or []), 1)
+    check("保留分组正文", "组名" in str((g_drop.get("items") or [{}])[0].get("text") or ""),
+          g_drop.get("items"))
+    eq("补丁标题已写", g_drop.get("title"), "军事理论课组队与分组")
+finally:
+    try:
+        tmp_patch.unlink()
+    except OSError:
+        pass
+    bnb.MANUAL_SET_FIELDS.clear()
+
 # ---------------------------------------------------------------- 结果
 print("\n================ 结果 ================")
 print("PASS %d / FAIL %d" % (PASS, FAIL))
