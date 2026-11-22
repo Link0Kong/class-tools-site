@@ -252,7 +252,26 @@ RUNNER = r"""
 
         /* ---- 时间选择器 ---- */
         click("#tkQuickDueBtn");await sleep(120);
-        T("快速添加时间入口可见", !!q("#tkQuickTimeBtn")&&!q("#tkQuickDateRow").hidden, "");
+        T("快速添加日期/时间入口可见", !!q("#tkQuickDateBtn")&&!!q("#tkQuickTimeBtn")&&!q("#tkQuickDateRow").hidden, "");
+        click("#tkQuickDateBtn");await sleep(120);
+        T("日期面板打开并默认今天", !!q("#tkDatePanel")&&!q("#tkDatePanel").hidden&&window.__DATE_PICK().open&&window.__DATE_PICK().sel===__TODAY__, JSON.stringify(window.__DATE_PICK()));
+        var dayEl=qa("#tkDpGrid [data-tkdp-day]").filter(function(b){return !b.classList.contains("is-out")&&b.getAttribute("data-tkdp-day")!==__TODAY__;})[0];
+        if(dayEl){dayEl.click();await sleep(40);}
+        T("日期网格可直接选日", !!dayEl&&window.__DATE_PICK().sel===dayEl.getAttribute("data-tkdp-day"), dayEl?dayEl.getAttribute("data-tkdp-day"):"none");
+        q('[data-tkdp-quick="tomorrow"]').click();await sleep(60);
+        T("日期面板选中明天", txt("#tkDpSelected").indexOf("已选")>=0&&window.__DATE_PICK().sel===__TOMORROW__, txt("#tkDpSelected"));
+        click("#tkDpOk");await sleep(100);
+        T("日期选择写入隐藏值/按钮", q("#tkQuickDate").value===__TOMORROW__&&txt("#tkQuickDateBtn").indexOf("月")>=0,
+          q("#tkQuickDate").value+" | "+txt("#tkQuickDateBtn"));
+        click("#tkQuickDateBtn");await sleep(80);
+        var oldMonth=window.__DATE_PICK().month;q('[data-tkdp-nav="1"]').click();await sleep(40);
+        T("日期面板可翻月", window.__DATE_PICK().month!==oldMonth, oldMonth+" -> "+window.__DATE_PICK().month);
+        q('[data-tkdp-nav="-1"]').click();await sleep(30);
+        click("#tkDpClear");await sleep(80);
+        T("日期面板清除日期", q("#tkQuickDate").value===""&&txt("#tkQuickDateBtn").indexOf("选择日期")>=0,
+          q("#tkQuickDate").value+" | "+txt("#tkQuickDateBtn"));
+        click("#tkQuickDateBtn");await sleep(80);q('[data-tkdp-quick="tomorrow"]').click();click("#tkDpOk");await sleep(80);
+        T("快速添加日期入口可见", !!q("#tkQuickTimeBtn")&&!q("#tkQuickDateRow").hidden, "");
         click("#tkQuickTimeBtn");await sleep(120);
         T("时间面板打开", !!q("#tkTimePanel")&&!q("#tkTimePanel").hidden&&window.__TIME_PICK().open, "");
         q('[data-tkp-h="18"]').click();q('[data-tkp-m="30"]').click();await sleep(60);
@@ -269,7 +288,7 @@ RUNNER = r"""
         T("选择全天清空时间", q("#tkQuickTime").value===""&&txt("#tkQuickTimeBtn").indexOf("全天")>=0,
           q("#tkQuickTime").value+" | "+txt("#tkQuickTimeBtn"));
         click("#tkQuickDateClear");await sleep(60);
-        setv("#tkQuickDate",__TOMORROW__);
+        click("#tkQuickDateBtn");await sleep(80);q('[data-tkdp-quick="tomorrow"]').click();click("#tkDpOk");await sleep(80);
         click("#tkQuickTimeBtn");await sleep(80);q('[data-tkp-h="18"]').click();q('[data-tkp-m="30"]').click();click("#tkTpOk");await sleep(80);
 
         /* ---- 快速添加 ---- */
@@ -286,6 +305,8 @@ RUNNER = r"""
         var row=rowByTitle("测试快速添加");row.click();await sleep(300);
         T("编辑器打开且标题回填", q("#tkPanel").style.display!=="none"&&q("#tkFTitle").value==="测试快速添加", q("#tkFTitle").value);
         T("分组下拉含未分组", !!q('#tkFList option[value=""]'), q("#tkFList").value);
+        T("编辑器日期按钮回填", q("#tkFDate").value===__TOMORROW__&&txt("#tkFDateBtn").indexOf("月")>=0,
+          q("#tkFDate").value+" | "+txt("#tkFDateBtn"));
         T("编辑器时间按钮沿用快速添加值", txt("#tkFTimeBtn").indexOf("18:30")>=0&&q("#tkFTime").value==="18:30", txt("#tkFTimeBtn"));
         click("#tkFTimeBtn");await sleep(100);
         q('[data-tkp-h="20"]').click();q('[data-tkp-m="15"]').click();click("#tkTpOk");await sleep(120);
@@ -541,6 +562,7 @@ RUNNER = r"""
         setv("#tkFTitle","详细预填任务");
         click('[data-tkdateset="today"]');await sleep(100);
         T("日期快捷「今天」生效", q("#tkFDate").value===__TODAY__, q("#tkFDate").value);
+        T("日期快捷同步日期按钮", txt("#tkFDateBtn").indexOf("月")>=0, txt("#tkFDateBtn"));
         setv("#tkFRemind","30");await sleep(100);
         T("提醒提示显示预计时间", txt("#tkFRemindHint").indexOf("提醒")>=0, txt("#tkFRemindHint"));
         var oldConfirm=window.confirm;
