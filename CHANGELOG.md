@@ -2,6 +2,38 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-22 15:0x–16:0x · 任务第二轮：班级作业直接加入任务 + 附件系统 v2 + 详细编辑/提示（网页端）
+
+> 用户原话：「允许将班级作业直接直接添加至任务，同时优化附件上传系统，优化详细编辑的方式和提示」。
+
+- **班级作业 → 任务**：班级列表每项新增「加入任务」，班级头新增「加入任务」批量（只取未完成、已关联跳过）；
+  生成任务带 `sourceHwId/sourceTitle` + 标题/备注/截止/标签。**不复制班级附件**，任务详情显示「来自班级作业」
+  来源块（内容、原附件按钮、定位回班级并高亮）；已关联的班级项显示「已在任务」，删除任务后恢复可添加。
+- **附件系统 v2（核心修复）**：修正 `attRenderEditor` 的 DOM id 映射（旧代码找 `hwFilesList`，实际是
+  `hFilesList`，导致上传只计数不显示卡片、点击拖拽区也不弹文件选择）；作业/任务统一为拖拽区 + 缩略图/文件卡 +
+  移除 + `n/2` 计数 + 状态提示；支持点击/键盘/拖入/粘贴图片；图片优先 `URL.createObjectURL` + canvas 压缩
+  （白底，避免透明 PNG 变黑），非图片优先 `file.arrayBuffer()`；`ATT_ACTIVE` 持有解码对象、12s 超时回退
+  FileReader，失败回收 busy；`ATT_SESSION` 防止关闭弹层后迟到的上传写回新会话。
+- **额度**：作业沿用 2 个/图片原图 5MB/文件 2MB；任务 2 个/图片压缩到约 300K base64/文件 320KB/单任务总
+  base64 ≤700K + 本机 `JSON.stringify(D.d)+新增 ≤4.1M` 预算，防 localStorage 爆掉。任务附件只存本机。
+- **详细编辑**：快速添加旁新增「详细编辑」（`#tkQuickMore`），预填标题/截止/分组/重要；详情分
+  步骤/备注/时间/组织/附件/来源；日期快捷 今天/明天/下周一/清除；提醒/重复实时提示（预计提醒时间、完成后
+  创建下一次）、备注字数、步骤进度；空标题/日期/提醒/分组行内错误并聚焦字段；底部「未保存」指示 + 关闭
+  `confirm` 拦截；保留 `Ctrl/⌘+Enter` 保存。
+- **数据**：任务条目新增 `attachments`（JSON 字符串，≤2）、`sourceHwId`、`sourceTitle`；`taskNormItem()`
+  归一/限幅；**未改 userdata v6**（任务/附件仍不跨端）；**无 DB/表/接口/账号变更**；APP_VER 仍 2.0.0。
+- **测试**：`tools/tests/task_check.py` 扩到 **108/108**（新增逐项/批量加入、来源附件预览/定位高亮、拖拽/文件选择/
+  图片压缩、超限/大文件/类型拦截、任务附件持久化/重开/移除、详细编辑预填/日期快捷/提醒提示/空标题行内错误/
+  未保存拦截/取消不新增）；回归 `optim_v1_check` GREEN、`optim_v2_check` GREEN、`v2_drag_check` 69/69、
+  `v2_ui_check` 27/27、`v2_web_reminder_check` 37/37、`v2_pos_restore_check` 12/12、`overflow_check 430`
+  overflow=0、`export_check hw` 出图正常；`perf_check` 45/63、`sync_check` 91/99 与 HEAD 基线一致。
+- **上线**：网页 **1,544,842 B / sha256 `34e72d108a24d271c8d174195ef486195873a7f61a50ed8ff7fecc04edd8c84c`**
+  （OSS check MATCH / ECS verify MATCH；gzip 471,864 B；`http://121.196.47.2/` HTTP 200 同字节同 sha）；
+  部署前线上备份 `tools/_backup/index_online_20261122-1534_preTaskV2.html`（1,508,419 B / `47522baf…`）。
+- **回滚**：重传上述备份 → `python deploy/sync_tools.py index.html` + `python deploy/ecs_site.py apply`。
+- **已知取舍**：任务附件仅本机；来源附件在班级作业被删除后不可预览；批量加入不复制附件；粘贴只在任务/作业
+  弹层打开时生效；移动端以点击选择为主（拖拽桌面优先）；附件上限见上。
+
 ## 2026-11-22 08:3x–09:2x · 作业工具升级「任务」：个人任务 + 分组 + 提醒 + 班级作业自动同步（网页端）
 
 > 用户原话：「升级作业工具为任务功能，在保留自动更新班级作业的基础上仿照市面上类似 Microsoft To Do

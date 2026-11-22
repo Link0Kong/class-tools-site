@@ -95,7 +95,8 @@ DATA = {
                  "role": "", "badge": "", "is_admin": False} for i in range(1, 71)],
     "homework": [
         {"id": "hw1", "subject": "英语", "content": "Unit 3 练习册 P22–P25", "due": "",
-         "date": "2099-01-01", "time": "", "done": False},
+         "date": "2099-01-01", "time": "", "done": False,
+         "attachments": json.dumps([{"n": "作业资料.txt", "t": "text/plain", "s": 5, "d": "aGVsbG8="}], ensure_ascii=False)},
         {"id": "hw2", "subject": "数学", "content": "习题 3.1 第 1–8 题", "due": "上课前",
          "date": "2099-01-02", "time": "", "done": False},
     ],
@@ -148,6 +149,11 @@ RUNNER = r"""
   var R={steps:[]};
   function T(k,ok,note){R.steps.push({k:k,ok:!!ok,note:note==null?"":String(note)});}
   function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+  async function waitFor(fn,ms){
+    var end=Date.now()+(ms||10000);
+    while(Date.now()<end){var v=false;try{v=!!fn();}catch(e){}if(v)return true;await sleep(80);}
+    return false;
+  }
   function q(s){return document.querySelector(s);}
   function qa(s){return Array.prototype.slice.call(document.querySelectorAll(s));}
   function click(s){var e=q(s);if(e){e.click();return true;}return false;}
@@ -156,6 +162,25 @@ RUNNER = r"""
     var e=q(s);if(!e)return false;
     e.value=v;e.dispatchEvent(new Event("input",{bubbles:true}));e.dispatchEvent(new Event("change",{bubbles:true}));
     return true;
+  }
+  function fileOf(name,content,mime){
+    var body=content;
+    if(typeof content==="string")body=[content];
+    return new File(body,name,{type:mime||"text/plain"});
+  }
+  function pngFile(){
+    var b=atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=");
+    var u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
+    return new File([u],"dot.png",{type:"image/png"});
+  }
+  function setFiles(sel,files){
+    var inp=q(sel);if(!inp)return false;
+    var dt=new DataTransfer();files.forEach(function(f){dt.items.add(f);});
+    inp.files=dt.files;inp.dispatchEvent(new Event("change",{bubbles:true}));
+    return true;
+  }
+  function attsOf(t){
+    try{return JSON.parse(t&&t.attachments||"[]")||[];}catch(e){return [];}
   }
   function rowByTitle(title){
     var rows=qa("#tkList .tk-item");
@@ -350,7 +375,111 @@ RUNNER = r"""
         var post2=(window.__posts||[]).filter(function(p){return p.url.indexOf("/marks")>=0;});
         T("取消勾选写 val=false", post2.length>post.length&&JSON.stringify(post2[post2.length-1].body).indexOf('"val":false')>=0,
           JSON.stringify(post2[post2.length-1]||{}).slice(0,200));
-        click('[data-tkseg="my"]');await sleep(200);
+
+        /* ---- 班级作业直接加入任务 + 来源/附件 ---- */
+        T("班级作业逐项加入按钮 2 个", qa("[data-add-hw-task]").length===2, qa("[data-add-hw-task]").length);
+        var tc0=TASK.items().length;
+        var addBtns=qa("[data-add-hw-task]");
+        addBtns[0].click();await sleep(450);
+        T("逐项加入任务 +1", TASK.items().length===tc0+1, TASK.items().length);
+        var src1=TASK.items().filter(function(t){return t.sourceHwId==="hw1";})[0];
+        T("来源字段/标题/备注已带入", !!src1&&src1.sourceTitle.indexOf("英语")>=0&&src1.title.indexOf("英语")>=0&&src1.notes.indexOf("Unit 3")>=0,
+          src1?JSON.stringify({title:src1.title,src:src1.sourceHwId,st:src1.sourceTitle}):"missing");
+        T("班级项显示「已在任务」", !!q('#hList [data-hw-id="hw1"]')&&q('#hList [data-hw-id="hw1"]').textContent.indexOf("已在任务")>=0,
+          q('#hList [data-hw-id="hw1"]')?q('#hList [data-hw-id="hw1"]').textContent.slice(0,60):"missing");
+        click("#hToTask");await sleep(600);
+        T("班级头「加入任务」批量补齐剩余 1 条", TASK.items().filter(function(t){return t.sourceHwId==="hw2";}).length===1,
+          TASK.items().filter(function(t){return t.sourceHwId;}).length);
+        TASK.open(src1.id);await sleep(350);
+        T("任务详情显示来源区", !!q("#tkFSource")&&!q("#tkFSource").hidden&&txt("#tkFSource").indexOf("来自班级作业")>=0, txt("#tkFSource").slice(0,80));
+        var srcAtt=q('#tkFSource [data-tk-hwatt]');
+        T("来源附件按钮存在", !!srcAtt, "");
+        if(srcAtt){srcAtt.click();await sleep(200);T("来源附件可打开预览", q("#attPanel").style.display!=="none", q("#attPanel").style.display);q("#attClose").click();}
+        var locate=q('#tkFSource [data-tk-hwopen]');
+        if(locate){locate.click();await sleep(1000);}
+        T("定位回班级作业并关闭详情", q("#tkPanel").style.display==="none"&&!!q('#tkSeg [data-tkseg="class"]').classList.contains("on"),
+          "panel="+q("#tkPanel").style.display);
+        T("原班级卡片高亮定位", !!q('#hList [data-hw-id="hw1"]')&&q('#hList [data-hw-id="hw1"]').classList.contains("tk-hw-flash"), "");
+        click('[data-tkseg="my"]');await sleep(250);
+
+        /* ---- 任务附件：上传/压缩/限额/持久化 ---- */
+        var attTask=taskByTitle("买牙膏和洗衣液");
+        TASK.open(attTask.id);await sleep(350);
+        T("无来源任务不显示来源区", q("#tkFSource").hidden===true, q("#tkFSource").hidden);
+        var dtDrop=new DataTransfer();dtDrop.items.add(fileOf("拖入.txt","drag"));
+        var dropEv=new Event("drop",{bubbles:true,cancelable:true});dropEv.dataTransfer=dtDrop;
+        q("#tkAttDrop").dispatchEvent(dropEv);
+        await waitFor(function(){return qa("#taskFilesList .att-card").length===1;},10000);
+        T("拖拽到附件区可添加", qa("#taskFilesList .att-card").length===1, qa("#taskFilesList .att-card").length);
+        setFiles("#taskFiles",[fileOf("任务资料.txt","附件内容")]);await waitFor(function(){return qa("#taskFilesList .att-card").length===2;},10000);
+        T("任务附件卡片 2 个", qa("#taskFilesList .att-card").length===2, qa("#taskFilesList .att-card").length);
+        T("任务附件计数 2/2", txt("#taskFilesCount")==="2/2", txt("#taskFilesCount"));
+        qa("#taskFilesList [data-att-rm]")[1].click();await sleep(120);
+        T("移除附件后 1 个", qa("#taskFilesList .att-card").length===1, qa("#taskFilesList .att-card").length);
+        setFiles("#taskFiles",[fileOf("a.txt","a"),fileOf("b.txt","b")]);await waitFor(function(){return qa("#taskFilesList .att-card").length===2;},10000);
+        T("超过上限只加 1 个并提示", qa("#taskFilesList .att-card").length===2&&txt("#taskFilesNote").indexOf("已忽略")>=0,
+          qa("#taskFilesList .att-card").length+" | "+txt("#taskFilesNote"));
+        qa("#taskFilesList [data-att-rm]")[0].click();await sleep(120);
+        T("再次移除后 1 个", qa("#taskFilesList .att-card").length===1, qa("#taskFilesList .att-card").length);
+        setFiles("#taskFiles",[new File([new Uint8Array(400*1024)],"big.txt",{type:"text/plain"})]);await waitFor(function(){return txt("#taskFilesNote").indexOf("不能超过")>=0;},4000);
+        T("任务大文件被拒绝并提示", qa("#taskFilesList .att-card").length===1&&txt("#taskFilesNote").indexOf("不能超过")>=0,
+          qa("#taskFilesList .att-card").length+" | "+txt("#taskFilesNote"));
+        setFiles("#taskFiles",[fileOf("补充.txt","补充")]);await waitFor(function(){return qa("#taskFilesList .att-card").length===2;},12000);
+        T("重新补到 2 个", qa("#taskFilesList .att-card").length===2, qa("#taskFilesList .att-card").length+" | "+txt("#taskFilesNote")+" | "+JSON.stringify(window.__ATT_PROBE&&window.__ATT_PROBE()));
+        click("#tkFSave");await sleep(500);
+        var savedAtt=taskByTitle("买牙膏和洗衣液");
+        T("任务附件写入数据 2 个", attsOf(savedAtt).length===2, attsOf(savedAtt).length);
+        TASK.open(savedAtt.id);await sleep(350);
+        T("重开详情恢复附件 2 个", qa("#taskFilesList .att-card").length===2, qa("#taskFilesList .att-card").length);
+        qa("#taskFilesList [data-att-rm]")[0].click();await sleep(120);
+        click("#tkFSave");await sleep(500);
+        T("保存后任务附件剩 1 个", attsOf(taskByTitle("买牙膏和洗衣液")).length===1, attsOf(taskByTitle("买牙膏和洗衣液")).length);
+
+        /* ---- 发布作业附件：图片压缩 + 发布持久化 ---- */
+        click('[data-tkseg="class"]');await sleep(300);
+        click("#hPub");await sleep(250);
+        T("发布作业附件拖拽区存在", !!q("#hDrop")&&!!q("#hFilesCount"), "");
+        setFiles("#hFiles",[pngFile()]);await waitFor(function(){return qa("#hFilesList .att-card img").length===1;},12000);
+        T("作业图片附件显示缩略图", qa("#hFilesList .att-card img").length===1, qa("#hFilesList .att-card img").length+" | "+JSON.stringify(window.__ATT_PROBE&&window.__ATT_PROBE()));
+        T("作业附件计数 1/2", txt("#hFilesCount")==="1/2", txt("#hFilesCount"));
+        setFiles("#hFiles",[fileOf("说明.txt","说明")]);await waitFor(function(){return qa("#hFilesList .att-card").length===2;},12000);
+        T("作业第二附件加入", qa("#hFilesList .att-card").length===2&&txt("#hFilesCount")==="2/2",
+          qa("#hFilesList .att-card").length+" | "+txt("#hFilesCount"));
+        qa("#hFilesList [data-att-rm]")[1].click();await sleep(150);
+        setv("#hContent","附件发布测试");
+        click("#hAdd");await sleep(900);
+        var hwNew=TASK.homework().filter(function(h){return h.content==="附件发布测试";})[0];
+        T("发布作业带压缩图片附件", !!hwNew&&attsOf(hwNew).length===1&&attsOf(hwNew)[0].t==="image/jpeg",
+          hwNew?JSON.stringify(attsOf(hwNew).map(function(a){return {n:a.n,t:a.t,s:a.s};})):"missing");
+        T("班级列表出现新作业", qa("#hList .item").length===3, qa("#hList .item").length);
+        click('[data-tkseg="my"]');await sleep(250);
+
+        /* ---- 详细编辑：预填/行内错误/日期快捷/提醒提示/未保存拦截 ---- */
+        var tc1=TASK.items().length;
+        setv("#tkQuick","详细预填任务");
+        setv("#tkQuickDate",__TOMORROW__);
+        setv("#tkQuickList","lstudy");
+        click("#tkQuickStar");
+        click("#tkQuickMore");await sleep(350);
+        T("详细编辑打开并预填标题", q("#tkPanel").style.display!=="none"&&q("#tkFTitle").value==="详细预填任务", q("#tkFTitle").value);
+        T("详细编辑预填截止/分组/重要", q("#tkFDate").value===__TOMORROW__&&q("#tkFList").value==="lstudy"&&q("#tkFStar").classList.contains("on"),
+          q("#tkFDate").value+"/"+q("#tkFList").value);
+        T("详细编辑清空快速输入", q("#tkQuick").value===""&&q("#tkQuickDateRow").hidden, "");
+        setv("#tkFTitle","");
+        click("#tkFSave");await sleep(160);
+        T("空标题显示行内错误且不关闭", q("#tkPanel").style.display!=="none"&&q("#tkFTitleErr").classList.contains("on"), txt("#tkFTitleErr"));
+        setv("#tkFTitle","详细预填任务");
+        click('[data-tkdateset="today"]');await sleep(100);
+        T("日期快捷「今天」生效", q("#tkFDate").value===__TODAY__, q("#tkFDate").value);
+        setv("#tkFRemind","30");await sleep(100);
+        T("提醒提示显示预计时间", txt("#tkFRemindHint").indexOf("提醒")>=0, txt("#tkFRemindHint"));
+        var oldConfirm=window.confirm;
+        window.confirm=function(){return false;};
+        click("#tkFCancel");await sleep(180);
+        T("未保存修改关闭被拦截", q("#tkPanel").style.display!=="none", q("#tkPanel").style.display);
+        window.confirm=oldConfirm;
+        click("#tkFCancel");await sleep(220);
+        T("确认放弃后关闭且不新增任务", q("#tkPanel").style.display==="none"&&TASK.items().length===tc1, TASK.items().length);
 
         /* ---- 390px iframe ---- */
         await new Promise(function(res){
@@ -428,7 +557,7 @@ def build_preview(with_runner, tasks=None, with_ui=True):
     html = html.replace('<meta charset="utf-8">', '<meta charset="utf-8">' + mock, 1)
     if with_runner:
         runner = RUNNER.replace("__IN2__", json.dumps(IN2)).replace("__TODAY__", json.dumps(TODAY)) \
-            .replace("__SID__", SID)
+            .replace("__TOMORROW__", json.dumps(TOMORROW)).replace("__SID__", SID)
         html = html.replace("</body>", runner + "\n</body>", 1)
     return html
 
@@ -460,9 +589,9 @@ def main():
         os.remove(REPORT)
     url = BASE + os.path.basename(PREVIEW)
     args = [EDGE, "--headless=new", "--disable-gpu", "--no-first-run", "--force-device-scale-factor=1",
-            "--window-size=1280,900", "--virtual-time-budget=30000",
+            "--window-size=1280,900", "--virtual-time-budget=90000",
             "--screenshot=" + os.path.join(REPORT_DIR, "task_check.png"), url]
-    subprocess.run(args, capture_output=True, timeout=180)
+    subprocess.run(args, capture_output=True, timeout=240)
     data = None
     for _ in range(40):
         if os.path.exists(REPORT):
