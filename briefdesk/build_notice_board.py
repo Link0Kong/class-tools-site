@@ -5169,7 +5169,9 @@ def _normalize_group_times_local(g, final=False, nt_available=False):
                 g["eventAt"] = _iso_of(ev)
 
     # 2) 动作：缺省/非法/泛化（旧数据）→ 按文本推断更具体动作；已有长动作按 §0.2 缩写
-    if "deadlineAction" not in manual:
+    #    2026-11-23：已由课表联动写入 courseAnchor 的动作（「思政课前」这类不含「截止」的文案）
+    #    不得被下面的「按文本推断截止动作」覆盖。
+    if "deadlineAction" not in manual and not g.get("courseAnchor"):
         cur = str(g.get("deadlineAction") or "").strip()
         if g.get("deadline"):
             if not cur or "截止" not in cur or cur == "截止":
@@ -6810,6 +6812,15 @@ def main():
     # 2026-11-14 契约 §1.4：AI 更新/更正通知合并（keep 覆盖最终有效状态，merge 组删除）——
     # 在质检之后（AI 处置结果优先于逐条质检）、人工补丁与 final 归一之前。
     groups = apply_threads(groups)
+    # 2026-11-23 用户需求：通知 × 课表联动——「思政三组 11-23 提前到教室拷演讲内容」这类
+    # 「课程 + 课前动作」通知锚到该课上课时间（如思政课 08:10），动作文案「<课程>课前」；
+    # 放在人工补丁之前，人工/管理员编辑仍然优先。课表缺失/坏数据时 fail-open 不锚定。
+    if os.environ.get("NOTICE_SKIP_COURSE_ANCHOR", "").strip() not in ("1", "true", "yes", "on"):
+        try:
+            import notice_course_link
+            groups = notice_course_link.apply_course_anchors(groups)
+        except Exception as exc:  # noqa: BLE001
+            print("course anchor skipped:", type(exc).__name__, exc)
     # 人工补丁最后应用：药膳报名时间修正 + g_dorm 长期安排（人工补丁优先于 AI）
     groups = apply_manual_patches(groups)
     # 人工补丁后 final pass：只补缺（null/缺失才写），并用补丁追加的更正文本刷新报名窗口；
