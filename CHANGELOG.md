@@ -23,9 +23,11 @@
   顺带修复两个早已失效的静态断言（CDN 链接误判、使用说明文案）与 `selfcheck` 里已删除的 `#aRoster/#sOut` 用例。
 - **五端**：小程序（`draw`/`group` 两工具、删 `pages/sum`）、安卓（beta53）、鸿蒙（最近抽签本机持久化）、
   Windows（`last-draw.json`）同步落地；契约 `web/group/CONTRACT.md`。
-- **上线/回滚**：见本条下方「上线」小段；回滚 = 重传部署前备份。
+- **上线/回滚**：部署前线上备份 `tools/_backup/index_online_20261122-2203_preGroupSplit.html`
+  （1,669,280 B / `637cb8ec…`）；已上传 OSS + ECS **1,675,611 B / sha256 `9da0e2c0…`**，
+  `oss_object.py check` MATCH、ECS `/` MATCH、gzip 505,077 B。回滚 = 重传该备份 + `ecs_site.py apply`。
 - **已知取舍**：抽签结果只存本机（不进 UD 同步，换端不跟随）；分组「全班」= 点击时快照全班座号（名单变动后需重选）；
-  页面不再有跨工具的合并结果单。
+  页面不再有跨工具的合并结果单；无头 Edge 在本机无法直连公网 IP（直连 HTTP 客户端可 200），线上冒烟以字节校验为准。
 
 ## 2026-11-22 17:0x–17:2x · 通知附件「待获取」误报修复（网页 + 数据管线）
 
