@@ -2582,7 +2582,88 @@ a.rec-link{color:var(--cy);word-break:break-all}
 }
 @media (prefers-reduced-motion:reduce){.proof-line.pending .pdot{animation:none}}
 /* __WEB_B2_CSS_END__ */
-/* ========== __UG_CARDS_V1__ 使用说明卡片轮播 + 一键总览（2026-11-12） ========== */
+/* ========== __NT_ADMIN_V1__ 通知管理（仅管理员：群聊采集 / 可见人群 / 待获取）· 2026-11-22 ========== */
+#s-ntadmin .na-dash{display:grid;gap:12px}
+@media(min-width:960px){#s-ntadmin .na-dash{grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);align-items:start}}
+.na-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.na-chips{display:flex;gap:6px;flex:1;min-width:0;overflow:auto;scrollbar-width:none}
+.na-chips::-webkit-scrollbar{display:none}
+.na-chip{flex:none;display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:0 12px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink2);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+#s-ntadmin .btn.sm{min-height:40px}
+.na-chip em{font-style:normal;font-size:11px;color:var(--ink3)}
+.na-chip.on{background:var(--cy);border-color:var(--cy);color:#fff}
+.na-chip.on em{color:rgba(255,255,255,.82)}
+.na-search input{width:100%;min-height:42px;border-radius:11px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:13px;padding:0 12px;outline:none}
+.na-search input:focus{border-color:var(--cy)}
+.na-list{display:grid;gap:8px}
+.na-row{border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+.na-row.open{border-color:var(--line-strong);box-shadow:0 8px 20px -16px rgba(35,48,46,.55)}
+.na-head{display:flex;align-items:center;gap:8px;padding:9px 10px;min-height:54px;cursor:pointer}
+.na-pf{flex:none;font-size:10px;font-weight:800;letter-spacing:.04em;padding:2px 6px;border-radius:6px;background:var(--mint);color:var(--cy)}
+.na-pf.wx{background:var(--tint-blue);color:var(--bl)}
+.na-main{flex:1;min-width:0}
+.na-name{font-size:13px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.na-gid{font-size:10.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.na-tg{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--ink2);flex:none;min-height:40px;cursor:pointer}
+.na-tg input{width:17px;height:17px;accent-color:var(--cy);margin:0}
+.na-chev{flex:none;color:var(--ink3);font-size:14px;transition:transform var(--ui-dur-fast) var(--ui-ease)}
+.na-row.open .na-chev{transform:rotate(90deg)}
+.na-body{padding:0 10px 10px;border-top:1px dashed var(--line)}
+.na-body[hidden]{display:none}
+.na-caps{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0}
+.na-cap{display:inline-flex;align-items:center;gap:5px;min-height:40px;padding:0 10px;border-radius:9px;border:1px solid var(--line);background:var(--bg);font-size:11.5px;color:var(--ink3);font-weight:700;cursor:pointer}
+.na-cap.on{border-color:var(--cy);background:var(--mint);color:var(--cy)}
+.na-cap input{position:absolute;opacity:0;pointer-events:none}
+.na-aud{width:100%;display:flex;align-items:center;gap:8px;min-height:46px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font:inherit;text-align:left;cursor:pointer}
+.na-aud span{font-size:11.5px;color:var(--ink3);font-weight:700;flex:none}
+.na-aud b{flex:1;min-width:0;font-size:12.5px;color:var(--ink);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.na-aud i{font-style:normal;color:var(--ink3);flex:none}
+.na-rowfoot{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:8px}
+.na-rowfoot .na-note{flex:1;margin:0;text-align:left}
+.na-del{border:0;background:transparent;color:var(--danger);font:inherit;font-size:11.5px;font-weight:700;min-height:40px;cursor:pointer;padding:0 8px}
+.na-empty{padding:20px 8px;text-align:center;color:var(--ink3);font-size:12.5px;line-height:1.75}
+.na-pend{display:grid;gap:7px}
+@media(min-width:960px){.na-pend{max-height:520px;overflow:auto;padding-right:2px}}
+.na-pend-item{border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--bg)}
+.na-pend-top{display:flex;gap:8px;align-items:flex-start}
+.na-pend-name{flex:1;min-width:0;font-size:12.5px;font-weight:700;color:var(--ink);word-break:break-all;line-height:1.45}
+.na-copy{flex:none;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink2);border-radius:7px;font:inherit;font-size:10.5px;font-weight:700;padding:4px 7px;min-height:40px;cursor:pointer}
+.na-pend-meta{font-size:10.5px;color:var(--ink3);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.na-pend-title{font-size:10.5px;color:var(--ink3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.na-state{font-size:12.5px;line-height:1.85;color:var(--ink2)}
+.na-state b{color:var(--ink)}
+.na-badge{display:inline-flex;align-items:center;border-radius:999px;padding:1px 8px;font-size:10.5px;font-weight:800;background:var(--mint);color:var(--cy);margin-right:4px}
+.na-badge.warn{background:var(--tint-sand);color:var(--sd)}
+.na-note{font-size:10.5px;color:var(--ink3);line-height:1.65;margin-top:8px}
+.na-aud-card,.na-add-card{max-width:520px}
+.na-aud-hd{font-size:15px;font-weight:800;color:var(--ink);padding:2px 34px 2px 0;line-height:1.5}
+.na-aud-sub{font-size:11px;color:var(--ink3);margin-top:2px}
+.na-aud-opts{display:grid;gap:7px;margin:12px 0 4px}
+.na-aud-opt{display:flex;align-items:center;gap:9px;min-height:46px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font:inherit;font-size:12.5px;color:var(--ink2);cursor:pointer;text-align:left}
+.na-aud-opt.on{border-color:var(--cy);background:var(--mint);color:var(--cy);font-weight:700}
+.na-aud-opt i{width:8px;height:8px;border-radius:50%;background:var(--line-strong);flex:none}
+.na-aud-opt.on i{background:var(--cy)}
+.na-seat-search{margin:10px 0 8px}
+.na-seat-search input{width:100%;min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:12.5px;padding:0 11px;outline:none}
+.na-seat-search input:focus{border-color:var(--cy)}
+.na-seat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;max-height:224px;overflow:auto;padding:2px}
+.na-seat{min-height:40px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font:inherit;font-size:11px;color:var(--ink2);cursor:pointer;padding:2px 4px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.na-seat.on{border-color:var(--cy);background:var(--mint);color:var(--cy);font-weight:700}
+.na-seat-foot{display:flex;align-items:center;gap:8px;margin-top:8px}
+.na-seat-sum{flex:1;font-size:11px;color:var(--ink3)}
+.na-pfseg{display:flex;gap:6px;margin:4px 0 2px}
+.na-pfseg button{flex:1;min-height:40px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink2);border-radius:10px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.na-pfseg button.on{border-color:var(--cy);background:var(--mint);color:var(--cy)}
+.na-add-card .f{margin-top:12px}
+.na-add-card input[type=text]{width:100%;min-height:42px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:13px;padding:0 11px;outline:none}
+.na-add-card input[type=text]:focus{border-color:var(--cy)}
+.na-add-hint{font-size:10.5px;color:var(--ink3);line-height:1.6;margin-top:6px}
+.na-add-ft{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.nt-admin-fab{position:fixed;right:14px;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:38;display:inline-flex;align-items:center;gap:5px;min-height:38px;padding:0 13px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.94);color:var(--ink2);font-size:12.5px;font-weight:700;box-shadow:0 4px 14px rgba(46,58,52,.12);cursor:pointer;backdrop-filter:blur(6px)}
+.nt-admin-fab[hidden]{display:none}
+.nt-admin-fab:hover{border-color:var(--cy);color:var(--cy)}
+@media (max-width:560px){.nt-admin-fab{right:10px;bottom:calc(60px + env(safe-area-inset-bottom,0px))}}
+/* __UG_CARDS_V1__ 使用说明卡片轮播 + 一键总览（2026-11-12） */
 #s-ug{padding-bottom:2px}
 .ug-shell{max-width:780px;margin:0 auto}
 .ug-head{display:flex;align-items:flex-end;gap:10px;margin:0 0 10px}
@@ -4275,8 +4356,56 @@ html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px
   <section id="s-nt">
 <!-- __WEB_B2_NTBTN_BEGIN__ -->
   <button class="nt-remind-fab" id="ntRemindBtn" type="button" aria-label="提醒设置" title="桌面提醒设置"><span class="nt-rb-dot"></span><span id="ntRemindFab">提醒</span></button>
+  <button class="nt-admin-fab" id="ntAdminFab" type="button" aria-label="通知管理" title="通知管理（仅管理员）" hidden>管理</button>
 <!-- __WEB_B2_NTBTN_END__ -->
     <div class="notice-host" id="noticeHost"><div class="notice-empty">—</div></div>
+  </section>
+
+  <!-- ==================== 通知管理（仅管理员：群聊采集 / 可见人群 / 待获取） ==================== -->
+  <section id="s-ntadmin">
+    <div class="card">
+      <div class="lghead" style="margin-bottom:2px">
+        <span class="lgico">⌁</span>
+        <div style="flex:1;min-width:0"><b>通知管理</b><div class="lgsub" id="naSub">仅管理员 · 群聊采集与可见人群</div></div>
+        <button class="btn ghost sm" id="naRefresh" type="button">刷新</button>
+      </div>
+      <div class="na-note" style="margin-top:4px">群聊开关只影响新通知 · 文件在群内下载后自动上线</div>
+    </div>
+    <div class="na-dash">
+      <div>
+        <div class="card">
+          <div class="na-bar">
+            <div class="na-chips" id="naFilter">
+              <button type="button" class="na-chip on" data-naf="all">全部 <em id="naCntAll">0</em></button>
+              <button type="button" class="na-chip" data-naf="qq">QQ <em id="naCntQq">0</em></button>
+              <button type="button" class="na-chip" data-naf="wx">微信 <em id="naCntWx">0</em></button>
+            </div>
+            <button class="btn pri sm" id="naAdd" type="button">添加群聊</button>
+          </div>
+          <div class="na-search"><input id="naSearch" type="search" placeholder="搜索群名或群号" autocomplete="off" spellcheck="false"></div>
+          <div class="na-list" id="naList"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="pw-card-hd"><b>待获取文件</b><span class="wt-ts" id="naPendAt">—</span></div>
+          <div class="na-bar" style="margin-top:2px">
+            <div class="na-chips" id="naPendFilter">
+              <button type="button" class="na-chip on" data-npf="all">全部 <em id="naPendAll">0</em></button>
+              <button type="button" class="na-chip" data-npf="qq">QQ</button>
+              <button type="button" class="na-chip" data-npf="wx">微信</button>
+            </div>
+            <button class="btn ghost sm" id="naCopyAll" type="button">复制清单</button>
+            <button class="btn ghost sm" id="naRescan" type="button">重新扫描</button>
+          </div>
+          <div class="na-pend" id="naPendList"><div class="na-empty">等待本机采集端同步…</div></div>
+        </div>
+        <div class="card">
+          <div class="pw-card-hd"><b>采集端状态</b><span class="wt-ts" id="naStateAt">—</span></div>
+          <div class="na-state" id="naState">等待本机采集端同步…</div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- ==================== 体测 ==================== -->
@@ -5023,6 +5152,47 @@ html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px
   <div class="mcard rec-card" role="dialog" aria-modal="true" aria-label="抽签记录">
     <button class="mclose" id="recClose" aria-label="关闭">×</button>
     <div id="recBody"></div>
+  </div>
+</div>
+
+<!-- __NT_ADMIN_V1__ 可见人群弹层（仅管理员） -->
+<div class="modal" id="naAudOv" style="display:none" hidden>
+  <div class="mcard na-aud-card" role="dialog" aria-modal="true" aria-label="通知可见人群">
+    <button class="mclose" id="naAudClose" type="button" aria-label="关闭">×</button>
+    <div class="na-aud-hd" id="naAudTitle">可见人群</div>
+    <div class="na-aud-sub" id="naAudGroup"></div>
+    <div class="na-aud-opts" id="naAudOpts"></div>
+    <div class="na-aud-seats" id="naAudSeats" hidden>
+      <div class="na-seat-search"><input id="naSeatSearch" type="search" placeholder="搜索姓名或座号" autocomplete="off" spellcheck="false"></div>
+      <div class="na-seat-grid" id="naSeatGrid"></div>
+      <div class="na-seat-foot"><span class="na-seat-sum" id="naSeatSum">已选 0 人</span><button class="na-copy" id="naSeatClear" type="button">清空</button></div>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button class="btn ghost" id="naAudCancel" type="button">取消</button>
+      <button class="btn pri" id="naAudOk" type="button" style="flex:1">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- __NT_ADMIN_V1__ 添加群聊弹层（仅管理员） -->
+<div class="modal" id="naAddOv" style="display:none" hidden>
+  <div class="mcard na-add-card" role="dialog" aria-modal="true" aria-label="添加群聊">
+    <button class="mclose" id="naAddClose" type="button" aria-label="关闭">×</button>
+    <div class="na-aud-hd">添加群聊</div>
+    <div class="na-aud-sub">加入后按默认「仅管理员可见」采集；保存后约 5 分钟生效。</div>
+    <div class="na-pfseg" id="naAddPf">
+      <button type="button" class="on" data-napf="qq">QQ 群</button>
+      <button type="button" data-napf="wx">微信群</button>
+    </div>
+    <label class="f" for="naAddName">群名</label>
+    <input id="naAddName" type="text" maxlength="60" placeholder="与 QQ / 微信里显示的一致" autocomplete="off">
+    <label class="f" for="naAddId" id="naAddIdLbl">群号</label>
+    <input id="naAddId" type="text" maxlength="80" placeholder="如 1101960522" autocomplete="off" inputmode="numeric">
+    <div class="na-add-hint" id="naAddHint">QQ 群号可在群资料里查看；微信群可留空，按群名匹配。</div>
+    <div class="na-add-ft">
+      <button class="btn ghost" id="naAddCancel" type="button">取消</button>
+      <button class="btn pri" id="naAddSave" type="button">添加</button>
+    </div>
   </div>
 </div>
 
@@ -7591,6 +7761,7 @@ var TOOLS=[
  {k:"committee",n:"名单",d:"班委、团员与全班名单"},
  {k:"hw",n:"任务",d:"个人任务、分组、提醒与班级作业自动同步"},
  {k:"nt",n:"通知",d:"班级通知与附件"},
+ {k:"ntadmin",n:"通知管理",d:"群聊采集与可见人群",admin:true},
  {k:"ft",n:"体测",d:"体测算分与等级"},
  {k:"roll",n:"点名",d:"点名记录到课、请假"},
  {k:"stats",n:"统计",d:"访问次数 · 设备 · 版本",admin:true},
@@ -7649,6 +7820,8 @@ function gotoTab(k,noScroll){
   try{if(typeof PPT!=="undefined"&&PPT&&PPT.leave)PPT.leave();}catch(e){}
   /* 投票页定时器/弹层：切走即停并收起弹层，切回由下方 vote 分支重启 */
   try{if(typeof VOTE!=="undefined"&&VOTE&&VOTE.leave)VOTE.leave();}catch(e){}
+  /* 通知管理（仅管理员）定时器/弹层：切走即停 */
+  try{if(typeof NTADMIN!=="undefined"&&NTADMIN&&NTADMIN.leave)NTADMIN.leave();}catch(e){}
   /* 切页幂等清理：取消未完成的 fly 并清空所有 section 的内联 transform/transition/opacity/animation，
      保证切出的页面永远从 0 位移开始（X5 错位/残留修复） */
   try{if(window.__zqKillFly)window.__zqKillFly();}catch(e){}
@@ -7667,6 +7840,7 @@ function gotoTab(k,noScroll){
   if(k==="tt") setTimeout(function(){ttHint();ttLayout();},0);
   if(k==="hw"){HW.pull();marksPull(true);try{if(typeof TK!=="undefined"&&TK&&TK.enter)TK.enter();}catch(e){}}
   if(k==="nt"){renderNoticeFrame();NT.pull();marksPull(true);}
+  if(k==="ntadmin"){try{if(typeof NTADMIN!=="undefined"&&NTADMIN&&NTADMIN.enter)NTADMIN.enter();}catch(e){}}
   if(k==="roll"){renderRoll();marksPull(true);}
   if(k==="committee") renderCommittee();
   if(k==="stats"){
@@ -7742,7 +7916,7 @@ function renderTabs(noScroll){
 }
 
 /* 全部栏卡片色调：课表雾蓝 · 作业/反馈睡莲青 · 抽签/体测暖沙 · 班委/点名/统计紫 · 通知灰粉 · 使用说明中性 */
-var ALL_TONE={draw:"sand",tt:"blue",committee:"violet",hw:"mint",nt:"rose",ft:"sand",roll:"violet",stats:"violet",water:"blue",vote:"teal",stage:"violet",settings:"plain",map:"teal",jw:"blue",chsi:"blue"};
+var ALL_TONE={draw:"sand",tt:"blue",committee:"violet",hw:"mint",nt:"rose",ntadmin:"teal",ft:"sand",roll:"violet",stats:"violet",water:"blue",vote:"teal",stage:"violet",settings:"plain",map:"teal",jw:"blue",chsi:"blue"};
 /* ============================================================
    全部页卡片拖动 v2（2026-11-06；2026-11-11 定位基准 = 卡片本体）
    - 起点：卡片右上 handle（三条横线）；移动 >6px 才进入拖动
@@ -14569,6 +14743,7 @@ function enterClass(r){
   var g=$("#idgate"); if(g)g.style.display="none";
   try{POS.begin();}catch(e){} /* 需求2：刷新恢复 tab（renderTabs 首次渲染前决定落地页） */
   bucketInit(); accUi(); applyMode();
+  try{if(window.NTADMIN&&window.NTADMIN.syncEntry)window.NTADMIN.syncEntry();}catch(e){}
   startClassData();
   try{document.body.classList.remove("auth-pending");}catch(e){}
   try{HIST.init();}catch(e){}
@@ -24701,6 +24876,517 @@ var TK=(function(){
   };
 })();
 try{window.TASK=TK;}catch(e){}
+
+/* ========== __NT_ADMIN_V1__ 通知管理（仅管理员）· 2026-11-22 ==========
+   契约：tools/tests/nt_admin_spec.md
+   - 页面只在管理员身份下可见（TOOLS admin:true + 通知页「管理」浮钮）；
+   - 配置真源 = 云端 site_config.notice_groups（仅管理员 RLS），本机 notice_admin.py
+     每 5 分钟拉取并写 data/notice-group-config.json，采集脚本经 notice_groups.py 读取；
+   - 本页只读 site_config.notice_status（待获取文件/应用状态），不直接碰采集进程。 */
+var NTADMIN=(function(){
+  var ROW_CFG="notice_groups", ROW_STATUS="notice_status", ROW_REQ="notice_request";
+  var AUD_LABEL={all:"全体同学",committee:"班委",league:"团员",admin:"仅管理员",custom:"指定成员"};
+  var SET_LABEL={volunteer:"群成员 · 志愿者",viewer:"群成员 · 观众",blood:"群成员 · 献血群",
+                 review:"群成员 · 评议小组",dorm:"群成员 · 舍长",redcross:"群成员 · 红会干事"};
+  var CAP_LABEL={ai:"识别",file:"文件",image:"图片",doc:"文档"};
+  var LIST_LIMIT=200;
+  var st={cfg:null,status:null,loaded:false,pulling:null,fail:false,noCfg:false,
+          filter:"all",q:"",pfilter:"all",open:{},saveTimer:0,saving:false,dirty:false,
+          timer:0,audOpen:false,audKey:"",audDraft:null,audHooked:false,audMembers:null,
+          addOpen:false,addPf:"qq",addHooked:false,seatQ:""};
+  function isoNow(){return new Date().toISOString();}
+  function ago(iso){
+    var t=Date.parse(String(iso||""));
+    if(!t)return "—";
+    var s=Math.max(0,Math.round((Date.now()-t)/1000));
+    if(s<60)return "刚刚";
+    if(s<3600)return Math.floor(s/60)+" 分钟前";
+    if(s<86400)return Math.floor(s/3600)+" 小时前";
+    return Math.floor(s/86400)+" 天前";
+  }
+  function keyOf(g){return g.platform+":"+(g.gid||("name:"+g.name));}
+  function findGroup(k){
+    if(!st.cfg)return null;
+    for(var i=0;i<st.cfg.groups.length;i++){if(keyOf(st.cfg.groups[i])===k)return st.cfg.groups[i];}
+    return null;
+  }
+  function emptyCfg(){return {v:1,rev:0,updatedAt:"",groups:[]};}
+  function padSeats(a){
+    var out=[],seen={};
+    (a instanceof Array?a:[]).forEach(function(x){
+      var n=Math.round(Number(x));
+      if(!isFinite(n)||n<1||n>70||seen[n])return;
+      seen[n]=1;out.push(n);
+    });
+    out.sort(function(a,b){return a-b;});
+    return out;
+  }
+  function normAud(a){
+    var type=String((a&&a.type)||"all");
+    if(["all","committee","league","admin","custom","set"].indexOf(type)<0)type="all";
+    var seats=padSeats(a&&a.seats);
+    var set=String((a&&a.set)||"");
+    if(type==="set"&&!SET_LABEL[set])type="all";
+    if(type==="custom"&&!seats.length)type="all";
+    return {type:type,seats:type==="custom"?seats:[],set:type==="set"?set:""};
+  }
+  function normCfg(v){
+    var out=emptyCfg();
+    if(!v||typeof v!=="object")return out;
+    out.rev=Math.max(0,parseInt(v.rev,10)||0);
+    out.updatedAt=String(v.updatedAt||"");
+    var seen={};
+    (v.groups instanceof Array?v.groups:[]).forEach(function(g){
+      if(!g||typeof g!=="object")return;
+      var platform=(String(g.platform||"").toLowerCase()==="wx")?"wx":"qq";
+      var gid=String(g.gid||"").trim(),name=String(g.name||"").trim();
+      if(!gid&&!name)return;
+      var k=platform+":"+(gid||("name:"+name));
+      if(seen[k])return;seen[k]=1;
+      var cap=(g.capture&&typeof g.capture==="object")?g.capture:{};
+      out.groups.push({platform:platform,gid:gid,name:name||gid,
+        capture:{ai:!!cap.ai,file:!!cap.file,image:!!cap.image,doc:!!cap.doc},
+        audience:normAud(g.audience),added:!!g.added});
+    });
+    return out;
+  }
+  function audText(a){
+    a=normAud(a);
+    if(a.type==="set")return SET_LABEL[a.set]||"群成员（自动匹配）";
+    if(a.type==="custom")return "指定 "+a.seats.length+" 人";
+    return AUD_LABEL[a.type]||"全体同学";
+  }
+  function readRow(id){
+    return fetch(CB+"site_config?id=eq."+encodeURIComponent(id)+"&select=id,value,updated_at",
+                 {headers:cbH(false),cache:"no-store"})
+      .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();})
+      .then(function(rows){return (rows instanceof Array&&rows.length)?rows[0]:null;});
+  }
+  function writeRow(id,value){
+    var ts=isoNow();
+    return fetch(CB+"site_config?id=eq."+encodeURIComponent(id),
+                 {method:"PATCH",headers:cbH(true),body:JSON.stringify({value:value,updated_at:ts})})
+      .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.text();})
+      .then(function(txt){
+        var rows=[];try{rows=JSON.parse(txt||"[]");}catch(e){rows=[];}
+        if(rows instanceof Array&&rows.length)return true;
+        return fetch(CB+"site_config",{method:"POST",headers:cbH(true),
+          body:JSON.stringify([{id:id,value:value,updated_at:ts}])})
+          .then(function(r2){if(!r2.ok)throw new Error("http"+r2.status);return true;});
+      });
+  }
+
+  /* ---------------- 载入 ---------------- */
+  function load(full){
+    if(!canManage())return Promise.resolve(false);
+    if(st.pulling)return st.pulling;
+    st.fail=false;render();
+    st.pulling=Promise.all([readRow(ROW_CFG),readRow(ROW_STATUS)]).then(function(rows){
+      var rc=rows[0],rs=rows[1];
+      if(rc&&rc.value&&typeof rc.value==="object"){
+        if(!st.dirty&&!st.saving)st.cfg=normCfg(rc.value);
+        st.noCfg=false;
+      }else if((!st.cfg||full)&&!st.dirty&&!st.saving){
+        st.cfg=emptyCfg();st.noCfg=true;
+      }
+      st.status=(rs&&rs.value&&typeof rs.value==="object")?rs.value:null;
+      st.loaded=true;st.pulling=null;render();
+      return true;
+    },function(){
+      st.fail=true;st.pulling=null;render();
+      return false;
+    });
+    return st.pulling;
+  }
+  function loadStatus(){
+    if(!canManage())return Promise.resolve(false);
+    return readRow(ROW_STATUS).then(function(r){
+      st.status=(r&&r.value&&typeof r.value==="object")?r.value:null;
+      renderPending();renderState();renderSub();
+      return true;
+    },function(){return false;});
+  }
+
+  /* ---------------- 保存（600ms 防抖） ---------------- */
+  function scheduleSave(){
+    if(!canManage())return;
+    st.dirty=true;renderState();
+    clearTimeout(st.saveTimer);
+    st.saveTimer=setTimeout(flushSave,600);
+  }
+  function flushSave(){
+    if(!canManage()||!st.cfg||st.saving||!st.dirty)return;
+    st.saving=true;st.dirty=false;renderState();
+    var payload=JSON.parse(JSON.stringify(st.cfg));
+    payload.rev=Math.max(0,parseInt(st.cfg.rev,10)||0)+1;
+    payload.updatedAt=isoNow();
+    payload.updatedBy=AUTH.sid||"";
+    writeRow(ROW_CFG,payload).then(function(){
+      st.cfg.rev=payload.rev;st.cfg.updatedAt=payload.updatedAt;
+      st.noCfg=false;st.saving=false;
+      if(st.dirty){flushSave();}
+      else{renderSub();renderState();toast("已保存");}
+    },function(){
+      st.saving=false;st.dirty=true;renderState();toast("保存失败，稍后重试");
+    });
+  }
+
+  /* ---------------- 渲染 ---------------- */
+  function anyCap(g){return !!(g.capture.ai||g.capture.file||g.capture.image||g.capture.doc);}
+  function visibleGroups(){
+    var gs=(st.cfg&&st.cfg.groups)||[];
+    var q=String(st.q||"").trim().toLowerCase();
+    var out=gs.filter(function(g){
+      if(st.filter!=="all"&&g.platform!==st.filter)return false;
+      if(!q)return true;
+      return (g.name+" "+g.gid+" "+(g.platform==="wx"?"微信":"QQ")).toLowerCase().indexOf(q)>=0;
+    });
+    /* 采集中优先，其次 QQ→微信、群名；不隐藏任何群（管理员随时能找到未采集的群） */
+    out.sort(function(a,b){
+      var aa=anyCap(a)?0:1,bb=anyCap(b)?0:1;
+      if(aa!==bb)return aa-bb;
+      if(a.platform!==b.platform)return a.platform==="qq"?-1:1;
+      return String(a.name).localeCompare(String(b.name),"zh");
+    });
+    return out;
+  }
+  function rowHTML(g){
+    var k=keyOf(g),open=!!st.open[k],wx=g.platform==="wx";
+    var caps=wx?["ai"]:["ai","file","image","doc"];
+    var n=0;["ai","file","image","doc"].forEach(function(c){if(g.capture[c])n++;});
+    var master=!!(g.capture.ai||g.capture.file||g.capture.image||g.capture.doc);
+    var h='<div class="na-row'+(open?' open':'')+'" data-k="'+esc(k)+'">';
+    h+='<div class="na-head" data-nahead="'+esc(k)+'">';
+    h+='<span class="na-pf'+(wx?' wx':'')+'">'+(wx?"微信":"QQ")+'</span>';
+    h+='<div class="na-main"><div class="na-name">'+esc(g.name)+'</div><div class="na-gid">'+esc(g.gid||"—")+'</div></div>';
+    h+='<label class="na-tg" data-natgwrap><input type="checkbox" data-natg="'+esc(k)+'"'+(master?' checked':'')+'><span>采集</span></label>';
+    h+='<span class="na-chev">›</span></div>';
+    h+='<div class="na-body" data-nabody="'+esc(k)+'"'+(open?'':' hidden')+'>';
+    h+='<div class="na-caps">'+caps.map(function(c){
+      return '<label class="na-cap'+(g.capture[c]?' on':'')+'"><input type="checkbox" data-nacap="'+c+'" data-nakey="'+esc(k)+'"'+(g.capture[c]?' checked':'')+'>'+CAP_LABEL[c]+'</label>';
+    }).join("")+'</div>';
+    h+='<button type="button" class="na-aud" data-naaud="'+esc(k)+'"><span>可见人群</span><b>'+esc(audText(g.audience))+'</b><i>›</i></button>';
+    h+='<div class="na-rowfoot">'+(g.added?'':'<span class="na-note">已开启 '+n+' 项采集</span>')+
+       (g.added?'<button type="button" class="na-del" data-nadel="'+esc(k)+'">移除</button>':'')+'</div>';
+    h+='</div></div>';
+    return h;
+  }
+  function renderList(){
+    var box=$("#naList");if(!box)return;
+    if(st.pulling&&!st.loaded){box.innerHTML='<div class="na-empty">载入中…</div>';return;}
+    if(st.fail&&!st.loaded){box.innerHTML='<div class="na-empty">读取失败，点右上角「刷新」重试</div>';return;}
+    var rows=visibleGroups();
+    if(!rows.length){
+      box.innerHTML='<div class="na-empty">'+(st.noCfg?"等待本机采集端同步配置（约 5 分钟）":"没有匹配的群聊")+'</div>';
+      return;
+    }
+    box.innerHTML=rows.map(rowHTML).join("");
+  }
+  function pendingRows(){
+    var list=(st.status&&st.status.pending instanceof Array)?st.status.pending:[];
+    return list.filter(function(x){return st.pfilter==="all"||x.platform===st.pfilter;});
+  }
+  function renderPending(){
+    var all=(st.status&&st.status.pending instanceof Array)?st.status.pending:[];
+    var rows=pendingRows();
+    var at=$("#naPendAt");if(at)at.textContent=st.status?("更新 "+ago(st.status.agentAt)):"—";
+    var cnt=document.getElementById("naPendAll");if(cnt)cnt.textContent=String(all.length);
+    var box=$("#naPendList");if(!box)return;
+    if(!st.status){box.innerHTML='<div class="na-empty">等待本机采集端同步…</div>';return;}
+    if(!rows.length){box.innerHTML='<div class="na-empty">'+(all.length?"当前平台没有待获取文件":"全部文件已获取")+'</div>';return;}
+    var show=rows.slice(0,LIST_LIMIT);
+    var h=show.map(function(x){
+      return '<div class="na-pend-item"><div class="na-pend-top">'+
+        '<div class="na-pend-name">'+esc(x.name)+'</div>'+
+        '<button type="button" class="na-copy" data-nacopy="'+esc(x.name)+'">复制</button></div>'+
+        '<div class="na-pend-meta">'+esc(x.group||"")+(x.time?(" · "+esc(x.time)):"")+(x.platform==="wx"?" · 微信":(x.platform==="qq"?" · QQ":""))+'</div>'+
+        (x.title?'<div class="na-pend-title">所属通知：'+esc(x.title)+'</div>':'')+'</div>';
+    }).join("");
+    if(rows.length>LIST_LIMIT)h+='<div class="na-empty">仅显示前 '+LIST_LIMIT+' 个，共 '+rows.length+' 个</div>';
+    box.innerHTML=h;
+  }
+  function renderState(){
+    var el=$("#naState");if(!el)return;
+    var at=$("#naStateAt");
+    if(at)at.textContent=st.status?ago(st.status.agentAt):"—";
+    if(!st.status){
+      el.innerHTML='<span class="na-badge warn">待同步</span>本机采集端尚未发布状态（看门狗每 5 分钟运行）';
+      return;
+    }
+    var s=st.status,rev=Number(s.configRev)||0,my=Number(st.cfg&&st.cfg.rev)||0;
+    var badge;
+    if(rev>my)badge='<span class="na-badge warn">有更新</span>';
+    else if(rev===my)badge='<span class="na-badge">已应用</span>';
+    else badge='<span class="na-badge warn">待应用</span>';
+    var h=badge+'本机 '+esc(ago(s.agentAt))+' 同步 · 配置 r'+rev+(s.appliedAt?(' · 应用 '+esc(ago(s.appliedAt))):'')+'<br>';
+    h+='已生效 <b>'+Number(s.groups||0)+'</b> 个群 · 待获取 <b>'+Number(s.pendingCount||0)+'</b> 个';
+    if(rev>my)h+='<br>云端配置已在其他端更新，点右上角「刷新」查看';
+    if(st.dirty||st.saving)h+='<br><span class="na-badge warn">保存中</span>改动尚未写入云端';
+    if(s.scanResult)h+='<br>上次重扫：'+esc(s.scanResult);
+    el.innerHTML=h;
+  }
+  function renderSub(){
+    var el=$("#naSub");if(!el)return;
+    var gs=(st.cfg&&st.cfg.groups)||[],ai=0,qq=0,wx=0;
+    gs.forEach(function(g){if(g.platform==="qq")qq++;else wx++;if(g.capture.ai)ai++;});
+    var pend=Number(st.status&&st.status.pendingCount)||0;
+    el.textContent="仅管理员 · "+gs.length+" 群 · 采集 "+ai+" · 待获取 "+pend;
+    var c=[["#naCntAll",gs.length],["#naCntQq",qq],["#naCntWx",wx]];
+    c.forEach(function(x){var n=document.querySelector(x[0]);if(n)n.textContent=String(x[1]);});
+  }
+  function render(){
+    renderList();renderPending();renderState();renderSub();
+  }
+
+  /* ---------------- 可见人群弹层 ---------------- */
+  function openAud(k){
+    var g=findGroup(k);if(!g)return;
+    st.audKey=k;st.audDraft=normAud(g.audience);st.seatQ="";
+    st.audSetName=(g.audience&&g.audience.set)||"";
+    st.audOpen=true;
+    var ov=$("#naAudOv");if(ov){ov.hidden=false;ov.style.display="";}
+    var t=$("#naAudTitle");if(t)t.textContent="可见人群";
+    var sub=$("#naAudGroup");if(sub)sub.textContent=g.name;
+    var ss=$("#naSeatSearch");if(ss)ss.value="";
+    renderAud();
+    if(st.audDraft.type==="custom")ensureMembers();
+    try{if(typeof HIST!=="undefined"&&HIST.openModal){HIST.openModal("ntadmin-aud",closeAud);st.audHooked=!!HIST.ready;}}catch(e){}
+  }
+  function closeAud(){
+    if(!st.audOpen)return;
+    st.audOpen=false;
+    var ov=$("#naAudOv");if(ov){ov.hidden=true;ov.style.display="none";}
+    if(st.audHooked){st.audHooked=false;try{if(typeof HIST!=="undefined"&&HIST.closeModal)HIST.closeModal();}catch(e){}}
+  }
+  function renderAud(){
+    var opts=$("#naAudOpts");if(!opts||!st.audDraft)return;
+    var defs=[["all",AUD_LABEL.all],["committee",AUD_LABEL.committee],["league",AUD_LABEL.league],
+              ["admin",AUD_LABEL.admin],["custom",AUD_LABEL.custom+"（按座号）"]];
+    if(st.audSetName)defs.push(["set",SET_LABEL[st.audSetName]||"群成员（自动匹配）"]);
+    opts.innerHTML=defs.map(function(d){
+      return '<button type="button" class="na-aud-opt'+(st.audDraft.type===d[0]?' on':'')+'" data-naaudtype="'+d[0]+'"><i></i><span>'+esc(d[1])+'</span></button>';
+    }).join("");
+    var seats=$("#naAudSeats");
+    if(seats)seats.hidden=(st.audDraft.type!=="custom");
+    if(st.audDraft.type==="custom"){ensureMembers();renderSeats();}
+  }
+  function ensureMembers(){
+    if((D.d.members||[]).length){renderSeats();return;}
+    if(st.audMembers)return;
+    st.audMembers=membersPull(true).then(function(){st.audMembers=null;renderSeats();},
+                                        function(){st.audMembers=null;renderSeats();});
+  }
+  function renderSeats(){
+    var box=$("#naSeatGrid");if(!box||!st.audDraft)return;
+    var ms=(D.d.members||[]).slice().sort(function(a,b){return (+a.seat)-(+b.seat);});
+    var q=String(st.seatQ||"").trim().toLowerCase();
+    if(q)ms=ms.filter(function(m){return (String(m.name||"")+" "+m.seat).toLowerCase().indexOf(q)>=0;});
+    if(!ms.length){
+      box.innerHTML='<div class="na-empty">'+((D.d.members||[]).length?"没有匹配的成员":"名单加载中…")+'</div>';
+    }else{
+      var sel={};(st.audDraft.seats||[]).forEach(function(s){sel[s]=1;});
+      box.innerHTML=ms.map(function(m){
+        var seat=Math.round(Number(m.seat));
+        return '<button type="button" class="na-seat'+(sel[seat]?' on':'')+'" data-naseat="'+seat+'">'+esc(seat+" "+(m.name||""))+'</button>';
+      }).join("");
+    }
+    var sum=$("#naSeatSum");if(sum)sum.textContent="已选 "+(st.audDraft.seats||[]).length+" 人";
+  }
+  function saveAud(){
+    var g=findGroup(st.audKey),d=st.audDraft;
+    if(!g||!d)return closeAud();
+    if(d.type==="custom"&&!(d.seats||[]).length){toast("请至少选择 1 人");return;}
+    if(d.type==="set"&&!d.set){toast("该群没有可用的群成员名单");return;}
+    g.audience=normAud({type:d.type,seats:d.seats,set:d.set});
+    closeAud();render();scheduleSave();
+  }
+
+  /* ---------------- 添加群聊弹层 ---------------- */
+  function openAdd(){
+    if(!canManage())return;
+    st.addOpen=true;
+    var ov=$("#naAddOv");if(ov){ov.hidden=false;ov.style.display="";}
+    var n=$("#naAddName"),i=$("#naAddId");if(n)n.value="";if(i)i.value="";
+    setAddPf("qq");
+    try{if(typeof HIST!=="undefined"&&HIST.openModal){HIST.openModal("ntadmin-add",closeAdd);st.addHooked=!!HIST.ready;}}catch(e){}
+    setTimeout(function(){try{if(n)n.focus();}catch(e){}},60);
+  }
+  function closeAdd(){
+    if(!st.addOpen)return;
+    st.addOpen=false;
+    var ov=$("#naAddOv");if(ov){ov.hidden=true;ov.style.display="none";}
+    if(st.addHooked){st.addHooked=false;try{if(typeof HIST!=="undefined"&&HIST.closeModal)HIST.closeModal();}catch(e){}}
+  }
+  function setAddPf(p){
+    st.addPf=(p==="wx")?"wx":"qq";
+    $$("#naAddPf button").forEach(function(b){b.classList.toggle("on",b.getAttribute("data-napf")===st.addPf);});
+    var lbl=$("#naAddIdLbl"),inp=$("#naAddId"),hint=$("#naAddHint");
+    if(lbl)lbl.textContent=st.addPf==="wx"?"会话 ID（可留空）":"群号";
+    if(inp)inp.placeholder=st.addPf==="wx"?"如 56720123123@chatroom / filehelper":"如 1101960522";
+    if(hint)hint.textContent=st.addPf==="wx"?"微信群可留空，按群名匹配；填会话 ID 更精确。":"QQ 群号可在群资料里查看；加入后默认仅管理员可见。";
+  }
+  function saveAdd(){
+    if(!canManage()||!st.cfg)return;
+    var name=String(($("#naAddName")||{}).value||"").trim();
+    var gid=String(($("#naAddId")||{}).value||"").trim();
+    if(!name){toast("请输入群名");return;}
+    if(st.addPf==="qq"&&!/^\d{5,15}$/.test(gid)){toast("请输入正确的 QQ 群号");return;}
+    if(gid&&st.cfg.groups.some(function(g){return g.platform===st.addPf&&g.gid===gid;})){toast("该群已在列表中");return;}
+    if(!gid&&st.cfg.groups.some(function(g){return g.platform===st.addPf&&!g.gid&&g.name===name;})){toast("该群已在列表中");return;}
+    if(st.noCfg&&!window.confirm("云端还没有本机同步的配置。现在只保存这个群，其余群暂按默认关键词规则采集。继续？"))return;
+    var g={platform:st.addPf,gid:gid,name:name,
+           capture:{ai:true,file:false,image:false,doc:false},
+           audience:{type:"admin",seats:[],set:""},added:true};
+    st.cfg.groups.push(g);st.open[keyOf(g)]=true;st.noCfg=false;
+    closeAdd();render();
+    st.dirty=true;clearTimeout(st.saveTimer);flushSave();
+  }
+
+  /* ---------------- 入口 ---------------- */
+  function syncEntry(){
+    var b=document.getElementById("ntAdminFab");if(!b)return;
+    var on=false;
+    try{on=!!(AUTH.ready&&canManage());}catch(e){on=false;}
+    b.hidden=!on;
+  }
+  function enter(){
+    syncEntry();
+    load(true);
+    if(st.timer)clearInterval(st.timer);
+    st.timer=setInterval(function(){
+      try{if(CURTAB==="ntadmin"&&!document.hidden)loadStatus();}catch(e){}
+    },45000);
+  }
+  function leave(){
+    if(st.timer){clearInterval(st.timer);st.timer=0;}
+    closeAud();closeAdd();
+  }
+  function rescan(){
+    if(!canManage())return;
+    var btn=$("#naRescan");if(btn)btn.disabled=true;
+    writeRow(ROW_REQ,{scanAt:Date.now(),by:AUTH.sid||""}).then(function(){
+      toast("已通知本机重新扫描");
+      setTimeout(loadStatus,4000);
+    },function(){toast("通知失败，请稍后重试");}).then(function(){
+      if(btn)btn.disabled=false;
+    });
+  }
+  function copyAll(){
+    var rows=pendingRows();
+    if(!rows.length){toast("没有待获取文件");return;}
+    copy(rows.map(function(x){
+      return [x.name,x.group,x.time,x.title].filter(function(v){return v;}).join("\t");
+    }).join("\n"));
+  }
+
+  /* ---------------- 事件 ---------------- */
+  (function init(){
+    var fab=document.getElementById("ntAdminFab");
+    if(fab)fab.addEventListener("click",function(){gotoTab("ntadmin");});
+    var rf=$("#naRefresh");if(rf)rf.addEventListener("click",function(){load(true);});
+    var rs=$("#naRescan");if(rs)rs.addEventListener("click",rescan);
+    var ca=$("#naCopyAll");if(ca)ca.addEventListener("click",copyAll);
+    var add=$("#naAdd");if(add)add.addEventListener("click",openAdd);
+    var filter=$("#naFilter");
+    if(filter)filter.addEventListener("click",function(e){
+      var b=e.target&&e.target.closest?e.target.closest("[data-naf]"):null;
+      if(!b)return;st.filter=b.getAttribute("data-naf");render();
+    });
+    var pf=$("#naPendFilter");
+    if(pf)pf.addEventListener("click",function(e){
+      var b=e.target&&e.target.closest?e.target.closest("[data-npf]"):null;
+      if(!b)return;st.pfilter=b.getAttribute("data-npf");renderPending();
+      $$("#naPendFilter .na-chip").forEach(function(x){x.classList.toggle("on",x===b);});
+    });
+    var q=$("#naSearch");
+    if(q)q.addEventListener("input",function(){st.q=this.value;renderList();});
+    var list=$("#naList");
+    if(list){
+      list.addEventListener("change",function(e){
+        var el=e.target;if(!el||!el.getAttribute)return;
+        var k=el.getAttribute("data-natg");
+        if(k){var g=findGroup(k);if(g){
+          if(el.checked){g.capture.ai=true;}
+          else{["ai","file","image","doc"].forEach(function(c){g.capture[c]=false;});}
+          st.open[k]=true;render();scheduleSave();
+        }return;}
+        var cap=el.getAttribute("data-nacap"),gk=el.getAttribute("data-nakey");
+        if(cap&&gk){var g2=findGroup(gk);if(g2){g2.capture[cap]=!!el.checked;render();scheduleSave();}}
+      });
+      list.addEventListener("click",function(e){
+        var t=e.target;if(!t||!t.closest)return;
+        var del=t.closest("[data-nadel]");
+        if(del){
+          var dk=del.getAttribute("data-nadel"),dg=findGroup(dk);
+          if(dg&&window.confirm("从管理列表移除「"+dg.name+"」？\n移除后本机按默认关键词规则处理该群。")){
+            st.cfg.groups=st.cfg.groups.filter(function(x){return keyOf(x)!==dk;});
+            delete st.open[dk];render();scheduleSave();
+          }
+          return;
+        }
+        var aud=t.closest("[data-naaud]");
+        if(aud){openAud(aud.getAttribute("data-naaud"));return;}
+        if(t.closest("[data-natgwrap]"))return;
+        var head=t.closest("[data-nahead]");
+        if(head){var hk=head.getAttribute("data-nahead");st.open[hk]=!st.open[hk];render();return;}
+      });
+    }
+    var pl=$("#naPendList");
+    if(pl)pl.addEventListener("click",function(e){
+      var b=e.target&&e.target.closest?e.target.closest("[data-nacopy]"):null;
+      if(b)copy(b.getAttribute("data-nacopy"));
+    });
+    var ao=$("#naAudOpts");
+    if(ao)ao.addEventListener("click",function(e){
+      var b=e.target&&e.target.closest?e.target.closest("[data-naaudtype]"):null;
+      if(!b||!st.audDraft)return;
+      st.audDraft.type=b.getAttribute("data-naaudtype");
+      if(st.audDraft.type==="set")st.audDraft.set=st.audSetName||"";
+      renderAud();
+    });
+    var sg=$("#naSeatGrid");
+    if(sg)sg.addEventListener("click",function(e){
+      var b=e.target&&e.target.closest?e.target.closest("[data-naseat]"):null;
+      if(!b||!st.audDraft)return;
+      var seat=Number(b.getAttribute("data-naseat")),arr=st.audDraft.seats||[],i=arr.indexOf(seat);
+      if(i>=0)arr.splice(i,1);else arr.push(seat);
+      st.audDraft.seats=padSeats(arr);renderSeats();
+    });
+    var ss=$("#naSeatSearch");
+    if(ss)ss.addEventListener("input",function(){st.seatQ=this.value;renderSeats();});
+    var sc=$("#naSeatClear");
+    if(sc)sc.addEventListener("click",function(){if(st.audDraft){st.audDraft.seats=[];renderSeats();}});
+    var ac=$("#naAudClose"),ac2=$("#naAudCancel");
+    if(ac)ac.addEventListener("click",closeAud);
+    if(ac2)ac2.addEventListener("click",closeAud);
+    var aok=$("#naAudOk");if(aok)aok.addEventListener("click",saveAud);
+    var aov=$("#naAudOv");
+    if(aov)aov.addEventListener("click",function(e){if(e.target===this)closeAud();});
+    var dcl=$("#naAddClose"),dca=$("#naAddCancel");
+    if(dcl)dcl.addEventListener("click",closeAdd);
+    if(dca)dca.addEventListener("click",closeAdd);
+    var ds=$("#naAddSave");if(ds)ds.addEventListener("click",saveAdd);
+    var dp=$("#naAddPf");
+    if(dp)dp.addEventListener("click",function(e){
+      var b=e.target&&e.target.closest?e.target.closest("[data-napf]"):null;
+      if(b)setAddPf(b.getAttribute("data-napf"));
+    });
+    var dov=$("#naAddOv");
+    if(dov)dov.addEventListener("click",function(e){if(e.target===this)closeAdd();});
+    document.addEventListener("keydown",function(e){
+      if(e.key!=="Escape"&&e.key!=="Esc")return;
+      if(st.audOpen){e.preventDefault();closeAud();}
+      else if(st.addOpen){e.preventDefault();closeAdd();}
+    });
+    syncEntry();
+  })();
+
+  var API={enter:enter,leave:leave,syncEntry:syncEntry,load:load,loadStatus:loadStatus,
+           render:render,state:function(){return st;},normCfg:normCfg,normAud:normAud,
+           audText:audText,pending:function(){return pendingRows();}};
+  try{window.NTADMIN=API;}catch(e){}
+  return API;
+})();
 
 })();
 </script>

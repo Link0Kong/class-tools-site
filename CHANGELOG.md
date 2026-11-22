@@ -2,6 +2,42 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-22 16:0x–16:5x · 通知管理（仅管理员：QQ/微信群采集 + 逐群可见人群 + 待获取文件）
+
+> 用户需求：「在网页端的通知工具内添加仅管理员可见的页面，方便我对 qq/微信截取群聊，以及各个群聊的通知可见人群的管控，同时支持直接列出还需要获取的文件」。
+
+- **页面**：新增 `#s-ntadmin`「通知管理」（TOOLS `admin:true`，通知页右下「管理」浮钮；非管理员不显示、`gotoTab` 拦截）。
+  群列表（全部/QQ/微信筛选 + 搜索，采集中优先）；行内「采集」总开关 + 识别/文件/图片/文档分项；可见人群
+  弹层（全体/班委/团员/仅管理员/指定座号/既有群成员名单）；添加/移除群聊；待获取文件（平台筛选、单项复制、
+  复制清单、重新扫描）；采集端状态卡（上次应用、配置 rev、待获取数、应用时间）。桌面 ≥960px 双栏。
+- **云端**：配置/状态/请求复用 `public.site_config` 三行 `notice_groups / notice_status / notice_request`
+  （既有 RLS：仅 `auth_admin()` 可读写；普通成员读空、写被拒）。迁移
+  `deploy/cloudbase/2026-11-22_notice_groups.sql`（已应用）：新增 `auth_seat()` + 集中函数
+  `notice_audience_visible()`，重建 `notices.nt_read`，新增 `seats:1,8,12` 可见范围（只存座号）。
+- **本机采集端**：新增 `notice_groups.py`（配置只读视图，未命中回落原关键词规则）与 `notice_admin.py`
+  （拉配置 → `data/notice-group-config.json`；看门狗每轮隐藏启动；配置变化后立即重跑通知同步；发布状态；
+  「重新扫描」只执行固定的 `fetch_qq_files.py --import-only`）。播种只含班级相关/确有采集项的 **24 群**
+  （14 QQ + 10 微信），保持改造前采集范围；红会群可见人群为 `admin`（当前唯一管理员，等价原 `sid:`）。
+  管线接入：`ai_triage` / `wechat_media` / `qq_context` / `fetch_qq_images` / `ocr_qq_images` / `detect_docs`
+  逐群按配置采集；`sync_notices_cloud` 先应用配置再写 `notices.audience`。
+- **修复**：`compact_group` 会丢掉 `group` 字段，导致逐群可见人群未生效 → 同步时用原始 group 计算 audience，
+  并支持从 `source`「QQ 群 · X / 微信群 · X」反推群名（4 条红会通知实测纠正，117/117 与配置一致）。
+- **测试**：网页 `v2_nt_admin_check.py` **65/65**（门禁/筛选/开关/人群/添加移除/待获取/空态/360·390·430 无溢出/
+  桌面双栏/0 JS/0 外部请求）；云端 `nt_admin_cloud_check.py` **23/23**（临时 QA 普通+管理员身份：seats 命中/不命中、
+  all/committee/league/sid 不回归、site_config 管理员可读写且普通成员读空/写被拒，finally 清理）；真实云端只读 E2E
+  `nt_admin_live_check.py` **11/11**（本地通道 + QA 管理员，页面 24 群/12 待获取与云端一致，写请求全部拦截）；
+  本机管线 `test_notice_admin.py` **16/16**（播种/归一/回落/audience/待获取/云拉取）。回归 `v2_ui` 27/27、
+  `v2_drag` 69/69、`overflow 430`=0、`optim_v2` GREEN。
+- **上线**：网页 **1,604,624 B / sha256 `fc0285f71d0113cf8192b9891ba4bedad6fdad6457043971d1322fa9809466b5`**
+  （OSS check MATCH / ECS verify MATCH；gzip 488,234 B）。部署前线上备份
+  `tools/_backup/index_online_20261122-1653_preNoticeAdmin.html`（1,565,408 B / `9de65e9f…`，该备份不含本功能）。
+- **回滚**：重传上述备份 + `ecs_site.py apply`；DB 回滚按迁移头部（重建旧 `nt_read`、删两个函数）；
+  本机停用 `notice_admin`（看门狗调用）即回到原关键词采集。
+- **已知取舍**：管理列表只播种 24 个班级相关群（其它全关群按需「添加群聊」）；「群成员（自动匹配）」只对
+  现有 volunteer/viewer/blood/review/dorm/redcross 名单可用；指定成员按座号 1–70（存座号不存学号）；
+  配置应用最长约 5 分钟（看门狗周期），配置变化后会立即触发一次通知同步；待获取清单来自 board-data，
+  页面最多展示 200 条（云端状态最多 500 条）。
+
 ## 2026-11-22 16:3x–16:5x · 拖动让位动画 + 新分组删除按钮 + 任务云端同步（网页端）
 
 > 用户需求：「调整顺序要有对应的让位动画，同时我发现分组新建后无删除按钮，且无法调整顺序，同时把任务模块同步至云端」。
