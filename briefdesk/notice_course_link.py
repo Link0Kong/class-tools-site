@@ -391,7 +391,7 @@ def _is_end_of_day(dt):
     return dt is not None and dt.hour >= 23 and dt.minute >= 30
 
 
-def _should_override(deadline, start_dt, previous_anchor=None):
+def _should_override(deadline, start_dt):
     """现有截止是否应被上课时间替换。
 
     只有三类可以改：没有截止、日终兜底（23:59）、比上课时间更晚。
@@ -467,7 +467,7 @@ def apply_course_anchors(groups, timetable=None, now=None):
         else:
             anchor["prevDeadline"] = group.get("deadline") or None
             anchor["prevAction"] = group.get("deadlineAction") or None
-        if own or _should_override(deadline, start_dt, previous):
+        if own or _should_override(deadline, start_dt):
             group["deadline"] = anchor["startAt"]
             group["deadlineAction"] = anchor["label"]
         group["courseAnchor"] = anchor
