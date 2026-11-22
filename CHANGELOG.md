@@ -64,6 +64,30 @@
   配置应用最长约 5 分钟（看门狗周期），配置变化后会立即触发一次通知同步；待获取清单来自 board-data，
   页面最多展示 200 条（云端状态最多 500 条）。
 
+## 2026-11-22 20:0x–20:2x · 左侧栏自定义顺序同步（网页端）
+
+> 用户反馈：「左侧栏的自定义没有同步」。
+
+- **视图顺序上云**：左侧「视图」拖动顺序从仅 `localStorage zq_task_ui_v1` 扩展为任务数据
+  `prefs.sidebarOrder` + `prefs.sidebarOrderAt`；`tkReorderSmart` 写本机偏好后同步写任务并 `tkSave()`，
+  随现有 `taskdata` 任务快照上云；另一台网页设备拉到后应用到侧栏。
+- **旧本机顺序迁移**：升级后首次打开若本机已有自定义视图顺序、任务数据尚无该字段，自动补写并推送；
+  若云端已有顺序，则按 `sidebarOrderAt` 时间戳较新者生效，避免旧缓存覆盖。
+- **分组顺序**：任务分组本身已在 `lists[].order` 随 taskdata 同步；本轮未改分组同步路径，仅补视图顺序。
+- **云同步合并**：`taskNormData` 保留 `sidebarOrder/sidebarOrderAt`；`hasData` 把只有视图顺序的数据也视为有数据；
+  `union` 按时间戳单独合并视图顺序；`applySnapshot` 后 `tkRefresh` 应用并回写本机 UI。
+- **数据/接口**：无新表/字段迁移；taskdata blob 内新增 `prefs.sidebarOrder`（字符串数组）与 `sidebarOrderAt`（ms）；
+  userdata v6 不变；其他本机 UI 偏好（排序/快速添加/完成区展开等）仍只本机。
+- **测试**：`task_check.py` **161/161**（新增视图顺序写入任务数据）；`task_cloud_check.py` **10/10**
+  （云端顺序下拉应用、推送 blob 携带顺序）；`task_cloud_live_check.py` 5/5；`v2_ui` 27/27、`optim_v2` GREEN、
+  overflow 390/430=0、0 JS/console/外部请求。
+- **上线**：**1,669,280 B / sha256 `637cb8ec4cba259ee046996e841d971a995f5805768a0643c1ef3b5fbda41753`**
+  （OSS/IP 同字节；gzip **502,927 B**）；部署前备份
+  `tools/_backup/index_online_20261122-2000_preSidebarSync.html`（1,667,196 B / `fb3bfee5…`）。
+- **回滚**：重传上述备份；无 DB 变更。
+- **取舍**：视图顺序随任务快照 LWW（并发改顺序以较新的 `sidebarOrderAt`/task 时间戳为准）；小程序/安卓任务端
+  当前不消费该字段；分组顺序仍按 `lists[].order`。
+
 ## 2026-11-22 19:2x–19:4x · 任务详情、步骤展开与步骤备注（网页端）
 
 > 用户需求：「在任务有步骤时允许展开步骤，同时点击已创建的任务应该是清晰明了的详情，单独设置编辑图标，同时每个步骤允许额外添加备注」。

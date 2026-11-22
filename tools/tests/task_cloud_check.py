@@ -27,6 +27,9 @@ RUNNER = r'''
           items.map(function(t){return t.title;}).join("|"));
         var t2=items.filter(function(t){return t.id==="t2";})[0];
         T("同名任务采用较新云端标题", !!t2&&t2.title==="云端改过的任务", t2?t2.title:"missing");
+        var sb=TASK.sidebar();
+        T("云端左侧视图顺序已应用", !!sb&&sb.order&&sb.order[0]==="done"&&txt("#tkSmart [data-tkview]").indexOf("已完成")===0,
+          JSON.stringify(sb)+" dom="+txt("#tkSmart [data-tkview]").slice(0,30));
         T("本机附件不被云端覆盖", !!t2&&String(t2.attachments||"").indexOf("bG9jYWw=")>=0, t2?String(t2.attachments).slice(0,60):"");
         var posts=window.__taskposts||[];
         var last=posts.length?posts[posts.length-1]:null;
@@ -35,6 +38,8 @@ RUNNER = r'''
           blob?blob.items.length+" items / "+blob.lists.length+" lists":"no post");
         T("推送 blob 不含附件 data", !!blob&&blob.items.every(function(t){return !t.attachments;}),
           blob?blob.items.map(function(t){return t.attachments;}).join("|").slice(0,40):"");
+        T("推送 blob 含左侧视图顺序", !!blob&&blob.prefs&&Array.isArray(blob.prefs.sidebarOrder)&&blob.prefs.sidebarOrder[0]==="done",
+          blob&&blob.prefs?JSON.stringify(blob.prefs.sidebarOrder):"missing");
         var qel=q("#tkQuick");qel.value="云端同步新任务";
         qel.dispatchEvent(new Event("input",{bubbles:true}));
         q("#tkQuickAdd").click();
@@ -71,7 +76,9 @@ remote = {
         {"id": "tcloud", "title": "云端新增任务", "notes": "", "list": "inbox", "done": False,
          "attachments": "", "updatedAt": tc.NOW - 1000, "order": -9},
     ],
-    "prefs": {"sound": True, "defaultRemind": "none"},
+    "prefs": {"sound": True, "defaultRemind": "none",
+              "sidebarOrder": ["done", "planned", "myday", "important", "all"],
+              "sidebarOrderAt": tc.NOW - 500},
     "updatedAt": tc.NOW - 1000,
 }
 data = json.loads(json.dumps(tc.DATA))

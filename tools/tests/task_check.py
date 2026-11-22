@@ -422,6 +422,9 @@ RUNNER = r"""
         click("#tkSearchClear");click("#tkSearchBtn");await sleep(100);
 
         /* ---- 提醒 ---- */
+        var rbClose=q('#tkRemindBar [data-tkrb="close"]');if(rbClose)rbClose.click();
+        var t1r=taskByTitle("复习高数第三章");
+        if(t1r){t1r.remindMode="none";t1r.remindAt=0;t1r.lastNotifyAt=0;t1r.snoozeUntil=0;}
         var t5=taskByTitle("交班费");
         if(t5){t5.lastNotifyAt=0;t5.snoozeUntil=0;t5.remindAt=Date.now()-60000;t5.remindMode="custom";}
         try{TASK.tick();}catch(e){}
@@ -441,6 +444,7 @@ RUNNER = r"""
         click("#tkMore");await sleep(120);click('[data-tkm="remind"]');await sleep(200);
         T("提醒设置弹层状态", q("#tkRemindPanel").style.display!=="none"&&txt("#tkRemindState").length>0, txt("#tkRemindState"));
         click("#tkRemindClose");await sleep(100);
+        if(t1r){t1r.remindMode="30";t1r.remindAt=Date.now()+1800000;t1r.lastNotifyAt=0;t1r.snoozeUntil=0;}
 
         /* ---- 导出 / 备份 ---- */
         var ics=window.TASK.ics();
@@ -625,6 +629,9 @@ RUNNER = r"""
         var uiSaved={};try{uiSaved=JSON.parse(localStorage.getItem("zq_task_ui_v1")||"{}");}catch(e){}
         T("视图顺序写入本机偏好", Array.isArray(uiSaved.smartOrder)&&uiSaved.smartOrder[0]===newSmart,
           JSON.stringify(uiSaved.smartOrder||[]).slice(0,100));
+        var sbSaved=TASK.sidebar();
+        T("视图顺序写入任务数据", Array.isArray(sbSaved.order)&&sbSaved.order[0]===newSmart&&sbSaved.at>0,
+          JSON.stringify(sbSaved).slice(0,120));
 
         var groupRows=qa("#tkLists .tk-navrow").filter(function(r){return !!r.querySelector("[data-tksidedrag]");});
         var oldLists=TASK.lists().filter(function(l){return l.id!=="inbox";}).map(function(l){return l.id;});
