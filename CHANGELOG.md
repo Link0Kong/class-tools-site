@@ -28,8 +28,8 @@
   `nt_admin_live_check.py` **11/11**（本地通道 + QA 管理员，页面 24 群/12 待获取与云端一致，写请求全部拦截）；
   本机管线 `test_notice_admin.py` **16/16**（播种/归一/回落/audience/待获取/云拉取）。回归 `v2_ui` 27/27、
   `v2_drag` 69/69、`overflow 430`=0、`optim_v2` GREEN。
-- **上线**：网页 **1,604,624 B / sha256 `fc0285f71d0113cf8192b9891ba4bedad6fdad6457043971d1322fa9809466b5`**
-  （OSS check MATCH / ECS verify MATCH；gzip 488,234 B）。部署前线上备份
+- **上线**：网页 **1,604,750 B / sha256 `b050802051d0d11c40b078cc0a2705d269d1937a81752b83983812f7237cbda7`**
+  （OSS check MATCH / ECS verify MATCH）。部署前线上备份
   `tools/_backup/index_online_20261122-1653_preNoticeAdmin.html`（1,565,408 B / `9de65e9f…`，该备份不含本功能）。
 - **回滚**：重传上述备份 + `ecs_site.py apply`；DB 回滚按迁移头部（重建旧 `nt_read`、删两个函数）；
   本机停用 `notice_admin`（看门狗调用）即回到原关键词采集。
