@@ -157,13 +157,21 @@ HSTS_HEADER = '	header Strict-Transport-Security "max-age=31536000"\n'
 
 
 def _access_log(name):
+    # 2026-11-23：X-Device-Id / X-Class-Token 是班级令牌，绝不能明文进日志（Caddy 默认只脱敏
+    # Authorization/Cookie）。filter 编码器把这两个头的值替换为 REDACTED，其余字段保持 JSON。
     return """	log {
 		output file /var/log/caddy/%s {
 			roll_size 50MiB
 			roll_keep 24
 			roll_keep_for 180d
 		}
-		format json
+		format filter {
+			wrap json
+			fields {
+				request>headers>X-Device-Id replace REDACTED
+				request>headers>X-Class-Token replace REDACTED
+			}
+		}
 	}
 """ % name
 
