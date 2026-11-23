@@ -153,7 +153,7 @@ SEC_HEADERS = """	header {
 	}
 	header /board* X-Robots-Tag "noindex, nofollow"
 """
-HSTS_HEADER = '	header Strict-Transport-Security "max-age=31536000; includeSubDomains"\n'
+HSTS_HEADER = '	header Strict-Transport-Security "max-age=31536000"\n'
 
 
 def _access_log(name):
