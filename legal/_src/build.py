@@ -165,9 +165,9 @@ def index_html() -> str:
     debug_note = ""
     if DEBUG_BASE.rstrip("/") != BASE.rstrip("/"):
         debug_note = (
-            '<p class="index-note"><b>当前调试入口：</b><a href="%s">%s</a> · '
-            '域名恢复后使用 <span class="mono">%s</span>（页面内链接为相对路径，两种入口都可正常阅读）。</p>'
-            % (DEBUG_BASE, DEBUG_BASE, BASE)
+            '<p class="index-note"><b>正式入口：</b><span class="mono">%s</span>（2026-11-23 网站 ICP 备案已通过，域名 HTTPS 已启用）；'
+            '仅运维/本机使用 IP 调试入口 <a href="%s">%s</a>（页面内链接为相对路径，两种入口都可正常阅读）。</p>'
+            % (BASE, DEBUG_BASE, DEBUG_BASE)
         )
     return """<!DOCTYPE html>
 <html lang="zh-CN">
@@ -241,7 +241,7 @@ def index_html() -> str:
   </table></div>
 
   <h2 class="index-sec">统一调取地址</h2>
-  <p>域名恢复后，各端可直接加载下列稳定地址；开发者也可读取 <a href="manifest.json">manifest.json</a> 获取版本、路径和适用端。当前域名未恢复时，可把下表中的 <span class="mono">https://tool.furina.fun</span> 替换为 <span class="mono">http://121.196.47.2</span> 访问，路径不变。</p>
+  <p>正式域名 <span class="mono">https://tool.furina.fun</span> 已于 2026-11-23 完成 ICP 备案（网站备案号 闽ICP备2026042939号-2）并启用 HTTPS，各端可直接加载下列稳定地址；开发者也可读取 <a href="manifest.json">manifest.json</a> 获取版本、路径和适用端。仅运维/本机排障可把 <span class="mono">https://tool.furina.fun</span> 替换为 <span class="mono">http://121.196.47.2</span>（明文 IP，不对外使用），路径不变。</p>
   <div class="table-wrap"><table class="url-table">
     <thead><tr><th>端</th><th>隐私政策</th><th>用户协议</th><th>适用环境</th><th>版本</th></tr></thead>
     <tbody>%s</tbody>
@@ -315,7 +315,7 @@ def manifest() -> dict:
             "PPT 源文件与转换产物存放于阿里云 OSS 香港（公共读），属于跨境存储；首次使用需单独同意。",
             "体测健康数据、教务密码、OPPO/华为账号标识、特定身份等按敏感个人信息规则处理。",
             "端内“清除云端”为逻辑清除（覆盖为空/置否/归档），物理删除需邮件申请（15 个工作日内）。",
-            "当前域名未恢复：调试入口为 debugBaseUrl；域名恢复后使用 baseUrl。",
+            "2026-11-23 网站 ICP 备案已通过（网站备案号 闽ICP备2026042939号-2）：正式入口为 baseUrl（https）；debugBaseUrl 仅运维/本机调试使用。",
             "本清单供各端统一调取；如域名变更，请同步更新 baseUrl/debugBaseUrl 与各端内置链接。",
         ],
     }

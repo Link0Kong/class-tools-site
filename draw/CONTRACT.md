@@ -313,5 +313,5 @@ QA（fresh context）另写报告 `验收报告/抽签存证与名称映射_独�
 1. 云端：`cd web/deploy/cloudbase && python apply_sql.py 2026-11-12_draw_proof.sql`（幂等）。
 2. 网页：`tools/_backup/index_online_<时间>_preDrawProof.html` 备份线上 → `python deploy/sync_tools.py` →
    `python deploy/oss_object.py check index.html` MATCH → `python deploy/ecs_site.py verify`（或等价）MATCH。
-3. 小程序：源码交付，**用户上传发布后生效**；`webBase` 固定 `https://tool.furina.fun`（仅二维码链接用，不必加入微信 request 合法域名；furina DNS/备案恢复前核验链接暂不可用）。
+3. 小程序：源码交付，**用户上传发布后生效**；`webBase` 固定 `https://tool.furina.fun`（仅二维码链接用，不必加入微信 request 合法域名；**2026-11-23 备案通过 + HTTPS 启用后核验链接已可用**）。
 4. 回滚：网页重传备份；SQL 见迁移文件头 `DROP FUNCTION ... / DROP TABLE draw_events / draw_records`；小程序回退源码。

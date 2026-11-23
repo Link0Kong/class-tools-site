@@ -25,7 +25,10 @@ curl.exe https://tool.furina.fun/att/healthz
 - 上传→签名 GET→sha 校验通过；篡改签名 403；`Cache-Control: public, max-age=31536000, immutable`；
 - ECS 上附件目录 `/opt/class-tools/attachments/`，代码 `/opt/class-tools/att-code/`，备份 `/opt/class-tools/backup/<时间戳>/`。
 
-## 2. 开启外置（**等备案通过 + 三端发布后再做**）
+## 2. 开启外置（**备案已通过（2026-11-23）；等四端新版发布后再开启**）
+
+> 域名/HTTPS 已就绪（`https://tool.furina.fun/att/...` 可用），但**已发布的旧版小程序/安卓不认识 URL 形态附件**（旧版只读 data URI）。
+> 因此仍需等小程序/安卓/鸿蒙/Windows 新版发布后，四端一起开启；在那之前保持默认关闭。
 
 ```powershell
 # 本机环境变量（给 C:\briefdesk\scripts\sync_notices_cloud.py 用；计划任务进程需要能读到）

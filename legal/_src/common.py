@@ -13,7 +13,10 @@ OPERATOR = "陈子麒"
 EMAIL = "Ko_Link@outlook.com"
 VERSION = "1.0"
 EFFECTIVE = "2026年11月17日"
-LAST_UPDATED = "2026年11月20日"
+LAST_UPDATED = "2026年11月23日"
+# 网站备案号（2026-11-23 工信部 ICP 备案通过；网站首页底部须展示并链接工信部备案系统）
+ICP_SITE = "闽ICP备2026042939号-2"
+# 小程序备案号（微信小程序独立备案，与网站备案号不是同一个号）
 ICP_MP = "闽ICP备2026042939号"
 
 PLATFORM_ORDER = ["web", "android", "windows", "harmony", "mp"]
@@ -100,13 +103,13 @@ def doc_head(p: dict, kind: str) -> str:
     debug_line = ""
     if DEBUG_BASE.rstrip("/") != BASE.rstrip("/"):
         debug_line = (
-            '<p class="doc-note">当前调试入口：<a href="%s%s/%s.html">%s%s/%s.html</a>；'
-            '域名恢复后使用 <a href="%s%s/%s.html">%s%s/%s.html</a>。页面内链接为相对路径，两种入口都可正常阅读。</p>'
+            '<p class="doc-note">正式入口：<a href="%s%s/%s.html">%s%s/%s.html</a>；'
+            '仅运维/本机使用 IP 调试入口 <a href="%s%s/%s.html">%s%s/%s.html</a>。页面内链接为相对路径，两种入口都可正常阅读。</p>'
             % (
-                DEBUG_BASE, p["key"], kind,
-                DEBUG_BASE, p["key"], kind,
                 BASE, p["key"], kind,
                 BASE, p["key"], kind,
+                DEBUG_BASE, p["key"], kind,
+                DEBUG_BASE, p["key"], kind,
             )
         )
     return """
@@ -169,7 +172,8 @@ def toc(items) -> str:
 def footer(p: dict, kind: str) -> str:
     counterpart = "terms" if kind == "privacy" else "privacy"
     counterpart_label = "用户协议" if kind == "privacy" else "隐私政策"
-    filing = p.get("filing", "备案信息以工信部备案系统公示为准")
+    filing = p.get("filing", "")
+    filing_html = ('<p class="fine">%s</p>' % filing) if filing else ""
     return """
 <footer class="site-foot">
   <div class="wrap">
@@ -184,7 +188,7 @@ def footer(p: dict, kind: str) -> str:
         <p><b>本端文档</b><br>
         <a href="../%s/privacy.html">隐私政策</a> · <a href="../%s/terms.html">用户协议</a><br>
         <a href="../index.html">全部端文档</a></p>
-        <p class="fine">%s</p>
+        %s
       </div>
       <div>
         <p><b>版本</b><br>V%s · 生效 %s<br>最近更新 %s</p>
@@ -192,7 +196,7 @@ def footer(p: dict, kind: str) -> str:
       </div>
     </div>
     <p class="foot-line">本页为静态法律文本，不包含跟踪脚本、外部字体、广告或第三方统计。法律文本不构成正式法律意见；发布前请按实际功能与适用法律复核。</p>
-    <p class="foot-line"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">工信部备案系统</a> · 文档编号 %s</p>
+    <p class="foot-line"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">工信部备案系统</a> · 网站备案号 <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">%s</a> · 文档编号 %s</p>
   </div>
 </footer>
 """ % (
@@ -201,10 +205,11 @@ def footer(p: dict, kind: str) -> str:
         EMAIL,
         p["key"],
         p["key"],
-        filing,
+        filing_html,
         VERSION,
         EFFECTIVE,
         LAST_UPDATED,
+        ICP_SITE,
         "CT-LEGAL-%s-%s-V%s"
         % ("PRIVACY" if kind == "privacy" else "TERMS", p["code"], VERSION.replace(".", "")),
     )

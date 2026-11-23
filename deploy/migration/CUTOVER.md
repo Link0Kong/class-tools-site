@@ -7,8 +7,8 @@
 ## 0. 前置检查（切流前一天）
 
 - [ ] staging `/v1/rdb/rest-next/` 合同回归全绿（RPC/RLS/读写/性能），且用测试账号在网页 `?api=next` 真实登录成功。
-- [ ] 小程序/安卓新版已构建并（备案后）可在真机/开发工具连 `https://tool.furina.fun/v1/rdb/rest/` 或 staging。
-- [ ] `tool.furina.fun` 备案已通过、DNS 已恢复、ECS HTTPS 已启用（`deploy/ecs_site.py apply --https`），证书有效。
+- [x] 小程序/安卓新版已构建并可在真机/开发工具连 `https://tool.furina.fun/v1/rdb/rest/` 或 staging（**2026-11-23 域名 HTTPS 已就绪**；客户端 REST 档位仍 cloudbase，切流时按 §5 切换）。
+- [x] `tool.furina.fun` 备案已通过（闽ICP备2026042939号-2）、DNS 已恢复（A → 121.196.47.2）、ECS HTTPS 已启用并签发 Let's Encrypt 证书（`deploy/ecs_site.py apply`）——**2026-11-23 已完成**。
 - [ ] 本机管线环境变量已就绪（`CLASS_CB_BASE` 切换脚本/说明），ECS 云函数替代 timer 已部署但**未启用**。
 - [ ] 最新全量导出产物 + `verify_export` 全绿；ECS 备份任务在跑；CloudBase 仍在线。
 - [ ] `python deploy\migration\preflight_cutover.py --drift --check-remotes` 无 FAIL（DNS/ICP WARN 为已知门槛）；确认数据漂移表与最新快照。
@@ -131,7 +131,7 @@ python deploy\ecs_pg.py switch-db --db class_tools   :: 演练完切回 staging 
 
 | 风险 | 缓解 |
 |---|---|
-| 备案未通过 → 小程序/安卓无法切新域名 | 先完成 staging + 网页（IP 调试）；等备案后一次性发布并切流 |
+| 备案/域名未就绪 → 小程序/安卓无法切新域名 | **已解除（2026-11-23）**；历史做法：先完成 staging + 网页，等备案后一次性发布并切流 |
 | 冻结窗口内有写丢失 | 提前通知；T1 后再补一次导出/upsert；或延长观察 |
 | PostgREST 与 CloudBase 行为差异（错误格式/Prefer/限流） | staging 用三端真实请求回归；保留 CloudBase 回滚 |
 | 单机 PG 故障 | 每日 pg_dump + ECS 快照；必要时用备份库恢复 |

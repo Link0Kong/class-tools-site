@@ -1,6 +1,6 @@
 # 客户端切流配置（小程序 / 安卓）— CloudBase → ECS 自建后端（P3）
 
-> 阶段：P3 客户端就绪。**默认行为不变**（小程序仍指 CloudBase；安卓 debug 默认 staging、release 默认备案后正式域名）。
+> 阶段：P3 客户端就绪。**默认行为不变**（小程序仍指 CloudBase；安卓 release 的 ECS 服务已在 2026-11-23 切到 https 正式域名，REST 仍 cloudbase 待 P4）。
 > 目标后端：ECS 自建 PostgreSQL 18 + PostgREST 13，API 路径与 CloudBase 相同。
 > 关联：`PLAN.md`（总计划）、`PIPELINE.md`（本机管线）、`IMPORT.md`（P1 导入）、`CUTOVER.md`（P4 切流/回滚）。
 > 红线：不读/不打印密钥（publishableKey 可引用不整段粘贴）；测试只用测试账号 `3260799999/测试账号`；
@@ -12,7 +12,7 @@
 |---|---|---|---|
 | `cloudbase` | `https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/` | 现状（腾讯云 CloudBase 网关）；CloudBase 2026-12-10 到期前有效 | 否（https） |
 | `staging` | `https://tool.furina.fun/v1/rdb/rest-next/` | ECS 影子验证（P2）；仅 devtools / debug 构建 | 是（仅 debug） |
-| `selfhosted` | `https://tool.furina.fun/v1/rdb/rest/` | 备案 + DNS 恢复后的正式域名（P4 后） | 否（https） |
+| `selfhosted` | `https://tool.furina.fun/v1/rdb/rest/` | 正式域名（备案 2026-11-23 已通过、HTTPS 已启用；REST 切流 P4 后） | 否（https） |
 
 - 三档使用同一份 publishableKey（公开 anon 令牌）；自建 Caddy 在 `/v1/rdb/rest*` 路由上 `header_up -Authorization` 剥掉该头，
   客户端鉴权头逻辑无需改动（RLS 仍按 `X-Class-Token` 校验）。
@@ -36,7 +36,7 @@ const ACTIVE_REST_PROFILE = 'cloudbase';   // ← 切流/回滚只改这一行
 - `restBase` 由 `resolveRestBase(ACTIVE_REST_PROFILE)` 计算（`module.exports.restBase` 仍与旧版同名字段兼容）；
   另有只读探针 `restProfile/restProfiles/resolveRestBase`。
 - 切 staging（仅 devtools 冒烟）：`ACTIVE_REST_PROFILE = 'staging'`；
-- 切正式（P4，备案后随新版本发布）：`ACTIVE_REST_PROFILE = 'selfhosted'`；
+- 切正式（P4，随新版本发布）：`ACTIVE_REST_PROFILE = 'selfhosted'`；
 - 回滚：改回 `'cloudbase'` 重新上传发布。
 
 ### 1.2 开发期 http/IP 说明（devtools）
@@ -47,13 +47,13 @@ const ACTIVE_REST_PROFILE = 'cloudbase';   // ← 切流/回滚只改这一行
   ```js
   require('./utils/cloud.js').configure({ restBase: 'https://tool.furina.fun/v1/rdb/rest-next/', restProfile: 'staging' });
   ```
-- 真机调试（staging）不可用 http IP，必须等备案 + HTTPS 后用 `selfhosted` 档。
+- 真机调试（staging）不可用 http IP；正式域名 HTTPS 已于 2026-11-23 启用，`selfhosted` 档可用（P4 切流前 REST 仍 cloudbase）。
 
 ### 1.3 发布前微信后台配置（P4）
 
 - 小程序后台 → 开发管理 → 开发设置 → 服务器域名：**request 合法域名** 增加 `https://tool.furina.fun`
   （通知附件/PPT 媒体如需 `downloadFile` 再增加 downloadFile 合法域名；drop 云空间同域）。
-- 发布前确认 `ACTIVE_REST_PROFILE === 'cloudbase'`（P4 前）或 `'selfhosted'`（备案后切流批次），然后由用户本人上传发布。
+- 发布前确认 `ACTIVE_REST_PROFILE === 'cloudbase'`（P4 前）或 `'selfhosted'`（P4 切流批次），然后由用户本人上传发布。
 - 版本号不动（`utils/version.js` 仍 `2.0.0`）；本阶段不发布/不上传。
 
 ### 1.4 小程序网络层优化（2026-11-18，`utils/cloud.js` + `utils/cloud-config.js`）
@@ -138,7 +138,7 @@ cd %USERPROFILE%\.openclaw\workspace\android-class-tools
   账号/云空间/更新/地图的备案前 IP 入口）。
 - 因此 **release APK 不含 tool.furina.fun 明文放行**（`verifyReleaseEndpoints` + 源码资源双证据）；
   release 的 REST/ECS 地址全部 https，明文只可能在 debug 构建出现。
-- 注意：release 构建仅在 `tool.furina.fun` 备案 + DNS + HTTPS 启用后发布。
+- 注意：release 构建的 ECS 服务地址自 2026-11-23 起一律 `https://tool.furina.fun/...`（备案已通过、证书已签发；`ct.ecsProfile` 只接受 `selfhosted`）。
 
 ### 2.4 安卓网络层优化（2026-11-18）
 
@@ -316,9 +316,9 @@ cd %USERPROFILE%\.openclaw\workspace\android-class-tools
 
 复跑命令见 §4.1/§4.2；结果文件：`staging_smoke_result.json`（小程序）、安卓测试 XML 的 `<system-out>`（`STAGING_SMOKE_OK ...`）。
 
-## 5. 备案后发布步骤（P4，按顺序）
+## 5. P4 发布步骤（按顺序；备案 + HTTPS 已于 2026-11-23 就绪）
 
-1. **服务端就绪**：备案通过 → DNS 恢复 `tool.furina.fun` → `python deploy\ecs_site.py apply --https`（Caddy HTTPS/HTTP2，
+1. **服务端就绪**：DNS `tool` A → `121.196.47.2`（2026-11-23 已切）→ `python deploy\ecs_site.py apply`（Caddy HTTPS/HTTP2，
    Let's Encrypt）→ `curl -I https://tool.furina.fun/` 200、证书有效。
 2. **服务端切流**：按 `CUTOVER.md` §1 把 `/v1/rdb/rest/*` 切到本地 PostgREST（保留 `header_up -Authorization`），
    staging `/v1/rdb/rest-next/*` 可保留观察或删除。
@@ -346,8 +346,8 @@ cd %USERPROFILE%\.openclaw\workspace\android-class-tools
 
 ## 7. 已知边界 / 风险
 
-1. **staging 为 http + IP**：真机/体验版/正式版都不可用，只能 devtools / debug 构建；这是备案前的硬限制。
-2. **安卓 release 默认 selfhosted**：备案 + HTTPS 就绪前**不要构建/分发 release**（构建会指向不可解析域名）；备案前用 debug 构建测试。
+1. **staging 为 http + IP**：真机/体验版/正式版都不用它（只 devtools / debug 构建）。**正式域名 https 已于 2026-11-23 可用**。
+2. **安卓 release ECS 服务**：自 2026-11-23 起一律 https 正式域名（`ct.ecsProfile=selfhosted` 为唯一档）；REST 仍 cloudbase 直到 P4 切流。
 3. **网络优化边界**：重试只覆盖幂等只读请求，写请求不重试（防重复写入）；并发上限只影响异常突发，不改变正常首屏请求数（9→9）。
    安卓共享连接池只复用**同一主机**的连接（staging IP / 正式域名各自成池）。
 4. **通知附件/PPT 媒体**：三端已支持 http(s) URL 与旧 data URI 双形态；P4 切域名后由服务端改 URL 形态，客户端无需再改（小程序需

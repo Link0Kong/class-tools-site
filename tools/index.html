@@ -3983,6 +3983,21 @@ html[data-appearance="dark"] .tk-rb-acts button[data-tkrb="done"]{background:#5E
 html[data-appearance="dark"] .tk-color{border-color:#1A211E}
 html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px currentColor}
 
+/* 网站备案号（2026-11-23 ICP 备案通过，备案号 闽ICP备2026042939号-2）
+   规范：首页底部显著位置展示备案号，并链接到工信部备案系统 https://beian.miit.gov.cn/ */
+.idicp{margin-top:6px;text-align:center;font-size:10.5px;letter-spacing:.02em;line-height:1.6}
+.idicp a{color:#8F9B95;text-decoration:none;border-bottom:1px solid rgba(143,155,149,.35);padding-bottom:1px}
+.idicp a:hover,.idicp a:focus-visible{color:#4E9082;border-bottom-color:rgba(78,144,130,.5)}
+html[data-appearance="dark"] .idicp a{color:#9AA6A0;border-bottom-color:rgba(154,166,160,.35)}
+html[data-appearance="dark"] .idicp a:hover,html[data-appearance="dark"] .idicp a:focus-visible{color:#8DC5B8;border-bottom-color:rgba(141,197,184,.45)}
+.ugicp{margin-top:6px;text-align:center;font-size:10px;letter-spacing:.04em;line-height:1.6}
+.ugicp a{color:#A6ACA6;text-decoration:none;border-bottom:1px solid rgba(166,172,166,.35);padding-bottom:1px}
+.ugicp a:hover,.ugicp a:focus-visible{color:#4E9082;border-bottom-color:rgba(78,144,130,.45)}
+html[data-appearance="dark"] .ugicp a{color:#B4B9B4;border-bottom-color:rgba(180,185,180,.3)}
+html[data-appearance="dark"] .ugicp a:hover,html[data-appearance="dark"] .ugicp a:focus-visible{color:#8DC5B8;border-bottom-color:rgba(141,197,184,.45)}
+.icplink{color:inherit;text-decoration:none;border-bottom:1px solid currentColor;opacity:.9;padding-bottom:1px}
+.icplink:hover,.icplink:focus-visible{color:var(--teal);opacity:1}
+
 </style>
 </head>
 <body class="auth-pending">
@@ -4000,6 +4015,7 @@ html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px
     <button class="idqr" id="igQr" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h4v4h-4zM20 14v6M14 20h3"/></svg>扫码登录</button>
     <div class="idlaw">进入即表示同意 <a href="legal/web/terms.html" target="_blank" rel="noopener noreferrer">用户协议</a> 与 <a href="legal/web/privacy.html" target="_blank" rel="noopener noreferrer">隐私政策</a></div>
     <div class="idfoot">仅本班同学可进入；身份校验通过后才加载班级数据。<span class="idver">班级工具 v2.0.0</span></div>
+    <div class="idicp"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" aria-label="网站备案号 闽ICP备2026042939号-2（工业和信息化部备案系统）">闽ICP备2026042939号-2</a></div>
   </div>
 </div>
 
@@ -5056,6 +5072,8 @@ html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px
       </div>
       <div class="set-sep"></div>
       <div class="set-line"><div><b>版本</b><div class="set-sub" id="setVer">2.0.0</div></div><span class="set-dim">班级工具站</span></div>
+      <div class="set-sep"></div>
+      <div class="set-line"><div><b>备案</b><div class="set-sub"><a class="icplink" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">闽ICP备2026042939号-2</a></div></div><span class="set-dim">工业和信息化部</span></div>
       <div id="setControlSink" hidden></div>
     </div>
   </section>
@@ -5095,6 +5113,7 @@ html[data-appearance="dark"] .tk-color.on{box-shadow:0 0 0 2px #1A211E,0 0 0 4px
       </div>
       <div class="ug-prog" aria-hidden="true"><i id="ugProg"></i></div>
       <div class="ugver">班级工具 v2.0.0</div>
+      <div class="ugicp"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" aria-label="网站备案号 闽ICP备2026042939号-2（工业和信息化部备案系统）">闽ICP备2026042939号-2</a></div>
     </div>
     <div class="ug-ov" id="ugOv" role="dialog" aria-modal="true" aria-label="全部使用说明">
       <div class="ug-ov-sheet">
@@ -16555,8 +16574,8 @@ var PPT=(function(){
     return t+"."+(kind==="pdf"?"pdf":"pptx");
   }
   /* 下载加速（2026-11-11）：兼容包/PDF/原件优先走 ECS 缓存 `/pptfiles`（本机→OSS 香港 74KB/s，用户→ECS 杭州 4.7MB/s）。
-     - http 页面（当前本地通道/未备案调试）→ 固定 ECS 地址 `http://121.196.47.2/pptfiles` + OSS pathname；
-     - https 页面 → 同源 `/pptfiles` + pathname（tool.furina.fun 备案后由 Caddy 反代到同一 ECS 缓存）；
+     - http 页面（仅 IP/本机调试入口）→ 固定 ECS 地址 `http://121.196.47.2/pptfiles` + OSS pathname；
+     - https 页面（正式域名 tool.furina.fun；2026-11-23 ICP 备案已通过）→ 同源 `/pptfiles` + pathname（Caddy 反代到同一 ECS 缓存）；
      - 仅对 OSS 的 `/ppt/...` 资产路径生效；其它路径（或 data:/blob:、解析失败）→ 回退原 OSS 直链。 */
   var PPT_ECS_BASE="http://121.196.47.2/pptfiles";
   var PPT_OSS_BASE="https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/";

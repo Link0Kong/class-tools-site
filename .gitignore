@@ -97,3 +97,6 @@ tools/tests/_power_preview.html
 # 工具/内部设计文档（不属于公开仓库）
 .zcodeignore
 docs/PORTING_MATRIX_20261115.md
+
+# 运维备份（DNS 记录快照等，只在本机保留）
+deploy/_dns_backup/

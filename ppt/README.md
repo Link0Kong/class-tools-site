@@ -460,8 +460,7 @@ PowerPoint 若在 SaveAs 时已自动修复的包，本阶段无操作（幂等�
   首次预热回源约 74s（ECS→OSS 当时 ~0.53MB/s），之后用户下载走 ECS 本地磁盘；
 - **三端下载 URL 需切到 ECS**：manifest 里 `files.*.s` 仍存 OSS 相对路径（不改契约），客户端下载时
   把 `https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/ppt/a/<deckId>/<buildId>/<file>`
-  替换为 `https://tool.furina.fun/pptfiles/ppt/a/<deckId>/<buildId>/<file>`（备案/DNS 恢复后换
-  `https://tool.furina.fun/pptfiles/...` 更佳）；未命中时服务会自动回源，所以客户端可**默认全走 ECS**，
+  替换为 `https://tool.furina.fun/pptfiles/ppt/a/<deckId>/<buildId>/<file>`（**2026-11-23 备案通过、HTTPS 已启用，网页与三端都默认走同源 `/pptfiles`**）；未命中时服务会自动回源，所以客户端可**默认全走 ECS**，
   失败再回退 OSS 直链（缓存服务不可用时不要阻塞下载）；
 - 缓存上限 5GiB 自动清最旧；清理：`rm -rf /opt/class-tools/pptfiles/ppt/<path>` 或见 ECS_DEPLOY §8.3；
 - 回滚：`systemctl disable --now class-tools-pptfiles` + 客户端回退 OSS 直链（manifest 数据无需改动）。

@@ -1,10 +1,10 @@
 {
-  "versionCode": 136,
-  "versionName": "1.0.0-beta53",
-  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta53.apk.bin",
-  "notes": "抽签与分组独立：分组支持最近抽签/全班，抽签页不再跳转分组",
+  "versionCode": 139,
+  "versionName": "1.0.0-beta56",
+  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta56.apk.bin",
+  "notes": "beta56：水量页显示最近一次抄表；当前月无记录时自动回退最近记录",
   "force": false,
   "channel": "beta",
-  "sha256": "30486a1a7aa325ecc80e3364c544ca6a957fe0cddc7a2fd09d98267f4ea65c0c",
-  "sizeBytes": 6124166
+  "sha256": "46485676e96b4c02462d9318fd120acf07e1e76cf72bc4637e8dfa95298cbdf0",
+  "sizeBytes": 6107702
 }

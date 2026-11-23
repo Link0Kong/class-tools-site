@@ -13,7 +13,7 @@ https://tool.furina.fun/att/<id>?exp=<unix秒>&sig=<hex64>
 - `<id>` = 文件字节 sha256 的前 32 位小写十六进制（内容寻址、不可枚举、同内容天然去重）。
 - `sig` = `HMAC-SHA256(key, "<id>\n<exp>")` 的 hex；`key = sha256(CLOUD_SYNC_TOKEN + "|att-v1")`（服务端/客户端同源推导，无新增密钥分发）。
 - `exp` = Unix 秒；默认 **180 天**，每次通知同步（`sync_notices_cloud.py` 重建）重新签名。
-- 备案期调试可临时用 `https://tool.furina.fun/att/...`（`ATT_BASE_URL` 覆盖）；三端代码只判断 `^https?://`，**不写死域名**。
+- 正式基址 `https://tool.furina.fun/att/...`（2026-11-23 备案 + HTTPS 已启用，调试仍可用 `ATT_BASE_URL` 覆盖）；三端代码只判断 `^https?://`，**不写死域名**。
 - GET 不需要任何请求头/cookie；`<img>` / `<a download>` / `wx.downloadFile` / OkHttp 均可直接取。
 
 ## 2. 云端字段（只动三处）
@@ -48,8 +48,8 @@ https://tool.furina.fun/att/<id>?exp=<unix秒>&sig=<hex64>
 `C:\briefdesk\scripts\sync_notices_cloud.py`（本机数据管线）在把 board-data 推到 CloudBase 前：
 
 ```
-NOTICE_ATTACH_EXTERNALIZE=1   # 开启（默认关闭，等三端发布 + 备案通过后打开）
-ATT_BASE_URL=https://tool.furina.fun   # 可选；备案期调试用 https://tool.furina.fun
+NOTICE_ATTACH_EXTERNALIZE=1   # 开启（默认关闭；2026-11-23 备案已通过，等四端新版发布后打开）
+ATT_BASE_URL=https://tool.furina.fun   # 可选；默认即正式域名（备案 2026-11-23 已通过）
 ```
 
 - 开启后：解析 `items` 三处 data URI → 上传（同内容去重）→ 替换为签名 URL → 再写云端；**上传失败保留 data URI（fail-open）**，不会让通知丢失。
@@ -65,7 +65,7 @@ ATT_BASE_URL=https://tool.furina.fun   # 可选；备案期调试用 https://too
 | 微信小程序 | ✅ 已完成（2026-11-10，task-4） | `nt.js` 增加 URL 分支：图片直连、`wx.downloadFile`→`openDocument`、大小用 `it.size`、`fileType` 兜底；`unit.js` **305/0**（新增 8 条 URL 用例）。**发布前需在微信后台把 `tool.furina.fun` 加入 downloadFile 合法域名** |
 | 安卓 | ✅ 已完成（2026-11-10，task-5） | 网络图片加载（复用 pptImageLoader）+ OkHttp 下载到 cacheDir 后 FileProvider 打开；`testDebugUnitTest` **934/0**（新增 30 条）；**HTTP 明文默认被 Android 9+ 拦截，正式版必须 https** |
 
-发布顺序（备案通过后，三端一起）：
+发布顺序（四端新版发布后，一起开）：
 1. 确认 ECS 附件服务/route 正常（`/att/healthz`）。
 2. `NOTICE_ATTACH_EXTERNALIZE=1` + `ATT_BASE_URL=https://tool.furina.fun`，手动跑一次 `sync_notices_cloud.py`，核对通知条数/无 403。
 3. 网页重传 OSS + `ecs_site.py apply`；小程序上传发布；安卓打 `assembleRelease` 并交付 APK。

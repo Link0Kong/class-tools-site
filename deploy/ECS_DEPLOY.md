@@ -1,8 +1,9 @@
 # ECS 备案落点部署（阿里云 class_tool / tool.furina.fun）
 
-> 2026-11-10 建立。用途：ICP 备案通过后，`tool.furina.fun` 要从香港 OSS 切到内地 ECS；
+> 2026-11-10 建立；**2026-11-23 网站 ICP 备案通过（备案号 闽ICP备2026042939号-2）后已正式切换**：
+> `tool.furina.fun` 解析从香港 OSS CNAME 改为 A → `121.196.47.2`，Caddy 自动 HTTPS 已签发并线上可用。
 > 本文件记录 ECS 端部署通道、当前状态、HTTPS 启用步骤与回滚方式。
-> 相关：`deploy/ecs_site.py`（部署脚本）、`AGENTS.md` §0（部署授权 / 双远端同步）、`SYNC.md`。
+> 相关：`deploy/ecs_site.py`（部署脚本）、`deploy/domain_switch.py`（解析切换/回滚）、`AGENTS.md` §0（部署授权 / 双远端同步）、`SYNC.md`。
 
 ## 1. 为什么用「云助手」而不是 SSH
 
@@ -15,16 +16,18 @@
 | 项 | 值 |
 |---|---|
 | 实例 | `class_tool` / `i-bp1ibr9hs7ewepmm1ugw`，杭州 2C2G，Ubuntu，到期 2027-11-03 |
-| 站点目录 | `/var/www/tool`：`index.html` = **802,355 B / sha256 `e40571d3…`**（= OSS 线上最新版，2026-11-10 18:51），另有 `tt.json`、`assets/qr_tools.png`、`favicon.ico`、`apple-touch-icon.png`、`robots.txt` |
-| Web 服务器 | Caddy **2.6.2**，仅 `:80`（HTTP），配置 `/etc/caddy/Caddyfile` |
-| 压缩 | `encode zstd gzip`；`index.html` 传输 **260,997 B**（未压缩 802,355） |
+| 站点目录 | `/var/www/tool`：`index.html` = **1,681,591 B / sha256 `43d8b796…`**（2026-11-23 ICP 备案版，含页脚备案号），另有 `tt.json`、`assets/qr_tools.png`、`favicon.ico`、`apple-touch-icon.png`、`robots.txt`、`legal/`、`map/`、`android/` |
+| Web 服务器 | Caddy **2.6.2**，`:80` + `:443`（`tool.furina.fun` 站点块 + IP `:80` 调试块），配置 `/etc/caddy/Caddyfile` |
+| HTTPS | **已启用（2026-11-23）**：Let's Encrypt 自动签发（`tls-alpn-01`），`http://` 80 **308 → https**，`Alt-Svc: h3`；证书在 `/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/tool.furina.fun/` |
+| DNS | `tool` **A → 121.196.47.2**（TTL 600；原香港 OSS CNAME 已删除，备份 `deploy/_dns_backup/`） |
+| 压缩 | `encode zstd gzip`；`index.html` 传输 **507,417 B**（未压缩 1,681,591） |
 | 缓存头 | `index.html` / `tt.json` / `/board` → `Cache-Control: no-cache`；`/assets/*` 与图标 → `public, max-age=604800` |
 | 原有服务（未改） | `/api/*` → uvicorn `127.0.0.1:8090`（briefdesk-board）；`/board*` → `/opt/briefdesk/data/board.html` |
 | 通知附件服务（迁移第 2 步） | `/att/*` → `127.0.0.1:8091`（`class-tools-att.service`，systemd，代码 `/opt/class-tools/att-code/`，数据 `/opt/class-tools/attachments/`；签名 URL 契约见 `attachments/CONTRACT.md`） |
-| 同源 API 代理（第 3 步就绪，前端已切） | `/v1/rdb/rest/*` → `https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com`（`header_up Host` 已设为网关域名；实测 401/OpenAPI 200/RLS `[]` 正常）。网页 `var CB` 在 `tool.furina.fun` / `tool.furina.fun` 下运行时改走同源（字面量保留给本机脚本解析） |
-| HTTPS 就绪配置 | `/etc/caddy/Caddyfile.https.ready` 已生成并通过 `caddy validate`（含 `tool.furina.fun` 站点块 + 自动 Let's Encrypt），**尚未启用**（DNS 停用中，无法签发） |
+| 同源 API 代理（第 3 步就绪，前端已切） | `/v1/rdb/rest/*` → `https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com`（`header_up Host` 已设为网关域名，`header_up -Origin` 已加；实测 https 域名下 `/v1/rdb/rest/` **401**、测试身份 `rpc/class_verify` **200**）。网页 `var CB` 在 `tool.furina.fun` / `121.196.47.2` 下运行时改走同源（字面量保留给本机脚本解析） |
+| HTTPS 配置 | `/etc/caddy/Caddyfile` 即 HTTPS 版；`/etc/caddy/Caddyfile.https.ready` 作为同内容副本保留（`apply` 会同时校验两份）。`caddy validate` 均通过 |
 | 备份 | 每次 apply 前备份到 `/var/www/tool_backup/<时间戳>/`（旧 `index.html` + 旧 `Caddyfile`） |
-| 实测 | `curl https://tool.furina.fun/` = 800,243 B 且与本地 sha 一致；`/board` 8,555,473 B、`/api/status` 200、`/tt.json` 7,463 B |
+| 实测（2026-11-23） | `https://tool.furina.fun/` **200 / 1,681,591 B**（与 OSS、ECS 字节一致）；`http://` **308**；`/board` 200、`/api/status` 200、`/tt.json` 7,463 B、`/legal/web/privacy.html` 200、`/legal/manifest.json` 200、`/pptfiles/__health` 200、`/drop/__health` 200 |
 
 ## 3. 用法（在 `web` 目录下执行，用带 `aliyunsdkcore` 的 Python，例如系统 `python`）
 
@@ -43,10 +46,10 @@ python deploy\ecs_site.py apply --dry-run  # 只打印将要执行的远端脚�
 ### 3.5 临时公网域名 ko-link.cn（2026-11-12 启用；2026-11-14 已全部撤销）
 
 - **2026-11-14 用户决定**：等 `tool.furina.fun` 备案完成，不再使用临时域名。撤销范围：网页/小程序/安卓三端源码中的同源判断与 `webBase`/`dropBase`、ECS Caddy 站点块、阿里云 DNS 记录。
-- **当前状态**：Caddy HTTPS 站点块只有 `tool.furina.fun`；ko-link.cn 的 `@`/`www` A 记录已删除（0 记录）；公网仅保留 `https://tool.furina.fun/` 调试入口。撤销记录见 `HANDOFF.md` 增量 59 / `CHANGELOG.md` 2026-11-14 条目。
+- **当前状态（2026-11-23）**：Caddy 站点块只有 `tool.furina.fun`；ko-link.cn 的 `@`/`www` A 记录已删除（0 记录）；公网入口即 `https://tool.furina.fun/`（IP `http://121.196.47.2/` 仅运维调试）。撤销记录见 `HANDOFF.md` 增量 59 / `CHANGELOG.md` 2026-11-14 条目。
 - **历史（备查）**：启用时 DNS `@`/`www` A→`tool.furina.fun`、Caddy 三域名 + LE 自动签发；因 ko-link.cn 未完成 ICP 备案，大陆访问被阿里云阻断（HTTP 403 / HTTPS RST），实际只对境外可用。
 - **复核**：`grep -c ko-link /etc/caddy/Caddyfile` 应为 0；`curl https://tool.furina.fun/` 与 OSS `index.html` 同字节。
-- **恢复域名**：`tool.furina.fun` 备案通过 + DNS 恢复后，`python deploy\ecs_site.py apply`（默认 HTTPS），Caddy 自动签发证书。
+- **正式域名已于 2026-11-23 启用**：解析 `tool` A → `121.196.47.2`、`ecs_site.py apply`、Caddy 自动签发 LE 证书（详见 §4）。切换/回滚工具 `deploy/domain_switch.py`。
 
 ### 3.6 同源反代 Origin 修复（2026-11-12）
 
@@ -56,21 +59,24 @@ python deploy\ecs_site.py apply --dry-run  # 只打印将要执行的远端脚�
 - 部署/校验：`python deploy\ecs_site.py apply --https`；ECS 上 `grep -c 'header_up -Origin' /etc/caddy/Caddyfile` 应为 **2**；带 `Origin` 请求 `/v1/rdb/rest/` 应返回 **401**（需鉴权）而不是 403。
 - 备注：ECS IP 调试入口等非白名单来源走同一反代，**无需**改 CloudBase 控制台；其他直连 CloudBase 网关的第三方页面仍受网关 Origin 白名单约束。
 
-## 4. HTTPS 启用（ICP 备案通过、`tool` 解析恢复之后）
+## 4. HTTPS 启用（2026-11-23 已完成）
 
-前提：`tool.furina.fun` 的 A 记录已指向 `tool.furina.fun`（备案落点），公网可解析。
+前提：`tool` 的 A 记录已指向 ECS（备案落点），公网可解析。
 
 ```powershell
-python deploy\ecs_site.py apply --https
+python deploy\domain_switch.py status     # 看当前解析（应已是 A → 121.196.47.2）
+python deploy\ecs_site.py apply           # 同步站点 + 写 Caddy（默认就含 HTTPS 站点块）并 reload
 ```
 
-- 会把 `/etc/caddy/Caddyfile.https.ready` 的内容装为正式 `Caddyfile`：`tool.furina.fun` 走 443 + Caddy 自动 Let's Encrypt（HTTP-01），80 自动跳 443；另保留 IP 直连 `:80` 入口。
-- 首次签发需几十秒；验证：
+- `apply` 会把 `tool.furina.fun` 站点块（443 + 自动 Let's Encrypt）写成正式 `Caddyfile`，80 自动跳 443；另保留 IP 直连 `:80` 入口。
+- **证书签发时机**：Caddy 在配置加载（apply/reload/restart）时发起 ACME。若 apply 时 DNS 还没生效，会失败——**DNS 生效后再 `systemctl reload caddy` 或再跑一次 apply**；本次实测用 `systemctl restart caddy` 立即重试并成功（`tls-alpn-01`，约 20 秒）。
+- 验证：
   ```powershell
-  curl.exe -I https://tool.furina.fun/          # 200 + 证书
-  curl.exe -I http://tool.furina.fun/           # 301/308 → https
+  curl.exe -sS --ssl-no-revoke -o NUL -D - https://tool.furina.fun/   # 200 + 证书
+  curl.exe -sS --ssl-no-revoke -o NUL -w "%{http_code} -> %{redirect_url}" http://tool.furina.fun/  # 308
+  curl.exe -sS --ssl-no-revoke -o NUL -w "%{http_code}" https://tool.furina.fun/v1/rdb/rest/        # 401
   ```
-- 若签发失败（DNS 未生效 / 80 被拦），Caddy 会继续重试；可 `systemctl status caddy`、`journalctl -u caddy -n 50` 查看。
+- 若签发失败（DNS 未生效 / 80/443 被拦），Caddy 会继续重试；可 `systemctl status caddy`、`journalctl -u caddy -n 80` 查看；ZeroSSL 与 Let's Encrypt 都在 Caddy 默认 CA 列表里，LE 失败会再试 ZeroSSL。
 
 ## 5. 回滚
 
@@ -84,14 +90,14 @@ systemctl reload caddy
 
 或重新 `apply` 一次（会用 OSS 当前版本覆盖）。改动前后都可用 `ecs_site.py verify` 比对 sha。
 
-## 6. 已知未完成（迁移第 2/3 步）
+## 6. 尚未开启的项（如实）
 
-1. **通知附件外置（第 2 步）**：ECS 服务 + 网页端 + **小程序/安卓源码**均已完成（mp `unit 305/0`、安卓 `testDebugUnitTest 934/0`），但本机管线**默认关闭**（`NOTICE_ATTACH_EXTERNALIZE` 未开）。
-   因为 `tool.furina.fun` 尚未备案解析，现在开会让已发布的旧版小程序/安卓遇到 http/IP URL；等备案通过 + 三端新版发布后按
-   `attachments/README.md` §2 一次性开启（存量 41 个附件自动回填）。
-2. **前端同源切换（第 3 步）**：已完成并随 2026-11-10 的 `index.html`（802,355 B）部署；逻辑是运行时按 `location.hostname`
-   决定 `CB = location.origin + "/v1/rdb/rest/"`（仅 `tool.furina.fun` / `tool.furina.fun`），其它来源仍走 CloudBase 网关。
-3. **PPT 媒体仍在 OSS 香港**（`ppt/a/…`），跨境访问慢；后续可加 ECS 反代 + 磁盘缓存（媒体不可变，适合长缓存）。
+1. **通知附件外置（第 2 步）**：ECS 服务 + 网页端 + **小程序/安卓/鸿蒙/Windows 源码**均已完成，但本机管线**仍默认关闭**（`NOTICE_ATTACH_EXTERNALIZE` 未开）。
+   备案已通过、域名 HTTPS 已可用，但**已发布的旧版小程序/安卓**不认识新的 `https://tool.furina.fun/att/...` 附件 URL（旧版只按 data URI 读），现在开会让它们附件不可用；
+   等四端新版发布后按 `attachments/README.md` §2 一次性开启（存量 41 个附件自动回填）。
+2. **前端同源切换（第 3 步）**：已完成；运行时按 `location.hostname` 决定 `CB = location.origin + "/v1/rdb/rest/"`（`tool.furina.fun` / `121.196.47.2`），其它来源仍走 CloudBase 网关。
+3. **PPT 媒体仍在 OSS 香港**（`ppt/a/…`），跨境访问慢；已用 ECS `/pptfiles` 磁盘缓存加速（下载/预览均走缓存），**存储未迁移**。
+4. **自建 Postgres 切流（P4）**：REST 仍走 CloudBase 网关（`/v1/rdb/rest/*` 同源反代）；切流需按 `deploy/migration/CUTOVER.md` 在窗口内做最终快照 → 导入 → `ecs_pg.py switch-db` → 观察，**不在本次备案修复范围**。
 
 ## 8. PPT 文件本地缓存（下载加速，2026-11-11）
 
@@ -191,7 +197,7 @@ rm -rf /opt/class-tools/pptfiles /etc/systemd/system/class-tools-pptfiles.servic
 
 - `ecs_site.py` 不含任何密钥；远端命令只做文件下载/替换/Caddy reload，不含凭据；云助手执行记录留在阿里云账号内。
 - 不要在前端/仓库中出现 OSS 写凭据；ECS 只读 OSS 公开对象。
-- 备案期 `tool.furina.fun` 仍不可解析；ECS 的 IP 入口仅用于本机验证，不对外宣传。
+- 正式域名已启用（2026-11-23 ICP 备案通过）；ECS 的 IP 入口 `http://121.196.47.2/` 仅用于本机/运维验证，不对外宣传。
 
 ## 9. 文件传输服务（drop，2026-11-11 v2.1）
 
@@ -224,8 +230,8 @@ python deploy\ecs_drop.py verify     # 公网：/drop/__health + CORS 预检 + �
 python deploy\ecs_drop.py selftest   # 测试身份真实 E2E（token 不打印/不落盘）
 ```
 
-- 公网基址：`https://tool.furina.fun/drop`（备案 + DNS 恢复后同源 `https://tool.furina.fun/drop`；
-  下载 URL 由服务端按 `X-Forwarded-Proto/Host` 自动生成，无需改代码）。
+- 公网基址：`https://tool.furina.fun/drop`（2026-11-23 备案通过 + HTTPS 启用后即为正式同源地址；`http://121.196.47.2/drop` 仅调试）；
+  下载 URL 由服务端按 `X-Forwarded-Proto/Host` 自动生成，无需改代码。
 - 回滚：`systemctl disable --now class-tools-drop` → 去掉 `ecs_site.py` 里的 drop handle 后 `apply`；
   旧 Caddyfile 备份在 `/var/www/tool_backup/<时间戳>/Caddyfile.old`；
   数据清理 `rm -rf /opt/class-tools/drop/{sessions,files,uploads}`（不影响站点/att/pptfiles）。

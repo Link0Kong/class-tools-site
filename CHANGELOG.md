@@ -2,6 +2,20 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-23 17:2x–17:5x · 网站 ICP 备案通过（闽ICP备2026042939号-2）：域名切回 ECS + HTTPS 上线 + 页脚备案号（清理备案期临时方案）
+
+> 用户通知：「域名备案号已通过，备案号为 闽ICP备2026042939号-2」，要求按规范在网页展示备案号，并把此前因备案被迫使用的临时方案全面修复。
+
+- **备案号展示（网页，工信部规范：首页底部显著位置 + 链接备案系统）**：`tools/index.html` 三处展示 `闽ICP备2026042939号-2` 并链接 <https://beian.miit.gov.cn/>（`target=_blank` + `rel=noopener noreferrer`）：身份页页脚 `.idicp`、设置页「备案」行、使用说明页脚 `.ugicp`；新增对应 CSS（浅色/深色两套，10–10.5px 与既有页脚同色阶，不改布局与点按区）。**`APP_VER` 仍 2.0.0**。
+- **法律页面重建（`legal/_src` → `legal/**`）**：新增 `ICP_SITE` 常量；`web` 端备案行 = 「网站备案号：闽ICP备2026042939号-2（工信部备案系统可查）」；**APP 端（android / windows / harmony）删除「APP 备案信息：以工信部系统公示为准」占位**（用户 2026-11-23 决定：暂不显示，也不填不准确的号）；小程序端保留自己的「小程序备案号：闽ICP备2026042939号」（与网站备案号不是同一个号）；页脚统一加「网站备案号 + 工信部备案系统」链接；index/manifest 中「域名恢复前/当前调试入口」文案改为「正式域名已启用，IP 仅运维调试」；`LAST_UPDATED` → 2026-11-23。产物 12 个文件已同步 OSS + ECS。
+- **解析切换（新工具 `deploy/domain_switch.py`）**：`status` / `to-ecs` / `wait` / `restore --file`；写前自动把当前记录备份到 `deploy/_dns_backup/`（本目录已 gitignore），只动 `tool` 这条 RR 的 A/AAAA/CNAME，不碰 TXT（证书校验）与其它子域。实测：`tool` 原 CNAME → `tool-furina-fun.oss-cn-hongkong.aliyuncs.com` 已删除，新增 A → `121.196.47.2`（TTL 600）；阿里 DoH 立即返回新 A。
+- **HTTPS**：Caddy restart 后 Let's Encrypt 自动签发成功（`tls-alpn-01`，`certificate obtained successfully`，证书落 `/var/lib/caddy/.../tool.furina.fun.crt`）。实测：`https://tool.furina.fun/` **200**、`http://` **308 → https**、`/v1/rdb/rest/` **401**（鉴权正常，不是 403）、`/legal/web/privacy.html` 200、`/legal/manifest.json` 200、`/tt.json` 200、`/api/status` 200、`/pptfiles/__health` 200、`/drop/__health` 200；gzip 传输 507,417 B（未压缩 1,681,591 B）。
+- **解除备案暂停**：`python briefdesk\scripts\web_pause.py --off` → `site_config.web.paused=false`；诊断页不再显示「已按备案暂停」，下一次 `health_probe` 起回到真实探测。
+- **上线对象**：`index.html` **1,681,591 B / sha256 `43d8b79621beb5b050ee97c01efb2a23851164944df6638140dab04ed67b6d1b`**（OSS 与 ECS 同字节，`ecs_site.py verify` MATCH）；部署前线上备份 `tools/_backup/index_online_20261123-preICP.html`（1,679,331 B / `1c9cd892…`，与 ECS `/var/www/tool_backup/<ts>/index.html.old` 同字节）。
+- **真实端到端（正式域名，测试身份）**：`POST https://tool.furina.fun/v1/rdb/rest/rpc/class_verify`（3260799999 / 测试账号）→ **200** + token；`rpc/class_members` → **200 / 70 条**。证明同源反代、RLS、身份门禁在 https 域名下全部可用。
+- **本期未做 / 保持**：REST 仍 `cloudbase`（自建 Postgres 切流是 P4 数据迁移，需单独窗口与快照）；`NOTICE_ATTACH_EXTERNALIZE` 仍默认关闭（等小程序/安卓/鸿蒙/Windows 新版发布后再一起开，旧版客户端遇到 http/IP 附件 URL 会坏）；PPT 媒体仍在 OSS 香港（跨境存储，已用 ECS `/pptfiles` 缓存加速，未迁移存储）。
+- **回滚**：DNS `python deploy\domain_switch.py restore --file deploy\_dns_backup\furina.fun-tool-20261123-173948.json`；站点重传 `tools/_backup/index_online_20261123-preICP.html` + `python deploy\ecs_site.py apply`；备案暂停 `web_pause.py --on`。
+
 ## 2026-11-23 07:4x–08:0x · 通知 × 课表联动：课前类通知锚到上课时间（「思政三组 11-23 提前到教室」→ 思政课前 08:10；纯数据，网页无字节变更）
 
 > 用户需求：「优化通知和课表的联动，例如思政三组 11 月 23 日（今天）提前到教室拷演讲内容，应该设成思政课前」。
