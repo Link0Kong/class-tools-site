@@ -1,10 +1,10 @@
 {
-  "versionCode": 139,
-  "versionName": "1.0.0-beta56",
-  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta56.apk.bin",
-  "notes": "beta56：水量页显示最近一次抄表；当前月无记录时自动回退最近记录",
+  "versionCode": 141,
+  "versionName": "1.0.0-beta58",
+  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta58.apk.bin",
+  "notes": "ICP 备案通过：ECS 服务（账号/文件传输/更新检查/地图/PPT 媒体/法律全文）改走 https 正式域名 tool.furina.fun，移除 release 明文 IP",
   "force": false,
   "channel": "beta",
-  "sha256": "46485676e96b4c02462d9318fd120acf07e1e76cf72bc4637e8dfa95298cbdf0",
-  "sizeBytes": 6107702
+  "sha256": "335f71b7af107a9c3d6b21de9cc946f429287b4e5b2f7ac765efd80b67f6dedb",
+  "sizeBytes": 6107746
 }
