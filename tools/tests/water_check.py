@@ -775,6 +775,7 @@ def sc_a_identity(cdp):
     # 登录：学号 + 姓名 → mock class_verify → 进入班级
     set_input(cdp, "#igSid", SID_A)
     set_input(cdp, "#igName", NAME)
+    ev(cdp, "(function(){var a=document.getElementById('igAgree');if(a){a.checked=true;a.dispatchEvent(new Event('change'));}return true;})()")
     click(cdp, "#igGo")
     login_ok = wait_until(cdp, BOOT_LOGIN, 20)
     T("A08 登录：学号+姓名校验后进入班级", login_ok,

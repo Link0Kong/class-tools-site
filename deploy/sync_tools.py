@@ -43,7 +43,7 @@ def main():
     ak, sk = load_creds()
     bucket = oss2.Bucket(oss2.Auth(ak, sk), "https://%s.aliyuncs.com" % REGION, BUCKET)
     assets = os.path.join(SRC, "assets")
-    files = ["index.html"]
+    files = ["index.html", "robots.txt"]
     if os.path.isdir(assets):
         files += ["assets/" + f for f in sorted(os.listdir(assets))]
     # 教务课表同步产物（jwxt/sync.py 生成，同源 fetch 读取）

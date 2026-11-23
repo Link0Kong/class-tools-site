@@ -341,6 +341,8 @@ INIT_JS = r"""
   try{
     localStorage.setItem("zq_class_identity",JSON.stringify({
       token:"__TOKEN__",sid:"__SID__",name:"__NAME__",role:"",badge:"",is_admin:false,ts:Date.now()}));
+    /* 2026-11-23 合规：PPT 上传需先单独同意（数据出境），测试预置同意态 */
+    localStorage.setItem("zq_ppt_consent_v1","2026-11-23T00:00:00.000Z");
     localStorage.setItem("zq_tools_v2___SID__",JSON.stringify({
       homeTools:["ppt","draw","hw","nt"],termStart:"2026-09-07"}));
     sessionStorage.removeItem("zq_pos_v1");

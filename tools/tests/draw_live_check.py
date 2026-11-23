@@ -269,6 +269,7 @@ def main():
         # ---- 真实登录（官方测试身份） ----
         set_val(pg, "#igSid", TEST_SID)
         set_val(pg, "#igName", TEST_NAME)
+        ev(pg, "(function(){var a=document.getElementById('igAgree');if(a){a.checked=true;a.dispatchEvent(new Event('change'));}return true;})()")
         click(pg, "#igGo")
         ok = pg.wait_for("document.body.classList.contains('auth-pending')===false && typeof DRAWPROOF!=='undefined'", 30)
         T("L2 测试身份真实登录成功（class_verify 真实返回）", ok)

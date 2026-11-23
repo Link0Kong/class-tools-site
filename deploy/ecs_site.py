@@ -142,10 +142,36 @@ def run_script(script, timeout=240, wait=420, label="script"):
 
 # ---------------------------------------------------------------- 远端脚本
 
+# 安全响应头 + 访问日志（2026-11-23 合规整改：等保/安全检查加固项 + 日志留存 ≥6 个月）
+# HSTS 只加在 HTTPS 站点块；CSP 先用 Report-Only，避免单文件内联脚本被拦导致白屏。
+SEC_HEADERS = """	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		Content-Security-Policy-Report-Only "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self' https:; frame-src 'self' data: blob:; form-action 'self'"
+	}
+	header /board* X-Robots-Tag "noindex, nofollow"
+"""
+HSTS_HEADER = '	header Strict-Transport-Security "max-age=31536000; includeSubDomains"\n'
+
+
+def _access_log(name):
+    return """	log {
+		output file /var/log/caddy/%s {
+			roll_size 50MiB
+			roll_keep 24
+			roll_keep_for 180d
+		}
+		format json
+	}
+""" % name
+
 
 def _caddy_http():
     return r""":80 {
 	encode zstd gzip
+__SEC_HTTP__
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8090
 	}
@@ -198,7 +224,8 @@ def _caddy_http():
 	@static path /assets/* /favicon.ico /apple-touch-icon.png /robots.txt
 	header @static Cache-Control "public, max-age=604800"
 }
-""".replace("__PROD_API_ROUTE__", _prod_api_route())
+""".replace("__PROD_API_ROUTE__", _prod_api_route()) \
+   .replace("__SEC_HTTP__", SEC_HEADERS + _access_log("tool-http-access.log"))
 
 
 def _caddy_https():
@@ -209,6 +236,7 @@ def _caddy_https():
 
 tool.furina.fun {
 	encode zstd gzip
+__SEC_HTTPS__
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8090
 	}
@@ -265,6 +293,7 @@ tool.furina.fun {
 # IP 直连 / 备案前调试入口（域名 HTTPS 启用后仍保留）
 :80 {
 	encode zstd gzip
+__SEC_HTTP__
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8090
 	}
@@ -318,7 +347,9 @@ tool.furina.fun {
 	header @static Cache-Control "public, max-age=604800"
 }
 """.replace("__LE_EMAIL__", LE_EMAIL) \
-     .replace("__PROD_API_ROUTE__", _prod_api_route())
+     .replace("__PROD_API_ROUTE__", _prod_api_route()) \
+     .replace("__SEC_HTTPS__", HSTS_HEADER + SEC_HEADERS + _access_log("tool-access.log")) \
+     .replace("__SEC_HTTP__", SEC_HEADERS + _access_log("tool-http-access.log"))
 
 
 
@@ -334,6 +365,8 @@ BASE="__OSS_BASE__"
 TMP="/var/www/tool.new.$TS"
 BK="/var/www/tool_backup/$TS"
 mkdir -p "$TMP/assets" "$BK" /etc/caddy
+install -d -m 0750 /var/log/caddy
+if id -u caddy >/dev/null 2>&1; then chown caddy:caddy /var/log/caddy; fi
 
 echo "=== 1. 备份旧文件 ==="
 cp -a /var/www/tool/index.html "$BK/index.html.old" 2>/dev/null || true
@@ -373,9 +406,17 @@ caddy validate --config /etc/caddy/Caddyfile.https.ready --adapter caddyfile
 mv /etc/caddy/Caddyfile.new /etc/caddy/Caddyfile
 
 echo "=== 5. reload Caddy ==="
+mkdir -p /etc/systemd/journald.conf.d
+cat > /etc/systemd/journald.conf.d/99-class-tools.conf <<'JEOF'
+[Journal]
+MaxRetentionSec=180day
+JEOF
+systemctl restart systemd-journald || true
 systemctl reload caddy || systemctl restart caddy
 sleep 1
 systemctl is-active caddy
+echo "=== 6. 日志落盘检查 ==="
+ls -la /var/log/caddy | head -5
 echo "done: $(date -Is)"
 """.replace("__OSS_BASE__", OSS_BASE) \
    .replace("__CADDY_ACTIVE__", caddy_active) \
@@ -441,6 +482,21 @@ def verify():
         print("pptfiles   HEAD HTTP 200 content-length=%s" % (hd2.get("Content-Length"),))
     except Exception as e:  # noqa: BLE001
         print("%-10s ERR %s" % ("pptfiles", type(e).__name__))
+    # 安全响应头 + /board 去索引（2026-11-23 合规整改验收）
+    try:
+        st, hd, _ = _fetch(SITE + "/", {"Accept-Encoding": "identity"}, timeout=20)
+        for k in ("Strict-Transport-Security", "X-Content-Type-Options", "X-Frame-Options",
+                  "Referrer-Policy", "Permissions-Policy",
+                  "Content-Security-Policy-Report-Only", "X-Robots-Tag"):
+            print("header %-36s %s" % (k, hd.get(k, "(缺失)")))
+    except Exception as e:  # noqa: BLE001
+        print("header ERR %s" % type(e).__name__)
+    try:
+        req = urllib.request.Request(SITE + "/board", method="HEAD")
+        with urllib.request.urlopen(req, timeout=20) as r:
+            print("header /board X-Robots-Tag          %s" % r.headers.get("X-Robots-Tag", "(缺失)"))
+    except Exception as e:  # noqa: BLE001
+        print("header /board ERR %s" % type(e).__name__)
     return 0
 
 
