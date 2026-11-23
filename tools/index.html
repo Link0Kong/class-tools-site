@@ -8626,11 +8626,11 @@ var TOOLS=[
  {k:"chsi",n:"学信网",d:"学籍 · 学历 · 学位；官方入口卡"}];
 
 /* ---------------- 校内地图：iframe 宿主 + 与课表联动 ---------------- */
-var MAP={frame:null,room:"",ready:false,pending:false,timer:0,
+var MAP={frame:null,room:"",target:"",ready:false,pending:false,timer:0,
   url:function(embed){
     var url="/map/campus_final_25d.html?v=20261123-map2&theme="+this.theme();
     if(embed)return url+"&embed=1";
-    return this.room?url+"&room="+encodeURIComponent(this.room):url;
+    return this.target?url+"&room="+encodeURIComponent(this.target):url;
   },
   theme:function(){return document.documentElement.getAttribute("data-appearance")==="dark"?"dark":"light";},
   ensure:function(){
@@ -8656,7 +8656,7 @@ var MAP={frame:null,room:"",ready:false,pending:false,timer:0,
       $("#mapRetry").hidden=false;
     },8000);
   },
-  setRoom:function(r){this.room=String(r||"").trim();this.pending=!!this.room;this.updateLink();this.push();},
+  setRoom:function(r){this.room=String(r||"").trim();this.target=this.room;this.pending=!!this.room;this.updateLink();this.push();},
   enter:function(){this.ensure();this.updateLink();},
   updateLink:function(){$("#mapFull").href=this.url(false);},
   send:function(data){
@@ -8674,6 +8674,10 @@ window.addEventListener("message",function(e){
   if(!MAP.frame||e.source!==MAP.frame.contentWindow||e.origin!==location.origin)return;
   var d=e.data||{};
   if(d.type==="zq-map-open"&&d.tab==="tt"){gotoTab("tt");}
+  if(d.type==="zq-map-selection"&&typeof d.target==="string"){
+    MAP.target=d.target;
+    MAP.updateLink();
+  }
   if(d.type==="zq-map-ready"){
     MAP.ready=true;
     clearTimeout(MAP.timer);
