@@ -1,10 +1,10 @@
 {
-  "versionCode": 141,
-  "versionName": "1.0.0-beta58",
-  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta58.apk.bin",
-  "notes": "ICP 备案通过：ECS 服务（账号/文件传输/更新检查/地图/PPT 媒体/法律全文）改走 https 正式域名 tool.furina.fun，移除 release 明文 IP",
+  "versionCode": 142,
+  "versionName": "1.0.0-beta59",
+  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta59.apk.bin",
+  "notes": "优化校园地图布局、触控与搜索，支持课表直达教室、楼层目录和步行路线。",
   "force": false,
   "channel": "beta",
-  "sha256": "335f71b7af107a9c3d6b21de9cc946f429287b4e5b2f7ac765efd80b67f6dedb",
-  "sizeBytes": 6107746
+  "sha256": "fdd60bc9a2d7a1072f17902c0ef901aa4be8430ba260a8ae43692a86721c2b31",
+  "sizeBytes": 6104674
 }
