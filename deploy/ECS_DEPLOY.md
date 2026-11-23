@@ -29,6 +29,33 @@
 | 备份 | 每次 apply 前备份到 `/var/www/tool_backup/<时间戳>/`（旧 `index.html` + 旧 `Caddyfile`） |
 | 实测（2026-11-23） | `https://tool.furina.fun/` **200 / 1,681,591 B**（与 OSS、ECS 字节一致）；`http://` **308**；`/board` 200、`/api/status` 200、`/tt.json` 7,463 B、`/legal/web/privacy.html` 200、`/legal/manifest.json` 200、`/pptfiles/__health` 200、`/drop/__health` 200 |
 
+### 2.1 服务迁移盘点（2026-11-23；`python deploy\ecs_audit.py` 可随时复跑）
+
+| 已迁至 ECS（实测 active） | 位置 |
+|---|---|
+| 静态站 | `/var/www/tool`（index/legal/map/android/assets/tt.json，318 MB） |
+| Caddy（HTTPS + 同源反代） | `:80/:443`（Let's Encrypt 证书 89 天有效） |
+| 公告板 API / board 页 | `127.0.0.1:8090`（`/api/*`、`/board`） |
+| 通知附件签名服务 | `8091`（`/att/*`；管线 `NOTICE_ATTACH_EXTERNALIZE` 仍默认关闭） |
+| PPT 文件缓存 | `8092`（`/pptfiles/*`，269 MB，未命中回源 OSS 香港） |
+| 文件传输 | `8093`（`/drop/*`） |
+| 扫码登录 / 账号 | `8094`（`/account/*`） |
+| 校园地图共享状态 | `8095`（`/map/api/*`） |
+| PostgreSQL 18.6 | `127.0.0.1:5432`；`class_tools` + `class_tools_cut` 各 73 MB（11-18 导入快照） |
+| PostgREST 13.0.8 | `127.0.0.1:3000`；公网仅 `/v1/rdb/rest-next/*`（staging/影子验证） |
+| 定时任务 | `class-tools-pg-monitor.timer`（10 分钟）、`class-tools-pg-backup.timer`（每日 03:30，保留 6 份 dump） |
+
+| 仍未迁移（外部依赖） | 现状 |
+|---|---|
+| 生产数据 API `/v1/rdb/rest/*` | **腾讯云 CloudBase 网关**（ECS Caddy 仅同源反代；P4 切流未执行） |
+| 定时云函数 `power_sync` / `xgj_sync` / `health_probe` | CloudBase（ECS 没有对应 timer） |
+| 静态站发布源 / PPT 媒体 / APK 包 | 阿里云 **OSS 香港**（`sync_tools.py` 上传 → `ecs_site.py apply` 拉取） |
+| 通知采集/构建、AI 质检、PPT 转换、教务抓取、诊断 agent | 本机 Windows（依赖本机 QQ/微信/Office/校园网环境，不能搬到 ECS） |
+| 客户端 REST | 小程序/安卓/鸿蒙仍直连 CloudBase 网关（ECS 服务地址已切 https 域名） |
+
+- **判据（可复现）**：`/v1/rdb/rest/` 不带凭据返回 CloudBase 的 `MISSING_CREDENTIALS`；`/v1/rdb/rest-next/` 返回 PostgREST swagger（`version 13.0.8`）；ECS 库 `notices.max(ts)=2026-11-18 13:51`（导入快照），而生产 REST 同表 `max(ts)` 为当天时间。
+- **安全（2026-11-23）**：审计时误把 `/etc/class-tools/pgrest.conf` 的本地 DSN 带进终端输出，已轮换 `authenticator` 角色密码（新密码只在远端 `openssl rand` 生成，写入 PostgreSQL 角色 + 0600 `pgrest.conf`，不落仓库、不回显）；PostgREST 重启后 `/v1/rdb/rest-next/` 200、`/v1/rdb/rest/` 401 正常。**以后不要 `grep db-uri` / `cat pgrest.conf`**；需要判断库名用 `ecs_pg.py probe`。
+
 ## 3. 用法（在 `web` 目录下执行，用带 `aliyunsdkcore` 的 Python，例如系统 `python`）
 
 ```powershell
