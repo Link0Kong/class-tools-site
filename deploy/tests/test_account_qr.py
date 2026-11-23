@@ -116,7 +116,7 @@ def test_create_unique_and_provider_sanitized(server):
     b = create(server, "harmony")
     c = create(server, "https://evil.example/")
     assert len({a["t"], b["t"], c["t"]}) == 3
-    assert A._QR[a["t"]]["provider"] == "oppo"
+    assert A._QR[a["t"]]["provider"] == ""
     assert A._QR[b["t"]]["provider"] == "harmony"
     assert A._QR[c["t"]]["provider"] == ""
 
@@ -165,6 +165,19 @@ def test_authorize_then_poll_ok(server, monkeypatch):
     # 重复轮询仍返回同一份身份（发起端可在网络抖动后重试）
     _, _, again = req(server, "GET", "/qr/poll?t=%s&k=%s" % (tk["t"], tk["k"]))
     assert again["status"] == "ok" and again["token"] == IDENT["token"]
+
+
+def test_authorize_from_android_app_is_generic(server, monkeypatch):
+    """安卓 App 扫通用二维码：p=any / via=app，票据 provider 归为通用。"""
+    fake_identity(monkeypatch)
+    tk = create(server)
+    status, _, payload = req(server, "POST", "/qr/authorize",
+                             {"t": tk["t"], "p": "any", "via": "app"}, token="qa-phone-token")
+    assert status == 200 and payload["ok"] is True
+    _, _, polled = req(server, "GET", "/qr/poll?t=%s&k=%s" % (tk["t"], tk["k"]))
+    assert polled["status"] == "ok"
+    assert polled["provider"] == ""
+    assert polled["via"] == "app"
 
 
 def test_authorize_twice_is_idempotent(server, monkeypatch):

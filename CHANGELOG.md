@@ -2,6 +2,33 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-23 22:1x–22:4x · 扫码登录改为「所有手机通用 + 鸿蒙独立选项」；安卓 App 新增「扫一扫」（登录 / 抽签存证核验）
+
+> 用户要求：「直接优化扫码登录为所有手机共有能力，可将鸿蒙登录做独立选项，其他安卓品牌统一为扫码后登录，
+> 并且在安卓端 app 内新增扫码按键，用于抽签结果的核验和扫码登录」。
+
+- **网页 `tools/index.html`**：扫码弹层去掉 OPPO 品牌分段，改为 **「通用」（默认，所有手机）** + **「鸿蒙」（独立选项）**；
+  通用二维码 `#qr=<t>`（不带品牌参数），鸿蒙二维码 `#qr=<t>&p=harmony`；手机确认页文案改为「手机 / 鸿蒙手机」；
+  历史 `p=oppo/honor` 一律按通用处理。`APP_VER` 仍 2.0.0，单文件零依赖不变。
+- **ECS 账号服务 v1.2**：`p` 归一改为 `harmony` 保留、其余（any/空/历史 oppo/honor）统一为通用 `""`；
+  安卓 App 使用同一 `/qr/authorize`（`via:"app"`），不接收 token。已重新部署，健康检查 `version=1.2 qr=true`。
+- **安卓 App（源码已实现，未单独发版）**：新增「扫一扫」入口（工作台顶栏 / 抽签页顶栏 → `Routes.SCAN`）；
+  CameraX 预览 + ZXing 本机解码；扫 `#qr=<t>` 即带本机班级 token 调 `/account/qr/authorize` 完成电脑登录；
+  扫 `#verify=<id>` 调 `rpc/draw_record_get`，本机 SHA-256(canon) + draw-v1 复算并展示「哈希/复算 ✓✗」；
+  相机权限仅在扫码页申请（隐私政策/法律页同步为「仅扫码、不拍照不上传」）。**因检测到同工作区并行会话
+  未提交改动，按用户选择等待对方先提交/发布，本次 Android 不提交、不构建 release、不发版**；源码快照见
+  `archive/android-scan-20261123/`。
+- **法律页**：`legal/_src/platforms.py` + `legal/android/privacy.html` 的权限说明改为「相机仅扫一扫使用，
+  画面仅本机解码、不拍照/不保存/不上传」，并新增 CAMERA 权限行；`sync_legal.py` 已同步 OSS+ECS。
+- **测试**：网页 `v2_qr_login_check.py` **34/34**（通用/鸿蒙链接、确认页文案、无溢出/0 报错/0 外部请求）；
+  服务端 `test_account_qr.py` **13 passed**（新增 App `via=app` 通用票据）；安卓定向单测 **25 passed**
+  （二维码解析 7 / draw-v1 复算 6 / 账号接口 8 / 存证解析 4），`compileDebugKotlin` 成功；真实测试身份
+  `draw_record_get` 字段与复算 `hash_ok/replay_ok` 均通过。
+- **上线**：网页 **1,693,522 B / sha256 `5e82b75ea7690ce3fe0783fac90599ad373f3b1df0bd8f1ac3d71740004cf9c4`**
+  （OSS/ECS 同字节）；法律页已同步（Android privacy 含 CAMERA 行）。备份
+  `tools/_backup/index_online_20261123-2235_preScanAll.html`。
+- **回滚**：网页重传上述备份；账号服务回退 v1.1 后 `ecs_account.py deploy`；安卓回退扫码源码/依赖。
+
 ## 2026-11-23 17:2x–17:5x · 网站 ICP 备案通过（闽ICP备2026042939号-2）：域名切回 ECS + HTTPS 上线 + 页脚备案号（清理备案期临时方案）
 
 > 用户通知：「域名备案号已通过，备案号为 闽ICP备2026042939号-2」，要求按规范在网页展示备案号，并把此前因备案被迫使用的临时方案全面修复。

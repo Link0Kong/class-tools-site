@@ -2778,19 +2778,18 @@ html[data-appearance="dark"] .nt-admin-fab{background:rgba(255,255,255,.14);bord
   .ug-prog i{transition:none}
 }
 /* 校内地图 */
-#s-map .mapactions{margin-left:auto;display:flex;align-items:center;gap:12px}
-#s-map .maphead .mapactions a{margin-left:0;white-space:nowrap}
-#s-map .maphead .mapactions a:first-child{color:#B98F63}
-
-#s-map .maphead{display:flex;align-items:center;gap:10px;margin:0 0 10px}
-#s-map .maphead b{font-size:18px;color:var(--ink)}
-#s-map .maphead span{font-size:12px;color:var(--muted)}
-#s-map .maphead a{margin-left:auto;font-size:12px;color:var(--primary);text-decoration:none}
-#s-map .mapframe{position:relative;width:100%;height:calc(100vh - 190px);min-height:420px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#F3F5EC}
+#s-map .maphead{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:4px 10px;margin-bottom:6px}
+#s-map .maphead b{font-size:17px;color:var(--ink)}
+#s-map .mapactions{display:flex;align-items:center;gap:6px}
+#s-map .mapactions a{display:inline-flex;align-items:center;min-height:40px;padding:0 9px;color:var(--ink2);font-size:13px;text-decoration:none;white-space:nowrap;border-radius:8px}
+#s-map .mapactions a:hover{background:var(--card)}
+#s-map .mapframe{position:relative;width:100%;height:max(300px,calc(100vh - 160px));height:max(300px,calc(100dvh - 160px));border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#F3F5EC}
 #s-map iframe{width:100%;height:100%;border:0;display:block}
-.nextbox .nmap{display:block;margin-top:8px;border:1px solid var(--line);background:#fff;color:var(--primary);border-radius:9px;padding:6px 10px;font:inherit;font-size:12px;cursor:pointer}
+#s-map .mapwait{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:8px;background:var(--card);color:var(--ink2);padding:16px}
+#s-map .mapwait[hidden]{display:none}
+.nextbox .nmap,.ttc-map{min-height:40px;display:block;margin-top:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:6px 10px;font:inherit;font-size:12px;cursor:pointer}
 .nextbox .nmap:active{transform:scale(.98)}
-@media (max-width:760px){#s-map .mapframe{height:calc(100vh - 156px);min-height:420px;border-radius:12px}#s-map .maphead b{font-size:16px}}
+@media (max-height:480px){#s-map .mapframe{height:max(255px,calc(100dvh - 124px))}}
 /* ========== __CHSI_ENTRY_V1_CSS__ 学信网入口（2026-11-15） ==========
    纯静态官方工具入口卡（不抓数据、不内嵌、加载不请求外网）。
    手机 360/390/430 → 2 列；≥640 → 3 列；≥960 → 4 列；文字任意处换行，页面无横向溢出。 */
@@ -3997,6 +3996,22 @@ html[data-appearance="dark"] .ugicp a{color:#B4B9B4;border-bottom-color:rgba(180
 html[data-appearance="dark"] .ugicp a:hover,html[data-appearance="dark"] .ugicp a:focus-visible{color:#8DC5B8;border-bottom-color:rgba(141,197,184,.45)}
 .icplink{color:inherit;text-decoration:none;border-bottom:1px solid currentColor;opacity:.9;padding-bottom:1px}
 .icplink:hover,.icplink:focus-visible{color:var(--teal);opacity:1}
+/* 同意勾选 + 隐私与同意管理（2026-11-23 合规修复：PIPL 14/29/39 条） */
+.idagree{display:flex;gap:8px;align-items:flex-start;margin-top:10px;min-height:40px;padding:3px 0;cursor:pointer;text-align:left;font-size:11.5px;line-height:1.6;color:#8F9B95}
+.idagree[hidden]{display:none}
+.idagree input{width:16px;height:16px;margin:3px 0 0;flex:none;accent-color:#4E9082;cursor:pointer}
+.idagree a{color:#5F7A72;text-decoration:none;border-bottom:1px solid rgba(95,122,114,.4)}
+.idagree a:hover,.idagree a:focus-visible{color:#4E9082}
+html[data-appearance="dark"] .idagree{color:#9AA6A0}
+html[data-appearance="dark"] .idagree a{color:#8DC5B8;border-bottom-color:rgba(141,197,184,.4)}
+.idgo:disabled{opacity:.5;cursor:not-allowed}
+.cst-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.cst-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.cst-row b{font-size:13px;color:#24302B;flex:none}
+.cst-row .cst-s{flex:1;min-width:0;font-size:11.5px;color:#8C9A97}
+.cst-row .btn{flex:none}
+html[data-appearance="dark"] .cst-row{background:#1B221F;border-color:#2A332F}
+html[data-appearance="dark"] .cst-row b{color:#EEF2F0}
 /* 小屏/横屏高度不足时身份卡可能超出视口（备案号行使卡片略高）：改为顶部对齐 + 卡片区可滚动，避免上下被裁切 */
 @media (max-height:700px){.idgate{align-items:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch}}
 
@@ -4011,11 +4026,11 @@ html[data-appearance="dark"] .ugicp a:hover,html[data-appearance="dark"] .ugicp 
     <div class="idsub">2026级信息管理与信息系统 · 身份进入</div>
     <div class="idfield"><label for="igSid">学号</label><input id="igSid" inputmode="numeric" maxlength="10" autocomplete="username" placeholder="请输入 10 位学号"></div>
     <div class="idfield"><label for="igName">姓名</label><input id="igName" autocomplete="name" placeholder="请输入本人姓名"></div>
-    <button class="idgo" id="igGo" type="button">进入班级</button>
+    <button class="idgo" id="igGo" type="button" disabled>进入班级</button>
     <div class="iderr" id="igErr"></div>
     <div class="idor" aria-hidden="true"><i></i><span>或</span><i></i></div>
     <button class="idqr" id="igQr" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h4v4h-4zM20 14v6M14 20h3"/></svg>扫码登录</button>
-    <div class="idlaw">进入即表示同意 <a href="legal/web/terms.html" target="_blank" rel="noopener noreferrer">用户协议</a> 与 <a href="legal/web/privacy.html" target="_blank" rel="noopener noreferrer">隐私政策</a></div>
+    <label class="idagree" for="igAgree"><input type="checkbox" id="igAgree"><span>我已阅读并同意 <a href="legal/web/terms.html" target="_blank" rel="noopener noreferrer">用户协议</a> 与 <a href="legal/web/privacy.html" target="_blank" rel="noopener noreferrer">隐私政策</a></span></label>
     <div class="idfoot">仅本班同学可进入；身份校验通过后才加载班级数据。<span class="idver">班级工具 v2.0.0</span></div>
     <div class="idicp"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" aria-label="网站备案号 闽ICP备2026042939号-2（工业和信息化部备案系统）">闽ICP备2026042939号-2</a></div>
   </div>
@@ -4024,8 +4039,8 @@ html[data-appearance="dark"] .ugicp a:hover,html[data-appearance="dark"] .ugicp 
 <div class="qrov" id="qrOv" aria-hidden="true">
   <div class="qrcard" role="dialog" aria-modal="true" aria-label="扫码登录">
     <div class="qrhead"><b>扫码登录</b><button class="qrx" id="qrClose" type="button" aria-label="关闭">×</button></div>
-    <div class="qrseg" id="qrSeg" role="tablist" aria-label="手机类型">
-      <button type="button" data-qrp="oppo" class="on" role="tab" aria-selected="true">OPPO</button>
+    <div class="qrseg" id="qrSeg" role="tablist" aria-label="登录方式">
+      <button type="button" data-qrp="any" class="on" role="tab" aria-selected="true">通用</button>
       <button type="button" data-qrp="harmony" role="tab" aria-selected="false">鸿蒙</button>
     </div>
     <canvas id="qrCanvas" class="qrcv" width="440" height="440" aria-label="登录二维码"></canvas>
@@ -4045,10 +4060,10 @@ html[data-appearance="dark"] .ugicp a:hover,html[data-appearance="dark"] .ugicp 
         <div class="idfield"><label for="qrSid">学号</label><input id="qrSid" inputmode="numeric" maxlength="10" autocomplete="username" placeholder="请输入 10 位学号"></div>
         <div class="idfield"><label for="qrName">姓名</label><input id="qrName" autocomplete="name" placeholder="请输入本人姓名"></div>
       </div>
-      <button class="idgo" id="qrCGo" type="button">确认登录</button>
+      <button class="idgo" id="qrCGo" type="button" disabled>确认登录</button>
       <button class="btn ghost qrccancel" id="qrCCancel" type="button">取消</button>
       <div class="iderr" id="qrCErr"></div>
-      <div class="idlaw" id="qrCLaw">继续即表示同意 <a href="legal/web/terms.html" target="_blank" rel="noopener noreferrer">用户协议</a> 与 <a href="legal/web/privacy.html" target="_blank" rel="noopener noreferrer">隐私政策</a></div>
+      <label class="idagree" id="qrCLaw" for="qrAgree"><input type="checkbox" id="qrAgree"><span>我已阅读并同意 <a href="legal/web/terms.html" target="_blank" rel="noopener noreferrer">用户协议</a> 与 <a href="legal/web/privacy.html" target="_blank" rel="noopener noreferrer">隐私政策</a></span></label>
     </div>
     <div class="qrcok" id="qrCOk">
       <div class="okmark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"/></svg></div>
@@ -5058,8 +5073,11 @@ html[data-appearance="dark"] .ugicp a:hover,html[data-appearance="dark"] .ugicp 
 <!-- __WEB_B2_FILE_END__ -->
   <!-- ==================== 全部 ==================== -->
   <section id="s-map">
-    <div class="maphead"><b>校内地图</b><span>2.5D · 按道路导航</span><span class="mapactions"><a id="mapEdit" href="/map/campus_builder_loaded.html" target="_blank" rel="noopener">编辑地图</a><a id="mapFull" href="/map/campus_final_25d.html" target="_blank" rel="noopener">全屏打开</a></span></div>
-    <div class="mapframe"><iframe id="mapFrame" title="福建中医药大学旗山校区地图" loading="lazy"></iframe></div>
+    <div class="maphead"><b>校内地图</b><span class="mapactions"><a id="mapEdit" href="/map/campus_builder_loaded.html" target="_blank" rel="noopener">编辑地图</a><a id="mapFull" href="/map/campus_final_25d.html" target="_blank" rel="noopener">全屏打开</a></span></div>
+    <div class="mapframe">
+      <iframe id="mapFrame" title="福建中医药大学旗山校区地图" allow="geolocation"></iframe>
+      <div id="mapWait" class="mapwait"><span id="mapStatus" role="status">地图加载中…</span><button id="mapRetry" class="ttc-map" type="button" hidden>重试</button></div>
+    </div>
   </section>
 
   <section id="s-settings">
@@ -5072,6 +5090,8 @@ html[data-appearance="dark"] .ugicp a:hover,html[data-appearance="dark"] .ugicp 
       <div class="set-line"><div><b>协议</b><div class="set-sub">隐私政策与用户协议</div></div>
         <div class="set-links"><a class="btn ghost sm" href="legal/web/privacy.html" target="_blank" rel="noopener noreferrer">隐私政策</a><a class="btn ghost sm" href="legal/web/terms.html" target="_blank" rel="noopener noreferrer">用户协议</a></div>
       </div>
+      <div class="set-sep"></div>
+      <div class="set-line"><div><b>隐私与同意</b><div class="set-sub">协议、体测、PPT 上传的同意状态与撤回</div></div><button type="button" class="btn ghost sm" id="cstOpen">管理</button></div>
       <div class="set-sep"></div>
       <div class="set-line"><div><b>版本</b><div class="set-sub" id="setVer">2.0.0</div></div><span class="set-dim">班级工具站</span></div>
       <div class="set-sep"></div>
@@ -5287,6 +5307,41 @@ html[data-appearance="dark"] .ugicp a:hover,html[data-appearance="dark"] .ugicp 
   <div class="mcard" style="max-width:660px;max-height:88vh" role="dialog" aria-modal="true" aria-label="附件预览">
     <button class="mclose" id="attClose" aria-label="关闭">×</button>
     <div id="attBody"></div>
+  </div>
+</div>
+
+<!-- 合规：敏感个人信息 / 数据出境 单独同意 + 同意管理（2026-11-23） -->
+<div class="modal" id="cFitOv" style="display:none">
+  <div class="mcard" style="max-width:440px" role="dialog" aria-modal="true" aria-label="体测数据单独同意">
+    <div class="t-title-m">体测数据 · 单独同意</div>
+    <div class="lgsub" style="margin:6px 0 10px">身高、体重、肺活量、跑跳成绩属于<b>敏感个人信息</b>，仅本人可读写，不导出、不对外提供。</div>
+    <div class="lgnote" style="text-align:left;line-height:1.7">用于国标算分、等级与历史记录；可随时在体测历史删除或邮件申请删除。拒绝仅影响体测功能，不影响身份核验和其他工具。详见 <a href="legal/web/privacy.html#s5" target="_blank" rel="noopener noreferrer">隐私政策 §5</a>。</div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn ghost" id="cFitNo" type="button">不同意</button>
+      <button class="btn pri" id="cFitYes" type="button">同意并继续</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="cPptOv" style="display:none">
+  <div class="mcard" style="max-width:460px" role="dialog" aria-modal="true" aria-label="PPT 上传跨境单独同意">
+    <div class="t-title-m">上传前请知悉 · 数据出境</div>
+    <div class="lgsub" style="margin:6px 0 10px">PPT 源文件与转换产物将上传至<b>阿里云 OSS 香港</b>，属于向境外提供；存储为公共读，<b>持有链接的人可以访问</b>。</div>
+    <div class="lgnote" style="text-align:left;line-height:1.7">接收方：阿里云计算有限公司（香港地域）。用途：跨端下载、在线预览、ECS 缓存回源。删除后链接可能短期仍可访问，备份最长 180 天。<b>请勿上传含身份证、成绩单、病历、手机号、住址等敏感信息的 PPT。</b>详见 <a href="legal/web/privacy.html#s8" target="_blank" rel="noopener noreferrer">隐私政策 §8</a>。</div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn ghost" id="cPptNo" type="button">不同意</button>
+      <button class="btn pri" id="cPptYes" type="button">同意并上传</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="cSetOv" style="display:none">
+  <div class="mcard" style="max-width:460px" role="dialog" aria-modal="true" aria-label="隐私与同意">
+    <button class="mclose" id="cSetClose" aria-label="关闭">×</button>
+    <div class="t-title-m">隐私与同意</div>
+    <div class="lgsub" style="margin-top:6px">撤回后对应功能需重新同意才能使用；不影响撤回前已进行的处理。</div>
+    <div class="cst-list" id="cstList"></div>
+    <div class="lgnote" style="text-align:left;margin-top:12px">详见 <a href="legal/web/privacy.html" target="_blank" rel="noopener noreferrer">隐私政策</a> 与 <a href="legal/web/terms.html" target="_blank" rel="noopener noreferrer">用户协议</a>。</div>
   </div>
 </div>
 
@@ -7228,7 +7283,8 @@ $("#ntModal").addEventListener("click",function(e){
 document.addEventListener("keydown",function(e){
   if(e.key==="Escape"){var m=$("#ntModal");if(m&&m.classList.contains("on"))closeNoticeModal();}
 });
-function openMapFromNext(){try{if(window.MAP)MAP.setRoom((TT&&TT._nextRoom)||"自强楼");gotoTab("map");}catch(e){}}
+function openMapForRoom(room){MAP.setRoom(room);gotoTab("map");}
+function openMapFromNext(){openMapForRoom(TT._nextRoom);}
 window.openMapFromNext=openMapFromNext;
 window.addEventListener("message",function(e){
   if(!e.data||!e.data.type)return;
@@ -8570,30 +8626,61 @@ var TOOLS=[
  {k:"chsi",n:"学信网",d:"学籍 · 学历 · 学位；官方入口卡"}];
 
 /* ---------------- 校内地图：iframe 宿主 + 与课表联动 ---------------- */
-var MAP={frame:null,room:"",ready:false,
+var MAP={frame:null,room:"",ready:false,pending:false,timer:0,
+  url:function(embed){
+    var url="/map/campus_final_25d.html?v=20261123-map2&theme="+this.theme();
+    if(embed)return url+"&embed=1";
+    return this.room?url+"&room="+encodeURIComponent(this.room):url;
+  },
+  theme:function(){return document.documentElement.getAttribute("data-appearance")==="dark"?"dark":"light";},
   ensure:function(){
     if(this.frame)return this.frame;
     this.frame=document.getElementById("mapFrame");
     if(!this.frame)return null;
-    var base="/map/campus_final_25d.html?embed=1&v=202611161250";
-    if(this.room)base+="&room="+encodeURIComponent(this.room);
-    this.frame.src=base;
     var self=this;
-    this.frame.addEventListener("load",function(){ self.ready=true; self.push(); });
+    $("#mapRetry").onclick=function(){self.load();};
+    new MutationObserver(function(){self.syncTheme();}).observe(document.documentElement,{attributes:true,attributeFilter:["data-appearance"]});
+    this.load();
     return this.frame;
   },
-  setRoom:function(r){this.room=String(r||"");this.push();},
-  enter:function(){this.ensure();this.push();},
+  load:function(){
+    clearTimeout(this.timer);
+    this.ready=false;
+    this.pending=!!this.room;
+    $("#mapWait").hidden=false;
+    $("#mapRetry").hidden=true;
+    $("#mapStatus").textContent="地图加载中…";
+    this.frame.src=this.url(true);
+    this.timer=setTimeout(function(){
+      $("#mapStatus").textContent="地图暂时无法加载";
+      $("#mapRetry").hidden=false;
+    },8000);
+  },
+  setRoom:function(r){this.room=String(r||"").trim();this.pending=!!this.room;this.updateLink();this.push();},
+  enter:function(){this.ensure();this.updateLink();},
+  updateLink:function(){$("#mapFull").href=this.url(false);},
+  send:function(data){
+    if(this.ready&&this.frame&&this.frame.contentWindow)this.frame.contentWindow.postMessage(data,location.origin);
+  },
+  syncTheme:function(){this.updateLink();this.send({type:"zq-map-theme",theme:this.theme()});},
   push:function(){
-    if(!this.frame||!this.frame.contentWindow)return;
-    try{this.frame.contentWindow.postMessage({type:"zq-map-target",room:this.room},"*");}catch(e){}
+    if(!this.ready||!this.pending)return;
+    this.pending=false;
+    this.send({type:"zq-map-target",room:this.room});
   }
 };
 window.MAP=MAP;
 window.addEventListener("message",function(e){
+  if(!MAP.frame||e.source!==MAP.frame.contentWindow||e.origin!==location.origin)return;
   var d=e.data||{};
   if(d.type==="zq-map-open"&&d.tab==="tt"){gotoTab("tt");}
-  if(d.type==="zq-map-ready"){MAP.push();}
+  if(d.type==="zq-map-ready"){
+    MAP.ready=true;
+    clearTimeout(MAP.timer);
+    $("#mapWait").hidden=true;
+    MAP.syncTheme();
+    MAP.push();
+  }
 });
 
 var CURTAB="draw";
@@ -8608,6 +8695,11 @@ function gotoTab(k,noScroll){
   if(k!=="all"&&k!=="fb"&&k!=="ug"&&k!=="power"){var _t=toolOf(k);if(!_t||!toolShown(_t))return;}
   /* 诊断页：所有已登录班级成员可见；门禁通过前不发任何请求（下方 DIAG.enter 内还有一层守卫） */
   if(k==="diag"&&!AUTH.token)return;
+  /* 体测：敏感个人信息，首次进入前单独同意（2026-11-23 合规修复） */
+  if(k==="ft"&&typeof CONSENT!=="undefined"&&CONSENT&&!CONSENT.has("fit")){
+    CONSENT.requireFit(function(){gotoTab("ft");});
+    return;
+  }
   /* 诊断页定时器：切走即停，切回由下方 diag 分支重启（避免重复定时器） */
   try{if(typeof DIAG!=="undefined")DIAG.leave();}catch(e){}
   /* 演示页定时器：切走即停，切回由下方 ppt 分支重启（播放器覆盖层不受影响） */
@@ -12996,6 +13088,7 @@ function ttRenderCourseDetail(c,wk){
   }else{
     html+='<div class="ttc-row"><span class="k">下次</span><span class="v">暂无后续课程</span></div>';
   }
+  if(String(c.room||"").trim())html+='<button type="button" class="ttc-map" data-tt-map-room="'+esc(c.room)+'">在地图查看教室</button>';
   $("#ttCBody").innerHTML=html;
   $("#ttCPanel").style.display="";
 }
@@ -13058,6 +13151,12 @@ $("#tListToggle").addEventListener("click",function(){
 });
 /* 详情弹层（只读） */
 $("#ttCClose").addEventListener("click",function(){$("#ttCPanel").style.display="none";});
+$("#ttCBody").addEventListener("click",function(e){
+  var target=e.target.closest("[data-tt-map-room]");
+  if(!target)return;
+  $("#ttCPanel").style.display="none";
+  openMapForRoom(target.dataset.ttMapRoom);
+});
 $("#ttCPanel").addEventListener("click",function(e){if(e.target===this)this.style.display="none";});
 /* 导入 / 同步弹层 */
 function ttUpdateImportPanel(){
@@ -15569,6 +15668,72 @@ var POS={key:"zq_pos_v1",_timer:0,_timer2:0,armed:false,boot:false,applying:fals
   document.addEventListener("visibilitychange",function(){if(document.hidden){POS.save();try{UD.flush();}catch(e){}}});
 })();
 
+/* ============================================================
+   __CONSENT_V1__ 同意管理（2026-11-23 合规修复）
+   - 登录/扫码：勾选《用户协议》《隐私政策》后才能进入（PIPL 14 条，替换原"进入即表示同意"）
+   - 体测：首次进入前单独同意（第 29 条，敏感个人信息），设置页可撤回
+   - PPT：首次上传前单独同意（第 39 条，数据出境），设置页可撤回
+   - 记录存本机 localStorage；撤回即清除，对应功能回到未同意态
+   ============================================================ */
+var CONSENT=(function(){
+  var K={terms:"zq_consent_terms_v1",fit:"zq_fit_consent_v1",ppt:"zq_ppt_consent_v1"};
+  var LABEL={terms:"用户协议与隐私政策",fit:"体测健康数据（敏感个人信息）",ppt:"PPT 上传（数据出境）"};
+  var pend=null;
+  function el(id){return document.getElementById(id);}
+  function has(k){try{return !!localStorage.getItem(K[k]);}catch(e){return false;}}
+  function at(k){try{return localStorage.getItem(K[k])||"";}catch(e){return "";}}
+  function set(k){try{localStorage.setItem(K[k],new Date().toISOString());}catch(e){}}
+  function clear(k){try{localStorage.removeItem(K[k]);}catch(e){}}
+  function show(id){var o=el(id);if(o)o.style.display="";}
+  function hide(id){var o=el(id);if(o)o.style.display="none";}
+  function tip(m){try{if(typeof toast==="function")toast(m);}catch(e){}}
+  function ask(kind,cb){
+    pend={kind:kind,cb:cb||null};
+    if(kind==="fit")show("cFitOv");else if(kind==="ppt")show("cPptOv");
+  }
+  function answer(ok){
+    var p=pend;pend=null;
+    hide("cFitOv");hide("cPptOv");
+    if(!p)return;
+    if(ok){set(p.kind);if(p.cb)p.cb();}
+    else tip(p.kind==="fit"?"未同意，无法使用体测":"未同意，无法上传 PPT");
+  }
+  function rows(){
+    var list=el("cstList");if(!list)return;
+    list.innerHTML="";
+    ["terms","fit","ppt"].forEach(function(k){
+      var on=has(k),row=document.createElement("div");row.className="cst-row";
+      var b=document.createElement("b");b.textContent=LABEL[k];
+      var s=document.createElement("div");s.className="cst-s";
+      s.textContent=on?("已同意 · "+String(at(k)).slice(0,10)):"未同意";
+      var btn=document.createElement("button");btn.type="button";btn.className="btn ghost sm";
+      btn.textContent=on?"撤回":"—";btn.disabled=!on;
+      btn.addEventListener("click",function(){clear(k);rows();tip("已撤回"+LABEL[k]);});
+      row.appendChild(b);row.appendChild(s);row.appendChild(btn);list.appendChild(row);
+    });
+  }
+  function init(){
+    var y=el("cFitYes"),n=el("cFitNo"),py=el("cPptYes"),pn=el("cPptNo");
+    if(y)y.addEventListener("click",function(){answer(true);});
+    if(n)n.addEventListener("click",function(){answer(false);});
+    if(py)py.addEventListener("click",function(){answer(true);});
+    if(pn)pn.addEventListener("click",function(){answer(false);});
+    var o=el("cstOpen");if(o)o.addEventListener("click",function(){rows();show("cSetOv");});
+    var c=el("cSetClose");if(c)c.addEventListener("click",function(){hide("cSetOv");});
+    var ov=el("cSetOv");if(ov)ov.addEventListener("click",function(e){if(e.target===ov)hide("cSetOv");});
+    /* 兜底：体测页打开后若同意被撤回，保存时仍拦截（捕获阶段先于既有处理器） */
+    var fs=el("fSave");if(fs)fs.addEventListener("click",function(e){
+      if(has("fit"))return;
+      e.preventDefault();e.stopImmediatePropagation();ask("fit",function(){});
+    },true);
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);
+  else init();
+  return {has:has,set:set,clear:clear,ask:ask,refresh:rows,
+    requireFit:function(cb){if(has("fit"))return true;ask("fit",cb);return false;},
+    requirePpt:function(cb){if(has("ppt"))return true;ask("ppt",cb);return false;}};
+})();
+try{window.CONSENT=CONSENT;}catch(e){}
 /* ---------------- 初始化：班级身份门禁 ---------------- */
 function igErr(m){var e=$("#igErr");if(e)e.textContent=m||"";}
 function startClassData(){
@@ -15648,13 +15813,16 @@ function doIdentity(){
   igErr("");
   if(!/^\d{10}$/.test(sid)){igErr("请输入 10 位学号");$("#igSid").focus();return;}
   if(!name){igErr("请输入姓名");$("#igName").focus();return;}
+  var ag=$("#igAgree");
+  if(ag&&!ag.checked){igErr("请先阅读并勾选同意《用户协议》与《隐私政策》");return;}
   var btn=$("#igGo"); btn.disabled=true; btn.textContent="校验中…";
   classVerify(sid,name).then(function(r){
-    btn.disabled=false; btn.textContent="进入班级";
+    btn.disabled=!(ag&&ag.checked); btn.textContent="进入班级";
     if(!r||!r.ok){igErr((r&&r.reason)||"姓名或学号不在班级名单中");return;}
+    CONSENT.set("terms");
     enterClass(r);
   }).catch(function(e){
-    btn.disabled=false; btn.textContent="进入班级";
+    btn.disabled=!(ag&&ag.checked); btn.textContent="进入班级";
     igErr(String(e&&e.message||e).indexOf("不在")>=0?"姓名或学号不在班级名单中":"网络错误，请稍后重试");
   });
 }
@@ -15669,7 +15837,7 @@ function doIdentity(){
    ============================================================ */
 var QRL=(function(){
   var POLL_MS=1200, MAX_NET_ERR=5, ENTER_WAIT=450;
-  var st={open:false,t:"",k:"",p:"oppo",exp:0,timer:null,netErr:0,polls:0,creates:0,busy:false,entered:false,status:""};
+  var st={open:false,t:"",k:"",p:"any",exp:0,timer:null,netErr:0,polls:0,creates:0,busy:false,entered:false,status:""};
   var saved=null, mode="";
 
   function apiBase(){
@@ -15690,8 +15858,9 @@ var QRL=(function(){
     return "http://121.196.47.2/";
   }
   function qrLink(t,p){
-    var u=pageUrl()+"#qr="+encodeURIComponent(t)+"&p="+(p==="harmony"?"harmony":"oppo");
-    if(u.length>128)u=pageUrl()+"#qr="+encodeURIComponent(t);
+    var base=pageUrl()+"#qr="+encodeURIComponent(t);
+    var u=(p==="harmony")?(base+"&p=harmony"):base;
+    if(u.length>128)u=base;
     return u;
   }
   function req(path,opt){
@@ -15823,9 +15992,9 @@ var QRL=(function(){
   function parseHash(){
     var h=String(location.hash||"");
     if(h.indexOf("#qr=")!==0)return null;
-    var m=/^#qr=([0-9a-f]{32})(?:&p=(oppo|harmony|honor))?$/i.exec(h);
+    var m=/^#qr=([0-9a-f]{32})(?:&p=([a-z]+))?$/i.exec(h);
     if(!m)return {bad:true};
-    return {t:m[1].toLowerCase(),p:(m[2]||"").toLowerCase()};
+    return {t:m[1].toLowerCase(),p:((m[2]||"").toLowerCase()==="harmony"?"harmony":"any")};
   }
   function stripHash(){
     try{history.replaceState(null,"",location.pathname+location.search);}catch(e){try{location.hash="";}catch(e2){}}
@@ -15859,8 +16028,8 @@ var QRL=(function(){
     if(!$("#qrGate"))return;
     document.body.classList.add("qr-locked");
     document.body.classList.remove("qr-done");
-    st.t=qr.t||"";st.p=qr.p||"oppo";
-    var label=qr.p==="harmony"?"鸿蒙手机":(qr.p==="oppo"?"OPPO 手机":"手机");
+    st.t=qr.t||"";st.p=qr.p==="harmony"?"harmony":"any";
+    var label=qr.p==="harmony"?"鸿蒙手机":"手机";
     var sub=$("#qrCSub");if(sub)sub.textContent=label+" · 网页版确认";
     var id=null;
     try{
@@ -15897,7 +16066,7 @@ var QRL=(function(){
   }
   function authorize(t,token){
     return req("/qr/authorize",{method:"POST",headers:{"X-Class-Token":token},
-      body:{t:t,p:st.p||"",via:"web"}});
+      body:{t:t,p:(st.p==="harmony"?"harmony":"any"),via:"web"}});
   }
   function goHome(){
     try{location.replace(pageUrl());}catch(e){try{location.reload();}catch(e2){}}
@@ -15911,8 +16080,11 @@ var QRL=(function(){
   }
   function onConfirm(){
     var go=$("#qrCGo");
+    var ag=$("#qrAgree");
+    if(ag&&!ag.checked){tellC("请先勾选同意《用户协议》与《隐私政策》");return;}
     if(!go||go.disabled)return;
     tellC("");
+    CONSENT.set("terms");
     if(mode==="saved"&&saved){
       go.disabled=true;go.textContent="确认中…";
       authorize(st.t,saved.token).then(function(r){
@@ -15962,12 +16134,18 @@ var QRL=(function(){
     $$("#qrSeg [data-qrp]").forEach(function(b){
       b.addEventListener("click",function(){
         var p=b.getAttribute("data-qrp");
-        if(p!=="harmony"&&p!=="oppo")return;
+        if(p!=="harmony"&&p!=="any")return;
         st.p=p;syncSeg();
         if(st.t)paint();else create();
       });
     });
     var gc=$("#qrCGo");if(gc)gc.addEventListener("click",onConfirm);
+    (function(){
+      var qa=$("#qrAgree");
+      if(!qa||!gc)return;
+      var qsync=function(){gc.disabled=!qa.checked;};
+      qa.addEventListener("change",qsync);qsync();
+    })();
     var cc=$("#qrCCancel");if(cc)cc.addEventListener("click",cancel);
     var qs=$("#qrSid"),qn=$("#qrName");
     if(qs)qs.addEventListener("keydown",function(e){if(e.key==="Enter"&&qn)qn.focus();});
@@ -16013,6 +16191,12 @@ var QRL=(function(){
     enterClass(saved);
     return;
   }
+  (function(){
+    var ag=$("#igAgree"), go=$("#igGo");
+    if(!ag||!go)return;
+    var sync=function(){go.disabled=!ag.checked;};
+    ag.addEventListener("change",sync);sync();
+  })();
   $("#igGo").addEventListener("click",doIdentity);
   $("#igName").addEventListener("keydown",function(e){if(e.key==="Enter")doIdentity();});
   $("#igSid").addEventListener("keydown",function(e){if(e.key==="Enter")$("#igName").focus();});
@@ -18335,6 +18519,8 @@ var PPT=(function(){
   function init(){
     var up=el("pptUp"),up2=el("pptUp2"),file=el("pptFile");
     function pick(){
+      /* PPT 源文件存香港 OSS：首次上传前单独同意（2026-11-23 合规修复） */
+      if(!CONSENT.requirePpt(pick))return;
       if(file){file.click();return;}
       toast("当前浏览器不支持选择文件");
     }
@@ -18344,6 +18530,7 @@ var PPT=(function(){
     var go=el("pptUpGo");
     if(go)go.addEventListener("click",function(){
       if(S.up)return;
+      if(!CONSENT.has("ppt")){CONSENT.ask("ppt",function(){});return;}
       if(!S.pending){toast("请先选择 PPT 文件");return;}
       var nm=el("pptUpName");
       startUpload(S.pending,nm?nm.value:"");

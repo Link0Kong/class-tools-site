@@ -312,8 +312,9 @@ def _qr_now():
 
 
 def _qr_norm_provider(value):
+    """二维码登录方式：harmony = 鸿蒙独立选项；其余（any/空/历史 oppo/honor）统一为通用扫码。"""
     p = str(value or "").strip().lower()
-    return p if p in ("oppo", "harmony", "honor") else ""
+    return "harmony" if p == "harmony" else ""
 
 
 def _qr_purge(now=None, reserve=0):

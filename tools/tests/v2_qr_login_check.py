@@ -2,7 +2,7 @@
 """网页端扫码登录专项自检（__QR_LOGIN_V1__ / ECS `/account/qr/*`）
 
 覆盖：
-  A. 身份页「扫码登录」入口 → 二维码弹层（票据/二维码像素/OPPO·鸿蒙切换）
+  A. 身份页「扫码登录」入口 → 二维码弹层（票据/二维码像素/通用·鸿蒙切换）
   B. 桌面轮询 wait→ok 自动进入班级；成功后停止轮询
   C. 关闭弹层立即停止轮询；票据过期自动刷新
   D. 扫码服务不可用（建票失败）降级
@@ -108,7 +108,7 @@ window.fetch=function(u,o){
       if(M.mode==="deny"&&M.polls===1)return resp(200,{ok:true,status:"deny"});
       if(M.polls<2)return resp(200,{ok:true,status:"wait"});
       return resp(200,{ok:true,status:"ok",token:"qr-token",sid:"9999000001",name:"测试同学",
-        role:"班长",badge:"班委",is_admin:false,provider:"oppo",via:"web"});
+        role:"班长",badge:"班委",is_admin:false,provider:"",via:"web"});
     }
     if(path==="/qr/authorize"){
       var tok=headers["x-class-token"]||"";
@@ -153,6 +153,10 @@ def jsq(s):
 
 
 def click(pg, sel):
+    # 2026-11-23 合规：确认登录前需勾选《用户协议》《隐私政策》（#qrCGo 默认 disabled）
+    if sel == "#qrCGo":
+        ev(pg, "(function(){var a=document.getElementById('qrAgree');if(a){a.checked=true;"
+               "a.dispatchEvent(new Event('change'));}return true;})()")
     return ev(pg, "(function(){var e=document.querySelector(%s);if(!e)return false;e.click();return true;})()" % jsq(sel))
 
 
@@ -242,10 +246,10 @@ def main():
         T("A3 点扫码登录：建票并显示弹层", ok_open and visible(pg, "#qrOv") and mock(pg).get("creates") == 1,
           "t=%s" % str(st.get("t"))[:8])
         T("A4 二维码已绘制（画布深色模块 >200）", canvas_has_code(pg))
-        T("A5 二维码链接只含票据与手机类型（无 token/k）",
-          ("#qr=" in str(st.get("link"))) and ("p=oppo" in str(st.get("link")))
+        T("A5 二维码链接只含票据与通用类型（无 token/k、无品牌参数）",
+          ("#qr=" in str(st.get("link"))) and ("&p=" not in str(st.get("link")))
           and ("bbbbbbbb" not in str(st.get("link"))), st.get("link"))
-        T("A6 默认 OPPO 分段选中", ev(pg, "document.querySelector('#qrSeg [data-qrp=\"oppo\"]').classList.contains('on')"))
+        T("A6 默认「通用」分段选中", ev(pg, "document.querySelector('#qrSeg [data-qrp=\"any\"]').classList.contains('on')"))
         sig1 = canvas_sig(pg)
 
         click(pg, '#qrSeg [data-qrp="harmony"]')
@@ -315,21 +319,22 @@ def main():
         pg.close()
 
         # ================= E：手机确认页 =================
-        pg = fresh(b, {"id": "1", "mode": "ok"}, "/index.html?n=5#qr=" + TID + "&p=oppo", 430, 860, mobile=True)
+        pg = fresh(b, {"id": "1", "mode": "ok"}, "/index.html?n=5#qr=" + TID, 430, 860, mobile=True)
         ok_gate = pg.wait_for("document.body.classList.contains('qr-locked')", 20)
         T("E1 手机扫码打开：进入确认页并清掉地址栏票据",
           ok_gate and visible(pg, "#qrGate") and ev(pg, "location.hash===''"),
           "hash=%r" % ev(pg, "location.hash"))
         T("E2 已登录：展示姓名、隐藏学号表单、按钮文案「确认登录」",
           txt(pg, "#qrCWho") == "测试同学" and (not visible(pg, "#qrCForm"))
-          and txt(pg, "#qrCGo") == "确认登录" and "OPPO" in txt(pg, "#qrCSub"))
+          and txt(pg, "#qrCGo") == "确认登录" and "手机" in txt(pg, "#qrCSub")
+          and "鸿蒙" not in txt(pg, "#qrCSub"))
         pg.screenshot(os.path.join(SHOTS, "qr_phone_confirm_430.png"))
 
         click(pg, "#qrCGo")
         pg.wait_for("window.__M.authorizes.length===1", 8)
         a = (mock(pg).get("authorizes") or [{}])[0]
         T("E3 一键确认：带本机 token 授权票据（t/p/via 正确）",
-          a.get("token") == "qa-token" and a.get("t") == TID and (a.get("body") or {}).get("p") == "oppo"
+          a.get("token") == "qa-token" and a.get("t") == TID and (a.get("body") or {}).get("p") == "any"
           and (a.get("body") or {}).get("via") == "web", json.dumps(a, ensure_ascii=False)[:160])
         done = pg.wait_for("document.body.classList.contains('qr-done')", 8)
         T("E4 授权成功显示完成态", done and visible(pg, "#qrCOk") and txt(pg, "#qrCOk b") == "已确认登录")
@@ -360,7 +365,7 @@ def main():
 
         # 401：已登录 token 失效 → 回退表单
         pg = fresh(b, {"id": "1", "auth": "401", "mode": "ok"},
-                   "/index.html?n=7#qr=" + TID + "&p=oppo", 430, 860, mobile=True)
+                   "/index.html?n=7#qr=" + TID, 430, 860, mobile=True)
         pg.wait_for("document.body.classList.contains('qr-locked')", 20)
         click(pg, "#qrCGo")
         fallback = pg.wait_for("document.querySelector('#qrCForm') && !document.querySelector('#qrCForm').hidden && "
