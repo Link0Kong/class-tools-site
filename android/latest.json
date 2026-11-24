@@ -1,10 +1,10 @@
 {
-  "versionCode": 147,
-  "versionName": "1.0.0-beta64",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta64.apk",
-  "notes": "加入小布建议课程卡片端侧适配，直连提醒待 OPPO 开通，目前可使用 WakeUp 导入。",
+  "versionCode": 149,
+  "versionName": "1.0.0-beta66",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta66.apk",
+  "notes": "可分别添加课表、工作台、班级通知和待办任务桌面卡片，拉伸后显示更多内容。任务支持分组、步骤、离线同步和系统提醒。",
   "force": false,
   "channel": "beta",
-  "sha256": "3518d7a57e82d22076dbc6c6ab80d71897c58c588935dba911eda92162888832",
-  "sizeBytes": 6123207
+  "sha256": "bf222947b25473fb4b0bb279ecbafdc58585570380e5dca9a6e18f0004e488d9",
+  "sizeBytes": 2378775
 }
