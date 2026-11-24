@@ -51,6 +51,17 @@ RUNNER = r'''
           await sleep(150);
         }
         T("本机新任务自动推送", found, "posts="+((window.__taskposts||[]).length));
+        window.__holdTaskPost=true;
+        qel.value="第一笔慢速保存";q("#tkQuickAdd").click();
+        for(var wait=0;wait<40&&!window.__releaseTaskPost;wait++)await sleep(100);
+        T("首笔写入已进入请求",!!window.__releaseTaskPost,"");
+        qel.value="等待回包期间追加";q("#tkQuickAdd").click();
+        await sleep(1600);
+        window.__holdTaskPost=false;
+        if(window.__releaseTaskPost)window.__releaseTaskPost();
+        for(var n=0;n<50&&window.__taskdata[0].blob.indexOf("等待回包期间追加")<0;n++)await sleep(100);
+        var final=JSON.parse(window.__taskdata[0].blob);
+        T("请求期间的第二笔修改也补发",final.items.some(function(t){return t.title==="等待回包期间追加";}),"");
         T("同步后仍无 JS 报错", (window.__errs||[]).length===0, JSON.stringify(window.__errs||[]));
       }catch(e){window.__p.steps.push({k:"exception",ok:false,note:String(e&&e.stack||e)});}
       try{var x=new XMLHttpRequest();x.open("POST","/_report",false);x.setRequestHeader("Content-Type","application/json");
@@ -90,7 +101,7 @@ tc.MOCK = tc.MOCK.replace("var DATA=__DATA__;",
                           "var DATA=__DATA__;window.__taskdata=DATA.taskdata||[];window.__taskposts=[];", 1)
 tc.MOCK = tc.MOCK.replace(
     'if(s.indexOf("/userdata")>=0)return ok([]);',
-    'if(s.indexOf("/taskdata")>=0){if(m==="POST"){var tb=JSON.parse(o.body||"[]");window.__taskposts.push(tb);window.__taskdata=tb;return ok(tb);}return ok(window.__taskdata||[]);}\n'
+    'if(s.indexOf("/taskdata")>=0){if(m==="POST"){var tb=JSON.parse(o.body||"[]");window.__taskposts.push(tb);window.__taskdata=tb;if(window.__holdTaskPost)return new Promise(function(resolve){window.__releaseTaskPost=function(){resolve(ok(tb));};});return ok(tb);}return ok(window.__taskdata||[]);}\n'
     '    if(s.indexOf("/userdata")>=0)return ok([]);', 1)
 
 tasks = json.loads(json.dumps(tc.TASKS))

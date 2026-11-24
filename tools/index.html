@@ -23977,7 +23977,7 @@ var TK=(function(){
   function tkItems(){return tkData().items||[];}
   function tkLists(){return tkData().lists||[];}
   function tkPrefs(){return tkData().prefs||{sound:true,defaultRemind:"none"};}
-  function tkSave(){try{var t=tkData();t.updatedAt=Date.now();D.d.task=t;D.save();if(window.TASKSYNC){window.TASKSYNC.boot();window.TASKSYNC.touch();}}catch(e){}}
+  function tkSave(){try{var t=tkData();t.updatedAt=Math.max(Date.now(),(Number(t.updatedAt)||0)+1);D.d.task=t;D.save();if(window.TASKSYNC){window.TASKSYNC.boot();window.TASKSYNC.touch();}}catch(e){}}
   function tkFindTask(id){var a=tkItems(),i;for(i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null;}
   function tkFindList(id){return tkFindListExact(id)||TK_NO_LIST;}
   function tkNextOrder(){var a=tkItems(),mn=0,i;for(i=0;i<a.length;i++){var o=Number(a[i].order);if(isFinite(o)&&o<mn)mn=o;}return mn-1;}
@@ -26181,7 +26181,7 @@ var TK=(function(){
     function writeBase(ts){try{localStorage.setItem(baseKey(),JSON.stringify({ts:Number(ts)||0}));}catch(e){}}
     function setStatus(t,err){var e=$("#tkCloud");if(!e)return;e.textContent=t||"";e.className="tk-cloudst"+(err?" err":"");}
     function localTask(){return taskNormData(D.d.task);}
-    function hasData(t){return !!(t&&((t.items&&t.items.length)||(t.lists&&t.lists.length>1)||(t.prefs&&(t.prefs.sound===false||t.prefs.defaultRemind!=="none"||(t.prefs.sidebarOrder&&t.prefs.sidebarOrder.length)||Number(t.prefs.sidebarOrderAt)>0))));}
+    function hasData(t){return !!(t&&((t.items&&t.items.length)||(t.lists&&t.lists.length)||(t.prefs&&(t.prefs.sound===false||t.prefs.defaultRemind!=="none"||(t.prefs.sidebarOrder&&t.prefs.sidebarOrder.length)||Number(t.prefs.sidebarOrderAt)>0))));}
     function cloudView(t){
       var c=JSON.parse(JSON.stringify(t));
       c.items=(c.items||[]).map(function(x){x.attachments="";return x;});
@@ -26250,11 +26250,13 @@ var TK=(function(){
       return out;
     }
     function pull(force){
-      if(!SID)return Promise.resolve(false);
+      var owner=SID;
+      if(!owner||owner!==sidNow())return Promise.resolve(false);
       if(pullP)return pullP;
       if(!force&&Date.now()-lastPull<60000)return Promise.resolve(false);
       setStatus("同步中…");
       pullP=fetchRow().then(function(row){
+        if(owner!==SID||owner!==sidNow())return false;
         lastPull=Date.now();
         var local=localTask(),lts=Number(local.updatedAt)||0;
         if(!row){
@@ -26283,15 +26285,18 @@ var TK=(function(){
         }
         if(lts>rts)return push(true);
         writeBase(rts);setStatus("已同步");return true;
-      }).catch(function(){setStatus("仅本机",true);return false;}).then(function(x){pullP=null;return x;});
+      }).catch(function(){if(owner===sidNow())setStatus("仅本机",true);return false;}).then(function(x){if(pullP===request)pullP=null;return x;});
+      var request=pullP;
       return pullP;
     }
     function push(force){
-      if(!SID)return Promise.resolve(false);
+      var owner=SID;
+      if(!owner||owner!==sidNow())return Promise.resolve(false);
       if(pushP)return pushP;
-      var local=ensureLocal(),lts=Number(local.updatedAt)||0;
       setStatus("同步中…");
       pushP=fetchRow().then(function(row){
+        if(owner!==SID||owner!==sidNow())return false;
+        var local=ensureLocal(),lts=Number(local.updatedAt)||0;
         if(!hasData(local)&&!row){setStatus("已同步");return true;}
         var rts=row?(Number(row.ts)||0):0;
         if(row&&rts>lts&&!force){
@@ -26304,9 +26309,13 @@ var TK=(function(){
         var h=cbH(true);h["Prefer"]="return=representation,resolution=merge-duplicates";
         return fetch(CB+"taskdata",{method:"POST",headers:h,body:JSON.stringify(body)}).then(function(r){
           if(!r.ok)throw new Error("http"+r.status);
-          writeBase(lts);dirty=false;setStatus("已同步");return true;
+          if(owner!==SID||owner!==sidNow())return false;
+          writeBase(lts);
+          if(Number(tkData().updatedAt)>lts){touch();return true;}
+          dirty=false;setStatus("已同步");return true;
         });
-      }).catch(function(){setStatus("仅本机",true);return false;}).then(function(x){pushP=null;return x;});
+      }).catch(function(){if(owner===sidNow())setStatus("仅本机",true);return false;}).then(function(x){if(pushP===request)pushP=null;return x;});
+      var request=pushP;
       return pushP;
     }
     function touch(){
@@ -26319,6 +26328,7 @@ var TK=(function(){
       var s=sidNow();
       if(!s){setStatus("登录后同步");return;}
       if(bootSid===s)return;
+      clearTimeout(timer);pullP=null;pushP=null;dirty=false;
       bootSid=s;SID=s;lastPull=0;
       pull(true);
     }
