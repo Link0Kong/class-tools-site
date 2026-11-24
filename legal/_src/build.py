@@ -27,6 +27,7 @@ from common import (  # noqa: E402
     CSS,
     footer,
     page_html,
+    GONGAN_ICON,
 )
 from platforms import PLATFORMS  # noqa: E402
 from privacy import render_privacy  # noqa: E402
@@ -169,7 +170,7 @@ def index_html() -> str:
             '仅运维/本机使用 IP 调试入口 <a href="%s">%s</a>（页面内链接为相对路径，两种入口都可正常阅读）。</p>'
             % (BASE, DEBUG_BASE, DEBUG_BASE)
         )
-    return """<!DOCTYPE html>
+    return ("""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
@@ -256,7 +257,7 @@ def index_html() -> str:
   <div class="wrap">
     <p><b>班级工具站 · 法律文件</b> · 运营者：%s（个人开发者） · 非学校官方</p>
     <p>版本 V%s · 生效 %s · 最近更新 %s · <a href="manifest.json">manifest.json</a></p>
-    <p>公安备案：<a class="gongan" href="https://beian.mps.gov.cn/#/query/webSearch?code=35010202002375" target="_blank" rel="noreferrer noopener"><img src="/assets/gongan.png" alt="" width="12" height="12">闽公网安备35010202002375号</a></p>
+    <p>公安备案：<a class="gongan" href="https://beian.mps.gov.cn/#/query/webSearch?code=35010202002375" target="_blank" rel="noreferrer noopener"><img src="__GONGAN_ICON__" alt="" width="12" height="12">闽公网安备35010202002375号</a></p>
     <p class="fine">本页为静态法律文本，不包含跟踪脚本、外部字体、广告或第三方统计。法律文本不构成正式法律意见；发布前请按实际功能与适用法律复核。</p>
   </div>
 </footer>
@@ -284,7 +285,7 @@ def index_html() -> str:
         EFFECTIVE,
         LAST_UPDATED,
         "document.querySelectorAll('[data-print]').forEach(function(b){b.addEventListener('click',function(){window.print();});});",
-    )
+    )).replace("__GONGAN_ICON__", GONGAN_ICON)
 
 
 def manifest() -> dict:

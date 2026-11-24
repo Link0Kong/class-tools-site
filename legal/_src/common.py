@@ -5,7 +5,9 @@
 """
 from __future__ import annotations
 
+import base64
 import html
+from pathlib import Path
 
 BASE = "https://tool.furina.fun/legal/"
 DEBUG_BASE = "http://121.196.47.2/legal/"
@@ -22,6 +24,10 @@ ICP_MP = "闽ICP备2026042939号"
 GONGAN_CODE = "35010202002375"
 GONGAN_SITE = "闽公网安备35010202002375号"
 GONGAN_URL = "https://beian.mps.gov.cn/#/query/webSearch?code=" + GONGAN_CODE
+# 法律页的 CSP 是 default-src 'none'; img-src data:，外链/同源图片都会被拦：图标必须内联为 data URI
+GONGAN_ICON = "data:image/png;base64," + base64.b64encode(
+    (Path(__file__).resolve().parents[2] / "tools" / "assets" / "gongan.png").read_bytes()
+).decode("ascii")
 
 PLATFORM_ORDER = ["web", "android", "windows", "harmony", "mp"]
 
@@ -184,7 +190,7 @@ def footer(p: dict, kind: str) -> str:
             '<p class="fine">%s<br>公安备案号：<a class="gongan" href="%s" target="_blank" rel="noreferrer noopener">%s</a>（全国互联网安全管理服务平台可查）</p>'
             % (filing, GONGAN_URL, GONGAN_SITE)
         )
-    return """
+    return ("""
 <footer class="site-foot">
   <div class="wrap">
     <div class="foot-grid">
@@ -206,7 +212,7 @@ def footer(p: dict, kind: str) -> str:
       </div>
     </div>
     <p class="foot-line">本页为静态法律文本，不包含跟踪脚本、外部字体、广告或第三方统计。法律文本不构成正式法律意见；发布前请按实际功能与适用法律复核。</p>
-    <p class="foot-line"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">工信部备案系统</a> · 网站备案号 <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">%s</a> · <a class="gongan" href="%s" target="_blank" rel="noreferrer noopener"><img src="/assets/gongan.png" alt="" width="12" height="12">%s</a> · 文档编号 %s</p>
+    <p class="foot-line"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">工信部备案系统</a> · 网站备案号 <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">%s</a> · <a class="gongan" href="%s" target="_blank" rel="noreferrer noopener"><img src="__GONGAN_ICON__" alt="" width="12" height="12">%s</a> · 文档编号 %s</p>
   </div>
 </footer>
 """ % (
@@ -224,7 +230,7 @@ def footer(p: dict, kind: str) -> str:
         GONGAN_SITE,
         "CT-LEGAL-%s-%s-V%s"
         % ("PRIVACY" if kind == "privacy" else "TERMS", p["code"], VERSION.replace(".", "")),
-    )
+    )).replace("__GONGAN_ICON__", GONGAN_ICON)
 
 
 CSS = r"""
