@@ -344,6 +344,7 @@ RUNNER = r"""
         T("有步骤任务显示展开按钮", !!etRow&&!!etRow.querySelector("[data-tkexpand]"), "");
         if(etRow&&etRow.querySelector("[data-tkexpand]")){etRow.querySelector("[data-tkexpand]").click();await sleep(150);}
         T("任务步骤可展开", !!q("#tkList .tk-substeps")&&txt("#tkList").indexOf("步骤一")>=0, txt("#tkList").slice(0,120));
+        T("展开保留原行与键盘焦点目标", etRow===rowByTitle("测试编辑任务")&&etRow.querySelector("[data-tkexpand]").getAttribute("aria-expanded")==="true","");
         T("展开后显示步骤备注", txt("#tkList").indexOf("先看例题")>=0, "");
         var exRow=rowByTitle("测试编辑任务");
         if(exRow&&exRow.querySelector("[data-tkexpand]")){exRow.querySelector("[data-tkexpand]").click();await sleep(120);}
@@ -359,12 +360,15 @@ RUNNER = r"""
 
         /* ---- 重复完成 / 撤销 ---- */
         var before=TASK.items().length;
+        et.due="2020-01-01";
         rowByTitle("测试编辑任务").querySelector("[data-tkcheck]").click();await sleep(350);
         var parent=taskByTitle("测试编辑任务");
         var kids=TASK.items().filter(function(x){return x.fromId===(parent&&parent.id)&&!x.done;});
         T("完成重复任务生成下一次", !!parent&&parent.done&&kids.length===1&&TASK.items().length===before+1,
           "parent="+(parent&&parent.done)+" kids="+kids.length+" n="+TASK.items().length);
         T("下一次日期顺延 7 天", kids[0]&&kids[0].due>parent.due, kids[0]?kids[0].due:"");
+        T("长期逾期的每周任务补到未来并保留星期",kids[0]&&new Date(kids[0].due+"T"+kids[0].dueTime)>Date.now()&&new Date(kids[0].due+"T12:00:00").getDay()===3,"");
+        T("重复任务保留步骤备注并重置勾选",kids[0]&&kids[0].steps[0].note===et.steps[0].note&&!kids[0].steps[0].done,"");
         click("#tkDoneToggle");await sleep(120);
         var dr=doneRowByTitle("测试编辑任务");
         T("已完成区展开出现该任务", !!dr, "");

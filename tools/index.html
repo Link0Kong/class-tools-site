@@ -24515,14 +24515,20 @@ var TK=(function(){
   /* FLIP 让位：先量旧位置，插入 DOM，再让其他条目从旧位置动画回新位置。
      拖动的这一行本身跟手移动，不参与动画；重复 move 时先 finish 旧动画，避免叠加速度。 */
   function tkFlipMove(container,row,target,sel){
+    var steps=row.nextElementSibling;
+    if(!steps||!steps.hasAttribute("data-tksub")||steps.getAttribute("data-tksub")!==row.getAttribute("data-tkid"))steps=null;
     if(target){
-      if(row.nextElementSibling===target)return false;
-    }else if(container.lastElementChild===row)return false;
+      if(target===row||(steps||row).nextElementSibling===target)return false;
+    }else if(container.lastElementChild===(steps||row))return false;
+    function place(){
+      container.insertBefore(row,target);
+      if(steps)container.insertBefore(steps,target);
+    }
     var items=$$(sel,container);
     if(tkMotionOk()){
       items.forEach(function(el){try{el.getAnimations().forEach(function(a){a.finish();});}catch(e){}});
       var before=items.map(function(el){var r=el.getBoundingClientRect();return {el:el,x:r.left,y:r.top};});
-      if(target)container.insertBefore(row,target);else container.appendChild(row);
+      place();
       before.forEach(function(it){
         var el=it.el;
         if(el===row||!el.isConnected)return;
@@ -24534,11 +24540,12 @@ var TK=(function(){
         }catch(e){}
       });
     }else{
-      if(target)container.insertBefore(row,target);else container.appendChild(row);
+      place();
     }
     return true;
   }
   function tkSideDragStart(e,h){
+    if(TKSIDE||TKTASK)return;
     if(e.button!=null&&e.button!==0)return;
     var spec=String(h.getAttribute("data-tksidedrag")||"").split("|");
     var type=spec[0],row=tkClosest(h,".tk-navrow");
@@ -24548,7 +24555,7 @@ var TK=(function(){
     TKSIDE={type:type,row:row,cont:cont,y:e.clientY,x:e.clientX,moved:false,pid:e.pointerId};
     try{h.setPointerCapture(e.pointerId);}catch(x){}
     function move(ev){
-      var d=TKSIDE;if(!d)return;
+      var d=TKSIDE;if(!d||ev.pointerId!==d.pid)return;
       if(!d.moved){
         if(Math.abs(ev.clientY-d.y)<5&&Math.abs(ev.clientX-d.x)<5)return;
         d.moved=true;d.row.classList.add("tk-navrow-drag");
@@ -24582,8 +24589,8 @@ var TK=(function(){
         else tkFlipMove(d.cont,d.row,null,".tk-navrow");
       }else tkFlipMove(d.cont,d.row,null,".tk-navrow");
     }
-    function up(){
-      var d=TKSIDE;if(!d)return;
+    function up(ev){
+      var d=TKSIDE;if(!d||ev.pointerId!==d.pid)return;
       document.removeEventListener("pointermove",move);
       document.removeEventListener("pointerup",up);
       document.removeEventListener("pointercancel",up);
@@ -24591,6 +24598,7 @@ var TK=(function(){
       d.row.style.pointerEvents="";
       TKSIDE=null;
       if(!d.moved)return;
+      if(ev.type==="pointercancel"){tkRenderSide();return;}
       var keys=$$(".tk-navrow",d.cont).map(function(el){
         var b=el.querySelector(d.type==="smart"?"[data-tkview]":"[data-tklist]");
         return b?String(b.getAttribute(d.type==="smart"?"data-tkview":"data-tklist")||""):"";
@@ -24602,6 +24610,7 @@ var TK=(function(){
     document.addEventListener("pointercancel",up);
   }
   function tkTaskDragStart(e,h){
+    if(TKSIDE||TKTASK)return;
     if(e.button!=null&&e.button!==0)return;
     if(!tkCanDragTasks()){
       e.preventDefault();e.stopPropagation();
@@ -24614,7 +24623,7 @@ var TK=(function(){
     TKTASK={row:row,box:box,y:e.clientY,pid:e.pointerId,moved:false};
     try{h.setPointerCapture(e.pointerId);}catch(x){}
     function move(ev){
-      var d=TKTASK;if(!d)return;
+      var d=TKTASK;if(!d||ev.pointerId!==d.pid)return;
       if(!d.moved){
         if(Math.abs(ev.clientY-d.y)<5)return;
         d.moved=true;d.row.classList.add("tk-dragging");
@@ -24632,8 +24641,8 @@ var TK=(function(){
       if(target)tkFlipMove(d.box,d.row,target,".tk-item");
       else tkFlipMove(d.box,d.row,null,".tk-item");
     }
-    function up(){
-      var d=TKTASK;if(!d)return;
+    function up(ev){
+      var d=TKTASK;if(!d||ev.pointerId!==d.pid)return;
       document.removeEventListener("pointermove",move);
       document.removeEventListener("pointerup",up);
       document.removeEventListener("pointercancel",up);
@@ -24642,6 +24651,7 @@ var TK=(function(){
       document.body.classList.remove("tk-sorting");
       TKTASK=null;
       if(!d.moved)return;
+      if(ev.type==="pointercancel"){tkRenderList();return;}
       var ids=$$("#tkList .tk-item",d.box).map(function(el){return String(el.getAttribute("data-tkid")||"");}).filter(Boolean);
       tkApplyTaskOrder(ids);
     }
@@ -24734,7 +24744,7 @@ var TK=(function(){
       if(q)foot.textContent="搜索到 "+arr.length+" 项";
       else{
         var total=arr.length+doneArr.length;
-        foot.textContent="共 "+total+" 项 · 已完成 "+doneArr.length;
+        foot.textContent="共 "+total+" 项 · 已完成 "+(TKU.view==="done"?arr.length:doneArr.length);
       }
     }
     tkRenderHeader();
@@ -24790,7 +24800,7 @@ var TK=(function(){
     try{tkSidebarPrefsApply();}catch(e){}
     TKU.today=tkToday();
     if(!TKU.seg||(TKU.seg!=="my"&&TKU.seg!=="class")){TKU.seg=tkPickSeg();TKU.segAuto=true;}
-    if(TKU.view==="list"&&!tkFindList(TKU.list))TKU.view="all";
+    if(TKU.view==="list"&&!tkFindListExact(TKU.list)){TKU.view="all";TKU.list="";tkWriteUi();}
     tkApplySeg();
     tkRenderAll();
     tkRenderClassBadge();
@@ -24884,19 +24894,20 @@ var TK=(function(){
   function tkMakeNext(t,now){
     var baseMs=t.due?taskParseDue(t.due,t.dueTime):taskParseDue(tkToday(),t.dueTime||"");
     var baseDate=baseMs?new Date(baseMs):new Date();
+    if(t.repeat==="daily"||t.repeat==="weekly"||t.repeat==="weekday"){
+      var weeks=Math.max(0,Math.floor((now-baseDate.getTime())/604800000)-1);
+      baseDate.setDate(baseDate.getDate()+weeks*7);
+    }
     var nextDate=tkAdvanceDate(baseDate,t.repeat);
     var nextDue=taskYmd(nextDate);
-    var guard=0;
-    while(guard++<12){
-      var dl=taskDeadlineMs({due:nextDue,dueTime:t.dueTime||""});
-      if(dl&&dl>now)break;
+    while(taskDateOk(nextDue)&&taskDeadlineMs({due:nextDue,dueTime:t.dueTime||""})<=now){
       nextDate=tkAdvanceDate(nextDate,t.repeat);nextDue=taskYmd(nextDate);
     }
     var n=JSON.parse(JSON.stringify(t));
     n.id=taskNewId("t");n.fromId=t.id;n.done=false;n.doneAt=0;
     n.createdAt=now;n.updatedAt=now;n.order=tkNextOrder();
     n.myDay="";n.lastNotifyAt=0;n.snoozeUntil=0;
-    n.steps=(t.steps||[]).map(function(s){return {text:s.text,done:false};});
+    n.steps=(t.steps||[]).map(function(s){return {text:s.text,done:false,note:s.note||""};});
     n.due=nextDue;n.dueTime=t.dueTime||"";
     if(t.remindMode==="custom"&&t.remindAt){
       var delta=taskParseDue(nextDue,n.dueTime)-baseMs;
@@ -25806,7 +25817,18 @@ var TK=(function(){
     var ex=tkClosest(e.target,"[data-tkexpand]");
     if(ex){
       var eid=ex.getAttribute("data-tkexpand");
-      TKEXP[eid]=!TKEXP[eid];tkRenderList();
+      var expanded=!TKEXP[eid],task=tkFindTask(eid),row=tkClosest(ex,".tk-item");
+      if(!task||!row)return;
+      TKEXP[eid]=expanded;
+      ex.classList.toggle("on",expanded);
+      ex.setAttribute("aria-expanded",String(expanded));
+      ex.title=expanded?"收起步骤":"展开步骤";
+      ex.setAttribute("aria-label",ex.title);
+      if(expanded){
+        row.insertAdjacentHTML("afterend",tkSubstepsHTML(task));
+        var panel=row.nextElementSibling;
+        if(tkMotionOk()&&panel.animate)panel.animate([{opacity:0,transform:"translateY(-4px)"},{opacity:1,transform:"none"}],{duration:150,easing:"ease-out"});
+      }else if(row.nextElementSibling&&row.nextElementSibling.getAttribute("data-tksub")===eid)row.nextElementSibling.remove();
       e.preventDefault();e.stopPropagation();return;
     }
     var ed=tkClosest(e.target,"[data-tkedit]");
