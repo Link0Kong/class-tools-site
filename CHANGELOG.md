@@ -2,6 +2,21 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-24 13:52–14:05 · 可迁项迁入 ECS：安卓更新链改直链（6.1 MB 约 2 分钟 → 0.5 秒）、ECS 镜像库刷新到当前生产（35 表 / 29,744 行）
+
+> 用户要求「把所有建议可以迁的都迁入」。本轮只做**不需要客户端发版**的部分；生产 API 切流必须与四端发版同窗口，另行安排（原因见下）。
+
+- **安卓更新链（已迁，立即生效）**：`web/android/latest.json` 的 `apkUrl` 由香港 OSS `.bin` 改为 **ECS 正式域名直链** `https://tool.furina.fun/android/<file>.apk`（正确 `application/vnd.android.package-archive`，客户端 DownloadManager 可直接识别安装）。
+  - 实测（2026-11-24 13:5x，本机）：改前香港 OSS TLS 2.3 s、首 256 KB 用 5.34 s（≈49 KB/s，整包约 2 分钟）；改后整包 **6,104,622 B / 0.52 s（11.7 MB/s）**。
+  - `deploy/android_release.py`：`apkUrl` 改用新增常量 `ECS_PUBLIC`；校验改为「ECS JSON / ECS APK（https 域名）/ OSS JSON / OSS 归档」四项；OSS 仍保留同字节 `.bin` 归档但不再被客户端引用；修复 `--apk` 指向 `android/<file>.apk` 自身时 `shutil.copy2` 触发 WinError 32 的问题。
+  - 回滚：把 `latest.json` 的 `apkUrl` 改回 `…oss-cn-hongkong.aliyuncs.com/android/<file>.apk.bin` 后重传 ECS + OSS。
+- **ECS 镜像库（数据已迁，未切生产）**：`cutover_run.py rehearsal` 用 2026-11-24 13:52 新快照重建 `class_tools_cut`——35 表 / 29,744 行 / 48.6 MiB gz / 86 MB，`HASH_OK 35`、`VERIFY_OK tables=35`；应用 `notice_meta_lite` + `notice_meta_cache` 两个优化 SQL；测试身份 smoke 全 PASS（members=70、notices_meta 153 行 / 191 ms）。
+  - staging（`/v1/rdb/rest-next/`）已指向 `class_tools_cut`：`taskdata` 表与 `visits.ver/dev` 列均已存在；`class_notices_meta` 返回 **381,164 B**，与 CloudBase 生产**逐字节一致**。
+  - 延迟（同一测试身份、本机 5 次）：staging P50 **40.5 ms** vs CloudBase 网关 P50 **70.1 ms**。
+  - 回滚：`python deploy\ecs_pg.py switch-db --db class_tools`。
+- **本轮未迁（有依赖）**：① 生产 `/v1/rdb/rest/*` 切 selfhosted——小程序 `ACTIVE_REST_PROFILE` 与安卓 `BuildConfig.REST_BASE_URL` 是编译常量，必须与四端发版同窗口，否则网页写 ECS、手机读 CloudBase 会数据分叉；② 三个 CloudBase 云函数 → ECS timer（切流后随 `post_cutover.py apply` 启用，提前开会双写）；③ 附件外置开关（旧客户端读不了 `/att/` URL）；④ PPT 主存 / 静态发布源 / 异地备份桶仍在香港 OSS（用户侧已被 `/pptfiles` 缓存与 ECS 直链覆盖，冷源收益有限）。
+- 注：本轮 `tools/tt.json` 为教务流水线自动刷新，随提交一并推送。
+
 ## 2026-11-23 22:1x–22:4x · 扫码登录改为「所有手机通用 + 鸿蒙独立选项」；安卓 App 新增「扫一扫」（登录 / 抽签存证核验）
 
 > 用户要求：「直接优化扫码登录为所有手机共有能力，可将鸿蒙登录做独立选项，其他安卓品牌统一为扫码后登录，

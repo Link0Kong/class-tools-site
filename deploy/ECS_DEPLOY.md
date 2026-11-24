@@ -29,7 +29,7 @@
 | 备份 | 每次 apply 前备份到 `/var/www/tool_backup/<时间戳>/`（旧 `index.html` + 旧 `Caddyfile`） |
 | 实测（2026-11-23） | `https://tool.furina.fun/` **200 / 1,681,591 B**（与 OSS、ECS 字节一致）；`http://` **308**；`/board` 200、`/api/status` 200、`/tt.json` 7,463 B、`/legal/web/privacy.html` 200、`/legal/manifest.json` 200、`/pptfiles/__health` 200、`/drop/__health` 200 |
 
-### 2.1 服务迁移盘点（2026-11-23；`python deploy\ecs_audit.py` 可随时复跑）
+### 2.1 服务迁移盘点（2026-11-24；`python deploy\ecs_audit.py` 可随时复跑）
 
 | 已迁至 ECS（实测 active） | 位置 |
 |---|---|
@@ -41,19 +41,20 @@
 | 文件传输 | `8093`（`/drop/*`） |
 | 扫码登录 / 账号 | `8094`（`/account/*`） |
 | 校园地图共享状态 | `8095`（`/map/api/*`） |
-| PostgreSQL 18.6 | `127.0.0.1:5432`；`class_tools` + `class_tools_cut` 各 73 MB（11-18 导入快照） |
-| PostgREST 13.0.8 | `127.0.0.1:3000`；公网仅 `/v1/rdb/rest-next/*`（staging/影子验证） |
+| **安卓更新包** | `/var/www/tool/android/*.apk`；`android/latest.json` 的 `apkUrl` **2026-11-24 起指向 ECS**（6.1 MB 实测 0.5–0.8 s / 7–12 MB/s；此前香港 OSS `.bin` ≈49 KB/s、约 2 分钟） |
+| PostgreSQL 18.6 | `127.0.0.1:5432`；`class_tools_cut` = **2026-11-24 13:52 全量镜像**（35 表 / 29,744 行 / 86 MB，HASH_OK 35、verify PASS）；`class_tools` 为旧 staging 库 |
+| PostgREST 13.0.8 | `127.0.0.1:3000`；staging `/v1/rdb/rest-next/*` **当前指向 `class_tools_cut`** |
 | 定时任务 | `class-tools-pg-monitor.timer`（10 分钟）、`class-tools-pg-backup.timer`（每日 03:30，保留 6 份 dump） |
 
 | 仍未迁移（外部依赖） | 现状 |
 |---|---|
 | 生产数据 API `/v1/rdb/rest/*` | **腾讯云 CloudBase 网关**（ECS Caddy 仅同源反代；P4 切流未执行） |
 | 定时云函数 `power_sync` / `xgj_sync` / `health_probe` | CloudBase（ECS 没有对应 timer） |
-| 静态站发布源 / PPT 媒体 / APK 包 | 阿里云 **OSS 香港**（`sync_tools.py` 上传 → `ecs_site.py apply` 拉取） |
+| 静态站发布源 / PPT 媒体 | 阿里云 **OSS 香港**（`sync_tools.py` 上传 → `ecs_site.py apply` 拉取；PPT 主存仍在港，ECS 只做 `/pptfiles` 缓存，APK 已移出） |
 | 通知采集/构建、AI 质检、PPT 转换、教务抓取、诊断 agent | 本机 Windows（依赖本机 QQ/微信/Office/校园网环境，不能搬到 ECS） |
 | 客户端 REST | 小程序/安卓/鸿蒙仍直连 CloudBase 网关（ECS 服务地址已切 https 域名） |
 
-- **判据（可复现）**：`/v1/rdb/rest/` 不带凭据返回 CloudBase 的 `MISSING_CREDENTIALS`；`/v1/rdb/rest-next/` 返回 PostgREST swagger（`version 13.0.8`）；ECS 库 `notices.max(ts)=2026-11-18 13:51`（导入快照），而生产 REST 同表 `max(ts)` 为当天时间。
+- **判据（可复现，2026-11-24）**：`/v1/rdb/rest/` 无凭据仍返回 CloudBase `MISSING_CREDENTIALS`；`/v1/rdb/rest-next/` 返回 PostgREST swagger 且**指向 `class_tools_cut`**；测试身份 `rpc/class_notices_meta` 返回 **381,164 B / 153 行**，与 CloudBase 同字节；`taskdata`、`visits.ver/dev` 在镜像库均存在。
 - **安全（2026-11-23）**：审计时误把 `/etc/class-tools/pgrest.conf` 的本地 DSN 带进终端输出，已轮换 `authenticator` 角色密码（新密码只在远端 `openssl rand` 生成，写入 PostgreSQL 角色 + 0600 `pgrest.conf`，不落仓库、不回显）；PostgREST 重启后 `/v1/rdb/rest-next/` 200、`/v1/rdb/rest/` 401 正常。**以后不要 `grep db-uri` / `cat pgrest.conf`**；需要判断库名用 `ecs_pg.py probe`。
 
 ## 3. 用法（在 `web` 目录下执行，用带 `aliyunsdkcore` 的 Python，例如系统 `python`）

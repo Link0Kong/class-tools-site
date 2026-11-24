@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-"""Android 版本发布：自动上传 APK + latest.json 到更新渠道（ECS + OSS）。
+"""Android 版本发布：自动上传 APK + latest.json 到更新渠道（ECS 主 + OSS 备）。
 
 2026-11-19 用户要求：安卓所有版本发布都要自动上传更新渠道。
+2026-11-24 迁移：`apkUrl` 改为 **ECS 正式域名直链**（`.apk` 后缀，客户端 DownloadManager
+可直接识别安装；香港 OSS 实测握手 1–5s、~49KB/s，6.1MB 包要 2 分钟，ECS 实测 0.8s/7.4MB/s）。
+OSS 仍保留同字节 `.bin` 作为归档/兜底，但不再出现在 latest.json 里。
 本脚本是唯一发布入口，供 android-class-tools 的 `assembleRelease` finalizer 调用：
   1) 计算 APK SHA-256 / 大小，生成 latest.json（版本号、更新说明、sha256、sizeBytes）；
-  2) 上传 OSS `android/<file>.bin`（APK 以 octet-stream 存；OSS 禁止公开 .apk 直链）；
-  3) 通过 ECS 云助手从 OSS 拉取并落到 `/var/www/tool/android/<file>.apk`；
+  2) 上传 OSS `android/<file>.bin`（归档兜底，不对外引用）；
+  3) 通过 ECS 云助手从 OSS 拉取并落到 `/var/www/tool/android/<file>.apk`（对外下载源）；
   4) 上传 `android/latest.json` 到 OSS 与 ECS（先 APK 后 JSON，避免客户端拿到 404 URL）；
-  5) 验证 ECS JSON / APK / OSS JSON 均 200 且 sha 一致；写回 web/android/latest.json。
+  5) 验证 ECS JSON / ECS APK / OSS JSON 均 200 且 sha 一致；写回 web/android/latest.json。
 
 用法（在 web 目录下）：
   python deploy\\android_release.py --apk <path> --version-name 1.0.0-beta8 --version-code 91
@@ -34,6 +37,7 @@ import ecs_site  # noqa: E402
 
 ANDROID_DIR = os.path.join(WEB, "android")
 OSS_BASE = "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com"
+ECS_PUBLIC = "https://tool.furina.fun"   # 正式域名（备案 + HTTPS 已就绪）
 ECS_ANDROID = "/var/www/tool/android"
 ECS_IP = ecs_site.ECS_IP
 
@@ -90,7 +94,7 @@ def main(argv=None):
     payload = {
         "versionCode": int(args.version_code),
         "versionName": str(args.version_name),
-        "apkUrl": "%s/android/%s" % (OSS_BASE, oss_name),
+        "apkUrl": "%s/android/%s" % (ECS_PUBLIC, fname),
         "notes": notes,
         "force": False,
         "channel": str(args.channel or "beta"),
@@ -129,8 +133,12 @@ def main(argv=None):
     local_bin = os.path.join(ANDROID_DIR, oss_name)
     # 本地留档（同字节；发布脚本自身不依赖这两份文件）
     import shutil
-    shutil.copy2(apk, local_apk)
-    shutil.copy2(apk, local_bin)
+    # Windows 上把文件 copy 到自身会 PermissionError（WinError 32）；发布已归档的 APK 时
+    # `--apk` 往往就是 `android/<file>.apk` 本身，这里跳过自拷贝。
+    if os.path.abspath(apk) != os.path.abspath(local_apk):
+        shutil.copy2(apk, local_apk)
+    if os.path.abspath(apk) != os.path.abspath(local_bin):
+        shutil.copy2(apk, local_bin)
     # 1) OSS：先 APK，后 JSON
     if not args.skip_oss:
         b = oss_bucket()
@@ -167,12 +175,12 @@ def main(argv=None):
         if status != "Success" or str(code) not in ("0", "None"):
             raise SystemExit("ECS 更新渠道发布失败：status=%s exit=%s" % (status, code))
 
-    # 3) 公网验证（ECS + OSS）
+    # 3) 公网验证（ECS 主 + OSS 归档）
     checks = [
         ("ECS latest.json", "http://%s/android/latest.json" % ECS_IP, "GET"),
-        ("ECS APK", "http://%s/android/%s" % (ECS_IP, fname), "HEAD"),
+        ("ECS APK", ECS_PUBLIC + "/android/" + fname, "HEAD"),
         ("OSS latest.json", OSS_BASE + "/android/latest.json", "GET"),
-        ("OSS APK.bin", payload["apkUrl"], "HEAD"),
+        ("OSS APK.bin", OSS_BASE + "/android/" + oss_name, "HEAD"),
     ]
     for label, url, method in checks:
         code, body = http_code(url, method)
@@ -189,8 +197,9 @@ def main(argv=None):
         f.write(raw.decode("utf-8"))
 
     print("== 发布完成：%s / vc%s / %s ==" % (args.version_name, args.version_code, digest))
-    print("  客户端主入口：http://%s/android/latest.json" % ECS_IP)
-    print("  OSS 兜底    ：%s/android/latest.json" % OSS_BASE)
+    print("  客户端主入口：%s/android/latest.json" % ECS_PUBLIC)
+    print("  客户端下载源：%s/android/%s" % (ECS_PUBLIC, fname))
+    print("  OSS 归档    ：%s/android/%s.bin" % (OSS_BASE, fname))
     return 0
 
 
