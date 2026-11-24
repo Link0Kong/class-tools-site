@@ -21,6 +21,24 @@
 > `python deploy\migration\cutover_run.py rollback --confirm`（回滚）。
 > 下面 §1 是等价的手工步骤（编排失败时按手工回退）。
 
+### 1.0 四端发版（切流前先做；这一步本身不改数据）
+
+> 客户端的 REST 地址是**编译常量**，没有远程开关：先发版（`selfhosted` 指向 `https://tool.furina.fun/v1/rdb/rest/`），
+> 因为切流前这条路径仍由 Caddy 反代到 CloudBase，**新版在切流前连的还是 CloudBase，零风险**；
+> 切流瞬间同一条 URL 指向自建库，新版自动生效。**未升级的旧版**会继续直连 CloudBase，切流后读到旧数据
+> （写操作也会落在 CloudBase）→ 观察期结束前尽量让同学升级，这是唯一的数据分叉来源。
+
+| 端 | 开关 | 位置 |
+|---|---|---|
+| 网页 | 无需发版（同源 `/v1/rdb/rest/*`，Caddy 一切即生效） | — |
+| 小程序 | `ACTIVE_REST_PROFILE = 'selfhosted'` | `mp-class-tools/utils/cloud-config.js` |
+| 安卓 | `ct.restProfile=selfhosted`（或构建时 `--project-prop`） | `android-class-tools/gradle.properties`（默认值在 `app/build.gradle.kts`） |
+| 鸿蒙 | `CloudConfig.REST_BASE` → `https://tool.furina.fun/v1/rdb/rest/` | `harmony-class-tools/entry/src/main/ets/config/CloudConfig.ets` |
+| Windows | `ApiConfig.BaseUrl` | `windows-class-tools/src/ClassTools.Data/ApiConfig.cs` |
+
+- 四端都构建/上传完成后，再进入下面第 1 步（冻结 + 最终快照）。
+- 小程序服务器域名需含 `https://tool.furina.fun`（request + downloadFile），2026-11-23 备案后已可用。
+
 1. **宣布冻结**：请在班群/任意入口通知「接下来 5 分钟别提交作业/投票/抽签」。
 2. **最终快照**（CloudBase 只读）：
    ```
