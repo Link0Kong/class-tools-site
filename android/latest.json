@@ -1,10 +1,10 @@
 {
-  "versionCode": 150,
-  "versionName": "1.0.0-beta67",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta67.apk",
-  "notes": "作业升级为任务：支持分组、步骤、重复提醒和离线同步，可从班级作业与通知加入，工作台和桌面卡片同步展示。修复 beta66 启动异常。",
+  "versionCode": 151,
+  "versionName": "1.0.0-beta68",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta68.apk",
+  "notes": "扫一扫上线：App 内扫网页二维码登录、扫抽签存证二维码核验；网页扫码改为所有手机通用 + 鸿蒙独立选项",
   "force": false,
   "channel": "beta",
-  "sha256": "00eec4fecf18d1f8da0fc91e553454df5c8b0330face6c5d6cc5906df448c607",
-  "sizeBytes": 6179540
+  "sha256": "445549f0ac43f68187ddec1349f30caf6cabb0880aa8b548e05f9be202d6631d",
+  "sizeBytes": 6703800
 }

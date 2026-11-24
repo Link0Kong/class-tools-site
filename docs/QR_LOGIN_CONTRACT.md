@@ -153,7 +153,9 @@
     页面展示存证编号/时间/抽签人/参数/结果/事件数与两个核验徽标。
   - 其它内容 → 「无法识别的二维码」，可重新扫描。
 - 不接收、不保存任何来自电脑的 token；App 只用自己的班级 token 授权。
-- 版本：源码已实现并通过编译/单测；安装包由并行会话统一发版（本次 Android 不单独提交/发布）。
+- **已上线**：安卓 `1.0.0-beta68 / vc151`，APK **6,703,800 B / sha256
+  `445549f0ac43f68187ddec1349f30caf6cabb0880aa8b548e05f9be202d6631d`**，
+  下载 <https://tool.furina.fun/android/classtools-1.0.0-beta68.apk>（ECS 直链；latest.json 已同步）。
 
 ## 8. 已知限制（如实）
 
@@ -170,9 +172,9 @@
 - 网页：`cd web/tools && python tests\v2_qr_login_check.py` → **34/34**（headless Edge + CDP，全 mock，0 外部请求）。
 - 服务端：`cd web && python -m pytest deploy/tests/test_account_qr.py -q` → **13 passed**
   （内存票据/鉴权/CORS/过期/幂等/限频/App `via=app` 通用票据）。
-- 安卓：`.\gradlew.bat :app:testDebugUnitTest --tests "com.furina.classtools.features.scan.*"
-  --tests "com.furina.classtools.data.scan.*" --tests "com.furina.classtools.data.draw.DrawProofParserTest"`
-  → **25 passed**（二维码解析 7 / draw-v1 复算 6 / 账号接口 8 / 存证解析 4）。
+- 安卓：`.\gradlew.bat :app:testDebugUnitTest` → **1939/0**；扫码定向用例 **25 passed**
+  （二维码解析 7 / draw-v1 复算 6 / 账号接口 8 / 存证解析 4）；`assembleRelease` 成功并自动发布
+  **beta68 / vc151**（见 §7）。
 - 真实抽签存证核验（测试身份 3260799999）：`rpc/draw_record_list` → `draw_record_get` 返回
   `hash/canon/pool/result/seed`，Python 复算 `hash_ok=True / replay_ok=True`，字段与安卓解析假设一致。
 - 部署：
@@ -180,9 +182,10 @@
   2. `python deploy\sync_tools.py index.html`
   3. `python deploy\ecs_site.py apply`
   4. 法律页：`python deploy\sync_legal.py`
-- 线上对象（2026-11-23 通用/鸿蒙版）：`index.html` **1,693,522 B / sha256
-  `5e82b75ea7690ce3fe0783fac90599ad373f3b1df0bd8f1ac3d71740004cf9c4`**（OSS/ECS 同字节）。
-- 部署前线上备份：`tools/_backup/index_online_20261123-2235_preScanAll.html`（同字节；含并行会话的备案/统计改动）。
+- 线上网页（2026-11-24 复核，含并行会话后续改动）：`index.html` **1,701,605 B / sha256
+  `aa8b2dd9d0d19712cce2104d4afa61d7daa5eaf2d90faa2120b0881dcf9cf97b`**（OSS/ECS 同字节）。
+- 本次扫码功能网页提交：`2dd2bcf`（1,693,522 B / `5e82b75e…` 当时版本）；部署前备份
+  `tools/_backup/index_online_20261123-2235_preScanAll.html`。
 
 ## 10. 回滚
 

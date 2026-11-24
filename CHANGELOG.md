@@ -42,22 +42,22 @@
   历史 `p=oppo/honor` 一律按通用处理。`APP_VER` 仍 2.0.0，单文件零依赖不变。
 - **ECS 账号服务 v1.2**：`p` 归一改为 `harmony` 保留、其余（any/空/历史 oppo/honor）统一为通用 `""`；
   安卓 App 使用同一 `/qr/authorize`（`via:"app"`），不接收 token。已重新部署，健康检查 `version=1.2 qr=true`。
-- **安卓 App（源码已实现，未单独发版）**：新增「扫一扫」入口（工作台顶栏 / 抽签页顶栏 → `Routes.SCAN`）；
+- **安卓 App「扫一扫」已上线（beta68/vc151）**：新增「扫一扫」入口（工作台顶栏 / 抽签页顶栏 → `Routes.SCAN`）；
   CameraX 预览 + ZXing 本机解码；扫 `#qr=<t>` 即带本机班级 token 调 `/account/qr/authorize` 完成电脑登录；
   扫 `#verify=<id>` 调 `rpc/draw_record_get`，本机 SHA-256(canon) + draw-v1 复算并展示「哈希/复算 ✓✗」；
-  相机权限仅在扫码页申请（隐私政策/法律页同步为「仅扫码、不拍照不上传」）。**因检测到同工作区并行会话
-  未提交改动，按用户选择等待对方先提交/发布，本次 Android 不提交、不构建 release、不发版**；源码快照见
-  `archive/android-scan-20261123/`。
+  相机权限仅在扫码页申请（隐私政策/法律页同步为「仅扫码、不拍照不上传」）。
+  APK **6,703,800 B / sha256 `445549f0ac43f68187ddec1349f30caf6cabb0880aa8b548e05f9be202d6631d`**，
+  下载 <https://tool.furina.fun/android/classtools-1.0.0-beta68.apk>（ECS 直链，latest.json 已同步）。
 - **法律页**：`legal/_src/platforms.py` + `legal/android/privacy.html` 的权限说明改为「相机仅扫一扫使用，
   画面仅本机解码、不拍照/不保存/不上传」，并新增 CAMERA 权限行；`sync_legal.py` 已同步 OSS+ECS。
 - **测试**：网页 `v2_qr_login_check.py` **34/34**（通用/鸿蒙链接、确认页文案、无溢出/0 报错/0 外部请求）；
-  服务端 `test_account_qr.py` **13 passed**（新增 App `via=app` 通用票据）；安卓定向单测 **25 passed**
-  （二维码解析 7 / draw-v1 复算 6 / 账号接口 8 / 存证解析 4），`compileDebugKotlin` 成功；真实测试身份
-  `draw_record_get` 字段与复算 `hash_ok/replay_ok` 均通过。
+  服务端 `test_account_qr.py` **13 passed**（新增 App `via=app` 通用票据）；安卓全量单测 **1939/0**，
+  其中扫码定向 **25 passed**（二维码解析 7 / draw-v1 复算 6 / 账号接口 8 / 存证解析 4）；
+  真实测试身份 `draw_record_get` 字段与复算 `hash_ok/replay_ok` 均通过。
 - **上线**：网页 **1,693,522 B / sha256 `5e82b75ea7690ce3fe0783fac90599ad373f3b1df0bd8f1ac3d71740004cf9c4`**
-  （OSS/ECS 同字节）；法律页已同步（Android privacy 含 CAMERA 行）。备份
-  `tools/_backup/index_online_20261123-2235_preScanAll.html`。
-- **回滚**：网页重传上述备份；账号服务回退 v1.1 后 `ecs_account.py deploy`；安卓回退扫码源码/依赖。
+  （本次提交时；后续并行改动后线上为 1,701,605 B / `aa8b2dd9…`）；法律页已同步（Android privacy 含 CAMERA 行）；
+  安卓 beta68 已发布到 ECS+OSS 更新渠道。备份 `tools/_backup/index_online_20261123-2235_preScanAll.html`。
+- **回滚**：网页重传上述备份；账号服务回退 v1.1 后 `ecs_account.py deploy`；安卓回退扫码源码/依赖并重新发版。
 
 ## 2026-11-23 17:2x–17:5x · 网站 ICP 备案通过（闽ICP备2026042939号-2）：域名切回 ECS + HTTPS 上线 + 页脚备案号（清理备案期临时方案）
 
