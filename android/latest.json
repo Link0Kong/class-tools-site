@@ -1,10 +1,10 @@
 {
-  "versionCode": 144,
-  "versionName": "1.0.0-beta61",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta61.apk",
+  "versionCode": 145,
+  "versionName": "1.0.0-beta62",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta62.apk",
   "notes": "自建后端切流：数据请求改走 tool.furina.fun（国内直连，登录/通知更快更稳）",
   "force": false,
   "channel": "beta",
-  "sha256": "7c11c4e531a599cd019fa7f6bf9a7d6a395d6eefaf7e5c346a206bd393ac4e7e",
-  "sizeBytes": 6628926
+  "sha256": "f5f999d2a75619e41a9fcc087788d99a08ddba9006a8d9ca416e1b2f69de50f7",
+  "sizeBytes": 6104678
 }

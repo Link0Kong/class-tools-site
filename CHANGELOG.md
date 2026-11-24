@@ -8,7 +8,8 @@
 
 - **四端源码切换（均已双远端推送）**：
   - 小程序 `utils/cloud-config.js`：`ACTIVE_REST_PROFILE='selfhosted'`，`tests/net_layer_tests.js` N1 同步改为断言 selfhosted（`5c5053e`）。`node unit.js` **645 passed / 0 failed**，`staticcheck.py` 通过。
-  - 安卓：release 默认档改 `selfhosted`（`releaseRestProfile`/默认 URL），`vc144 / 1.0.0-beta61`（`7d669b9`）。`verifyReleaseEndpoints` + `testDebugUnitTest` 通过；`assembleRelease` 自动发布 **6,628,926 B / sha256 `7c11c4e5…`**（ECS + OSS），线上 `latest.json` 已回读 vc144，整包下载实测 **0.56 s / 11.8 MB/s**。
+  - 安卓：release 默认档改 `selfhosted`（`releaseRestProfile`/默认 URL），`vc145 / 1.0.0-beta62`（`23888f4`）。`verifyReleaseEndpoints` + `testDebugUnitTest` 通过；`assembleRelease` 自动发布 **6,104,678 B / sha256 `f5f999d2…`**（ECS + OSS），线上 `latest.json` 已回读 vc145。
+    - **纠错记录**：首次提交 `7d669b9` 用 `git add -A` 把工作区里 11-23 被刻意暂缓的「扫一扫」源码一并提交并打了 beta61（vc144）；已用 `23888f4` 全量撤回那 17 个文件（仅保留 REST/版本改动），重发 beta62（vc145，体积回到 6.10 MB）。扫一扫源码保留在 `7d669b9` 与 `archive/android-scan-20261123/`，等用户安排时再单独发版。
   - 鸿蒙：`CloudConfig.REST_BASE` → `https://tool.furina.fun/v1/rdb/rest/`，版本 **1.0.9**（`aa84f24`）。
   - Windows：`ApiConfig.BaseUrl` → 正式域名，版本 **0.1.1**（`cc21a4d`）；`dotnet test` **130/0**，Release 构建 0 警告 0 错误。
 - **为什么现在切客户端安全**：切流前 `https://tool.furina.fun/v1/rdb/rest/` 仍由 Caddy 反代 CloudBase，新版客户端只是多一跳；实测测试身份经该路径 `class_verify` **200 / members 70**，TTFB **~110 ms**。
