@@ -1,10 +1,10 @@
 {
-  "versionCode": 146,
-  "versionName": "1.0.0-beta63",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta63.apk",
-  "notes": "新增桌面课表卡片和 ColorOS 课前倒计时，校正四十分钟节次与十分钟课间，优化课名和地图按钮",
+  "versionCode": 147,
+  "versionName": "1.0.0-beta64",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta64.apk",
+  "notes": "加入小布建议课程卡片端侧适配，直连提醒待 OPPO 开通，目前可使用 WakeUp 导入。",
   "force": false,
   "channel": "beta",
-  "sha256": "258a69fad55cbd69969d1fbbd9ea205666781ecb322bf64bc2bf311791ab836f",
-  "sizeBytes": 6106739
+  "sha256": "3518d7a57e82d22076dbc6c6ab80d71897c58c588935dba911eda92162888832",
+  "sizeBytes": 6123207
 }
