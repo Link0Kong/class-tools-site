@@ -1,10 +1,10 @@
 {
-  "versionCode": 145,
-  "versionName": "1.0.0-beta62",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta62.apk",
-  "notes": "自建后端切流：数据请求改走 tool.furina.fun（国内直连，登录/通知更快更稳）",
+  "versionCode": 146,
+  "versionName": "1.0.0-beta63",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta63.apk",
+  "notes": "新增桌面课表卡片和 ColorOS 课前倒计时，校正四十分钟节次与十分钟课间，优化课名和地图按钮",
   "force": false,
   "channel": "beta",
-  "sha256": "f5f999d2a75619e41a9fcc087788d99a08ddba9006a8d9ca416e1b2f69de50f7",
-  "sizeBytes": 6104678
+  "sha256": "258a69fad55cbd69969d1fbbd9ea205666781ecb322bf64bc2bf311791ab836f",
+  "sizeBytes": 6106739
 }

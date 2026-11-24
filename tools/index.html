@@ -255,6 +255,7 @@ table.tt td.crs{padding:clamp(3px,calc(var(--dayw)*.04),8px) clamp(3px,calc(var(
 table.tt td.crs b{font-size:clamp(10.5px,calc(var(--dayw)*.185),14.5px);line-height:1.28}
 table.tt td.crs i{font-size:clamp(9px,calc(var(--dayw)*.13),11.5px);margin-top:clamp(1px,calc(var(--dayw)*.015),3px)}
 table.tt .crs em.tch{display:none;font-style:normal;font-size:clamp(9px,calc(var(--dayw)*.115),11px);opacity:.62;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+table.tt td.crs[rowspan]:not([rowspan="1"]) b{-webkit-line-clamp:4;overflow-wrap:anywhere}
 .ttcard.tt-roomy table.tt .crs em.tch{display:block}
 table.tt .crs-multi .crs b{font-size:clamp(10px,calc(var(--dayw)*.175),14px);line-height:1.26}
 table.tt .crs-multi .crs i{font-size:clamp(8.5px,calc(var(--dayw)*.125),11.5px)}
@@ -2801,7 +2802,9 @@ html[data-appearance="dark"] .nt-admin-fab{background:rgba(255,255,255,.14);bord
 #s-map iframe{width:100%;height:100%;border:0;display:block}
 #s-map .mapwait{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:8px;background:var(--card);color:var(--ink2);padding:16px}
 #s-map .mapwait[hidden]{display:none}
-.nextbox .nmap,.ttc-map{min-height:40px;display:block;margin-top:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:6px 10px;font:inherit;font-size:12px;cursor:pointer}
+.nmap{flex:none;align-self:center;display:inline-grid;place-items:center;width:42px;height:42px;padding:0;margin:0;border:1px solid var(--line);border-radius:50%;background:var(--card);color:var(--ink);cursor:pointer}
+.nmap[hidden]{display:none}
+.ttc-map{min-height:40px;display:block;margin-top:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:6px 10px;font:inherit;font-size:12px;cursor:pointer}
 .nextbox .nmap:active{transform:scale(.98)}
 @media (max-height:480px){#s-map .mapframe{height:max(255px,calc(100dvh - 124px))}}
 /* ========== __CHSI_ENTRY_V1_CSS__ 学信网入口（2026-11-15） ==========
@@ -4223,7 +4226,7 @@ html[data-appearance="dark"] .cst-row b{color:#EEF2F0}
           <div class="nextbox" id="tNext" style="display:none">
             <div class="nwhen"><div class="k" id="tNextK">下一节</div><div class="nclock" id="tNextC">—</div></div>
             <div class="nmain"><div class="v" id="tNextV">—</div><div class="t" id="tNextT"></div></div>
-            <button type="button" class="nmap" id="tNextMap" onclick="openMapFromNext()">在地图看这栋楼</button>
+            <button type="button" class="nmap" id="tNextMap" aria-label="在地图查看教室" title="在地图查看教室" onclick="openMapFromNext()"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 5 6-2.5 7 3 6-2.5v16l-6 2.5-7-3-6 2.5zM8.5 2.5v16m7-13v16"/></svg></button>
           </div>
           <button class="ttlisttol" id="tListToggle" style="display:none">全部课程<b id="tListN"></b><span id="tListArrow">⌄</span></button>
           <div id="tList"></div>
@@ -5118,7 +5121,7 @@ html[data-appearance="dark"] .cst-row b{color:#EEF2F0}
     </div>
   </section>
 
-  <section id="s-all">
+  <section id="s-workbench">
     <div class="card wb-schedule" id="wbSchedule" hidden>
       <div class="wb-heading">
         <h2>今日课程<span id="wbWeek" class="wb-week"></span></h2>
@@ -5127,6 +5130,9 @@ html[data-appearance="dark"] .cst-row b{color:#EEF2F0}
       <div class="wb-courses" id="wbCourses"></div>
       <p id="wbCourseNote" class="wb-course-note"></p>
     </div>
+  </section>
+
+  <section id="s-all">
     <div class="groups" id="allCards"></div>
   </section>
 
@@ -8647,6 +8653,7 @@ var TOOLS=[
  {k:"ppt",n:"演示",d:"PPT 上传、下载与播放"},
  {k:"stage",n:"大屏",d:"团日主持与演示放映",admin:true},
  {k:"settings",n:"设置",d:"外观、备份与协议"},
+ {k:"workbench",n:"工作台",d:"今日课程、上课时间与下一节安排"},
  {k:"map",n:"地图",d:"校园 2.5D 地图与道路导航"},
  {k:"jw",n:"教务",d:"成绩、选课与考试",url:"http://210.34.74.77/sso.jsp"},
  {k:"chsi",n:"学信网",d:"学籍 · 学历 · 学位；官方入口卡"}];
@@ -8834,7 +8841,7 @@ function renderTabs(noScroll){
 }
 
 /* 全部栏卡片色调：课表雾蓝 · 作业/反馈睡莲青 · 抽签/体测暖沙 · 班委/点名/统计紫 · 通知灰粉 · 使用说明中性 */
-var ALL_TONE={draw:"sand",group:"blue",tt:"blue",committee:"violet",hw:"mint",nt:"rose",ntadmin:"teal",ft:"sand",roll:"violet",stats:"violet",water:"blue",vote:"teal",stage:"violet",settings:"plain",map:"teal",jw:"blue",chsi:"blue"};
+var ALL_TONE={workbench:"mint",draw:"sand",group:"blue",tt:"blue",committee:"violet",hw:"mint",nt:"rose",ntadmin:"teal",ft:"sand",roll:"violet",stats:"violet",water:"blue",vote:"teal",stage:"violet",settings:"plain",map:"teal",jw:"blue",chsi:"blue"};
 /* ============================================================
    全部页卡片拖动 v2（2026-11-06；2026-11-11 定位基准 = 卡片本体）
    - 起点：卡片右上 handle（三条横线）；移动 >6px 才进入拖动
@@ -12607,9 +12614,9 @@ window.GROUP={
 /* ============================================================
    课表
    ============================================================ */
-var PERIODS=[["08:10","08:55"],["08:55","09:40"],["09:50","10:30"],["10:40","11:25"],
-  ["11:25","12:10"],["14:30","15:15"],["15:15","16:00"],["16:10","16:55"],
-  ["16:55","17:40"],["19:00","19:45"],["19:45","20:30"],["20:30","21:20"]];
+var PERIODS=[["08:10","08:50"],["09:00","09:40"],["09:50","10:30"],["10:40","11:20"],
+  ["11:30","12:10"],["14:30","15:10"],["15:20","16:00"],["16:10","16:50"],
+  ["17:00","17:40"],["19:00","19:40"],["19:50","20:30"],["20:40","21:20"]];
 var DAYS=["周一","周二","周三","周四","周五","周六","周日"];
 function weekNum(s,date){ if(!s) return null; var a=new Date(s+"T00:00:00"); if(isNaN(a)) return null;
   var n=date||new Date(); var x=new Date(a.getFullYear(),a.getMonth(),a.getDate()), y=new Date(n.getFullYear(),n.getMonth(),n.getDate());
@@ -12663,14 +12670,24 @@ function ttCoursesOn(cs,wk,date){
     return c.day===day && c.end>=c.start && PERIODS[c.start-1] && PERIODS[c.end-1] && active(c,wk);
   }).sort(function(a,b){return a.start-b.start;});
 }
+function ttLivePeriod(c,mins){
+  for(var p=c.start;p<=c.end && p<=PERIODS.length;p++){
+    var slot=PERIODS[p-1];
+    if(slot && ttHM(slot[0])<=mins && mins<ttHM(slot[1]))return p;
+  }
+  return 0;
+}
 function ttTodayPlan(cs,term,now){
   var wk=weekNum(term,now), today=ttCoursesOn(cs,wk,now), mins=now.getHours()*60+now.getMinutes();
   var current=null, next=null;
   var rows=today.map(function(c){
-    var time=PERIODS[c.start-1][0], start=ttHM(time), end=ttHM(PERIODS[c.end-1][1]);
-    var ongoing=mins>=start && mins<end;
-    if(ongoing && !current)current={kind:"now",c:c,left:end-mins,dayoff:0};
-    if(start>mins && !next)next={kind:"next",c:c,left:start-mins,dayoff:0};
+    var time=PERIODS[c.start-1][0];
+    var period=c.start;
+    while(period<c.end && mins>=ttHM(PERIODS[period-1][1]))period++;
+    var bell=ttHM(PERIODS[period-1][0]), finish=ttHM(PERIODS[period-1][1]);
+    var ongoing=mins>=bell && mins<finish;
+    if(ongoing && !current)current={kind:"now",c:c,period:period,left:finish-mins,dayoff:0};
+    if(bell>mins && (!next || bell-mins<next.left))next={kind:"next",c:c,period:period,left:bell-mins,dayoff:0};
     return {c:c,time:time,badge:ongoing?"上课中":(next && next.c===c?"下一节":"")};
   });
   for(var offset=1;!next && cs.length && term && offset<14;offset++){
@@ -12689,7 +12706,7 @@ function renderWorkbenchCourses(){
   clearTimeout(wbCourseTimer);
   var card=$("#wbSchedule");
   card.hidden=!AUTH.ready;
-  if(card.hidden || CURTAB!=="all" || document.hidden)return;
+  if(card.hidden || CURTAB!=="workbench" || document.hidden)return;
   var d=ttData(), now=new Date(), plan=ttTodayPlan(d.c,d.t,now);
   $("#wbWeek").textContent=plan.week?"第 "+plan.week+" 周":"";
   $("#wbCourses").innerHTML=plan.rows.map(function(row){
@@ -12826,10 +12843,11 @@ function ttRenderNext(d){
   var info=ttNowInfo(d.c);
   if(!info||!d.c.length||info.dayoff!==0){el.style.display="none";return;}
   el.style.display="";
-  var c=info.c, p1=PERIODS[c.start-1]||["",""];
+  var c=info.c, p1=PERIODS[(info.period||c.start)-1]||["",""];
   $("#tNextK").textContent=info.kind==="now"?"正在上课":"下一节";
   $("#tNextC").textContent=p1[0]||"—";
   $("#tNextV").textContent=c.name;
+  $("#tNextMap").hidden=!String(c.room||"").trim();
   var bits=[];
   bits.push(DAYS[c.day]+" 第"+c.start+"-"+c.end+"节");
   if(c.room)bits.push(c.room);
@@ -12869,7 +12887,7 @@ function ttRenderWeek(d,wk,ti){
         if(hit.items.length===1){
           var c=hit.items[0], cc=ttColorOf(c.name), idx=d.c.indexOf(c);
           var p1=PERIODS[c.start-1],p2=PERIODS[c.end-1];
-          var isNow=!!(tday&&p1&&p2&&nowMins>=ttHM(p1[0])&&nowMins<=ttHM(p2[1]));
+          var isNow=!!(tday&&ttLivePeriod(c,nowMins));
           html+='<td class="crs'+(isNow?' now':'')+'" rowspan="'+span+'" data-cid="'+idx+'" data-cname="'+esc(c.name)+'" title="'+esc(c.name+(c.room?' · '+c.room:''))+(c.teacher?' · '+esc(c.teacher):'')+'" style="background:'+cc[0]+';color:'+cc[1]+';animation-delay:'+Math.min(bi*40,360)+'ms"><b>'+esc(c.name)+'</b>'+(c.room?'<i>'+esc(ttRoomShort(c.room))+'</i>':'')+(c.teacher?'<em class="tch">'+esc(c.teacher)+'</em>':'')+'</td>';
           bi++;
         }else{
@@ -12877,7 +12895,7 @@ function ttRenderWeek(d,wk,ti){
           hit.items.forEach(function(c){
             var cc=ttColorOf(c.name);
             var p1=PERIODS[c.start-1],p2=PERIODS[c.end-1];
-            var isNow=!!(tday&&p1&&p2&&nowMins>=ttHM(p1[0])&&nowMins<=ttHM(p2[1]));
+            var isNow=!!(tday&&ttLivePeriod(c,nowMins));
             html+='<div class="crs'+(isNow?' now':'')+'" data-cid="'+d.c.indexOf(c)+'" data-cname="'+esc(c.name)+'" title="'+esc(c.name+(c.room?' · '+c.room:''))+(c.teacher?' · '+esc(c.teacher):'')+'" style="background:'+cc[0]+';color:'+cc[1]+';animation-delay:'+Math.min(bi*40,360)+'ms"><b>'+esc(c.name)+'</b>'+(c.room?'<i>'+esc(ttRoomShort(c.room))+'</i>':'')+(c.teacher?'<em class="tch">'+esc(c.teacher)+'</em>':'')+'</div>';
             bi++;
           });
@@ -12925,7 +12943,7 @@ function ttRenderDay(d,wk,ti){
   var now=new Date(), nowMins=now.getHours()*60+now.getMinutes();
   list.innerHTML=cs.map(function(c){
     var p1=PERIODS[c.start-1]||["",""], p2=PERIODS[c.end-1]||["",""];
-    var isNow=!!(sel===todayReal&&nowMins>=ttHM(p1[0])&&nowMins<=ttHM(p2[1]));
+    var isNow=!!(sel===todayReal&&ttLivePeriod(c,nowMins));
     return '<div class="dcourse'+(isNow?' now':'')+'" data-cid="'+d.c.indexOf(c)+'" data-cname="'+esc(c.name)+'" style="--c:'+ttColorOf(c.name)[0]+'">'+
       '<div class="dt"><b>'+esc(p1[0]||"")+'</b><i>第'+c.start+'-'+c.end+'节</i></div>'+
       '<div class="db"><b>'+esc(c.name)+'</b>'+(c.teacher||c.room?'<i>'+esc([c.teacher,c.room].filter(Boolean).join(" · "))+'</i>':'')+(c.weeks?'<em>'+esc(c.weeks)+' 周</em>':'')+'</div></div>';
@@ -12960,7 +12978,7 @@ function ttRenderList(d){
   }).join("");
 }
 function renderTT(){
-  if(CURTAB==="all")renderWorkbenchCourses();
+  if(CURTAB==="workbench")renderWorkbenchCourses();
   var d=ttData();
   var view=(D.d.ttView==="day")?"day":((D.d.ttView==="week")?"week":((window.innerWidth<560)?"day":"week"));
   var cardEl=document.querySelector(".ttcard"); if(cardEl)cardEl.classList.toggle("tt-dayview",view==="day");
@@ -13149,7 +13167,7 @@ function ttRenderCourseDetail(c,wk){
   var date=wk?ttDate(wk,c.day):null;
   html+='<div class="ttc-row"><span class="k">教师</span><span class="v">'+esc(c.teacher||"—")+'</span></div>';
   html+='<div class="ttc-row"><span class="k">时间</span><span class="v">'+esc(ttFmtSession(c,date))+'</span></div>';
-  if(c.room)html+='<div class="ttc-row"><span class="k">教室</span><span class="v">'+esc(c.room)+'</span></div>';
+  if(c.room)html+='<div class="ttc-row"><span class="k">教室</span><span class="v">'+esc(c.room)+'</span><button type="button" class="nmap" aria-label="在地图查看教室" title="在地图查看教室" data-tt-map-room="'+esc(c.room)+'"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 5 6-2.5 7 3 6-2.5v16l-6 2.5-7-3-6 2.5zM8.5 2.5v16m7-13v16"/></svg></button></div>';
   var start=date?ttCourseStart(c,wk):null;
   var nx=ttFindNextSession(c.name,start||new Date());
   if(nx){
@@ -13159,7 +13177,6 @@ function ttRenderCourseDetail(c,wk){
   }else{
     html+='<div class="ttc-row"><span class="k">下次</span><span class="v">暂无后续课程</span></div>';
   }
-  if(String(c.room||"").trim())html+='<button type="button" class="ttc-map" data-tt-map-room="'+esc(c.room)+'">在地图查看教室</button>';
   $("#ttCBody").innerHTML=html;
   $("#ttCPanel").style.display="";
 }
