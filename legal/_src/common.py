@@ -18,6 +18,10 @@ LAST_UPDATED = "2026年11月23日"
 ICP_SITE = "闽ICP备2026042939号-2"
 # 小程序备案号（微信小程序独立备案，与网站备案号不是同一个号）
 ICP_MP = "闽ICP备2026042939号"
+# 公安联网备案（2026-11-24 通过；首页底部须与 ICP 号并列展示，链接全国互联网安全管理服务平台）
+GONGAN_CODE = "35010202002375"
+GONGAN_SITE = "闽公网安备35010202002375号"
+GONGAN_URL = "https://beian.mps.gov.cn/#/query/webSearch?code=" + GONGAN_CODE
 
 PLATFORM_ORDER = ["web", "android", "windows", "harmony", "mp"]
 
@@ -174,6 +178,12 @@ def footer(p: dict, kind: str) -> str:
     counterpart_label = "用户协议" if kind == "privacy" else "隐私政策"
     filing = p.get("filing", "")
     filing_html = ('<p class="fine">%s</p>' % filing) if filing else ""
+    if filing and p.get("key") == "web":
+        # 公安联网备案号只属于网站（tool.furina.fun）；小程序/APP 是另一笔业务，不在其文档里冒充
+        filing_html = (
+            '<p class="fine">%s<br>公安备案号：<a class="gongan" href="%s" target="_blank" rel="noreferrer noopener">%s</a>（全国互联网安全管理服务平台可查）</p>'
+            % (filing, GONGAN_URL, GONGAN_SITE)
+        )
     return """
 <footer class="site-foot">
   <div class="wrap">
@@ -196,7 +206,7 @@ def footer(p: dict, kind: str) -> str:
       </div>
     </div>
     <p class="foot-line">本页为静态法律文本，不包含跟踪脚本、外部字体、广告或第三方统计。法律文本不构成正式法律意见；发布前请按实际功能与适用法律复核。</p>
-    <p class="foot-line"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">工信部备案系统</a> · 网站备案号 <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">%s</a> · 文档编号 %s</p>
+    <p class="foot-line"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">工信部备案系统</a> · 网站备案号 <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">%s</a> · <a class="gongan" href="%s" target="_blank" rel="noreferrer noopener"><img src="/assets/gongan.png" alt="" width="12" height="12">%s</a> · 文档编号 %s</p>
   </div>
 </footer>
 """ % (
@@ -210,6 +220,8 @@ def footer(p: dict, kind: str) -> str:
         EFFECTIVE,
         LAST_UPDATED,
         ICP_SITE,
+        GONGAN_URL,
+        GONGAN_SITE,
         "CT-LEGAL-%s-%s-V%s"
         % ("PRIVACY" if kind == "privacy" else "TERMS", p["code"], VERSION.replace(".", "")),
     )
@@ -338,6 +350,10 @@ td code,th code,p code,li code{font-family:var(--mono);font-size:.9em;background
 .foot-brand{font-weight:800;color:var(--ink);font-size:14px}
 .fine{font-size:11.5px;color:var(--ink3)}
 .foot-line{border-top:1px solid var(--line);padding-top:12px;margin-top:16px!important;font-size:11.5px;color:var(--ink3)}
+.foot-line .gongan{white-space:nowrap;text-decoration:none;border-bottom:1px solid var(--line2)}
+.foot-line .gongan img{vertical-align:-2px;margin-right:3px;border-radius:2px}
+.gongan{white-space:nowrap}
+.gongan img{vertical-align:-2px;margin-right:3px;border-radius:2px}
 .nobreak{break-inside:avoid}
 @media (max-width:960px){
   .layout{grid-template-columns:1fr;gap:16px;padding-top:18px}

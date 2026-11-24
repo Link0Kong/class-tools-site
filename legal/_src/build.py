@@ -210,6 +210,7 @@ def index_html() -> str:
       <a class="btn-primary" href="#platforms">选择你的端</a>
       <a class="btn-ghost" href="manifest.json">统一调取清单 JSON</a>
       <a class="btn-ghost" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">工信部备案系统</a>
+      <a class="btn-ghost" href="https://beian.mps.gov.cn/#/query/webSearch?code=35010202002375" target="_blank" rel="noreferrer noopener">公安部备案查询</a>
     </div>
     <div class="meta-grid">
       <div><span>文档版本</span><b>V%s</b></div>
@@ -255,6 +256,7 @@ def index_html() -> str:
   <div class="wrap">
     <p><b>班级工具站 · 法律文件</b> · 运营者：%s（个人开发者） · 非学校官方</p>
     <p>版本 V%s · 生效 %s · 最近更新 %s · <a href="manifest.json">manifest.json</a></p>
+    <p>公安备案：<a class="gongan" href="https://beian.mps.gov.cn/#/query/webSearch?code=35010202002375" target="_blank" rel="noreferrer noopener"><img src="/assets/gongan.png" alt="" width="12" height="12">闽公网安备35010202002375号</a></p>
     <p class="fine">本页为静态法律文本，不包含跟踪脚本、外部字体、广告或第三方统计。法律文本不构成正式法律意见；发布前请按实际功能与适用法律复核。</p>
   </div>
 </footer>
