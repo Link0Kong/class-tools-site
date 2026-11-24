@@ -347,3 +347,80 @@ python deploy\ecs_drop.py selftest   # 测试身份真实 E2E（token 不打印/
 - **回滚**：`git checkout` 上一版 `deploy/functions/health_probe/health_beat.py` →
   `python deploy\ecs_cron.py install`（timer 仍禁用）；下一次 health_probe 运行即恢复 P3 行文案，
   残留 `meta.pg` 不参与页面渲染、无害。PG 监控 timer/JSON 本身不受影响。
+
+---
+
+## 10. 产品展示页（/showcase/，2026-11-24 上线）
+
+> 页面源码：`G:\ClassTools\class-tools-showcase\dist`（独立静态站，**不是** `web/tools/index.html`；
+> 323 文件 / ≈30 MB，含五端实拍 webp 与四个端的下载包）。线上入口 **https://tool.furina.fun/showcase/**。
+
+### 10.1 为什么挂在 /showcase/ 而不是新域名
+
+- 网站备案是「一笔网站一个号」：主站 `tool.furina.fun` = `闽ICP备2026042939号-2` +
+  `闽公网安备35010202002375号`。另开域名/子站要**另办一笔网站备案**（`docs/公安联网备案/05_备案后与配套事项.md` §2），
+  展示页没有这个必要；
+- 同域子路径天然复用同一套备案号，页脚展示即满足「底部显著位置、可点击、能查到」；
+- Caddy 是 `root * /var/www/tool` + `file_server`，`showcase/` 目录放进去就能访问，**不需要改 Caddyfile**；
+- 与主站互不影响：`ecs_site.py apply` 只替换固定文件清单，不会动 `/var/www/tool/showcase/`。
+
+### 10.2 备案信息展示（发布前必须自检）
+
+页脚（`dist/index.html` 的 `.foot-legal` 块 + `dist/style.css` 末尾）展示：
+
+| 元素 | 值 | 链接 |
+|---|---|---|
+| 版权 | `© 2026 班级工具站` | — |
+| 网站备案号 | `闽ICP备2026042939号-2` | `https://beian.miit.gov.cn/` |
+| 公安联网备案号 | 图标 + `闽公网安备35010202002375号` | `https://beian.mps.gov.cn/#/query/webSearch?code=35010202002375` |
+| 法律文本 | `隐私政策与用户协议` | `https://tool.furina.fun/legal/` |
+
+- 图标 `dist/media/gongan.png` = 官方 62×67 logo（与主站 `web/tools/assets/gongan.png` 同一份），页面 13px 显示；
+- 桌面一行、手机折三行（`.foot-legal` 的 `@media(max-width:740px)` 让「隐私政策与用户协议」独占一行）；
+- `ecs_showcase.py` 在**打包前**和**远端解包后**各校验一次（两个备案号、两个链接、图标文件、`foot-legal` 样式），
+  缺任何一项直接失败——没备案号的版本发不上去；
+- **重建提醒**：若展示页被外部构建重新生成（`dist` 被整目录覆盖），页脚会被冲掉；
+  按本节表格补回 `index.html` 的 `.foot-legal` 块与 `style.css` 的页脚样式（`deploy/ecs_showcase.py pack` 会先拦下来）。
+
+### 10.3 发布
+
+```powershell
+cd G:\ClassTools\web
+python deploy\ecs_showcase.py apply             # 打包 → 上传 OSS → 云助手解包 → 原子切换 → 线上校验
+python deploy\ecs_showcase.py verify            # 只校验（sha256 / 备案号 / 图标 / 静态资源 / gzip）
+python deploy\ecs_showcase.py apply --dry-run   # 只打印远端脚本
+python deploy\ecs_showcase.py pack              # 只打包（可配 --src 指定构建目录）
+```
+
+- 打包产物 `deploy/_build/showcase-site.tar.gz`（≈24 MB，已 gitignore），OSS 对象 `showcase/site.tar.gz`；
+- 远端流程：`curl` 下载 → 解到 `/var/www/tool/showcase.new.<TS>` → 自检（index 大小、备案号、链接、图标、css）
+  → 旧目录移到 `/var/www/tool_backup/<TS>/showcase.old` → `mv` 原子切换 → `chmod -R a+rX` →
+  本机 `:80` 入口抽查四类文件；
+- 耗时 ≈ 1–3 分钟（24 MB 上传 + 香港 OSS → 杭州 ECS 回源）；香港 OSS 上传慢时先 `pack`，再单独重试。
+
+### 10.4 回滚
+
+```bash
+# ECS 上：取最近一次发布的旧目录
+BK=$(ls -d /var/www/tool_backup/*/ | tail -1)
+rm -rf /var/www/tool/showcase && mv "$BK/showcase.old" /var/www/tool/showcase
+```
+
+或重新 `apply` 一次（用 OSS 当前打包）。展示页回滚不影响主站，主站回滚也不影响展示页。
+
+### 10.5 实测（2026-11-24 21:41）
+
+- 远端：`/var/www/tool/showcase` 323 文件 / 30 MB，`index.html` **12,707 B / sha256 `4723c496…`**；
+  `/showcase/` 200、`/showcase/style.css` 200、`/showcase/media/gongan.png` 200（`image/png`）、
+  `/showcase/media/web/campus.webp` 200；
+- 本机校验：线上 `index.html` 与本地 323 文件打包件 **MATCH**，两个备案号 + 两个链接 + 图标全部 OK，
+  `https://tool.furina.fun/showcase/` **200 / 12,707 B**（gzip 传输 4,450 B），`http://` **308 → https**；
+- 桌面 1440 宽与手机 390 宽实拍核对：页脚两个备案号可见、可点击，图标非破图。
+
+### 10.6 已知边界
+
+- `robots.txt` 用主站根目录那一份（`Allow: /`，仅屏蔽 `/board`），展示页同样可被搜索引擎索引；
+- 展示页里的下载链接指向主站 `/android/<apk>` 与外部 release 页 / 微软运行库，随各端发布脚本更新
+  （当前 Android 文案为 beta62，主站已发到 beta64，旧 APK 仍在 `/android/` 可下载；要换版本改
+  `dist/platform-access.js` 后重新 `apply`）；
+- 展示页是外部构建产物（同步到 `class-tools-showcase` 仓库），文案/截图改动应在构建侧做，再做 §10.2 的页脚补回与发布。

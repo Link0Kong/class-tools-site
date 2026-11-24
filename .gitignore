@@ -100,3 +100,5 @@ docs/PORTING_MATRIX_20261115.md
 
 # 运维备份（DNS 记录快照等，只在本机保留）
 deploy/_dns_backup/
+# 展示页发布打包产物（24 MB，重新生成即可，见 deploy/ecs_showcase.py）
+deploy/_build/
