@@ -23,9 +23,12 @@ import base64
 import hashlib
 import json
 import os
+import re
+import struct
 import sys
 import time
 import urllib.request
+import zipfile
 from datetime import datetime
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -48,6 +51,35 @@ def sha256(path):
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def dex_class_names(dex):
+    """Read defined class descriptors. A DEX may also reference classes it does not define."""
+    string_ids = struct.unpack_from("<I", dex, 60)[0]
+    type_ids = struct.unpack_from("<I", dex, 68)[0]
+    class_count, class_defs = struct.unpack_from("<II", dex, 96)
+    for index in range(class_count):
+        type_index = struct.unpack_from("<I", dex, class_defs + index * 32)[0]
+        string_index = struct.unpack_from("<I", dex, type_ids + type_index * 4)[0]
+        offset = struct.unpack_from("<I", dex, string_ids + string_index * 4)[0]
+        # Modified UTF-8 strings start with the UTF-16 length encoded as ULEB128.
+        while dex[offset] & 0x80:
+            offset += 1
+        start = offset + 1
+        yield dex[start:dex.index(b"\x00", start)]
+
+
+def verify_app_entrypoints(apk):
+    required = {b"Lcom/furina/classtools/ClassToolsApp;", b"Lcom/furina/classtools/MainActivity;"}
+    try:
+        with zipfile.ZipFile(apk) as archive:
+            for name in archive.namelist():
+                if re.fullmatch(r"classes(?:[0-9]+)?\.dex", name):
+                    required.difference_update(dex_class_names(archive.read(name)))
+    except (zipfile.BadZipFile, struct.error, IndexError, ValueError) as exc:
+        raise SystemExit("无法解析 APK 中的 DEX：%s" % exc)
+    if required:
+        raise SystemExit("APK 缺少应用入口类，已中止发布：" + ", ".join(sorted(s.decode() for s in required)))
 
 
 def safe_name(version_name):
@@ -86,6 +118,7 @@ def main(argv=None):
     apk = os.path.abspath(args.apk)
     if not os.path.isfile(apk):
         raise SystemExit("APK 不存在：%s" % apk)
+    verify_app_entrypoints(apk)
     digest = sha256(apk)
     size = os.path.getsize(apk)
     fname = "classtools-%s.apk" % safe_name(args.version_name)
