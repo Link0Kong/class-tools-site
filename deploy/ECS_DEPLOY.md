@@ -353,7 +353,8 @@ python deploy\ecs_drop.py selftest   # 测试身份真实 E2E（token 不打印/
 ## 10. 产品展示页（/showcase/，2026-11-24 上线）
 
 > 页面源码：`G:\ClassTools\class-tools-showcase\dist`（独立静态站，**不是** `web/tools/index.html`；
-> 323 文件 / ≈30 MB，含五端实拍 webp 与四个端的下载包）。线上入口 **https://tool.furina.fun/showcase/**。
+> 321 文件 / ≈12 MB，含五端实拍 webp 与小程序二维码；HAP / Windows ZIP 已于 2026-11-24 22:08 下架）。
+> 线上入口 **https://tool.furina.fun/showcase/**。
 
 ### 10.1 为什么挂在 /showcase/ 而不是新域名
 
@@ -408,19 +409,28 @@ rm -rf /var/www/tool/showcase && mv "$BK/showcase.old" /var/www/tool/showcase
 
 或重新 `apply` 一次（用 OSS 当前打包）。展示页回滚不影响主站，主站回滚也不影响展示页。
 
-### 10.5 实测（2026-11-24 21:41）
+### 10.5 实测
 
-- 远端：`/var/www/tool/showcase` 323 文件 / 30 MB，`index.html` **12,707 B / sha256 `4723c496…`**；
-  `/showcase/` 200、`/showcase/style.css` 200、`/showcase/media/gongan.png` 200（`image/png`）、
-  `/showcase/media/web/campus.webp` 200；
-- 本机校验：线上 `index.html` 与本地 323 文件打包件 **MATCH**，两个备案号 + 两个链接 + 图标全部 OK，
+- **2026-11-24 21:41（首次上线）**：`/var/www/tool/showcase` 323 文件 / 30 MB，`index.html` **12,707 B /
+  sha256 `4723c496…`**；`/showcase/` 200、`/showcase/style.css` 200、`/showcase/media/gongan.png` 200
+  （`image/png`）、`/showcase/media/web/campus.webp` 200；
+- **2026-11-24 22:08（获取方式调整）**：321 文件 / 13 M（HAP 5.7 MB 与 Windows ZIP 11.9 MB 下架），
+  `index.html` 未变（12,707 B / `4723c496…`）；`platform-access.js` 线上含「联系开发者获取测试邀请」
+  「Windows 版正在开发中」；`/showcase/get/class-tools-harmony-1.0.8-emulator.hap` 与
+  `/showcase/get/class-tools-windows-0.1.1-x64.zip` 均 **404**，`/showcase/get/wechat-mini.jpg` **200**；
+- 本机校验：线上 `index.html` 与本地打包件 **MATCH**，两个备案号 + 两个链接 + 图标全部 OK，
   `https://tool.furina.fun/showcase/` **200 / 12,707 B**（gzip 传输 4,450 B），`http://` **308 → https**；
-- 桌面 1440 宽与手机 390 宽实拍核对：页脚两个备案号可见、可点击，图标非破图。
+- 桌面 1440 宽与手机 390 宽实拍核对：页脚两个备案号可见、可点击，图标非破图；
+  五端卡片、小程序二维码弹层、鸿蒙「测试邀请」弹层、Windows「开发中」状态均已逐屏核对。
 
 ### 10.6 已知边界
 
 - `robots.txt` 用主站根目录那一份（`Allow: /`，仅屏蔽 `/board`），展示页同样可被搜索引擎索引；
-- 展示页里的下载链接指向主站 `/android/<apk>` 与外部 release 页 / 微软运行库，随各端发布脚本更新
-  （当前 Android 文案为 beta62，主站已发到 beta64，旧 APK 仍在 `/android/` 可下载；要换版本改
+- 获取方式口径（2026-11-24 22:08 起）：网页端直链、Android 直链 APK、微信小程序只给二维码
+  （`get/wechat-mini.jpg`，不再提供「唤起微信」外链）、HarmonyOS 改为**联系开发者获取测试邀请**
+  （邮件 `Ko_Link@outlook.com`，与法律页公开的联系方式一致，不公开 HAP）、Windows 标注**正在开发中**
+  （`disabled` 徽标，不提供下载）；改口径只改 `dist/platform-access.js`（状态徽标由
+  `dist/guide.js::accessAction` 的 `disabled` 分支渲染，样式在 `dist/guide.css`）；
+- Android 文案仍为 beta62（主站已发到 beta67，旧 APK 仍在 `/android/` 可下载；要换版本改
   `dist/platform-access.js` 后重新 `apply`）；
 - 展示页是外部构建产物（同步到 `class-tools-showcase` 仓库），文案/截图改动应在构建侧做，再做 §10.2 的页脚补回与发布。
