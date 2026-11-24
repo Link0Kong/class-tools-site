@@ -1,10 +1,10 @@
 {
-  "versionCode": 149,
-  "versionName": "1.0.0-beta66",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta66.apk",
-  "notes": "可分别添加课表、工作台、班级通知和待办任务桌面卡片，拉伸后显示更多内容。任务支持分组、步骤、离线同步和系统提醒。",
+  "versionCode": 150,
+  "versionName": "1.0.0-beta67",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta67.apk",
+  "notes": "作业升级为任务：支持分组、步骤、重复提醒和离线同步，可从班级作业与通知加入，工作台和桌面卡片同步展示。修复 beta66 启动异常。",
   "force": false,
   "channel": "beta",
-  "sha256": "bf222947b25473fb4b0bb279ecbafdc58585570380e5dca9a6e18f0004e488d9",
-  "sizeBytes": 2378775
+  "sha256": "00eec4fecf18d1f8da0fc91e553454df5c8b0330face6c5d6cc5906df448c607",
+  "sizeBytes": 6179540
 }
