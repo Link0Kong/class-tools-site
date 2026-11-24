@@ -2,6 +2,20 @@
 
 > 每次上线记一条：时间 / 内容 / 回滚点。部署命令：`python deploy/sync_tools.py`。
 
+## 2026-11-24 18:2x–18:4x · P4 切流准备：四端 REST 默认档切 selfhosted；安卓 beta61 已发布（走自建后端路径）
+
+> 用户要求「帮我迁移」。生产 `/v1/rdb/rest/*` **仍未切**（等小程序新版发布），但四端默认档已全部指向自建后端。
+
+- **四端源码切换（均已双远端推送）**：
+  - 小程序 `utils/cloud-config.js`：`ACTIVE_REST_PROFILE='selfhosted'`，`tests/net_layer_tests.js` N1 同步改为断言 selfhosted（`5c5053e`）。`node unit.js` **645 passed / 0 failed**，`staticcheck.py` 通过。
+  - 安卓：release 默认档改 `selfhosted`（`releaseRestProfile`/默认 URL），`vc144 / 1.0.0-beta61`（`7d669b9`）。`verifyReleaseEndpoints` + `testDebugUnitTest` 通过；`assembleRelease` 自动发布 **6,628,926 B / sha256 `7c11c4e5…`**（ECS + OSS），线上 `latest.json` 已回读 vc144，整包下载实测 **0.56 s / 11.8 MB/s**。
+  - 鸿蒙：`CloudConfig.REST_BASE` → `https://tool.furina.fun/v1/rdb/rest/`，版本 **1.0.9**（`aa84f24`）。
+  - Windows：`ApiConfig.BaseUrl` → 正式域名，版本 **0.1.1**（`cc21a4d`）；`dotnet test` **130/0**，Release 构建 0 警告 0 错误。
+- **为什么现在切客户端安全**：切流前 `https://tool.furina.fun/v1/rdb/rest/` 仍由 Caddy 反代 CloudBase，新版客户端只是多一跳；实测测试身份经该路径 `class_verify` **200 / members 70**，TTFB **~110 ms**。
+- **切流前置检查**（`preflight_cutover.py --drift --check-remotes`）：**PASS 14 / WARN 1 / FAIL 0**；WARN 为相对 13:52 快照的 6 张表漂移（切流时会重新导出）。
+- **仍未切生产**：① 小程序需上传 + 审核发布；② 鸿蒙需签名构建；③ Windows 需分发安装包。四端到位后执行 `python deploy\migration\cutover_run.py execute --confirm-cutover`（约 12 分钟，含最终快照），回滚 `rollback --confirm`。
+- 回滚：四端把档位改回 `cloudbase` 重新发版即可；生产 Caddy 未动。
+
 ## 2026-11-24 13:52–14:05 · 可迁项迁入 ECS：安卓更新链改直链（6.1 MB 约 2 分钟 → 0.5 秒）、ECS 镜像库刷新到当前生产（35 表 / 29,744 行）
 
 > 用户要求「把所有建议可以迁的都迁入」。本轮只做**不需要客户端发版**的部分；生产 API 切流必须与四端发版同窗口，另行安排（原因见下）。

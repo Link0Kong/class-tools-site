@@ -1,10 +1,10 @@
 {
-  "versionCode": 143,
-  "versionName": "1.0.0-beta60",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta60.apk",
-  "notes": "工作台课表按时间显示今日课程、节次与教室，自动标出上课中和下一节。",
+  "versionCode": 144,
+  "versionName": "1.0.0-beta61",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta61.apk",
+  "notes": "自建后端切流：数据请求改走 tool.furina.fun（国内直连，登录/通知更快更稳）",
   "force": false,
   "channel": "beta",
-  "sha256": "fc35506c762fabd92579e753c21138032d28fb0be3efc1348cb1c745954b8149",
-  "sizeBytes": 6104622
+  "sha256": "7c11c4e531a599cd019fa7f6bf9a7d6a395d6eefaf7e5c346a206bd393ac4e7e",
+  "sizeBytes": 6628926
 }
