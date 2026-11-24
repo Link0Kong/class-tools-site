@@ -1,10 +1,10 @@
 {
-  "versionCode": 142,
-  "versionName": "1.0.0-beta59",
-  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta59.apk.bin",
-  "notes": "优化校园地图布局、触控与搜索，支持课表直达教室、楼层目录和步行路线。",
+  "versionCode": 143,
+  "versionName": "1.0.0-beta60",
+  "apkUrl": "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com/android/classtools-1.0.0-beta60.apk.bin",
+  "notes": "工作台课表按时间显示今日课程、节次与教室，自动标出上课中和下一节。",
   "force": false,
   "channel": "beta",
-  "sha256": "fdd60bc9a2d7a1072f17902c0ef901aa4be8430ba260a8ae43692a86721c2b31",
-  "sizeBytes": 6104674
+  "sha256": "fc35506c762fabd92579e753c21138032d28fb0be3efc1348cb1c745954b8149",
+  "sizeBytes": 6104622
 }

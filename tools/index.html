@@ -1427,6 +1427,20 @@ body.rst-lock{overflow:hidden}
   #cmOut{columns:3}
 }
 
+/* 「全部」页的今日课表 */
+.wb-schedule .wb-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.wb-schedule h2{margin:0;font-size:17px;color:var(--ink)}
+.wb-schedule .wb-week{margin-left:8px;font-size:13px;font-weight:500;color:var(--ink2)}
+.wb-schedule .wb-open{min-height:40px}
+.wb-courses{display:grid;gap:0 24px}
+.wb-course{display:grid;grid-template-columns:3.4em minmax(0,1fr) auto;gap:9px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.wb-course time{font-variant-numeric:tabular-nums;color:var(--ink2);font-weight:650}
+.wb-course b,.wb-course small{display:block;overflow-wrap:anywhere}
+.wb-course small,.wb-course-note{font-size:13px;color:var(--ink2);line-height:1.5}
+.wb-course em{font-style:normal;font-size:12px;color:var(--tl-ink,var(--ink));border:1px solid var(--line);border-radius:20px;padding:2px 8px}
+.wb-course em.current{background:var(--mint);border-color:var(--cy);color:var(--ink);font-weight:650}
+.wb-course-note{margin:6px 0 0}
+@media(min-width:760px){.wb-courses{grid-template-columns:1fr 1fr}}
 /* ===== OPTIM V1 · 2026-11-08 ===== */
 .gcard .cardmeta{font-size:11.5px;color:var(--ink3);line-height:1.5;margin:2px 0 4px;font-weight:600;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -5101,6 +5115,14 @@ html[data-appearance="dark"] .cst-row b{color:#EEF2F0}
   </section>
 
   <section id="s-all">
+    <div class="card wb-schedule" id="wbSchedule" hidden>
+      <div class="wb-heading">
+        <h2>今日课程<span id="wbWeek" class="wb-week"></span></h2>
+        <button type="button" id="wbOpenTt" class="btn sm wb-open">查看课表 ›</button>
+      </div>
+      <div class="wb-courses" id="wbCourses"></div>
+      <p id="wbCourseNote" class="wb-course-note"></p>
+    </div>
     <div class="groups" id="allCards"></div>
   </section>
 
@@ -8742,6 +8764,7 @@ function gotoTab(k,noScroll){
   }
   if(k==="diag"){try{if(typeof DIAG!=="undefined")DIAG.enter();}catch(e){}}
   if(k==="all") renderAllCards();
+  renderWorkbenchCourses();
   if(k==="power") POWER.enter();
   if(k==="water") WATER.enter();
   if(k==="ppt"){try{if(typeof PPT!=="undefined"&&PPT&&PPT.enter)PPT.enter();}catch(e){}}
@@ -12584,8 +12607,8 @@ var PERIODS=[["08:10","08:55"],["08:55","09:40"],["09:50","10:30"],["10:40","11:
   ["11:25","12:10"],["14:30","15:15"],["15:15","16:00"],["16:10","16:55"],
   ["16:55","17:40"],["19:00","19:45"],["19:45","20:30"],["20:30","21:20"]];
 var DAYS=["周一","周二","周三","周四","周五","周六","周日"];
-function weekNum(s){ if(!s) return null; var a=new Date(s+"T00:00:00"); if(isNaN(a)) return null;
-  var n=new Date(); var x=new Date(a.getFullYear(),a.getMonth(),a.getDate()), y=new Date(n.getFullYear(),n.getMonth(),n.getDate());
+function weekNum(s,date){ if(!s) return null; var a=new Date(s+"T00:00:00"); if(isNaN(a)) return null;
+  var n=date||new Date(); var x=new Date(a.getFullYear(),a.getMonth(),a.getDate()), y=new Date(n.getFullYear(),n.getMonth(),n.getDate());
   var w=Math.floor((y-x)/604800000)+1; return w>0?w:null; }
 function parseWeeks(str){ var set=[]; String(str||"").split(/[,，]/).forEach(function(p){p=p.trim();if(!p)return;
   var m=p.match(/^(\d+)\s*[-~—]\s*(\d+)$/); if(m){for(var i=+m[1];i<=+m[2];i++)set.push(i);} else if(/^\d+$/.test(p))set.push(+p); }); return set; }
@@ -12629,22 +12652,61 @@ function ttGoWeek(dir){
 }
 function ttDate(wk,di){var t=termVal();if(!t||!wk)return null;var d=new Date(t+"T00:00:00");if(isNaN(d))return null;
   d.setDate(d.getDate()+(wk-1)*7+di);return d;}
-function ttNowInfo(cs,nw){
-  if(!cs.length||!nw)return null;
-  var now=new Date(), ti=(now.getDay()===0?6:now.getDay()-1), mins=now.getHours()*60+now.getMinutes();
-  var cur=cs.filter(function(c){return active(c,nw);});
-  var today=cur.filter(function(c){return c.day===ti;}).sort(function(a,b){return a.start-b.start;});
-  for(var i=0;i<today.length;i++){var c=today[i];var p1=PERIODS[c.start-1],p2=PERIODS[c.end-1];if(!p1||!p2)continue;
-    if(mins>=ttHM(p1[0])&&mins<=ttHM(p2[1]))return {kind:"now",c:c,left:ttHM(p2[1])-mins,dayoff:0};}
-  for(var j=0;j<today.length;j++){var c2=today[j],q1=PERIODS[c2.start-1];if(!q1)continue;
-    if(ttHM(q1[0])>mins)return {kind:"next",c:c2,left:ttHM(q1[0])-mins,dayoff:0};}
-  var sorted=cur.slice().sort(function(a,b){return (a.day-b.day)||(a.start-b.start);});
-  for(var k=1;k<8;k++){
-    var day=(ti+k)%7, arr=sorted.filter(function(c){return c.day===day;});
-    if(arr.length)return {kind:"next",c:arr[0],left:null,dayoff:k};
-  }
-  return null;
+function ttCoursesOn(cs,wk,date){
+  if(!wk)return [];
+  var day=(date.getDay()+6)%7;
+  return cs.filter(function(c){
+    return c.day===day && c.end>=c.start && PERIODS[c.start-1] && PERIODS[c.end-1] && active(c,wk);
+  }).sort(function(a,b){return a.start-b.start;});
 }
+function ttTodayPlan(cs,term,now){
+  var wk=weekNum(term,now), today=ttCoursesOn(cs,wk,now), mins=now.getHours()*60+now.getMinutes();
+  var current=null, next=null;
+  var rows=today.map(function(c){
+    var time=PERIODS[c.start-1][0], start=ttHM(time), end=ttHM(PERIODS[c.end-1][1]);
+    var ongoing=mins>=start && mins<end;
+    if(ongoing && !current)current={kind:"now",c:c,left:end-mins,dayoff:0};
+    if(start>mins && !next)next={kind:"next",c:c,left:start-mins,dayoff:0};
+    return {c:c,time:time,badge:ongoing?"上课中":(next && next.c===c?"下一节":"")};
+  });
+  for(var offset=1;!next && cs.length && term && offset<14;offset++){
+    var date=new Date(now.getFullYear(),now.getMonth(),now.getDate()+offset);
+    var future=ttCoursesOn(cs,weekNum(term,date),date);
+    if(future.length)next={kind:"next",c:future[0],left:null,dayoff:offset,date:date};
+  }
+  return {week:wk,rows:rows,current:current,next:next};
+}
+function ttNowInfo(cs){
+  var plan=ttTodayPlan(cs,termVal(),new Date());
+  return plan.current||plan.next;
+}
+var wbCourseTimer;
+function renderWorkbenchCourses(){
+  clearTimeout(wbCourseTimer);
+  var card=$("#wbSchedule");
+  card.hidden=!AUTH.ready;
+  if(card.hidden || CURTAB!=="all" || document.hidden)return;
+  var d=ttData(), now=new Date(), plan=ttTodayPlan(d.c,d.t,now);
+  $("#wbWeek").textContent=plan.week?"第 "+plan.week+" 周":"";
+  $("#wbCourses").innerHTML=plan.rows.map(function(row){
+    var c=row.c, span="第"+c.start+(c.end>c.start?"–"+c.end:"")+"节";
+    return '<div class="wb-course"><time>'+row.time+'</time><div><b>'+esc(c.name||"课程")+
+      '</b><small>'+span+(c.room?" · "+esc(c.room):"")+'</small></div>'+
+      (row.badge?'<em'+(row.badge==="上课中"?' class="current"':'')+'>'+row.badge+'</em>':'')+'</div>';
+  }).join("");
+  var note="";
+  if(!d.c.length || !d.t)note="课表未同步";
+  else if(!plan.rows.length || (!plan.current && (!plan.next || plan.next.dayoff>0))){
+    note=plan.rows.length?"今日课程已结束":"今天没课";
+    var n=plan.next;
+    note+=n?" · 下次 "+(n.dayoff===1?"明天":fmtMD(n.date)+" "+DAYS[n.c.day])+" "+PERIODS[n.c.start-1][0]+" "+n.c.name:" · 近期暂无课程";
+  }
+  $("#wbCourseNote").textContent=note;
+  $("#wbCourseNote").hidden=!note;
+  wbCourseTimer=setTimeout(renderWorkbenchCourses,60000-Date.now()%60000);
+}
+$("#wbOpenTt").addEventListener("click",function(){gotoTab("tt");});
+document.addEventListener("visibilitychange",renderWorkbenchCourses);
 function ttHint(){ var g=$("#tGrid"), h=$("#tHint"); if(g&&h) h.style.display=(g.scrollWidth>g.clientWidth+4)?"":"none"; }
 /* 按实际“天列宽”设置 --dayw：字号、行高、间距、桌面端教师行都随它缩放 */
 function ttLayout(){
@@ -12757,7 +12819,7 @@ function ttClusters(cs){
 }
 function ttRenderNext(d){
   var el=$("#tNext"); if(!el)return;
-  var info=ttNowInfo(d.c,ttNowWeek());
+  var info=ttNowInfo(d.c);
   if(!info||!d.c.length||info.dayoff!==0){el.style.display="none";return;}
   el.style.display="";
   var c=info.c, p1=PERIODS[c.start-1]||["",""];
@@ -12894,6 +12956,7 @@ function ttRenderList(d){
   }).join("");
 }
 function renderTT(){
+  if(CURTAB==="all")renderWorkbenchCourses();
   var d=ttData();
   var view=(D.d.ttView==="day")?"day":((D.d.ttView==="week")?"week":((window.innerWidth<560)?"day":"week"));
   var cardEl=document.querySelector(".ttcard"); if(cardEl)cardEl.classList.toggle("tt-dayview",view==="day");
@@ -19396,7 +19459,7 @@ try{window.VOTE=VOTE;}catch(e){}
     return safe(function(){
       if(typeof ttData!=="function"||typeof ttNowInfo!=="function"||typeof ttNowWeek!=="function")return "";
       var d=ttData(); if(!d||!d.c||!d.c.length)return "";
-      var info=ttNowInfo(d.c,ttNowWeek()); if(!info||info.dayoff!==0)return "";
+      var info=ttNowInfo(d.c); if(!info||info.dayoff!==0)return "";
       var c=info.c, pre=(info.kind==="now")?"正在上":"下一节";
       var s=pre+" · "+c.name;
       if(c.room&&s.length+c.room.length<=18)s+=" · "+c.room;
