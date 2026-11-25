@@ -1,10 +1,10 @@
 {
-  "versionCode": 157,
-  "versionName": "1.0.0-beta74",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta74.apk",
-  "notes": "名单支持按职务搜索；点名、抽签、分组和投票可按班委或团员选人。优化工作台、任务、通知和桌面卡片。",
+  "versionCode": 158,
+  "versionName": "1.0.0-beta75",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta75.apk",
+  "notes": "校准课前和投票倒计时，优化流体云图标与展开卡片。修复部分通知仅在打开应用后才显示的问题。任务分类支持左右滑动切换。",
   "force": false,
   "channel": "beta",
-  "sha256": "64b54af989b5c3c8937046ff89567295ae2b1ae72cfe78e27a425f311da9454a",
-  "sizeBytes": 6964332
+  "sha256": "b744e709e73d55dec62f4fe727863da70f4e07a0d058ef68cfe475c1465140ce",
+  "sizeBytes": 6982804
 }
