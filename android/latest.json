@@ -1,10 +1,10 @@
 {
-  "versionCode": 156,
-  "versionName": "1.0.0-beta73",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta73.apk",
-  "notes": "班级作业加入个人待办后立即隐藏，全部加入时收起卡片，桌面小组件同步去重。",
+  "versionCode": 157,
+  "versionName": "1.0.0-beta74",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta74.apk",
+  "notes": "名单支持按职务搜索；点名、抽签、分组和投票可按班委或团员选人。优化工作台、任务、通知和桌面卡片。",
   "force": false,
   "channel": "beta",
-  "sha256": "2b449b918bf5803f1f6a741440bc513e28a06260b3f35a02758f48f14dc4625a",
-  "sizeBytes": 6899144
+  "sha256": "64b54af989b5c3c8937046ff89567295ae2b1ae72cfe78e27a425f311da9454a",
+  "sizeBytes": 6964332
 }
