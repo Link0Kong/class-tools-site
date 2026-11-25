@@ -3742,6 +3742,14 @@ body.tk-sorting *{cursor:grabbing!important}
 .tk-dt-src span{display:block;margin-top:2px;font-size:10.5px;color:var(--ink3)}
 .tk-dt-src .btn{min-height:34px;padding:5px 9px;font-size:11px}
 .tk-dt-foot{display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.tk-dt-foot{flex-wrap:wrap}
+#tkSharePanel{z-index:350}
+#tkSharePanel .mcard{max-height:85vh;overflow:auto}
+#tkSharePanel .row{margin-top:14px}
+#tkSharePanel .btn{min-height:40px}
+#tkSharePanel [hidden]{display:none!important}
+#tkSharePreview{overflow-wrap:anywhere}
+#tkShareNote{white-space:pre-wrap}
 .tk-dt-times{margin-left:auto;text-align:right;font-size:10px;line-height:1.5;color:var(--ink3);max-width:58%}
 .tk-dt-empty{font-size:12px;color:var(--ink3);padding:2px 0}
 html[data-appearance="dark"] .tk-dt-chip,html[data-appearance="dark"] .tk-dt-att,html[data-appearance="dark"] .tk-dt-src{background:#16201C}
@@ -4563,6 +4571,26 @@ html.mobile-tool .wrap > .brand,html.mobile-tool #tabsBar{display:none!important
     </div>
   </div>
 
+  <div class="modal" id="tkSharePanel" style="display:none" hidden aria-hidden="true">
+    <div class="mcard" role="dialog" aria-modal="true" aria-labelledby="tkShareTitle">
+      <button class="mclose" id="tkShareClose" type="button" aria-label="关闭">×</button>
+      <h3 id="tkShareTitle"></h3>
+      <div id="tkShareField">
+        <label class="f" for="tkShareLink">任务分享链接</label>
+        <textarea id="tkShareLink" rows="3" maxlength="8192" spellcheck="false"></textarea>
+      </div>
+      <div id="tkSharePreview" hidden>
+        <h4 id="tkShareTaskTitle"></h4><p id="tkShareMeta"></p>
+        <ol id="tkShareSteps"></ol><p id="tkShareNote"></p>
+      </div>
+      <p id="tkShareError" role="alert" hidden></p>
+      <div class="row">
+        <button type="button" class="btn sm" id="tkShareCancel">取消</button>
+        <button type="button" class="btn sm" id="tkShareSystem" hidden>系统分享</button>
+        <button type="button" class="btn pri sm" id="tkShareAct"></button>
+      </div>
+    </div>
+  </div>
   <div class="tk-tp" id="tkTimePanel" hidden aria-hidden="true">
     <div class="tk-tp-card" role="dialog" aria-modal="true" aria-labelledby="tkTpTitle">
       <div class="tk-tp-hd">
@@ -5652,6 +5680,7 @@ var KEY="zq_tools_v2", OLDKEY="ziqi.tools.v1";
 var nativeTool=/^\?mobileTool=(hw|nt|ntadmin)$/.exec(location.search);
 var nativeIdentity=nativeTool?window.__ctMobileSession:null;
 delete window.__ctMobileSession;
+var pendingTaskShareHash="";
 var DEF={course:[],homework:[],notices:[],termStart:"",roster:"",classRoster:"",rosterSel:[],groupSel:[],rollSel:[],rosterMigrated:false,nick:"",hwDone:{},ntPin:{},hwHide:{},ntHide:{},rollNames:"",rollSrc:"",rollSt:{},seat:"",markPend:[],fitRecs:[],did:"",verify:null,homeTools:["draw","hw","nt","tt"],ttView:"",ttUseMine:false,ttLocal:null,ttAdopt:"",ttSyncAt:0,
   draw:{start:1,end:70,count:10,dup:false,excl:"",sort:"draw",names:""},
   group:{source:"prev",names:"",mode:"groups",n:4,shuffle:false},
@@ -16002,6 +16031,11 @@ function enterClass(r){
   if(!nativeTool)try{localStorage.setItem("zq_last_identity",JSON.stringify({sid:r.sid,name:r.name}));}catch(e){}
   document.body.classList.remove("id-locked");
   var g=$("#idgate"); if(g)g.style.display="none";
+  // 登录初始化可能创建多条导航历史，先收下分享片段，避免按返回键再次弹出。
+  if(location.hash.indexOf("#task-share=")===0){
+    pendingTaskShareHash=location.hash;
+    try{history.replaceState(history.state||null,"",location.pathname+location.search+"#tab=hw");}catch(e){}
+  }
   if(nativeTool){
     document.documentElement.classList.add("mobile-tool");
     CURTAB=nativeTool[1]==="ntadmin"&&!canManage()?"nt":nativeTool[1];
@@ -25305,6 +25339,91 @@ var TK=(function(){
     setTimeout(function(){try{$("#tkDtClose").focus();}catch(e){}},40);
     return true;
   }
+  var taskShareBase="https://tool.furina.fun/",taskSharePrefix="#task-share=";
+  var shareMode="",sharedDraft=null,shareOwner="",shareFocus=null;
+  function shareText(x,limit){return typeof x==="string"?x.trim().slice(0,limit).replace(/[\uD800-\uDBFF]$/,""):"";}
+  function taskShareUrl(t){
+    var due=tkDueMeta(t);
+    var payload={t:shareText(t.title,60),d:shareText(due&&due.txt,32),l:shareText(tkFindList(t.list).name,12),n:"",
+      s:(t.steps||[]).slice(0,3).map(function(step){return shareText(step.text,40);})};
+    return taskShareBase+taskSharePrefix+encodeURIComponent(JSON.stringify(payload));
+  }
+  function readTaskShare(link){
+    if(typeof link!=="string"||link.length>8192)return null;
+    try{
+      var url=new URL(link.trim());
+      if(url.origin!=="https://tool.furina.fun"||url.pathname!=="/"||url.search||url.username||url.password||url.hash.indexOf(taskSharePrefix)!==0)return null;
+      var data=JSON.parse(decodeURIComponent(url.hash.slice(taskSharePrefix.length)));
+      if(!data||Array.isArray(data)||!shareText(data.t,100))return null;
+      return {title:shareText(data.t,100),due:shareText(data.d,32),list:shareText(data.l,20),notes:shareText(data.n,500),
+        steps:(Array.isArray(data.s)?data.s:[]).slice(0,6).map(function(x){return shareText(x,120);}).filter(Boolean)};
+    }catch(e){return null;}
+  }
+  function showTaskShare(mode,link,draft){
+    if(!AUTH.ready)return;
+    if(!shareMode)shareFocus=document.activeElement;
+    shareMode=mode;sharedDraft=draft||null;shareOwner=AUTH.sid;
+    var input=$("#tkShareLink"),preview=mode==="preview",send=mode==="send";
+    $("#tkShareTitle").textContent=preview?"分享的任务":(send?"分享任务":"从链接添加任务");
+    $("#tkShareField").hidden=preview;input.value=link||"";input.readOnly=send;
+    $("#tkSharePreview").hidden=!preview;$("#tkShareError").hidden=true;
+    $("#tkShareSystem").hidden=!send||typeof navigator.share!=="function";
+    $("#tkShareAct").textContent=preview?"保存为我的任务":(send?"复制链接":"预览任务");
+    if(preview){
+      $("#tkShareTaskTitle").textContent=draft.title;
+      $("#tkShareMeta").textContent=[draft.list||"未分组",draft.due].filter(Boolean).join(" · ");
+      $("#tkShareNote").textContent=draft.notes;
+      $("#tkShareSteps").innerHTML=draft.steps.map(function(x){return "<li>"+esc(x)+"</li>";}).join("");
+    }
+    tkOpenModal("#tkSharePanel");
+    (mode==="paste"?input:$("#tkShareAct")).focus();
+  }
+  function closeTaskShare(){
+    shareMode="";sharedDraft=null;shareOwner="";$("#tkShareLink").value="";
+    tkCloseModal("#tkSharePanel");
+    if(shareFocus&&shareFocus.isConnected)shareFocus.focus();
+    shareFocus=null;
+  }
+  function copyTaskShare(){
+    var input=$("#tkShareLink"),url=input.value;
+    function selectLink(){
+      if(shareMode!=="send"||input.value!==url)return;
+      input.focus();input.select();input.setSelectionRange(0,url.length);
+      var ok=false;try{ok=document.execCommand("copy");}catch(e){}
+      toast(ok?"链接已复制":"链接已选中，可手动复制");
+    }
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      try{navigator.clipboard.writeText(url).then(function(){toast("链接已复制");},selectLink);return;}catch(e){}
+    }
+    selectLink();
+  }
+  function actTaskShare(){
+    if(!shareMode||!AUTH.ready||AUTH.sid!==shareOwner){closeTaskShare();return;}
+    if(shareMode==="send"){copyTaskShare();return;}
+    if(shareMode==="paste"){
+      var incoming=readTaskShare($("#tkShareLink").value);
+      if(incoming){showTaskShare("preview","",incoming);return;}
+      var err=$("#tkShareError");err.textContent="请输入有效的班级工具任务分享链接";err.hidden=false;return;
+    }
+    if(!sharedDraft)return;
+    var draft=sharedDraft;
+    closeTaskShare();
+    var item=taskNormItem({title:draft.title,notes:draft.notes,steps:draft.steps,order:tkNextOrder()},[],0);
+    if(!item){toast("分享的任务缺少标题");return;}
+    tkItems().push(item);tkSave();tkSetSeg("my");tkSetView("all");toast("已保存为我的任务");
+  }
+  function acceptTaskShareHash(){
+    var hash=pendingTaskShareHash||location.hash;
+    if(!AUTH.ready||hash.indexOf(taskSharePrefix)!==0)return;
+    pendingTaskShareHash="";
+    var draft=readTaskShare(taskShareBase+hash);
+    // 先消费片段，返回、重复 hashchange 和刷新都不会再次保存同一份预览。
+    try{history.replaceState(history.state||null,"",location.pathname+location.search+"#tab=hw");}
+    catch(e){location.hash="tab=hw";}
+    if(!draft){toast("任务分享链接无效");return;}
+    gotoTab("hw");
+    showTaskShare("preview","",draft);
+  }
   function tkCloseDetail(){
     if(!tkIsOpen("#tkDetailPanel"))return;
     tkCloseModal("#tkDetailPanel");
@@ -25358,6 +25477,7 @@ var TK=(function(){
         '<button class="btn sm ghost" type="button" data-tkdtsrc="1">查看</button></div></div>';
     }
     html+='<div class="tk-dt-foot"><button class="btn sm '+(t.done?"ghost":"pri")+'" type="button" data-tkdtdone="1">'+(t.done?"标记未完成":"标记完成")+'</button>'+
+      '<button class="btn sm ghost" type="button" data-tkdtshare="1">分享可保存链接</button>'+
       '<span class="tk-dt-times">创建 '+esc(tkFmtFull(t.createdAt||t.updatedAt||Date.now()))+'<br>更新 '+esc(tkFmtFull(t.updatedAt||t.createdAt||Date.now()))+'</span></div>';
     if(body)body.innerHTML=html;
   }
@@ -25582,6 +25702,7 @@ var TK=(function(){
     var box=$("#tkMenuRows");if(!box)return;
     var h="";
     h+='<button class="tk-mrow" type="button" data-tkm="new">'+tkIco("plus")+'<span>新建任务</span></button>';
+    h+='<button class="tk-mrow" type="button" data-tkm="sharelink">'+tkIco("plus")+'<span>从分享链接添加</span></button>';
     if(TKU.view==="list"&&TKU.list){
       h+='<button class="tk-mrow" type="button" data-tkm="editlist">'+tkIco("edit")+'<span>编辑分组「'+esc(tkFindList(TKU.list).name)+'」</span></button>';
     }
@@ -25606,6 +25727,7 @@ var TK=(function(){
   function tkMenuAction(k){
     tkCloseMenu();
     if(k==="new"){tkOpenEditor("");return;}
+    if(k==="sharelink"){showTaskShare("paste","");return;}
     if(k==="editlist"){tkOpenListEditor(TKU.list);return;}
     if(k==="img"){tkExportImage();return;}
     if(k==="ics"){tkExportIcs();return;}
@@ -26113,6 +26235,9 @@ var TK=(function(){
     });
     var dtb=$("#tkDtBody");if(dtb)dtb.addEventListener("click",function(e){
       if(!e.target||!e.target.closest)return;
+      if(e.target.closest("[data-tkdtshare]")){
+        var source=tkFindTask(TKDETAIL.id);if(source)showTaskShare("send",taskShareUrl(source));return;
+      }
       var sd=e.target.closest("[data-tkdtsdone]");
       if(sd){tkDetailToggleStep(+sd.getAttribute("data-tkdtsdone"));e.preventDefault();return;}
       var at=e.target.closest("[data-tkdta]");
@@ -26120,6 +26245,29 @@ var TK=(function(){
       if(e.target.closest("[data-tkdtdone]")){tkDetailDone();e.preventDefault();return;}
       if(e.target.closest("[data-tkdtsrc]")){tkDetailSrc();e.preventDefault();}
     });
+    $("#tkShareAct").addEventListener("click",actTaskShare);
+    $("#tkShareClose").addEventListener("click",closeTaskShare);
+    $("#tkShareCancel").addEventListener("click",closeTaskShare);
+    $("#tkSharePanel").addEventListener("click",function(e){if(e.target===this)closeTaskShare();});
+    $("#tkSharePanel").addEventListener("keydown",function(e){
+      if(e.key==="Escape"){e.preventDefault();e.stopPropagation();closeTaskShare();}
+      if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();e.stopPropagation();}
+      if(e.key==="Tab"){
+        var controls=$$("button,textarea",this).filter(function(el){return el.getClientRects().length>0;});
+        var first=controls[0],last=controls[controls.length-1];
+        if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+        if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+      }
+    });
+    $("#tkShareSystem").addEventListener("click",function(){
+      if(shareMode!=="send"||!navigator.share)return;
+      var url=$("#tkShareLink").value;
+      function fallback(error){
+        if((!error||error.name!=="AbortError")&&shareMode==="send"&&$("#tkShareLink").value===url)copyTaskShare();
+      }
+      try{navigator.share({title:"班级工具 · 任务",url:url}).catch(fallback);}catch(error){fallback(error);}
+    });
+    window.addEventListener("hashchange",acceptTaskShareHash);
     var fdone=$("#tkFDone");if(fdone)fdone.addEventListener("click",function(){
       if(!TKED)return;TKED.done=!TKED.done;tkSyncEditorChips();tkMarkDirty();
     });
@@ -26305,6 +26453,7 @@ var TK=(function(){
         enterClass=function(){
           var r=_enterClass.apply(this,arguments);
           try{tkRefresh();}catch(e){}
+          acceptTaskShareHash();
           return r;
         };
       }
@@ -26482,6 +26631,7 @@ var TK=(function(){
   try{window.TASKSYNC=TASKSYNC;}catch(e){}
 
   tkInit();
+  setTimeout(acceptTaskShareHash,0);
 
   return {
     refresh:tkRefresh,
