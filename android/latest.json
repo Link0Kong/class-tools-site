@@ -1,10 +1,10 @@
 {
-  "versionCode": 155,
-  "versionName": "1.0.0-beta72",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta72.apk",
-  "notes": "支持分享单个任务链接，接收者可预览并确认保存到我的任务。",
+  "versionCode": 156,
+  "versionName": "1.0.0-beta73",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta73.apk",
+  "notes": "班级作业加入个人待办后立即隐藏，全部加入时收起卡片，桌面小组件同步去重。",
   "force": false,
   "channel": "beta",
-  "sha256": "8ccc83537944b0bebcf6a89da4f06f021426d40d152ca44c307af109066b5bb7",
+  "sha256": "2b449b918bf5803f1f6a741440bc513e28a06260b3f35a02758f48f14dc4625a",
   "sizeBytes": 6899144
 }
