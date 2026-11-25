@@ -105,7 +105,7 @@ CREATE OR REPLACE FUNCTION public.class_notices_meta()
 RETURNS jsonb
 LANGUAGE plpgsql
 STABLE
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = public, pg_temp
 AS $fn$
 BEGIN

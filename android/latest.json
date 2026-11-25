@@ -1,10 +1,10 @@
 {
-  "versionCode": 153,
-  "versionName": "1.0.0-beta70",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta70.apk",
-  "notes": "应用更名枫丹工具箱。任务首页及桌面卡片展示班级作业内容、截止与提醒；四类卡片支持预览、独立配色与尺寸适配，优化通知和深色模式，抽签图片及分享链接可扫码核验。",
+  "versionCode": 154,
+  "versionName": "1.0.0-beta71",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta71.apk",
+  "notes": "通知统计与网页对齐，可按需查看原文、图片和文件；补齐任务操作，在点名页直接编辑名单。",
   "force": false,
   "channel": "beta",
-  "sha256": "1d3d0e907fd1c9fddd82db9913040b380f5a1639287aaa5905b25064577222de",
-  "sizeBytes": 6817184
+  "sha256": "86e0a1f11e03ae6ec7aa2e8ad8c276857746cef69bf2cb42de29fa6d197cd3b1",
+  "sizeBytes": 6899144
 }

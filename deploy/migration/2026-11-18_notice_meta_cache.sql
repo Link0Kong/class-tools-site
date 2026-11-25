@@ -96,7 +96,12 @@ begin
   if not public.auth_ok() then
     raise exception 'unauthorized' using errcode = '42501';
   end if;
-  return coalesce((select payload from private.notice_meta_cache where id = 1), '[]'::jsonb);
+  return coalesce((
+    select jsonb_agg(item order by n)
+    from private.notice_meta_cache c
+    cross join lateral jsonb_array_elements(c.payload) with ordinality as items(item, n)
+    where c.id = 1 and public.notice_audience_visible(item->>'audience')
+  ), '[]'::jsonb);
 end;
 $$;
 

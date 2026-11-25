@@ -70,7 +70,7 @@ begin
            )
     from public.notices t
     left join private.notice_meta_lite m on m.id = t.id
-    where t.archived = false
+    where t.archived = false and public.notice_audience_visible(t.audience)
   ), '[]'::jsonb);
 end;
 $$;

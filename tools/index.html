@@ -8098,7 +8098,7 @@ function authHdr(){var i=identityGet();return (i&&i.token)?{"X-Device-Id":i.toke
    - marks 勾选状态是小数据，存 localStorage；其余表沿用已有本机持久层（D.save）。
    - 同步时间/访问标记/迁移标记放独立 localStorage key，不污染 D.d 结构。
    - 缓存读写失败（隐私模式/配额/IDB 不可用）一律静默退回「按需请求」原行为。 */
-var CACHE_VER=2, CACHE_DB="zq_cache_v1", CACHE_STORE="kv";
+var CACHE_VER=3, CACHE_DB="zq_cache_v1", CACHE_STORE="kv";
 var TTL={nt:10*60*1000,hw:10*60*1000,members:6*60*60*1000,fit:5*60*1000,marks:2*60*1000,visits:10*60*1000,tt:6*60*60*1000,power:2*60*1000};
 var LS_SYNCED="zq_synced_at_", LS_VISITED="zq_visited_", LS_MIGRATED="zq_migrated_", LS_MARKS="zq_marks_cache_", LS_GEN="zq_cache_gen_";
 function cacheSid(){return AUTH.sid||AUTH.acc||"";}
@@ -8169,7 +8169,7 @@ function cacheNoticesGet(){
   }).catch(function(){return null;});
 }
 function cacheNoticesSet(val,sig,hidden,meta){
-  if(!(val instanceof Array)||!val.length)return Promise.resolve(false);
+  if(!(val instanceof Array))return Promise.resolve(false);
   return IDBQ.put("notices",{sid:cacheSid(),ver:CACHE_VER,g:cacheGen(),at:Date.now(),sig:String(sig||""),
     hid:(hidden instanceof Array)?hidden:[],meta:(meta&&typeof meta==="object")?meta:{},val:val}).then(function(ok){return ok;}).catch(function(){return false;});
 }
