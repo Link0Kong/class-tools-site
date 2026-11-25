@@ -1434,7 +1434,7 @@ body.rst-lock{overflow:hidden}
 #s-workbench h2 small,.wb-schedule .wb-week{margin-left:8px;font-size:12.5px;font-weight:500;color:var(--ink2)}
 #s-workbench .btn{min-height:40px}
 .wb-panels{display:grid;gap:12px;align-items:start}
-.wb-panels[hidden]{display:none}
+.wb-panels[hidden],.wb-panels>.card[hidden]{display:none}
 .wb-panels .card{min-width:0;margin:0}
 .wb-action{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line)}
 .wb-main{display:block;min-width:0;flex:1;min-height:44px;padding:10px 0;border:0;background:transparent;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
@@ -1447,6 +1447,7 @@ body.rst-lock{overflow:hidden}
 .wb-action .btn{flex:none}
 @media(min-width:760px){.wb-panels{grid-template-columns:repeat(2,minmax(0,1fr))}.wb-panels>.card:last-child{grid-column:1/-1}}
 @media(min-width:1080px){.wb-panels{grid-template-columns:repeat(3,minmax(0,1fr))}.wb-panels>.card:last-child{grid-column:auto}}
+@media(min-width:760px){.wb-panels.wb-no-homework{grid-template-columns:repeat(2,minmax(0,1fr))}.wb-panels.wb-no-homework>.card:last-child{grid-column:auto}}
 .wb-courses{display:grid;gap:0 24px}
 .wb-course{display:grid;grid-template-columns:3.4em minmax(0,1fr) auto;gap:9px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
 .wb-course time{font-variant-numeric:tabular-nums;color:var(--ink2);font-weight:650}
@@ -3648,6 +3649,8 @@ body.tk-sorting *{cursor:grabbing!important}
 .tk-classnote{font-size:11.5px;color:var(--ink3);margin-left:7px;font-weight:600}
 .tk-classacts{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
 .tk-classacts .btn{min-height:36px}
+.tk-class-tools{margin-bottom:8px}
+#tkClass [hidden]{display:none!important}
 .tk-class .syncst{margin:2px 0 6px}
 #hwPanel .mcard{max-width:420px}
 .tk-ed{max-width:560px;width:100%;display:flex;flex-direction:column;max-height:84vh;overflow:hidden;padding-bottom:0}
@@ -4382,18 +4385,23 @@ html.mobile-tool .wrap > .brand,html.mobile-tool #tabsBar{display:none!important
       </div>
     </div>
 
-    <div class="tk-class" id="tkClass" hidden>
-      <div class="tk-classhd">
-        <div><b>班级作业</b><span class="tk-classnote" id="tkClassNote">自动同步</span></div>
-        <div class="tk-classacts">
-          <button class="btn sm pri" id="hPub" type="button">发布作业</button>
-          <button class="btn sm" id="hToTask" type="button" title="把未完成班级作业加入我的任务">加入任务</button>
-          <button class="btn sm" id="hImg" type="button">导出清单</button>
-          <button class="btn sm ghost" id="hClean" type="button">清除已完成</button>
-        </div>
+    <div id="tkClass" hidden>
+      <div class="tk-classacts tk-class-tools">
+        <button class="btn sm" id="hViewAll" type="button" aria-controls="hCard" aria-pressed="false">全部作业</button>
+        <button class="btn sm pri" id="hPub" type="button">发布作业</button>
       </div>
-      <div class="syncst" id="hSyncSt"></div>
-      <div id="hList"></div>
+      <div class="tk-class" id="hCard" hidden>
+        <div class="tk-classhd">
+          <div><b id="hListTitle">待加入的班级作业</b><span class="tk-classnote" id="tkClassNote">自动同步</span></div>
+          <div class="tk-classacts">
+            <button class="btn sm" id="hToTask" type="button" title="把未完成班级作业加入我的任务">加入任务</button>
+            <button class="btn sm" id="hImg" type="button">导出清单</button>
+            <button class="btn sm ghost" id="hClean" type="button">清除已完成</button>
+          </div>
+        </div>
+        <div class="syncst" id="hSyncSt"></div>
+        <div id="hList"></div>
+      </div>
     </div>
 
     <input type="file" id="tkImportFile" accept=".json,application/json" hidden>
@@ -5179,7 +5187,7 @@ html.mobile-tool .wrap > .brand,html.mobile-tool #tabsBar{display:none!important
         <div id="wbTasks"></div>
         <button type="button" class="btn sm ghost" data-wb-go="new">＋ 新建任务</button>
       </div>
-      <div class="card">
+      <div class="card" id="wbHomeworkCard" hidden>
         <div class="wb-heading"><h2>班级作业<small id="wbHomeworkCount"></small></h2><button type="button" class="btn sm" data-wb-go="homework">全部作业 ›</button></div>
         <div id="wbHomework"></div>
       </div>
@@ -12775,7 +12783,8 @@ function queueWorkbenchPanels(){
   wbPanelFrame=requestAnimationFrame(function(){wbPanelFrame=0;renderWorkbenchPanels();});
 }
 function wbList(selector,rows,empty){
-  var node=$(selector),html=rows.join("")||'<p class="wb-state">'+esc(empty)+'</p>';
+  var node=$(selector),html=rows.join("");
+  if(!html&&empty)html='<p class="wb-state">'+esc(empty)+'</p>';
   if(node._wbHtml!==html){node.innerHTML=html;node._wbHtml=html;}
 }
 function wbRow(kind,id,title,meta,action,label){
@@ -12812,12 +12821,14 @@ function renderWorkbenchPanels(){
     var due=TASK.dueMeta(t),meta=[due&&due.txt,t.starred?"重要":"",t.myDay===taskYmd(new Date())?"我的一天":""].filter(Boolean);
     return wbRow("task",t.id,t.title,meta.join(" · "),"complete","完成");
   }),taskSync==="同步中…"?"正在同步个人任务…":(taskSync==="仅本机"?"本机暂无待办任务":"暂无待办任务"));
-  var homework=hwArr().filter(function(h){return !hwExpired(h);}).sort(function(a,b){return (hwDue(a)||Infinity)-(hwDue(b)||Infinity);});
-  $("#wbHomeworkCount").textContent=homework.length?homework.length+" 项待办":"";
+  var homework=hwToJoin().sort(function(a,b){return (hwDue(a)||Infinity)-(hwDue(b)||Infinity);});
+  $("#wbHomeworkCard").hidden=!homework.length;
+  $("#wbPanels").classList.toggle("wb-no-homework",!homework.length);
+  $("#wbHomeworkCount").textContent=homework.length?homework.length+" 项待加入":"";
   wbList("#wbHomework",homework.slice(0,3).map(function(h){
-    var linked=TASK.linkedHW(h.id),meta=[h.subject,dueInfo(h).txt,linked?"已加入任务":""].filter(Boolean);
-    return wbRow("assignment",h.id||"",h.content||"班级作业",meta.join(" · "),h.id&&!linked?"addHomework":"","加入任务");
-  }),HW.loading?"正在同步班级作业…":(!HW.on&&!syncedRead().hw?"班级作业暂未同步":"暂无待完成作业"));
+    var meta=[h.subject,dueInfo(h).txt].filter(Boolean);
+    return wbRow("assignment",h.id||"",h.content||"班级作业",meta.join(" · "),h.id?"addHomework":"","加入任务");
+  }),"");
   var latest=AUTO_NOTICES.map(function(g){return {g:g,at:wbPublishedAt(g)};}).sort(function(a,b){return b.at-a.at;});
   wbList("#wbNotices",latest.slice(0,3).map(function(row){
     var meta=[row.g.cat,row.at?fmtDT(row.at)+" 发布":""].filter(Boolean);
@@ -12868,7 +12879,7 @@ $("#s-workbench").addEventListener("click",function(e){
   }
   gotoTab("hw");
   if(go==="assignment"&&id){TASK.openHwSource(id);return;}
-  TASK.setSeg(go==="tasks"?"my":"class");
+  TASK.setSeg(go==="tasks"?"my":"class",go==="homework");
   if(go==="tasks")TASK.setView("all");
 });
 document.addEventListener("visibilitychange",renderWorkbenchCourses);
@@ -13589,11 +13600,26 @@ function pruneHW(){
   D.d.homework=keep; D.save();
   removed.forEach(function(h){HW.archive(h);});
 }
+var hwShowAll=false;
+function hwToJoin(){
+  var linked=new Set((D.d.task&&D.d.task.items||[]).map(function(t){return t.sourceHwId;}).filter(Boolean));
+  return (D.d.homework||[]).filter(function(h){
+    return !hwDoneOf(h)&&!hwHidden(h)&&!hwExpired(h)&&!linked.has(h.id);
+  });
+}
 function renderHW(){
   pruneHW();
-  var L=$("#hList");
-  var vis=D.d.homework.filter(function(h){return !hwHidden(h);});
-  if(!vis.length){L.innerHTML=(HW.loading&&!(D.d.homework||[]).length)?skelHTML(3):'<div class="empty">—</div>';return;}
+  var L=$("#hList"),pending=hwToJoin();
+  var all=D.d.homework.filter(function(h){return !hwHidden(h);}),vis=hwShowAll?all:pending;
+  $("#hViewAll").hidden=!all.length;
+  $("#hViewAll").textContent=hwShowAll?"仅看待加入":"全部作业";
+  $("#hViewAll").setAttribute("aria-pressed",String(hwShowAll));
+  $("#hListTitle").textContent=hwShowAll?"全部班级作业":"待加入的班级作业";
+  $("#hCard").hidden=!vis.length;
+  $("#hToTask").hidden=!pending.length;
+  $("#hImg").hidden=!hwShowAll;
+  $("#hClean").hidden=!hwShowAll;
+  if(!vis.length){L.innerHTML="";return;}
   var arr=vis.slice().sort(function(a,b){
     if(hwDoneOf(a)!==hwDoneOf(b)) return hwDoneOf(a)?1:-1;
     var x=a.date||"9999",y=b.date||"9999"; if(x===y){x=a.time||"";y=b.time||"";} return x<y?-1:x>y?1:0;});
@@ -13625,6 +13651,7 @@ function renderHW(){
 function nickOf(id){var e=$(id);var v=e?e.value.trim():"";if(v){D.d.nick=v;D.save();return v;}return D.d.nick||"";}
 function pubOpen(p){var m=$(p);if(m)m.style.display="";if(p==="#hwPanel"){ATT_SESSION.hw++;ATT_BUSY.hw=false;PUBATT.hw=[];attRenderEditor("hw");attNote("hw","");attDropUI("hw");var f=$("#hFiles");if(f)f.value="";}if(p==="#ntPanel"){PUBATT.nt=[];attRenderEditor("nt");var g=$("#nFiles");if(g)g.value="";}}
 function pubClose(p){var m=$(p);if(m)m.style.display="none";}
+$("#hViewAll").addEventListener("click",function(){hwShowAll=!hwShowAll;renderHW();});
 $("#hPub").addEventListener("click",function(){ pubOpen("#hwPanel"); });
 $("#hwClose").addEventListener("click",function(){pubClose("#hwPanel");});
 $("#hwPanel").addEventListener("click",function(e){if(e.target===this)pubClose("#hwPanel");});
@@ -24161,8 +24188,10 @@ var TK=(function(){
   }
   function tkAddFromHW(h,bulk){
     if(!h)return null;
-    var sid=(h.id&&/^[A-Za-z0-9_-]{1,80}$/.test(h.id))?h.id:"";
-    if(sid&&tkLinkedHW(sid)){if(!bulk)toast("这项作业已在任务中");return null;}
+    if(!h.id)h.id=cbId();
+    var sid=h.id;
+    if(!/^[A-Za-z0-9_-]{1,80}$/.test(sid)){if(!bulk)toast("作业编号无效");return null;}
+    if(tkLinkedHW(sid)){if(!bulk)toast("这项作业已在任务中");return null;}
     var content=String(h.content||"").trim();
     var subject=String(h.subject||"").trim();
     var first=content.split(/\r?\n/)[0]||"";
@@ -24190,8 +24219,7 @@ var TK=(function(){
     return t;
   }
   function tkAddAllHW(){
-    var a=[];try{a=hwArr();}catch(e){}
-    var todo=a.filter(function(h){return h&&h.id&&!tkLinkedHW(h.id);});
+    var todo=hwToJoin();
     if(!todo.length){toast("没有可加入的未完成作业");return;}
     if(!confirm("把 "+todo.length+" 项未完成班级作业加入任务？"))return;
     var n=0;todo.forEach(function(h){if(tkAddFromHW(h,true))n++;});
@@ -24269,11 +24297,10 @@ var TK=(function(){
     try{tkCloseEditor(true);}catch(e){}
     if(h.id&&D.d.hwHide&&D.d.hwHide[h.id]){D.d.hwHide[h.id]=false;D.save();}
     if(CURTAB!=="hw")gotoTab("hw");
-    tkSetSeg("class");
+    tkSetSeg("class",true);
     setTimeout(function(){
       var el=null;
       try{el=document.querySelector('#hList [data-hw-id="'+h.id+'"]');}catch(e){el=null;}
-      if(!el){try{renderHW();}catch(e){}}
       if(el){
         try{el.scrollIntoView({block:"center",behavior:"smooth"});}catch(e){try{el.scrollIntoView();}catch(e2){}}
         el.classList.add("tk-hw-flash");
@@ -24350,10 +24377,7 @@ var TK=(function(){
     return "my";
   }
   function tkClassPending(){
-    try{
-      var a=D.d.homework||[];
-      return a.filter(function(h){return !hwDoneOf(h)&&!hwHidden(h);}).length;
-    }catch(e){return 0;}
+    return hwToJoin().length;
   }
   function tkClassDoneCount(){
     try{return (D.d.homework||[]).filter(function(h){return !hwHidden(h)&&hwDoneOf(h);}).length;}catch(e){return 0;}
@@ -24939,12 +24963,12 @@ var TK=(function(){
     var n=tkClassPending(),b=$("#tkSegClassN"),btn=null;
     try{btn=$('#tkSeg [data-tkseg="class"]');}catch(e){}
     if(b){b.textContent=String(n);b.hidden=!(n>0);}
-    if(btn)btn.setAttribute("aria-label","班级作业"+(n?("，"+n+" 项未完成"):""));
+    if(btn)btn.setAttribute("aria-label","班级作业"+(n?("，"+n+" 项待加入"):""));
   }
   function tkRenderClassNote(){
     var e=$("#tkClassNote");if(!e)return;
     var n=tkClassPending();
-    if(n>0)e.textContent="自动同步 · "+n+" 项未完成";
+    if(n>0)e.textContent="自动同步 · "+n+" 项待加入";
     else e.textContent="自动同步";
   }
   function tkApplySeg(){
@@ -24959,11 +24983,12 @@ var TK=(function(){
     });
     if(isClass)tkRenderClassNote();
   }
-  function tkSetSeg(s){
+  function tkSetSeg(s,showAll){
     s=s==="class"?"class":"my";
+    hwShowAll=s==="class"&&!!showAll;
     TKU.seg=s;TKU.segAuto=false;tkWriteUi();tkApplySeg();
     if(s==="class"){
-      tkRenderClassNote();
+      renderHW();
       try{if(AUTH.ready){if(typeof HW!=="undefined"&&HW&&HW.pull)HW.pull();if(typeof marksPull==="function")marksPull(true);}}catch(e){}
     }else{
       tkRenderAll();
@@ -24980,6 +25005,7 @@ var TK=(function(){
     tkRenderClassBadge();
   }
   function tkEnter(){
+    if(hwShowAll){hwShowAll=false;renderHW();}
     try{tkRefresh();}catch(e){}
     try{if(typeof TASKSYNC!=="undefined")TASKSYNC.boot();}catch(e){}
   }
@@ -26488,7 +26514,7 @@ var TK=(function(){
       try{D.save();}catch(e){}
       applying=false;
       writeBase(next.updatedAt);dirty=false;
-      try{tkRefresh();}catch(e){}
+      try{tkRefresh();renderHW();}catch(e){}
       setStatus("已同步");
       return true;
     }

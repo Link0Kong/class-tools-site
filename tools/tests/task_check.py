@@ -24,12 +24,12 @@ import json
 import os
 import re
 import socketserver
-import subprocess
 import sys
-import tempfile
 import threading
 import time
 from datetime import datetime, timedelta
+from _test_account import assert_test_identity
+from _qa_v2._cdp import Browser
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -51,6 +51,7 @@ PREVIEW_CLASS = os.path.join(REPORT_DIR, "task_preview_class.html")
 
 SID = "3260799999"
 NAME = "测试账号"
+assert_test_identity(SID, NAME, where="task_check")
 NOW = int(time.time() * 1000)
 TODAY = datetime.now().strftime("%Y-%m-%d")
 TOMORROW = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
@@ -137,6 +138,10 @@ window.fetch=function(u,o){
     }
     if(s.indexOf("/fitrecs")>=0)return ok(DATA.fitrecs);
     if(s.indexOf("/userdata")>=0)return ok([]);
+    if(s.indexOf("/taskdata")>=0){
+      if(m==="POST")window.__taskRow=JSON.parse(o.body)[0];
+      return ok(window.__taskRow?[window.__taskRow]:[]);
+    }
     if(s.indexOf("/visits")>=0)return ok([]);
     return ok([]);
   }
@@ -489,12 +494,15 @@ RUNNER = r"""
         var post=(window.__posts||[]).filter(function(p){return p.url.indexOf("/marks")>=0;});
         T("勾选写 marks(kind=hw,val=true)", post.length>0&&JSON.stringify(post[post.length-1].body).indexOf('"kind":"hw"')>=0&&JSON.stringify(post[post.length-1].body).indexOf('"val":true')>=0,
           JSON.stringify(post[post.length-1]||{}).slice(0,200));
+        T("勾选的班级作业离开待加入列表",qa("#hList .item").length===1);
+        click("#hViewAll");
         var doneItem=q("#hList .item.done [data-tg]");
         T("班级作业 UI 标记完成", !!doneItem, "");
         if(doneItem){doneItem.click();await sleep(500);}
         var post2=(window.__posts||[]).filter(function(p){return p.url.indexOf("/marks")>=0;});
         T("取消勾选写 val=false", post2.length>post.length&&JSON.stringify(post2[post2.length-1].body).indexOf('"val":false')>=0,
           JSON.stringify(post2[post2.length-1]||{}).slice(0,200));
+        click("#hViewAll");
 
         /* ---- 班级作业直接加入任务 + 来源/附件 ---- */
         T("班级作业逐项加入按钮 2 个", qa("[data-add-hw-task]").length===2, qa("[data-add-hw-task]").length);
@@ -506,11 +514,11 @@ RUNNER = r"""
         T("来源字段/标题/备注已带入", !!src1&&src1.sourceTitle.indexOf("英语")>=0&&src1.title.indexOf("英语")>=0&&src1.notes.indexOf("Unit 3")>=0,
           src1?JSON.stringify({title:src1.title,src:src1.sourceHwId,st:src1.sourceTitle}):"missing");
         T("班级作业转入的任务默认未分组", !!src1&&src1.list==="", src1?src1.list:"missing");
-        T("班级项显示「已在任务」", !!q('#hList [data-hw-id="hw1"]')&&q('#hList [data-hw-id="hw1"]').textContent.indexOf("已在任务")>=0,
-          q('#hList [data-hw-id="hw1"]')?q('#hList [data-hw-id="hw1"]').textContent.slice(0,60):"missing");
+        T("部分加入后仅余另一条，角标为一",!q('#hList [data-hw-id="hw1"]')&&!!q('#hList [data-hw-id="hw2"]')&&txt("#tkSegClassN")==="1"&&!q("#hCard").hidden);
         click("#hToTask");await sleep(600);
         T("班级头「加入任务」批量补齐剩余 1 条", TASK.items().filter(function(t){return t.sourceHwId==="hw2";}).length===1,
           TASK.items().filter(function(t){return t.sourceHwId;}).length);
+        T("全部加入后整卡零占位，仍可发布和管理作业",!q("#hCard").getClientRects().length&&q("#tkSegClassN").hidden&&!!q("#hPub").offsetWidth&&!!q("#hViewAll").offsetWidth);
         TASK.open(src1.id);await sleep(350);
         T("任务详情显示来源区", !!q("#tkFSource")&&!q("#tkFSource").hidden&&txt("#tkFSource").indexOf("来自班级作业")>=0, txt("#tkFSource").slice(0,80));
         var srcAtt=q('#tkFSource [data-tk-hwatt]');
@@ -522,6 +530,31 @@ RUNNER = r"""
           "panel="+q("#tkPanel").style.display);
         T("原班级卡片高亮定位", !!q('#hList [data-hw-id="hw1"]')&&q('#hList [data-hw-id="hw1"]').classList.contains("tk-hw-flash"), "");
         click('[data-tkseg="my"]');await sleep(250);
+        TASK.complete(src1.id);
+        click('[data-tkseg="class"]');
+        T("个人任务完成后班级卡片继续隐藏",q("#hCard").hidden&&TASK.linkedHW("hw1"));
+        TASK.open(src1.id);click("#tkFDelete");
+        T("删除个人任务后只有该班级作业恢复",!q("#hCard").hidden&&qa("#hList .item").length===1&&!!q('#hList [data-hw-id="hw1"]'));
+        click('[data-tab="all"]');click('[data-card="workbench"]');
+        await waitFor(function(){return q("#s-workbench").classList.contains("on")&&!!q('#wbHomework [data-wb-id="hw1"]');},3000);
+        T("工作台只显示尚未加入的作业",!!q("#wbHomeworkCard").offsetWidth&&qa("#wbHomework .wb-action").length===1&&!!q('#wbHomework [data-wb-id="hw1"]'));
+        click('#wbHomework [data-wb-go="addHomework"]');
+        await waitFor(function(){return q("#wbHomeworkCard").hidden;},2000);
+        T("从工作台加入最后一项后两张卡片并排填满",!q("#wbHomeworkCard").getClientRects().length&&getComputedStyle(q("#wbPanels")).gridTemplateColumns.split(" ").length===2&&q("#wbTasks").offsetWidth>0&&q("#wbNotices").offsetWidth>0);
+        await waitFor(function(){return !TASKSYNC.state().dirty&&txt("#tkCloud")==="已同步";},5000);
+        var original=JSON.parse(localStorage.getItem("zq_tools_v2___SID__")).task;
+        function remoteTasks(items){
+          var task=Object.assign({},original,{items:items,updatedAt:Math.max(Date.now(),Number(window.__taskRow&&window.__taskRow.ts)||0,original.updatedAt)+10000});
+          window.__taskRow={id:"__SID__",ts:task.updatedAt,blob:JSON.stringify(task)};
+          return TASKSYNC.pull(true);
+        }
+        await remoteTasks(original.items.filter(function(t){return t.sourceHwId!=="hw2";}));
+        await new Promise(requestAnimationFrame);
+        T("其它设备移除关联后两处同步恢复",!!q('#wbHomework [data-wb-id="hw2"]')&&!!q('#hList [data-hw-id="hw2"]')&&txt("#tkSegClassN")==="1",txt("#wbHomework")+" / "+txt("#hList")+" / "+txt("#tkSegClassN"));
+        await remoteTasks(original.items);
+        await new Promise(requestAnimationFrame);
+        T("其它设备加入后两处同步收起",q("#wbHomeworkCard").hidden&&q("#hCard").hidden&&q("#tkSegClassN").hidden);
+        click('[data-tab="hw"]');click('[data-tkseg="my"]');await sleep(250);
 
         /* ---- 任务附件：上传/压缩/限额/持久化 ---- */
         var attTask=taskByTitle("买牙膏和洗衣液");
@@ -576,7 +609,7 @@ RUNNER = r"""
         var hwNew=TASK.homework().filter(function(h){return h.content==="附件发布测试";})[0];
         T("发布作业带压缩图片附件", !!hwNew&&attsOf(hwNew).length===1&&attsOf(hwNew)[0].t==="image/jpeg",
           hwNew?JSON.stringify(attsOf(hwNew).map(function(a){return {n:a.n,t:a.t,s:a.s};})):"missing");
-        T("班级列表出现新作业", qa("#hList .item").length===3, qa("#hList .item").length);
+        T("新发布作业重新显示在待加入卡片", !q("#hCard").hidden&&qa("#hList .item").length===1&&txt("#hList").includes("附件发布测试"), qa("#hList .item").length);
         click('[data-tkseg="my"]');await sleep(250);
 
         /* ---- 详细编辑：预填/行内错误/日期快捷/提醒提示/未保存拦截 ---- */
@@ -715,6 +748,19 @@ RUNNER = r"""
             "classHidden="+cd.querySelector("#tkClass").hidden+" myHidden="+cd.querySelector("#tkMy").hidden);
           T("自动分段时班级按钮激活", !!(cd.querySelector('#tkSeg [data-tkseg="class"]')||{}).classList.contains("on"), "");
           T("自动分段后班级作业可见", cd.querySelectorAll("#hList .item").length===2, cd.querySelectorAll("#hList .item").length);
+          cw.DATA.homework=[];
+          cw.TASK.homework().length=0;
+          cd.querySelector('[data-tkseg="class"]').click();
+          T("零班级作业时整卡零占位且发布入口可见",!cd.querySelector("#hCard").getClientRects().length&&!!cd.querySelector("#hPub").offsetWidth);
+          cd.querySelector('[data-tab="all"]').click();
+          cd.querySelector('[data-card="workbench"]').click();
+          T("空班级工作台无班级卡且其它卡片可见",cd.querySelector("#s-workbench").classList.contains("on")&&!cd.querySelector("#wbHomeworkCard").getClientRects().length&&!!cd.querySelector("#wbTasks").offsetWidth);
+          cd.querySelector('[data-tab="hw"]').click();
+          cw.TASK.homework().push({subject:"历史作业",content:"旧版没有编号"});
+          cd.querySelector('[data-tkseg="class"]').click();
+          cd.querySelector("#hList [data-add-hw-task]").click();
+          var saved=JSON.parse(cw.localStorage.getItem("zq_tools_v2___SID__"));
+          T("旧无编号作业首次加入后来源编号落盘并隐藏",!!saved.homework[0].id&&saved.task.items.some(function(t){return t.sourceHwId===saved.homework[0].id;})&&cd.querySelector("#hCard").hidden);
         }catch(e){T("自动分段 iframe 检查", false, String(e));}
 
         T("0 JS 报错", (window.__errs||[]).length===0, JSON.stringify(window.__errs||[]).slice(0,400));
@@ -774,17 +820,22 @@ def main():
     if os.path.exists(REPORT):
         os.remove(REPORT)
     url = BASE + os.path.basename(PREVIEW)
-    args = [EDGE, "--headless=new", "--disable-gpu", "--no-first-run", "--force-device-scale-factor=1",
-            "--window-size=1280,900", "--virtual-time-budget=150000",
-            "--screenshot=" + os.path.join(REPORT_DIR, "task_check.png"), url]
-    subprocess.run(args, capture_output=True, timeout=300)
     data = None
-    for _ in range(40):
-        if os.path.exists(REPORT):
+    # Workbench updates on animation frames. Let Edge paint between cloud responses.
+    browser = Browser(edge=EDGE, window=(1280, 900))
+    try:
+        page = browser.new_page()
+        page.navigate(url)
+        deadline = time.monotonic() + 150
+        while time.monotonic() < deadline and not os.path.exists(REPORT):
             time.sleep(.2)
-            data = json.loads(open(REPORT, encoding="utf-8", errors="replace").read())
-            break
-        time.sleep(.3)
+        if os.path.exists(REPORT):
+            with open(REPORT, encoding="utf-8") as result:
+                data = json.load(result)
+            page.screenshot(os.path.join(REPORT_DIR, "task_check.png"))
+    finally:
+        browser.close()
+        httpd.shutdown()
     if not data:
         print("FAIL: 未收到报告（页面可能未启动/提前崩溃）")
         return 1
