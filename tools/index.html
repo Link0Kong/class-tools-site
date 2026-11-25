@@ -1429,10 +1429,24 @@ body.rst-lock{overflow:hidden}
 }
 
 /* 「全部」页的今日课表 */
-.wb-schedule .wb-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.wb-schedule h2{margin:0;font-size:17px;color:var(--ink)}
-.wb-schedule .wb-week{margin-left:8px;font-size:13px;font-weight:500;color:var(--ink2)}
-.wb-schedule .wb-open{min-height:40px}
+#s-workbench .wb-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+#s-workbench h2{margin:0;font-size:17px;color:var(--ink)}
+#s-workbench h2 small,.wb-schedule .wb-week{margin-left:8px;font-size:12.5px;font-weight:500;color:var(--ink2)}
+#s-workbench .btn{min-height:40px}
+.wb-panels{display:grid;gap:12px;align-items:start}
+.wb-panels[hidden]{display:none}
+.wb-panels .card{min-width:0;margin:0}
+.wb-action{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line)}
+.wb-main{display:block;min-width:0;flex:1;min-height:44px;padding:10px 0;border:0;background:transparent;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.wb-main b,.wb-main small{display:block;overflow-wrap:anywhere}
+.wb-main b{font-size:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.wb-main small,.wb-state{font-size:12.5px;line-height:1.5;color:var(--ink2)}
+.wb-state{margin:10px 0 0}
+.wb-main:hover b,.wb-room:hover{text-decoration:underline}
+.wb-room{min-height:40px;padding:0 3px;border:0;background:none;color:var(--tl-ink,var(--ink2));font:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.wb-action .btn{flex:none}
+@media(min-width:760px){.wb-panels{grid-template-columns:repeat(2,minmax(0,1fr))}.wb-panels>.card:last-child{grid-column:1/-1}}
+@media(min-width:1080px){.wb-panels{grid-template-columns:repeat(3,minmax(0,1fr))}.wb-panels>.card:last-child{grid-column:auto}}
 .wb-courses{display:grid;gap:0 24px}
 .wb-course{display:grid;grid-template-columns:3.4em minmax(0,1fr) auto;gap:9px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
 .wb-course time{font-variant-numeric:tabular-nums;color:var(--ink2);font-weight:650}
@@ -4034,6 +4048,7 @@ html[data-appearance="dark"] .cst-row b{color:#EEF2F0}
 /* 小屏/横屏高度不足时身份卡可能超出视口（备案号行使卡片略高）：改为顶部对齐 + 卡片区可滚动，避免上下被裁切 */
 @media (max-height:700px){.idgate{align-items:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch}}
 
+html.mobile-tool .wrap > .brand,html.mobile-tool #tabsBar{display:none!important}
 </style>
 </head>
 <body class="auth-pending">
@@ -5130,6 +5145,21 @@ html[data-appearance="dark"] .cst-row b{color:#EEF2F0}
       <div class="wb-courses" id="wbCourses"></div>
       <p id="wbCourseNote" class="wb-course-note"></p>
     </div>
+    <div class="wb-panels" id="wbPanels" hidden>
+      <div class="card">
+        <div class="wb-heading"><h2>个人任务<small id="wbTaskCount"></small></h2><button type="button" class="btn sm" data-wb-go="tasks">全部任务 ›</button></div>
+        <div id="wbTasks"></div>
+        <button type="button" class="btn sm ghost" data-wb-go="new">＋ 新建任务</button>
+      </div>
+      <div class="card">
+        <div class="wb-heading"><h2>班级作业<small id="wbHomeworkCount"></small></h2><button type="button" class="btn sm" data-wb-go="homework">全部作业 ›</button></div>
+        <div id="wbHomework"></div>
+      </div>
+      <div class="card">
+        <div class="wb-heading"><h2>最新通知</h2><button type="button" class="btn sm" data-wb-go="notices">全部通知 ›</button></div>
+        <div id="wbNotices"></div>
+      </div>
+    </div>
   </section>
 
   <section id="s-all">
@@ -5618,6 +5648,10 @@ function fb(t){var a=document.createElement("textarea");a.value=t;a.style.positi
 
 /* ---------------- 数据 ---------------- */
 var KEY="zq_tools_v2", OLDKEY="ziqi.tools.v1";
+/* 手机客户端在文档启动前注入当次会话，网页不缓存其凭据。 */
+var nativeTool=/^\?mobileTool=(hw|nt|ntadmin)$/.exec(location.search);
+var nativeIdentity=nativeTool?window.__ctMobileSession:null;
+delete window.__ctMobileSession;
 var DEF={course:[],homework:[],notices:[],termStart:"",roster:"",classRoster:"",rosterSel:[],groupSel:[],rollSel:[],rosterMigrated:false,nick:"",hwDone:{},ntPin:{},hwHide:{},ntHide:{},rollNames:"",rollSrc:"",rollSt:{},seat:"",markPend:[],fitRecs:[],did:"",verify:null,homeTools:["draw","hw","nt","tt"],ttView:"",ttUseMine:false,ttLocal:null,ttAdopt:"",ttSyncAt:0,
   draw:{start:1,end:70,count:10,dup:false,excl:"",sort:"draw",names:""},
   group:{source:"prev",names:"",mode:"groups",n:4,shuffle:false},
@@ -5808,10 +5842,10 @@ function mkD(raw){
   return d;
 }
 var D=(function(){
-  var raw=readKey(KEY);
-  if(!raw){ var o=readKey(OLDKEY); if(o){ raw={course:o.courses||[],homework:o.homework||[],notices:o.notices||[],termStart:o.termStart||"",settings:o.settings||{}}; } }
+  var raw=nativeTool?null:readKey(KEY);
+  if(!raw&&!nativeTool){ var o=readKey(OLDKEY); if(o){ raw={course:o.courses||[],homework:o.homework||[],notices:o.notices||[],termStart:o.termStart||"",settings:o.settings||{}}; } }
   return {d:mkD(raw),
-    save:function(){try{localStorage.setItem(storeKey(),JSON.stringify(D.d));}catch(e){toast("保存失败");}try{if(typeof UD!=="undefined"&&UD&&UD.touch)UD.touch();}catch(e2){}},
+    save:function(){if(nativeTool&&(!AUTH||!AUTH.ready))return;try{localStorage.setItem(storeKey(),JSON.stringify(D.d));}catch(e){toast("保存失败");}try{if(typeof UD!=="undefined"&&UD&&UD.touch)UD.touch();}catch(e2){}},
     reload:function(k){D.d=mkD(readKey(k));}};
 })();
 
@@ -6712,9 +6746,9 @@ var NOTICE_TPL_B64="PCFkb2N0eXBlIGh0bWw+PGh0bWwgbGFuZz0iemgtQ04iPjxoZWFkPjxtZXRh
 var NOTICE_LAST_DATA="", NOTICE_FRAME=null, NOTICE_DONE_SIG="";
 var NOTICE_H=0;            /* 需求4：iframe 内容高度（父页滚动 + 自适应高度） */
 var NT_META={}, NT_HIDDEN=[]; /* 需求12：行级 rowId/hidden/edited_at/override；管理员可恢复的已隐藏列表 */
-var AN_DONE={}; try{AN_DONE=JSON.parse(localStorage.getItem("zq_auto_nt_done")||"{}")||{};}catch(e){AN_DONE={};}
+var AN_DONE={}; if(!nativeTool)try{AN_DONE=JSON.parse(localStorage.getItem("zq_auto_nt_done")||"{}")||{};}catch(e){AN_DONE={};}
 var AN_DONE_MIGRATE=null;
-function anSaveDone(){try{localStorage.setItem("zq_auto_nt_done",JSON.stringify(AN_DONE));}catch(e){}}
+function anSaveDone(){if(!nativeTool)try{localStorage.setItem("zq_auto_nt_done",JSON.stringify(AN_DONE));}catch(e){}}
 /* 通知「标记已处理」：iframe 状态 -> 父页 NT.done/AN_DONE -> marks(kind=ntdone) 跨端同步 */
 function noticeApplyDone(){
   var f=NOTICE_FRAME; if(!f)return;
@@ -6760,7 +6794,7 @@ function noticePushDone(gid,done){
 }
 /* 旧 localStorage zq_auto_nt_done 一次性迁移为 marks(kind=ntdone)：按 sid 只做一次，迁完清除 */
 function anMigrateDone(){
-  if(!D.d.seat)return;
+  if(nativeTool||!D.d.seat)return;
   if(migratedRead().ntdone)return;
   migratedMark("ntdone");
   var pend={},any=false,g;
@@ -7242,6 +7276,7 @@ function noticeTaskPatch(doc){
   }catch(e){}
 }
 function renderNoticeFrame(){
+  queueWorkbenchPanels();
   var host=$("#noticeHost"); if(!host)return;
   var hasContent=AUTO_NOTICES.length>0||(canManage()&&NT_HIDDEN.length>0);
   if(!hasContent){
@@ -8052,9 +8087,9 @@ try{
 var AUTH={acc:"",sid:"",name:"",role:"",badge:"",is_admin:false,token:"",ready:false};
 var DEVEDIT=false;
 function cbById(t,id,extra){return fetch(CB+t+"?select=*&id=eq."+encodeURIComponent(id),{headers:cbH(false,extra),cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();}).then(function(a){return a[0]||null;});}
-function identityGet(){try{var x=JSON.parse(localStorage.getItem("zq_class_identity")||"null");return (x&&x.token&&x.sid)?x:null;}catch(e){return null;}}
-function identityStore(x){try{localStorage.setItem("zq_class_identity",JSON.stringify(x));}catch(e){}}
-function identityClear(){try{localStorage.removeItem("zq_class_identity");}catch(e){}}
+function identityGet(){try{var x=nativeTool?nativeIdentity:JSON.parse(localStorage.getItem("zq_class_identity")||"null");return (x&&x.token&&x.sid)?x:null;}catch(e){return null;}}
+function identityStore(x){if(nativeTool){nativeIdentity=x;return;}try{localStorage.setItem("zq_class_identity",JSON.stringify(x));}catch(e){}}
+function identityClear(){if(nativeTool){nativeIdentity=null;return;}try{localStorage.removeItem("zq_class_identity");}catch(e){}}
 function sessionGet(){var i=identityGet();return i?{acc:i.sid,identity:i}:null;}
 function authHdr(){var i=identityGet();return (i&&i.token)?{"X-Device-Id":i.token}:{};}
 
@@ -8587,7 +8622,7 @@ function bucketInit(){
     }catch(e){}
     if(legacy){try{localStorage.setItem(k,legacy);raw=legacy;}catch(e){}}
   }
-  D.reload(raw?k:KEY);
+  D.reload(raw||nativeTool?k:KEY);
   D.d.seat=AUTH.sid;
   D.d.verify={ok:true,name:AUTH.name,ts:Date.now()};
   migrateRoster();
@@ -8653,7 +8688,7 @@ var TOOLS=[
  {k:"ppt",n:"演示",d:"PPT 上传、下载与播放"},
  {k:"stage",n:"大屏",d:"团日主持与演示放映",admin:true},
  {k:"settings",n:"设置",d:"外观、备份与协议"},
- {k:"workbench",n:"工作台",d:"今日课程、上课时间与下一节安排"},
+ {k:"workbench",n:"工作台",d:"今日课程、个人任务、班级作业和最新通知"},
  {k:"map",n:"地图",d:"校园 2.5D 地图与道路导航"},
  {k:"jw",n:"教务",d:"成绩、选课与考试",url:"http://210.34.74.77/sso.jsp"},
  {k:"chsi",n:"学信网",d:"学籍 · 学历 · 学位；官方入口卡"}];
@@ -8776,6 +8811,10 @@ function gotoTab(k,noScroll){
   if(k==="diag"){try{if(typeof DIAG!=="undefined")DIAG.enter();}catch(e){}}
   if(k==="all") renderAllCards();
   renderWorkbenchCourses();
+  if(k==="workbench"&&AUTH.ready){
+    HW.pull();NT.pull();marksPull();
+    if(window.TASKSYNC){TASKSYNC.boot();TASKSYNC.pull();}
+  }
   if(k==="power") POWER.enter();
   if(k==="water") WATER.enter();
   if(k==="ppt"){try{if(typeof PPT!=="undefined"&&PPT&&PPT.enter)PPT.enter();}catch(e){}}
@@ -12701,18 +12740,74 @@ function ttNowInfo(cs){
   var plan=ttTodayPlan(cs,termVal(),new Date());
   return plan.current||plan.next;
 }
-var wbCourseTimer;
+var wbCourseTimer,wbPanelFrame;
+function queueWorkbenchPanels(){
+  if(CURTAB!=="workbench"||!AUTH.ready||document.hidden||wbPanelFrame)return;
+  wbPanelFrame=requestAnimationFrame(function(){wbPanelFrame=0;renderWorkbenchPanels();});
+}
+function wbList(selector,rows,empty){
+  var node=$(selector),html=rows.join("")||'<p class="wb-state">'+esc(empty)+'</p>';
+  if(node._wbHtml!==html){node.innerHTML=html;node._wbHtml=html;}
+}
+function wbRow(kind,id,title,meta,action,label){
+  var attr=' data-wb-id="'+esc(id)+'"';
+  return '<div class="wb-action"><button type="button" class="wb-main" data-wb-go="'+kind+'"'+attr+'><b>'+esc(title)+'</b>'+
+    (meta?'<small>'+esc(meta)+'</small>':'')+'</button>'+
+    (action?'<button type="button" class="btn sm ghost" data-wb-go="'+action+'"'+attr+' aria-label="'+esc(label+"，"+title)+'">'+esc(label)+'</button>':'')+'</div>';
+}
+function wbPublishedAt(g){
+  var pub=Date.parse(g.publishedAt);
+  if(isFinite(pub))return pub;
+  // 旧通知的消息只记月日和时分，沿用通知板的跨年回退口径。
+  var now=new Date(),best=Math.max(Number(g.ts)||Date.parse(g.ts)||0,Date.parse(g.updatedAt)||0);
+  function take(time){
+    var m=/^(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})$/.exec(String(time||"").trim());
+    if(!m)return;
+    var d=new Date(now.getFullYear(),+m[1]-1,+m[2],+m[3],+m[4]);
+    if(d.getTime()>now.getTime()+60*86400000)d.setFullYear(d.getFullYear()-1);
+    best=Math.max(best,d.getTime());
+  }
+  (g.items||[]).forEach(function(it){take(it.time);(it.messages||[]).forEach(function(m){take(m.time);});});
+  return best;
+}
+function renderWorkbenchPanels(){
+  if(CURTAB!=="workbench"||!AUTH.ready||document.hidden||!window.TASK)return;
+  var tasks=TASK.items().filter(function(t){return !t.done;});
+  tasks.sort(function(a,b){
+    var byDue=(taskDeadlineMs(a)||Infinity)-(taskDeadlineMs(b)||Infinity);
+    return byDue||Number(b.starred)-Number(a.starred)||a.order-b.order;
+  });
+  $("#wbTaskCount").textContent=tasks.length?tasks.length+" 项待办":"";
+  var taskSync=$("#tkCloud").textContent;
+  wbList("#wbTasks",tasks.slice(0,3).map(function(t){
+    var due=TASK.dueMeta(t),meta=[due&&due.txt,t.starred?"重要":"",t.myDay===taskYmd(new Date())?"我的一天":""].filter(Boolean);
+    return wbRow("task",t.id,t.title,meta.join(" · "),"complete","完成");
+  }),taskSync==="同步中…"?"正在同步个人任务…":(taskSync==="仅本机"?"本机暂无待办任务":"暂无待办任务"));
+  var homework=hwArr().filter(function(h){return !hwExpired(h);}).sort(function(a,b){return (hwDue(a)||Infinity)-(hwDue(b)||Infinity);});
+  $("#wbHomeworkCount").textContent=homework.length?homework.length+" 项待办":"";
+  wbList("#wbHomework",homework.slice(0,3).map(function(h){
+    var linked=TASK.linkedHW(h.id),meta=[h.subject,dueInfo(h).txt,linked?"已加入任务":""].filter(Boolean);
+    return wbRow("assignment",h.id||"",h.content||"班级作业",meta.join(" · "),h.id&&!linked?"addHomework":"","加入任务");
+  }),HW.loading?"正在同步班级作业…":(!HW.on&&!syncedRead().hw?"班级作业暂未同步":"暂无待完成作业"));
+  var latest=AUTO_NOTICES.map(function(g){return {g:g,at:wbPublishedAt(g)};}).sort(function(a,b){return b.at-a.at;});
+  wbList("#wbNotices",latest.slice(0,3).map(function(row){
+    var meta=[row.g.cat,row.at?fmtDT(row.at)+" 发布":""].filter(Boolean);
+    return wbRow("notice",row.g.id,row.g.title||"班级通知",meta.join(" · "));
+  }),NT.loading?"正在同步通知…":(!NT.on&&!NT.hydrated?"通知暂未同步":"暂无班级通知"));
+}
 function renderWorkbenchCourses(){
   clearTimeout(wbCourseTimer);
   var card=$("#wbSchedule");
   card.hidden=!AUTH.ready;
+  $("#wbPanels").hidden=!AUTH.ready;
   if(card.hidden || CURTAB!=="workbench" || document.hidden)return;
+  renderWorkbenchPanels();
   var d=ttData(), now=new Date(), plan=ttTodayPlan(d.c,d.t,now);
-  $("#wbWeek").textContent=plan.week?"第 "+plan.week+" 周":"";
+  $("#wbWeek").textContent=fmtMD(now)+" "+DAYS[(now.getDay()+6)%7]+(plan.week?" · 第 "+plan.week+" 周":"");
   $("#wbCourses").innerHTML=plan.rows.map(function(row){
     var c=row.c, span="第"+c.start+(c.end>c.start?"–"+c.end:"")+"节";
     return '<div class="wb-course"><time>'+row.time+'</time><div><b>'+esc(c.name||"课程")+
-      '</b><small>'+span+(c.room?" · "+esc(c.room):"")+'</small></div>'+
+      '</b><small>'+span+(c.room?' · <button type="button" class="wb-room" data-wb-go="room" data-wb-id="'+esc(c.room)+'" aria-label="在校园地图查看'+esc(c.room)+'">'+esc(c.room)+'</button>':"")+'</small></div>'+
       (row.badge?'<em'+(row.badge==="上课中"?' class="current"':'')+'>'+row.badge+'</em>':'')+'</div>';
   }).join("");
   var note="";
@@ -12727,6 +12822,26 @@ function renderWorkbenchCourses(){
   wbCourseTimer=setTimeout(renderWorkbenchCourses,60000-Date.now()%60000);
 }
 $("#wbOpenTt").addEventListener("click",function(){gotoTab("tt");});
+$("#s-workbench").addEventListener("click",function(e){
+  var btn=e.target.closest("[data-wb-go]");
+  if(!btn||!AUTH.ready)return;
+  var id=btn.dataset.wbId,go=btn.dataset.wbGo;
+  if(go==="room"){openMapForRoom(id);return;}
+  if(go==="notices"){gotoTab("nt");return;}
+  if(go==="notice"){TASK.openNoticeSource(id,true);return;}
+  if(go==="task"){TASK.openDetail(id);return;}
+  if(go==="complete"){TASK.complete(id);return;}
+  if(go==="new"){TASK.open();return;}
+  if(go==="addHomework"){
+    var h=D.d.homework.find(function(it){return it.id===id;});
+    if(h)TASK.addFromHW(h);
+    return;
+  }
+  gotoTab("hw");
+  if(go==="assignment"&&id){TASK.openHwSource(id);return;}
+  TASK.setSeg(go==="tasks"?"my":"class");
+  if(go==="tasks")TASK.setView("all");
+});
 document.addEventListener("visibilitychange",renderWorkbenchCourses);
 function ttHint(){ var g=$("#tGrid"), h=$("#tHint"); if(g&&h) h.style.display=(g.scrollWidth>g.clientWidth+4)?"":"none"; }
 /* 按实际“天列宽”设置 --dayw：字号、行高、间距、桌面端教师行都随它缩放 */
@@ -15884,10 +15999,14 @@ function bootRefresh(){
 function enterClass(r){
   AUTH.acc=r.sid; AUTH.sid=r.sid; AUTH.name=r.name||""; AUTH.role=r.role||""; AUTH.badge=r.badge||""; AUTH.is_admin=!!r.is_admin; AUTH.token=r.token; AUTH.ready=true;
   identityStore({token:r.token,sid:r.sid,name:r.name,role:r.role||"",badge:r.badge||"",is_admin:!!r.is_admin,ts:Date.now()});
-  try{localStorage.setItem("zq_last_identity",JSON.stringify({sid:r.sid,name:r.name}));}catch(e){}
+  if(!nativeTool)try{localStorage.setItem("zq_last_identity",JSON.stringify({sid:r.sid,name:r.name}));}catch(e){}
   document.body.classList.remove("id-locked");
   var g=$("#idgate"); if(g)g.style.display="none";
-  try{POS.begin();}catch(e){} /* 需求2：刷新恢复 tab（renderTabs 首次渲染前决定落地页） */
+  if(nativeTool){
+    document.documentElement.classList.add("mobile-tool");
+    CURTAB=nativeTool[1]==="ntadmin"&&!canManage()?"nt":nativeTool[1];
+    LANDING=false;
+  }else{try{POS.begin();}catch(e){}}
   bucketInit(); accUi(); applyMode();
   try{if(window.NTADMIN&&window.NTADMIN.syncEntry)window.NTADMIN.syncEntry();}catch(e){}
   startClassData();
@@ -15895,6 +16014,18 @@ function enterClass(r){
   try{HIST.init();}catch(e){}
   /* 抽签存证深链 #verify=<id>（登录后才可读；进入班级后补一次）+ 今日抽签次数摘要 */
   try{setTimeout(function(){if(typeof drawHandleVerifyHash==="function")drawHandleVerifyHash();if(typeof drawTodayPull==="function")drawTodayPull();},80);}catch(e){}
+}
+// Android 的 postWebMessage 只向当前同源主文档发送一次会话。
+if(nativeTool&&nativeTool[1]==="ntadmin"&&window===window.top){
+  window.addEventListener("message",function acceptNativeLogin(e){
+    if(AUTH.ready||!e.isTrusted||e.source!==null||typeof e.data!=="string")return;
+    var packet;try{packet=JSON.parse(e.data);}catch(err){return;}
+    var s=packet&&packet.type==="ct-native-session"&&packet.session;
+    if(!s||typeof s.sid!=="string"||!/^\d{10}$/.test(s.sid)||typeof s.token!=="string"||!s.token.trim())return;
+    window.removeEventListener("message",acceptNativeLogin);
+    enterClass({sid:s.sid,name:s.name||"",role:s.role||"",badge:s.badge||"",token:s.token,
+      is_admin:s.is_admin===true||s.isAdmin===true,ts:Date.now()});
+  });
 }
 function doIdentity(){
   var sid=$("#igSid").value.replace(/\s+/g,""), name=$("#igName").value.trim();
@@ -16255,7 +16386,7 @@ var QRL=(function(){
   return {open:open,close:close,parseHash:parseHash,confirmStart:confirmStart,showBad:showBad};
 })();
 (function(){
-  var last={}; try{last=JSON.parse(localStorage.getItem("zq_last_identity")||"{}");}catch(e){}
+  var last={}; if(!nativeTool)try{last=JSON.parse(localStorage.getItem("zq_last_identity")||"{}");}catch(e){}
   try{$$(".idver,.ugver").forEach(function(el){el.textContent="班级工具 v"+APP_VER;});}catch(e){}
   if(last.sid)$("#igSid").value=last.sid;
   if(last.name)$("#igName").value=last.name;
@@ -24078,14 +24209,21 @@ var TK=(function(){
     toast("通知已加入任务");
     return t;
   }
-  function tkOpenNoticeSource(id){
+  function tkOpenNoticeSource(id,showLatest){
     try{tkCloseEditor(true);}catch(e){}
     try{gotoTab("nt");}catch(e){}
     setTimeout(function(){
       try{
-        var f=NOTICE_FRAME,doc=f&&f.contentDocument;if(!doc)return;
-        var key=String(id||"").replace(/[^A-Za-z0-9_-]/g,"_");
-        var el=doc.getElementById("card-"+key)||doc.querySelector('[data-gid="'+String(id).replace(/"/g,"")+'"]');
+        var f=NOTICE_FRAME,doc=f&&f.contentDocument;if(CURTAB!=="nt"||!doc)return;
+        function card(gid){return doc.getElementById("card-"+String(gid).replace(/[^A-Za-z0-9_-]/g,"_"));}
+        var el=card(id);
+        if(showLatest||!el||!el.getClientRects().length){
+          var cat=doc.querySelector('#catRow [data-cat="全部"]:not(.on)');
+          if(cat)cat.click();
+          var latest=doc.querySelector('#dataBar [data-card="latest"]:not(.on)');
+          if(latest)latest.click();
+          el=card(id)||card(String(id).split("@occ:")[0]);
+        }
         if(el){el.scrollIntoView({block:"center",behavior:"smooth"});el.classList.add("flash");setTimeout(function(){el.classList.remove("flash");},1600);}
       }catch(e){}
     },900);
@@ -24096,6 +24234,7 @@ var TK=(function(){
     if(!h){toast("原班级作业已不可用");return;}
     try{tkCloseEditor(true);}catch(e){}
     if(h.id&&D.d.hwHide&&D.d.hwHide[h.id]){D.d.hwHide[h.id]=false;D.save();}
+    if(CURTAB!=="hw")gotoTab("hw");
     tkSetSeg("class");
     setTimeout(function(){
       var el=null;
@@ -24751,6 +24890,7 @@ var TK=(function(){
     tkRenderQuickState();
   }
   function tkRenderAll(){
+    queueWorkbenchPanels();
     if(!$("#tkSmart"))return;
     TKU.today=tkToday();
     tkRenderSide();
@@ -26153,6 +26293,7 @@ var TK=(function(){
         var _renderHW=renderHW;
         renderHW=function(){
           var r=_renderHW.apply(this,arguments);
+          queueWorkbenchPanels();
           try{tkClassChanged();}catch(e){}
           return r;
         };
@@ -26179,7 +26320,7 @@ var TK=(function(){
     function baseKey(){return "zq_task_cloud_"+SID;}
     function readBase(){try{return JSON.parse(localStorage.getItem(baseKey())||"null");}catch(e){return null;}}
     function writeBase(ts){try{localStorage.setItem(baseKey(),JSON.stringify({ts:Number(ts)||0}));}catch(e){}}
-    function setStatus(t,err){var e=$("#tkCloud");if(!e)return;e.textContent=t||"";e.className="tk-cloudst"+(err?" err":"");}
+    function setStatus(t,err){var e=$("#tkCloud");if(!e)return;e.textContent=t||"";e.className="tk-cloudst"+(err?" err":"");queueWorkbenchPanels();}
     function localTask(){return taskNormData(D.d.task);}
     function hasData(t){return !!(t&&((t.items&&t.items.length)||(t.lists&&t.lists.length)||(t.prefs&&(t.prefs.sound===false||t.prefs.defaultRemind!=="none"||(t.prefs.sidebarOrder&&t.prefs.sidebarOrder.length)||Number(t.prefs.sidebarOrderAt)>0))));}
     function cloudView(t){
@@ -26346,6 +26487,9 @@ var TK=(function(){
     refresh:tkRefresh,
     enter:tkEnter,
     open:tkOpenEditor,
+    openDetail:tkOpenDetail,
+    dueMeta:tkDueMeta,
+    complete:function(id){var t=tkFindTask(id);if(t&&!t.done){var next=tkSetDone(t,true);tkRenderAll();toast(next?"已完成 · 下次 "+next.due:"任务已完成");}},
     openList:tkOpenListEditor,
     setSeg:tkSetSeg,
     setView:tkSetView,
@@ -26884,6 +27028,7 @@ var NTADMIN=(function(){
   try{window.NTADMIN=API;}catch(e){}
   return API;
 })();
+if(nativeTool&&CURTAB==="ntadmin"&&AUTH.ready&&canManage())NTADMIN.enter();
 
 })();
 </script>
