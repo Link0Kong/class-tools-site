@@ -128,6 +128,12 @@ INIT = r"""
         return resp([]);
       }
       if(s.indexOf("rpc/class_members")>=0)return resp(__MEMBERS__);
+      if(s.indexOf("rpc/class_roster_search")>=0){
+        var q=JSON.parse(body||"{}").p_query;
+        (window.__rosterQueries||(window.__rosterQueries=[])).push(q);
+        if(q==="QA-COMET")return new Promise(function(resolve){setTimeout(function(){resolve(resp([2,3]));},180);});
+        return resp([]);
+      }
       if(s.indexOf("rpc/class_league")>=0)return resp({ok:true,seats:__LEAGUE__});
       if(s.indexOf("rpc/class_verify")>=0)return resp({ok:true,token:"mock-token",sid:"__SID__",name:"__NAME__",role:"",badge:"",is_admin:true});
       if(s.indexOf("rpc/poll_create")>=0){
@@ -210,6 +216,21 @@ def wait_for(fn, timeout=8.0, step=0.12):
 def click(page, sel):
     return page.evaluate("(function(){var e=document.querySelector(%s);if(!e)return false;e.click();return true;})()" % json.dumps(sel))
 
+def field(page, selector, value, event="input"):
+    page.evaluate("""(function(){
+      var el=document.querySelector(%s);el.value=%s;el.dispatchEvent(new Event(%s,{bubbles:true}));
+    })()""" % tuple(map(json.dumps, (selector, value, event))))
+
+
+def seats(page, selector, key):
+    return page.evaluate("Array.from(document.querySelectorAll(%s),b=>Number(b.dataset[%s]))" %
+                         (json.dumps(selector), json.dumps(key)))
+
+
+def submit_search(page, selector):
+    page.evaluate("document.querySelector(%s).dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))" %
+                  json.dumps(selector))
+
 
 def open_draw_picker(page):
     page.evaluate("var b=document.querySelector('#aRosterPick');if(b)b.click();'x'")
@@ -255,11 +276,44 @@ def main():
     T("B1 抽签名单弹层：可打开且预设按钮 = all/committee/league",
       s["open"] and s["presets"] == ["all", "committee", "league"], (s["open"], s["presets"]))
     if s["open"]:
+        menu = "#rstSearchGroup"
+        field(p, menu, "committee", "change")
+        T("筛选班委只改变可见成员", seats(p, "#rstTxt [data-seat]", "seat") == COMMITTEE_SEATS and snap(p)["sel"] == [])
+        field(p, menu, "all", "change")
+        field(p, "#rstSearch", "副班长")
+        T("职务在键入时本地匹配", seats(p, "#rstTxt [data-seat]", "seat") == [3])
+        field(p, "#rstSearch", "QA-COMET")
+        time.sleep(.35)
+        T("仅键入时不查询，不显示候选", not seats(p, "#rstTxt [data-seat]", "seat") and
+          p.evaluate("(window.__rosterQueries||[]).length") == 0)
+        p.evaluate("document.querySelector('#rstSearch').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',isComposing:true,bubbles:true}))")
+        T("输入法确认不提交搜索", p.evaluate("(window.__rosterQueries||[]).length") == 0)
+        submit_search(p, "#rstSearch")
+        field(p, "#rstSearch", "QA-")
+        time.sleep(.35)
+        T("改词后丢弃慢响应", seats(p, "#rstTxt [data-seat]", "seat") == [])
+        submit_search(p, "#rstSearch")
+        time.sleep(.15)
+        T("不完整词提交后不匹配", seats(p, "#rstTxt [data-seat]", "seat") == [])
+        field(p, "#rstSearch", "QA-COMET")
+        click(p, "#rstSearchHost .member-search-submit")
+        T("提交完整输入可找到同名多位成员",
+          wait_for(lambda: seats(p, "#rstTxt [data-seat]", "seat") == [2, 3]))
+        field(p, menu, "league", "change")
+        T("完整匹配结果与团员分类取交集", wait_for(lambda: seats(p, "#rstTxt [data-seat]", "seat") == [3]))
+        T("结果只渲染班级姓名和座号", p.evaluate("!document.querySelector('#rstTxt').textContent.includes('QA-COMET')"))
+        field(p, "#rstSearch", "")
+        field(p, menu, "all", "change")
         click(p, '#rosterModal [data-rstpreset="committee"]')
         time.sleep(0.4)
         s = snap(p)
         T("B2 点「班委」→ 选中 = 班委座号 [1,3]", s["sel"] == COMMITTEE_SEATS, s["sel"])
         T("B2b 计数正确（2 人）", str(s["cnt"]).strip() == "2", s["cnt"])
+        field(p, "#rstSearch", "李四")
+        click(p, "#rstAllBtn")
+        field(p, "#rstSearch", "")
+        T("选中可见保留已勾选的其他分类成员", snap(p)["sel"] == [1, 2, 3])
+        click(p, '#rosterModal [data-rstpreset="committee"]')
         # 逐个增删：取消 1、加选 2
         click(p, '#rstTxt .rst-b[data-seat="1"]')
         time.sleep(0.2)
@@ -274,6 +328,17 @@ def main():
         T("B4 确定后 D.d.rosterSel=[2,3]，摘要已刷新", sel == [2, 3] and ("李四" in (s["aSum"] or "") or "王五" in (s["aSum"] or "")), (sel, s["aSum"]))
     else:
         S("B2-B4 名单弹层未打开（功能块未落地）")
+    p.close()
+
+    p = new_page()
+    click(p, '#cmTabs [data-cmtab="all"]')
+    field(p, "#cmSearch", "QA-COMET")
+    submit_search(p, "#cmSearch")
+    T("名单页提交精确查询", wait_for(lambda: p.evaluate("Array.from(document.querySelectorAll('#cmOut .cmseat'), e=>Number(e.textContent))")==[2,3]))
+    field(p, "#cmSearch", "")
+    T("清空恢复全部成员", p.evaluate("document.querySelectorAll('#cmOut .cmrow').length")==5)
+    T("名单工具没有点名动作或搜索来源提示",
+      p.evaluate("!(/点名|群昵称|网名|别名/.test(document.querySelector('#s-committee').innerHTML))"))
     p.close()
 
     p = new_page()
@@ -329,6 +394,13 @@ def main():
         s = snap(p)
         T("C1b 指定成员区：预设按钮 = all/committee/league", s["audPresets"] == ["all", "committee", "league"] and s["audBoxHidden"] is False,
           (s["audPresets"], s["audBoxHidden"]))
+        field(p, "#voteAudSearchGroup", "committee", "change")
+        field(p, "#voteAudSearch", "QA-COMET")
+        submit_search(p, "#voteAudSearch")
+        T("普通投票成员精确查询与班委筛选取交集",
+          wait_for(lambda: seats(p, "#voteAudMem [data-seat]", "seat") == [3]))
+        field(p, "#voteAudSearch", "")
+        field(p, "#voteAudSearchGroup", "all", "change")
         click(p, '#voteAudBox [data-audpreset="committee"]')
         time.sleep(0.35)
         s = snap(p)
@@ -392,6 +464,17 @@ def main():
                 time.sleep(0.4)
                 got = p.evaluate("(function(){return [].map.call(document.querySelectorAll('#o2sCrtMem .opt2-memb.on'),function(b){return +b.getAttribute('data-crtmemseat');});})()")
                 T_("D2 大屏点「班委」→ 选中班委座号", got == COMMITTEE_SEATS, got)
+                field(p, "#stageVoteSearch", "QA-COMET")
+                submit_search(p, "#stageVoteSearch")
+                T("大屏投票选择器提交精确查询",
+                  wait_for(lambda: seats(p, "#o2sCrtMem [data-crtmemseat]", "crtmemseat") == [2, 3]))
+                click(p, '[data-stg="votecreateclose"]')
+                click(p, '[data-stg="drawroster"]')
+                field(p, "#stageDrawSearchGroup", "league", "change")
+                field(p, "#stageDrawSearch", "QA-COMET")
+                submit_search(p, "#stageDrawSearch")
+                T("大屏抽签选择器精确查询与团员筛选取交集",
+                  wait_for(lambda: seats(p, "#o2sRstGrid [data-rstseat]", "rstseat") == [3]))
         else:
             S("D 大屏未打开（web-a V5 未交付）")
     except Exception as e:  # noqa: BLE001

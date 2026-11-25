@@ -161,6 +161,7 @@ window.fetch=function(url,opt){
     }
     M.reqs.push({kind:"cb",method:method,path:path});
     if(path==="rpc/class_members")return resp(M.members);
+    if(path==="rpc/class_roster_search")return resp(JSON.parse(opt.body).p_query==="QA-COMET"?[1,3]:[]);
     if(path==="rpc/class_league")return resp({ok:true,seats:[]});
     if(path==="rpc/class_notices_meta")return resp([]);
     if(path==="rpc/class_whoami")return resp({ok:true,sid:ME.sid,name:ME.name,is_admin:ME.is_admin});
@@ -319,6 +320,12 @@ def main():
         click(pg, '#naAudOpts [data-naaudtype="custom"]')
         pg.wait_for("document.querySelectorAll('#naSeatGrid .na-seat').length===5", 8)
         T("选择「指定成员」后出现班级名单 5 人", count(pg, "#naSeatGrid .na-seat") == 5)
+        set_val(pg, "#naSeatSearch", "QA-COMET")
+        T("指定成员键入时仅本地筛选", count(pg, "#naSeatGrid .na-seat") == 0)
+        click(pg, "#naSeatSearchHost .member-search-submit")
+        T("指定成员提交完整查询显示匹配座号",
+          pg.wait_for("Array.from(document.querySelectorAll('#naSeatGrid [data-naseat]'),b=>b.dataset.naseat).join(',')==='1,3'", 5))
+        set_val(pg, "#naSeatSearch", "")
         click(pg, '#naSeatGrid [data-naseat="1"]')
         click(pg, '#naSeatGrid [data-naseat="3"]')
         T("勾选 2 人：已选 2 人", "已选 2 人" in text_of(pg, "#naSeatSum"))

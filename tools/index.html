@@ -809,6 +809,22 @@ input[type=text],input[type=password],input[type=date],input[type=time],input[ty
 .rst-title{font-size:16px;font-weight:800;color:var(--ink);letter-spacing:.01em}
 .rst-cnt{margin-left:auto;font-size:12.5px;color:var(--ink3);font-variant-numeric:tabular-nums;white-space:nowrap}
 .rst-cnt b{color:var(--cy);font-size:14.5px;margin:0 1px}
+.member-search{display:flex;align-items:center;gap:8px;margin:8px 0;min-width:0}
+.member-search input,#voteAudBox .member-search input,.member-search select,.directory-search{font:inherit;font-size:14px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:42px;padding:8px 10px}
+.member-field{position:relative;flex:1;min-width:0}
+.member-search .member-field input,#voteAudBox .member-search .member-field input,.member-field .directory-search{display:block;width:100%;min-width:0;margin:0;padding-right:44px}
+.member-field:has(.directory-search){margin:10px 0 4px}
+.member-search-submit{display:grid;place-items:center;position:absolute;right:0;top:50%;transform:translateY(-50%);height:40px;width:40px;background:transparent;border:0;border-radius:9px;color:var(--ink2);cursor:pointer}
+.member-search-submit:focus-visible{outline:2px solid var(--cy)}
+.member-search select{width:auto;max-width:40%;flex:none}
+.directory-search{display:block;width:100%;margin:10px 0 4px}
+@media(max-width:600px){
+  #cmOut .cmrow{gap:10px;min-height:52px;padding:7px 2px;border-color:var(--line)}
+  #cmOut .cmseat{width:29px;height:29px;display:grid;place-items:center;border-radius:9px;background:var(--mint2,var(--bg));color:var(--ink2);font-weight:700;font-variant-numeric:tabular-nums}
+  #cmOut .cmname{min-width:0;overflow-wrap:anywhere}
+  #cmOut .cmrole{flex:none}
+  .rst-sheet{max-height:min(88vh,88dvh)}
+}
 .rst-scroll{flex:1;min-height:130px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;margin:0 -6px;padding:0 6px}
 .rst-layer{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start;padding:10px 4px 12px}
 .rst-txt{position:relative;z-index:1;background:transparent}
@@ -4832,12 +4848,13 @@ html.mobile-tool .wrap > .brand,html.mobile-tool #tabsBar{display:none!important
   <!-- ==================== 名单（班委 / 团员 / 全班） ==================== -->
   <section id="s-committee">
     <div class="card">
-      <div class="lghead" style="margin-bottom:2px"><span class="lgico">⌁</span><div><b>名单</b><div class="lgsub">班委 / 团员 / 全班</div></div><span style="flex:1"></span><button class="btn sm" id="cmEdit" style="display:none">管理</button></div>
+      <div class="lghead" style="margin-bottom:2px"><span class="lgico">⌁</span><div><b>班级名单</b></div><span style="flex:1"></span><button class="btn sm" id="cmEdit" style="display:none">管理</button></div>
       <div class="cmtabs" id="cmTabs">
         <button type="button" class="cmtab on" data-cmtab="committee">班委<em id="cmCntC"></em></button>
         <button type="button" class="cmtab" data-cmtab="league">团员<em id="cmCntL"></em></button>
         <button type="button" class="cmtab" data-cmtab="all">全班<em id="cmCntA"></em></button>
       </div>
+      <input class="directory-search" id="cmSearch" type="search" placeholder="搜索姓名、座号或职务" aria-label="搜索名单" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
       <div class="cmnote" id="cmNote">仅显示姓名与座号；班委职务可在「管理」中设置</div>
       <div id="cmOut"><div class="cmempty">加载中…</div></div>
     </div>
@@ -5502,7 +5519,7 @@ html.mobile-tool .wrap > .brand,html.mobile-tool #tabsBar{display:none!important
         <button type="button" class="btn sm ghost" data-audpreset="league">团员</button>
       </div>
 <!-- __WEB_B2_VOTE_END__ -->
-      <input type="text" id="voteAudSearch" placeholder="搜索姓名" autocomplete="off">
+      <div id="voteAudSearchHost"></div>
       <div class="vote-mem" id="voteAudMem"></div>
       <div class="vote-audsum" id="voteAudSum"></div>
     </div>
@@ -5536,11 +5553,12 @@ html.mobile-tool .wrap > .brand,html.mobile-tool #tabsBar{display:none!important
       <button type="button" class="btn sm ghost" data-rstpreset="league">团员</button>
     </div>
 <!-- __WEB_B2_ROSTER_END__ -->
+    <div id="rstSearchHost"></div>
     <div class="rst-scroll" id="rstScroll">
       <div class="rst-layer rst-txt" id="rstTxt"></div>
     </div>
     <div class="rst-ft">
-      <div class="rst-ft-l"><button type="button" class="btn sm" id="rstAllBtn">全选</button><button type="button" class="btn sm ghost" id="rstNoneBtn">清空</button></div>
+      <div class="rst-ft-l"><button type="button" class="btn sm" id="rstAllBtn">选中可见</button><button type="button" class="btn sm ghost" id="rstNoneBtn">清空</button></div>
       <div class="rst-ft-r"><button type="button" class="btn" id="rstCancel">取消</button><button type="button" class="btn pri" id="rstOk">确定</button></div>
     </div>
   </div>
@@ -5597,7 +5615,13 @@ html.mobile-tool .wrap > .brand,html.mobile-tool #tabsBar{display:none!important
     <div class="na-aud-sub" id="naAudGroup"></div>
     <div class="na-aud-opts" id="naAudOpts"></div>
     <div class="na-aud-seats" id="naAudSeats" hidden>
-      <div class="na-seat-search"><input id="naSeatSearch" type="search" placeholder="搜索姓名或座号" autocomplete="off" spellcheck="false"></div>
+      <div class="vote-preset" id="naSeatPresets">
+        <span>快捷选择</span>
+        <button type="button" class="btn sm ghost" data-na-preset="all">全班</button>
+        <button type="button" class="btn sm ghost" data-na-preset="committee">班委</button>
+        <button type="button" class="btn sm ghost" data-na-preset="league">团员</button>
+      </div>
+      <div id="naSeatSearchHost"></div>
       <div class="na-seat-grid" id="naSeatGrid"></div>
       <div class="na-seat-foot"><span class="na-seat-sum" id="naSeatSum">已选 0 人</span><button class="na-copy" id="naSeatClear" type="button">清空</button></div>
     </div>
@@ -5992,7 +6016,7 @@ function cbPost(t,row,extra){return fetch(CB+t,{method:"POST",headers:cbH(true,e
 function cbPostNoRep(t,row){return fetch(CB+t,{method:"POST",headers:cbH(false),body:JSON.stringify([row])}).then(function(r){if(!r.ok)throw new Error("http"+r.status);return true;});}
 function cbPatch(t,id,obj){return fetch(CB+t+"?id=eq."+encodeURIComponent(id),{method:"PATCH",headers:cbH(true),body:JSON.stringify(obj)}).then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();});}
 /* RPC 调用基座（投票等）：POST {CB}rpc/<name>，body 为 PostgREST 命名参数对象；业务失败也返回 200 + {ok:false,reason} */
-function cbRpc(n,b){return fetch(CB+"rpc/"+n,{method:"POST",headers:cbH(false),cache:"no-store",body:JSON.stringify(b||{})}).then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();});}
+function cbRpc(n,b,signal){return fetch(CB+"rpc/"+n,{method:"POST",headers:cbH(false),cache:"no-store",signal:signal,body:JSON.stringify(b||{})}).then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();});}
 function cbRaw(t){return fetch(CB+t,{headers:cbH(false),cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();});}
 function pendCount(){return D.d.homework.filter(function(x){return x._pending;}).length+D.d.notices.filter(function(x){return x._pending;}).length+D.d.fitRecs.filter(function(x){return x._sync;}).length;}
 function syncSt(){
@@ -8288,10 +8312,12 @@ function membersApply(list){
 function membersPull(force){
   if(!isVerified())return Promise.resolve(false);
   /* 名单已在 D.d.members 本机持久化：TTL 内不重复拉取 */
+  var sid=AUTH.sid;
   if(!force&&!needPull("members")&&(D.d.members||[]).length){renderCommittee();return Promise.resolve(true);}
   return fetch(CB+"rpc/class_members",{method:"POST",headers:cbH(false),cache:"no-store",body:"{}"})
     .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();})
     .then(function(list){
+      if(sid!==AUTH.sid)return false;
       if(!Array.isArray(list)||!list.length)throw new Error("empty");
       syncedMark("members");
       membersApply(list);
@@ -8332,6 +8358,97 @@ function allMemberSeats(){
   var out=[];
   (D.d.members||[]).forEach(function(m){var n=Math.round(Number(m.seat));if(isFinite(n))out.push(n);});
   return normSeats(out);
+}
+function memberMatches(m,query,input){
+  var words=String(query||"").toLowerCase().trim().split(/\s+/);
+  var haystack=[m.name,m.seat,m.role,m.badge].join(" ").toLowerCase();
+  if(words.every(function(word){return haystack.indexOf(word)>=0;}))return true;
+  var hits=input&&input._rosterResult;
+  return !!(hits&&hits.sid===AUTH.sid&&hits.query===input.value&&hits.seats.indexOf(Number(m.seat))>=0);
+}
+function bindRosterQuery(input,redraw){
+  var request,revision=0,composing=false;
+  function clear(){
+    ++revision;
+    if(request){request.abort();request=null;}
+    input._rosterResult=null;
+  }
+  function submit(){
+    if(composing)return;
+    clear();
+    redraw();
+    var query=input.value,sid=AUTH.sid,version=revision;
+    if(!query.trim()||!isVerified())return;
+    request=typeof AbortController==="function"?new AbortController():null;
+    cbRpc("class_roster_search",{p_query:query},request?request.signal:undefined).then(function(seats){
+      if(!input.isConnected||version!==revision||input.value!==query||AUTH.sid!==sid||!Array.isArray(seats))return;
+      input._rosterResult={query:query,sid:sid,seats:normSeats(seats)};
+      redraw();
+    }).catch(function(){}); // 离线保留姓名、座号和职务搜索。
+  }
+  var field=document.createElement("div"),button=document.createElement("button");
+  field.className="member-field";input.before(field);field.appendChild(input);
+  button.type="button";button.className="member-search-submit";button.setAttribute("aria-label","搜索");
+  button.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>';
+  field.appendChild(button);
+  input._clearRosterQuery=clear;
+  input.addEventListener("input",function(){clear();redraw();});
+  input.addEventListener("compositionstart",function(){composing=true;clear();redraw();});
+  input.addEventListener("compositionend",function(){composing=false;});
+  input.addEventListener("keydown",function(e){
+    if(e.key==="Enter"&&!composing&&!e.isComposing&&e.keyCode!==229){e.preventDefault();submit();}
+  });
+  button.addEventListener("click",submit);
+}
+function isCommitteeMember(m){return !!String(m.role||"").trim()||String(m.badge||"").indexOf("班委")>=0;}
+function rosterGroupRows(rows,kind){
+  if(kind==="committee")return rows.filter(isCommitteeMember);
+  if(kind!=="league")return rows;
+  var seats=new Set((CM_LEAGUE||[]).map(function(x){return Number(x.seat);}));
+  return rows.filter(function(m){return seats.has(Number(m.seat));});
+}
+function rosterSearchState(id){
+  var input=document.getElementById(id),group=document.getElementById(id+"Group");
+  return {query:input?input.value:"",group:group?group.value:"all",result:input?input._rosterResult:null};
+}
+function visibleRosterRows(id,rows){
+  var state=rosterSearchState(id);
+  var input=document.getElementById(id);
+  return rosterGroupRows(rows,state.group).filter(function(m){return memberMatches(m,state.query,input);});
+}
+function rosterSearchEmpty(id){
+  if(rosterSearchState(id).group==="league"){
+    if(CM_LEAGUE_ERR)return "团员名单暂不可用";
+    if(CM_LEAGUE===null)return "正在加载团员名单…";
+  }
+  return "没有匹配的成员";
+}
+function mountRosterSearch(id,redraw,state){
+  var host=document.getElementById(id+"Host");if(!host)return;
+  host.className="member-search";
+  host.innerHTML='<input type="search" id="'+id+'" aria-label="搜索成员" placeholder="姓名、座号或职务" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">'+
+    '<select aria-label="筛选成员" id="'+id+'Group"><option value="all">全部成员</option><option value="committee">只看班委</option><option value="league">只看团员</option></select>';
+  var input=host.querySelector("input"),group=host.querySelector("select");
+  if(state){input.value=state.query;group.value=state.group;input._rosterResult=state.result;}
+  bindRosterQuery(input,redraw);
+  group.addEventListener("change",function(){
+    redraw();
+    if(group.value==="league")cmLeagueFetch(!!CM_LEAGUE_ERR).then(function(){if(group.isConnected&&group.value==="league")redraw();});
+  });
+}
+function resetRosterSearch(id){
+  var node=document.getElementById(id);if(node){if(node._clearRosterQuery)node._clearRosterQuery();node.value="";}
+  node=document.getElementById(id+"Group");if(node)node.value="all";
+}
+var rosterChoiceVersion=0;
+function applyRosterPreset(kind,apply){
+  var ticket=++rosterChoiceVersion,sid=AUTH.sid;
+  Promise.all([ensureMembers(),kind==="league"?cmLeagueFetch(!!CM_LEAGUE_ERR):null]).then(function(){
+    if(ticket!==rosterChoiceVersion||sid!==AUTH.sid)return;
+    if(kind==="league"&&CM_LEAGUE_ERR){toast("团员名单加载失败，请重试");return;}
+    var rows=rosterGroupRows((D.d.members||[]).filter(function(m){return !m.is_test;}),kind);
+    apply(normSeats(rows.map(function(m){return m.seat;})));
+  }).catch(function(){if(ticket===rosterChoiceVersion)toast("班级名单加载失败，请重试");});
 }
 function rosterText(sel){
   return (sel||[]).map(function(seat){var m=memberBySeat(seat);return seat+(m?" "+m.name:"");}).join("\n");
@@ -8455,6 +8572,7 @@ function openPicker(mode){
     function(){ RST.pending=false; toast("班级名单加载失败，请稍后重试"); rstShow(true); });
 }
 function rstShow(err){
+  rosterChoiceVersion++;resetRosterSearch("rstSearch");
   RST.open=true;
   RST.sel=normSeats(rstCurrentSel(RST.mode));
   var root=$("#rosterModal"); if(!root)return;
@@ -8484,14 +8602,15 @@ function rstRender(err){
     return;
   }
   var h="";
-  ms.forEach(function(m,i){
-    var on=RST.sel.indexOf(m.seat)>=0?" on":"";
+  visibleRosterRows("rstSearch",ms).forEach(function(m){
+    var on=RST.sel.indexOf(Number(m.seat))>=0?" on":"";
     h+='<button type="button" class="rst-b'+on+'" data-seat="'+m.seat+'" aria-pressed="'+(on?"true":"false")+'"><span class="nm">'+esc(m.name)+'</span><span class="ss">'+esc(m.seat)+'</span></button>';
   });
-  txt.innerHTML=h;
+  txt.innerHTML=h||'<div class="rst-err">'+rosterSearchEmpty("rstSearch")+'</div>';
   rstBtnState(true);
 }
 function rstToggle(seat,btn){
+  rosterChoiceVersion++;
   var i=RST.sel.indexOf(seat);
   if(i>=0)RST.sel.splice(i,1); else RST.sel.push(seat);
   var on=i<0;
@@ -8500,7 +8619,7 @@ function rstToggle(seat,btn){
 }
 function rstConfirm(){
   if(!RST.open)return;
-  if(!(D.d.members||[]).length){rstCancel();return;}
+  if(!(D.d.members||[]).length){rstClose(false);return;}
   var mode=RST.mode, sel=normSeats(RST.sel);
   if(mode==="group")applyGroupSel(sel);
   else if(mode==="roll")applyRollSel(sel);
@@ -8509,7 +8628,7 @@ function rstConfirm(){
 }
 function rstClose(ok){
   try{ if(typeof HIST!=="undefined"&&HIST.modal)HIST.closeModal(); }catch(e){}
-  RST.open=false;
+  rosterChoiceVersion++;resetRosterSearch("rstSearch");RST.open=false;
   var root=$("#rosterModal");
   if(root){root.style.display="none";root.classList.remove("on");}
   document.body.classList.remove("rst-lock");
@@ -8525,11 +8644,19 @@ function rstRetry(){
 /* 弹层交互（单例，绑定一次） */
 (function(){
   var root=$("#rosterModal"); if(!root)return;
+  mountRosterSearch("rstSearch",function(){rstRender(false);});
+  $("#rstPresets").addEventListener("click",function(e){
+    var b=e.target.closest("[data-rstpreset]");if(!b||!RST.open)return;
+    applyRosterPreset(b.dataset.rstpreset,function(seats){if(RST.open){RST.sel=seats;rstRender(false);}});
+  });
   $("#rstAllBtn").addEventListener("click",function(){
+    rosterChoiceVersion++;
     if(!RST.open||!(D.d.members||[]).length)return;
-    RST.sel=allMemberSeats(); rstRender(false);
+    var visible=visibleRosterRows("rstSearch",D.d.members).map(function(m){return m.seat;});
+    RST.sel=normSeats(RST.sel.concat(visible));rstRender(false);
   });
   $("#rstNoneBtn").addEventListener("click",function(){
+    rosterChoiceVersion++;
     if(!RST.open)return;
     RST.sel=[]; rstRender(false);
   });
@@ -8560,19 +8687,20 @@ function rstRetry(){
 var CM_EDIT=false,CM_TAB="committee",CM_LEAGUE=null,CM_LEAGUE_ERR="",CM_LEAGUE_P=null;
 function cmLeagueFetch(force){
   if(CM_LEAGUE&&!force)return Promise.resolve(CM_LEAGUE);
-  if(CM_LEAGUE_P&&!force)return CM_LEAGUE_P;   /* 并发去重：进入名单页预取 + 点击 tab 只发一次 */
-  var j;
+  if(CM_LEAGUE_P)return CM_LEAGUE_P;   /* 并发去重：进入名单页预取 + 点击 tab 只发一次 */
+  var j,sid=AUTH.sid;
   try{
     j=cbRpc("class_league",{}).then(function(r){
+      if(sid!==AUTH.sid)return [];
       if(r&&r.ok&&r.seats instanceof Array){CM_LEAGUE=r.seats;CM_LEAGUE_ERR="";}
       else{CM_LEAGUE=[];CM_LEAGUE_ERR=(r&&r.reason)||"团员名单不可用";}
       return CM_LEAGUE;
-    }).catch(function(){CM_LEAGUE=[];CM_LEAGUE_ERR="网络不可用";return CM_LEAGUE;});
+    }).catch(function(){if(sid!==AUTH.sid)return [];CM_LEAGUE=[];CM_LEAGUE_ERR="网络不可用";return CM_LEAGUE;});
   }catch(e){
     CM_LEAGUE=[];CM_LEAGUE_ERR="团员名单不可用";return Promise.resolve(CM_LEAGUE);
   }
   CM_LEAGUE_P=j;
-  var clear=function(){CM_LEAGUE_P=null;};
+  var clear=function(){if(CM_LEAGUE_P===j)CM_LEAGUE_P=null;};
   j.then(clear,clear);
   return j;
 }
@@ -8589,35 +8717,33 @@ function renderCommittee(){
   if(btn){btn.style.display=(canManage()&&CM_TAB==="committee")?"":"none";btn.textContent=CM_EDIT?"完成":"管理";}
   var tabs=document.querySelectorAll("#cmTabs [data-cmtab]");
   for(var ti=0;ti<tabs.length;ti++)tabs[ti].classList.toggle("on",tabs[ti].getAttribute("data-cmtab")===CM_TAB);
-  var bySeat={};members.forEach(function(m){bySeat[Math.round(Number(m.seat))]=m;});
+  var query=$("#cmSearch").value.trim();
   var list=[];
   if(CM_TAB==="league"){
     if(CM_LEAGUE===null)list=[];
-    else list=(CM_LEAGUE||[]).map(function(x){
-      var m=bySeat[Math.round(Number(x.seat))]||{};
-      return {seat:Math.round(Number(x.seat)),name:x.name||m.name||"",role:m.role||"",badge:m.badge||"",league:true};
-    });
+    else list=rosterGroupRows(members,"league");
   }else if(CM_TAB==="all"){
     list=members.slice().sort(function(a,b){return (a.seat-b.seat);});
   }else{
-    list=(CM_EDIT?members.slice():members.filter(function(m){return m.role||m.badge;}));
+    list=(CM_EDIT?members.slice():members.filter(isCommitteeMember));
     list.sort(function(a,b){return ((ROLE_RANK[a.role]||99)-(ROLE_RANK[b.role]||99))||(a.seat-b.seat);});
   }
   /* 团员名单：进入名单页即预取（不要求用户先点「团员」tab），人数加载完自动刷新；并发只发一次请求 */
-  if(CM_LEAGUE===null&&!CM_LEAGUE_ERR){cmLeagueFetch().then(function(){renderCommittee();});}
-  var cntC=members.filter(function(m){return m.role||m.badge;}).length,cntA=members.length,
+  if(isVerified()&&CM_LEAGUE===null&&!CM_LEAGUE_ERR){cmLeagueFetch().then(function(){renderCommittee();});}
+  var cntC=members.filter(isCommitteeMember).length,cntA=members.length,
       cntL=(CM_LEAGUE===null)?"":((CM_LEAGUE_ERR&&!(CM_LEAGUE||[]).length)?"—":CM_LEAGUE.length);
   var elC=$("#cmCntC"),elL=$("#cmCntL"),elA=$("#cmCntA");
   if(elC)elC.textContent=cntC||0;if(elL)elL.textContent=cntL;if(elA)elA.textContent=cntA||0;
   var note=$("#cmNote");
   if(note){
-    var noteTxt=CM_TAB==="all"?"全班 "+cntA+" 人 · 仅姓名与座号":"班委职务可在「管理」中设置";
+    var noteTxt=CM_TAB==="committee"&&canManage()?"可在管理中设置班委职务":"";
     if(CM_TAB==="league")noteTxt="团员名单来自班级团员库"+(CM_LEAGUE_ERR?("（"+CM_LEAGUE_ERR+"）"):"");
-    note.textContent=noteTxt;
+    note.textContent=noteTxt;note.hidden=!noteTxt;
   }
+  if(query)list=list.filter(function(m){return memberMatches(m,query,$("#cmSearch"));});
   var rowCls="cmrow"+(CM_EDIT?" cmedit":"");
   if(!list.length){
-    box.innerHTML='<div class="cmempty">'+(CM_TAB==="league"?(CM_LEAGUE_ERR||"团员名单加载中…"):(CM_TAB==="all"?"暂无名单":"暂无班委身份信息"))+'</div>';
+    box.innerHTML='<div class="cmempty">'+(query?"没有匹配的成员":CM_TAB==="league"?(esc(CM_LEAGUE_ERR)||(CM_LEAGUE===null?"团员名单加载中…":"暂无团员")):(CM_TAB==="all"?"暂无名单":"暂无班委身份信息"))+'</div>';
   }else{
     box.innerHTML=list.map(function(m){
       return '<div class="'+rowCls+'"'+(CM_TAB==="committee"&&m.sid?' data-cm-sid="'+esc(m.sid)+'" data-cm-name="'+esc(m.name)+'" data-cm-role="'+esc(m.role||"")+'"':'')+'>'+
@@ -8632,6 +8758,7 @@ function renderCommittee(){
     box.addEventListener("click",function(e){
       var row=e.target.closest?e.target.closest("[data-cm-sid]"):null;if(!row)return;
       var name=row.getAttribute("data-cm-name"),sid=row.getAttribute("data-cm-sid");
+      if(!CM_EDIT||!canManage())return;
       var r=prompt("设置「"+name+"」的班委职务（留空取消）",row.getAttribute("data-cm-role")||"");
       if(r===null)return;
       classSetRole(sid,r.trim()).then(function(){return membersPull(true);}).then(function(){toast("已更新班委名单");}).catch(function(){toast("更新失败");});
@@ -8645,6 +8772,7 @@ function renderCommittee(){
     CM_TAB=b.getAttribute("data-cmtab")||"committee";CM_EDIT=false;renderCommittee();
   });
 })();
+bindRosterQuery($("#cmSearch"),renderCommittee);
 $("#cmEdit").addEventListener("click",function(){CM_EDIT=!CM_EDIT;renderCommittee();});
 function bucketInit(){
   if(!AUTH.sid)return;
@@ -16053,6 +16181,7 @@ function bootRefresh(){
   visitLog();
 }
 function enterClass(r){
+  if(r.sid!==AUTH.sid){CM_LEAGUE=null;CM_LEAGUE_ERR="";CM_LEAGUE_P=null;CM_EDIT=false;rosterChoiceVersion++;resetRosterSearch("cmSearch");}
   AUTH.acc=r.sid; AUTH.sid=r.sid; AUTH.name=r.name||""; AUTH.role=r.role||""; AUTH.badge=r.badge||""; AUTH.is_admin=!!r.is_admin; AUTH.token=r.token; AUTH.ready=true;
   identityStore({token:r.token,sid:r.sid,name:r.name,role:r.role||"",badge:r.badge||"",is_admin:!!r.is_admin,ts:Date.now()});
   if(!nativeTool)try{localStorage.setItem("zq_last_identity",JSON.stringify({sid:r.sid,name:r.name}));}catch(e){}
@@ -19258,7 +19387,7 @@ var VOTE=(function(){
   function memberRows(){
     var ms=(D.d&&D.d.members)||[];
     return ms.filter(function(m){return m&&!m.is_test&&isFinite(Number(m.seat));}).map(function(m){
-      return {seat:Math.round(Number(m.seat)),name:String(m.name||"")};
+      return Object.assign({},m,{seat:Math.round(Number(m.seat)),name:String(m.name||"")});
     }).sort(function(a,b){return a.seat-b.seat;});
   }
   function audSumText(){
@@ -19276,13 +19405,10 @@ var VOTE=(function(){
     });
     var box=el("voteAudBox");if(box)box.hidden=S.aud!=="custom";
     if(S.aud!=="custom")return;
-    var mem=el("voteAudMem"),sum=el("voteAudSum"),search=el("voteAudSearch");
-    var kw=String((search&&search.value)||"").trim().toLowerCase();
-    var rows=memberRows().filter(function(m){
-      return !kw||m.name.toLowerCase().indexOf(kw)>=0||String(m.seat).indexOf(kw)>=0;
-    });
+    var mem=el("voteAudMem"),sum=el("voteAudSum");
+    var rows=visibleRosterRows("voteAudSearch",memberRows());
     if(mem){
-      if(!rows.length)mem.innerHTML='<div class="vote-mem-empty">没有匹配的成员</div>';
+      if(!rows.length)mem.innerHTML='<div class="vote-mem-empty">'+rosterSearchEmpty("voteAudSearch")+'</div>';
       else mem.innerHTML=rows.map(function(m){
         return '<button type="button" class="vote-mem-b'+(S.audSeats.indexOf(m.seat)>=0?" on":"")+
           '" data-seat="'+m.seat+'">'+esc(m.name)+'</button>';
@@ -19299,6 +19425,7 @@ var VOTE=(function(){
     }catch(e){toast("班级名单加载失败");return Promise.resolve(false);}
   }
   function setAudience(a){
+    rosterChoiceVersion++;
     S.aud=(a==="committee"||a==="league"||a==="custom")?a:"all";
     if(S.aud!=="custom")S.audSeats=[];
     renderAudience();
@@ -19329,7 +19456,7 @@ var VOTE=(function(){
     var pa=poll?(poll.audience||"all"):"all";
     S.aud=(pa==="committee"||pa==="league"||pa==="custom")?pa:"all";
     S.audSeats=(S.aud==="custom")?normAudSeats(poll&&poll.audience_seats||[]):[];
-    var as=el("voteAudSearch");if(as)as.value="";
+    rosterChoiceVersion++;resetRosterSearch("voteAudSearch");
     renderAudience();
     if(S.aud==="custom")ensureAudienceMembers();
     var dt="quick",qi=2; /* 契约 §3.3：限时默认 30 分钟（QUICK_MINS[2]） */
@@ -19345,7 +19472,7 @@ var VOTE=(function(){
     });
     refreshMulti();renderOpts();show("voteCreateOv");
   }
-  function closeCreate(){hide("voteCreateOv");S.editId="";S.busy=false;}
+  function closeCreate(){rosterChoiceVersion++;resetRosterSearch("voteAudSearch");hide("voteCreateOv");S.editId="";S.busy=false;}
   function buildPayload(){
     var title=String((el("voteTitle")||{}).value||"").trim();
     if(!title){toast("请输入标题");return null;}
@@ -19547,12 +19674,15 @@ var VOTE=(function(){
       if(!b)return;
       var s=Math.round(Number(b.getAttribute("data-seat")));
       if(!isFinite(s)||s<1)return;
-      var ix=S.audSeats.indexOf(s);
+      rosterChoiceVersion++;var ix=S.audSeats.indexOf(s);
       if(ix>=0)S.audSeats.splice(ix,1);else S.audSeats.push(s);
       S.audSeats=normAudSeats(S.audSeats);renderAudience();
     });
-    var as=el("voteAudSearch");
-    if(as)as.addEventListener("input",renderAudience);
+    mountRosterSearch("voteAudSearch",renderAudience);
+    el("voteAudPresets").addEventListener("click",function(e){
+      var b=e.target.closest("[data-audpreset]");if(!b||S.aud!=="custom")return;
+      applyRosterPreset(b.dataset.audpreset,function(seats){S.audSeats=seats;renderAudience();});
+    });
     var add=el("voteAddOpt");
     if(add)add.addEventListener("click",function(){
       if(S.opts.length>=MAX_OPTS){toast("最多 "+MAX_OPTS+" 个选项");return;}
@@ -21306,20 +21436,6 @@ function optSaveCanvas(c,o){
     if(STAGE.focus==="vote")h='<div class="opt2-fv opt2-fv-vote" data-fv="vote">'+h+'</div>';
     bd.innerHTML=h;
   }
-  /* 团员名单缓存（class_league RPC；队员/抽签名单快捷预设用） */
-  function stgLeagueFetch(){
-    if(STAGE.league)return Promise.resolve(STAGE.league);
-    STAGE.leagueLoading=true;
-    try{
-      return cbRpc("class_league",{}).then(function(r){
-        STAGE.leagueLoading=false;
-        if(r&&r.ok&&r.seats instanceof Array){STAGE.league=r.seats;return STAGE.league;}
-        STAGE.league=[];return [];
-      }).catch(function(){STAGE.leagueLoading=false;STAGE.league=[];return [];});
-    }catch(e){STAGE.leagueLoading=false;return Promise.resolve([]);}
-  }
-  function stgMemberSeats(){var out=[];((D&&D.d&&D.d.members)||[]).forEach(function(m){if(m&&m.seat)out.push(Math.round(Number(m.seat)));});return out;}
-  function stgCommitteeSeats(){var out=[];((D&&D.d&&D.d.members)||[]).forEach(function(m){if(m&&(m.role||m.badge))out.push(Math.round(Number(m.seat)));});return out;}
   function stgSeatsNorm(a){try{return normSeats(a);}catch(e){return [];}}
   function ensureStageMembers(){
     if((D&&D.d&&D.d.members||[]).length)return Promise.resolve(true);
@@ -21377,6 +21493,7 @@ function optSaveCanvas(c,o){
     return ov;
   }
   function stgVoteCreateOpen(){
+    rosterChoiceVersion++;resetRosterSearch("stageVoteSearch");
     var ov=stgCreateModal();
     stgCreateResetDom(); /* 先清空上次未提交草稿的 DOM，再渲染空白表单（防止 capture 把旧值写回） */
     STAGE.crt={title:"",opts:[stgCrtNewOpt(),stgCrtNewOpt()],multi:false,max:2,anonymous:true,allowChange:true,
@@ -21442,7 +21559,7 @@ function optSaveCanvas(c,o){
       [["all","全班"],["committee","班委"],["league","团员"],["custom","指定成员"]].map(function(x){
         return '<button type="button" class="opt2-chipbtn'+(c.aud===x[0]?" on":"")+'" data-crtaud="'+x[0]+'">'+x[1]+'</button>';
       }).join("")+'</div>';
-    if(c.aud==="custom")h+='<div class="opt2-crtmem" id="o2sCrtMem"></div><div class="opt2-dim" id="o2sCrtMemSum">已选 '+c.audSeats.length+' 人</div>';
+    if(c.aud==="custom")h+='<div id="stageVoteSearchHost"></div><div class="opt2-crtmem" id="o2sCrtMem"></div><div class="opt2-dim" id="o2sCrtMemSum">已选 '+c.audSeats.length+' 人</div>';
     h+='</div>';
     h+='<div class="opt2-field"><span>结果</span><div class="opt2-chips">'+
       [["always","始终可见"],["afterVote","投票后"],["afterClose","截止后"]].map(function(x){
@@ -21454,7 +21571,10 @@ function optSaveCanvas(c,o){
     h+='<div class="opt2-chips">'+
       '<label class="opt2-check"><input type="checkbox" id="o2sCrtAnon"'+(c.anonymous?" checked":"")+'> 匿名</label>'+
       '<label class="opt2-check"><input type="checkbox" id="o2sCrtChange"'+(c.allowChange?" checked":"")+'> 允许改票</label></div>';
+    var filter=rosterSearchState("stageVoteSearch");
+    resetRosterSearch("stageVoteSearch");
     body.innerHTML=h;
+    mountRosterSearch("stageVoteSearch",stgRenderCreateAud,filter);
     stgRenderCreateAud();
   }
   function stgRenderCreateAud(){
@@ -21462,11 +21582,16 @@ function optSaveCanvas(c,o){
     var ms=(D&&D.d&&D.d.members)||[];
     if(!ms.length){box.innerHTML='<div class="opt2-dim">名单加载中…</div>';ensureStageMembers();return;}
     var sel=STAGE.crt.audSeats||[];
-    box.innerHTML='<div class="opt2-crtmem-all"><button type="button" class="opt2-link" data-crtmemall="1">全选</button>'+
+    var rows=visibleRosterRows("stageVoteSearch",ms);
+    box.innerHTML='<div class="opt2-crtmempreset" id="o2sCrtMemPresets">'+
+      '<button type="button" class="opt2-chipbtn" data-crtmempreset="all">全班</button>'+
+      '<button type="button" class="opt2-chipbtn" data-crtmempreset="committee">班委</button>'+
+      '<button type="button" class="opt2-chipbtn" data-crtmempreset="league">团员</button>'+
       '<button type="button" class="opt2-link" data-crtmemall="0">清空</button></div><div class="opt2-crtmemg">'+
-      ms.map(function(m){var on=sel.indexOf(Math.round(Number(m.seat)))>=0;
+      (rows.map(function(m){var on=sel.indexOf(Math.round(Number(m.seat)))>=0;
         return '<button type="button" class="opt2-memb'+(on?" on":"")+'" data-crtmemseat="'+m.seat+'">'+esc(m.name)+'</button>';
-      }).join("")+'</div>';
+      }).join("")||esc(rosterSearchEmpty("stageVoteSearch")))+'</div>';
+    var sum=el("o2sCrtMemSum");if(sum)sum.textContent="已选 "+sel.length+" 人";
   }
   function stgCreateChange(e){
     var t=e.target;if(!t)return;
@@ -21492,11 +21617,13 @@ function optSaveCanvas(c,o){
       var mode=t.closest("[data-crtmode]");
       if(mode){STAGE.crt.multi=mode.getAttribute("data-crtmode")==="multi";if(!STAGE.crt.multi)STAGE.crt.max=1;stgRenderCreate();return;}
       var mx=t.closest("[data-crtmax]");if(mx){STAGE.crt.max=Number(mx.getAttribute("data-crtmax"))||2;stgRenderCreate();return;}
-      var aud=t.closest("[data-crtaud]");if(aud){var a=aud.getAttribute("data-crtaud");STAGE.crt.aud=a;if(a!=="custom")STAGE.crt.audSeats=[];stgRenderCreate();if(a==="custom")ensureStageMembers();return;}
+      var aud=t.closest("[data-crtaud]");if(aud){rosterChoiceVersion++;var a=aud.getAttribute("data-crtaud");STAGE.crt.aud=a;if(a!=="custom")STAGE.crt.audSeats=[];stgRenderCreate();if(a==="custom")ensureStageMembers();return;}
       var vis=t.closest("[data-crtvis]");if(vis){STAGE.crt.vis=vis.getAttribute("data-crtvis");stgRenderCreate();return;}
       var mins=t.closest("[data-crtmins]");if(mins){var m=Number(mins.getAttribute("data-crtmins"))||0;if(m>0){STAGE.crt.dt="quick";STAGE.crt.mins=m;}else STAGE.crt.dt="none";stgRenderCreate();return;}
-      var all=t.closest("[data-crtmemall]");if(all){STAGE.crt.audSeats=(all.getAttribute("data-crtmemall")==="1")?stgMemberSeats():[];stgRenderCreateAud();return;}
-      var ms=t.closest("[data-crtmemseat]");if(ms){var seat=Math.round(Number(ms.getAttribute("data-crtmemseat")));var i=STAGE.crt.audSeats.indexOf(seat);if(i>=0)STAGE.crt.audSeats.splice(i,1);else STAGE.crt.audSeats.push(seat);STAGE.crt.audSeats=stgSeatsNorm(STAGE.crt.audSeats);stgRenderCreateAud();return;}
+      var preset=t.closest("[data-crtmempreset]");
+      if(preset){applyRosterPreset(preset.dataset.crtmempreset,function(seats){STAGE.crt.audSeats=seats;stgRenderCreateAud();});return;}
+      var all=t.closest("[data-crtmemall]");if(all){rosterChoiceVersion++;STAGE.crt.audSeats=[];stgRenderCreateAud();return;}
+      var ms=t.closest("[data-crtmemseat]");if(ms){rosterChoiceVersion++;var seat=Math.round(Number(ms.getAttribute("data-crtmemseat")));var i=STAGE.crt.audSeats.indexOf(seat);if(i>=0)STAGE.crt.audSeats.splice(i,1);else STAGE.crt.audSeats.push(seat);STAGE.crt.audSeats=stgSeatsNorm(STAGE.crt.audSeats);stgRenderCreateAud();return;}
       var imd=t.closest("[data-crtimgdel]");if(imd){STAGE.crt.opts[Number(imd.getAttribute("data-crtimgdel"))].img="";stgRenderCreate();return;}
       var del=t.closest("[data-crtoptdel]");if(del){if(STAGE.crt.opts.length>2){STAGE.crt.opts.splice(Number(del.getAttribute("data-crtoptdel")),1);stgRenderCreate();}return;}
       var add=t.closest('[data-stg="votecreateadd"]');if(add){return;} /* 交给通用 stgAct */
@@ -21507,7 +21634,7 @@ function optSaveCanvas(c,o){
     if(STAGE.crt.opts.length>=STG_MAX_OPTS){toast("最多 "+STG_MAX_OPTS+" 个选项");return;}
     STAGE.crt.opts.push(stgCrtNewOpt());stgRenderCreate();
   }
-  function stgVoteCreateClose(){var m=el("o2sModal");if(m)m.hidden=true;}
+  function stgVoteCreateClose(){rosterChoiceVersion++;resetRosterSearch("stageVoteSearch");var m=el("o2sModal");if(m)m.hidden=true;}
   function stgVoteCreateGo(){
     var c=STAGE.crt;
     c.title=String((el("o2sCrtTitle")||{}).value||"").trim();
@@ -21651,17 +21778,18 @@ function optSaveCanvas(c,o){
         '<button type="button" class="opt2-chipbtn" data-rstquick="committee">班委</button>'+
         '<button type="button" class="opt2-chipbtn" data-rstquick="league">团员</button>'+
         '<button type="button" class="opt2-chipbtn" data-rstquick="none">清空</button></div>'+
-        '<div class="opt2-rstg" id="o2sRstGrid"></div><div class="opt2-dim" id="o2sRstSum"></div></div>'+
+        '<div id="stageDrawSearchHost"></div><div class="opt2-rstg" id="o2sRstGrid"></div><div class="opt2-dim" id="o2sRstSum"></div></div>'+
         '<div class="opt2-mfoot"><button type="button" class="opt2-btn" data-stg="rosterclose">取消</button>'+
         '<button type="button" class="opt2-btn pri" id="o2sRstOk">应用</button></div></div>';
       var root=el("opt2Stage");if(root)root.appendChild(ov);else document.body.appendChild(ov);
       var ok=el("o2sRstOk");if(ok)ok.addEventListener("click",stgRosterApply);
+      mountRosterSearch("stageDrawSearch",stgRosterRender);
       ov.addEventListener("click",stgRosterClick,true);
     }
     return ov;
   }
   function stgRosterOpen(){
-    var ov=stgRosterModal();
+    var ov=stgRosterModal();rosterChoiceVersion++;resetRosterSearch("stageDrawSearch");
     if(!(D&&D.d&&D.d.members||[]).length)ensureStageMembers().then(function(){stgRosterRender();});
     try{
       var cur=(D.d.rosterSel instanceof Array)?D.d.rosterSel.slice():[];
@@ -21674,10 +21802,10 @@ function optSaveCanvas(c,o){
     var box=el("o2sRstGrid");if(!box)return;
     var ms=(D&&D.d&&D.d.members)||[],sel=STAGE.rosterSel||[];
     var qs=document.querySelectorAll("#o2sRstQuick [data-rstquick]");for(var qi=0;qi<qs.length;qi++)qs[qi].classList.remove("on");
-    box.innerHTML=ms.map(function(m){
+    box.innerHTML=visibleRosterRows("stageDrawSearch",ms).map(function(m){
       var on=sel.indexOf(Math.round(Number(m.seat)))>=0;
       return '<button type="button" class="opt2-memb'+(on?" on":"")+'" data-rstseat="'+m.seat+'">'+esc(m.name)+'<i>'+m.seat+'</i></button>';
-    }).join("")||'<div class="opt2-dim">名单加载中…</div>';
+    }).join("")||'<div class="opt2-dim">'+(ms.length?rosterSearchEmpty("stageDrawSearch"):"名单加载中…")+'</div>';
     var sum=el("o2sRstSum");if(sum)sum.textContent="已选 "+sel.length+" 人";
   }
   function stgRosterClick(e){
@@ -21686,27 +21814,23 @@ function optSaveCanvas(c,o){
       var q=t.closest("[data-rstquick]");
       if(q){
         var kind=q.getAttribute("data-rstquick");
-        if(kind==="all")STAGE.rosterSel=stgMemberSeats();
-        else if(kind==="committee")STAGE.rosterSel=stgCommitteeSeats();
-        else if(kind==="none")STAGE.rosterSel=[];
-        else if(kind==="league"){stgLeagueFetch().then(function(seats){STAGE.rosterSel=stgSeatsNorm((seats||[]).map(function(x){return x.seat;}));stgRosterRender();});}
-        stgRosterRender();
-        var act=document.querySelectorAll("#o2sRstQuick [data-rstquick]");
-        for(var i2=0;i2<act.length;i2++)act[i2].classList.toggle("on",act[i2]===q);
+        if(kind==="none"){rosterChoiceVersion++;STAGE.rosterSel=[];stgRosterRender();}
+        else applyRosterPreset(kind,function(seats){STAGE.rosterSel=seats;stgRosterRender();});
         return;
       }
       var b=t.closest("[data-rstseat]");
-      if(b){var seat=Math.round(Number(b.getAttribute("data-rstseat")));var i2=STAGE.rosterSel.indexOf(seat);if(i2>=0)STAGE.rosterSel.splice(i2,1);else STAGE.rosterSel.push(seat);STAGE.rosterSel=stgSeatsNorm(STAGE.rosterSel);stgRosterRender();return;}
+      if(b){rosterChoiceVersion++;var seat=Math.round(Number(b.getAttribute("data-rstseat")));var i2=STAGE.rosterSel.indexOf(seat);if(i2>=0)STAGE.rosterSel.splice(i2,1);else STAGE.rosterSel.push(seat);STAGE.rosterSel=stgSeatsNorm(STAGE.rosterSel);stgRosterRender();return;}
     }catch(x){}
   }
   function stgRosterApply(){
+    rosterChoiceVersion++;
     var sel=stgSeatsNorm(STAGE.rosterSel||[]);
     try{if(typeof applyDrawSel==="function")applyDrawSel(sel);}catch(e){}
     var ov=el("o2sRoster");if(ov)ov.hidden=true;
     stgRenderDraw();
     toast(sel.length?("名单已更新 · "+sel.length+" 人"):"已清空名单");
   }
-  function stgRosterClose(){var ov=el("o2sRoster");if(ov)ov.hidden=true;}
+  function stgRosterClose(){rosterChoiceVersion++;resetRosterSearch("stageDrawSearch");var ov=el("o2sRoster");if(ov)ov.hidden=true;}
 
   /* ---------- 1s 心跳：时钟 / 计时 / 投票倒计时与刷新 / 灵动岛 ---------- */
   function stgTick(){
@@ -22554,135 +22678,6 @@ function optSaveCanvas(c,o){
   "use strict";
   var $id=function(id){return document.getElementById(id);};
   function closestOf(t,sel){try{return (t&&t.closest)?t.closest(sel):null;}catch(e){return null;}}
-  function normSeatArr(a){try{return normSeats(a);}catch(e){return [];}}
-  function membersAll(){var ms=[];try{ms=(D&&D.d&&D.d.members)||[];}catch(e){ms=[];}return ms.filter(function(m){return m&&!m.is_test&&isFinite(Number(m.seat));});}
-  function seatArrOf(list){var out=[];(list||[]).forEach(function(x){var n=Math.round(Number(x&&x.seat!==undefined?x.seat:x));if(isFinite(n)&&n>0)out.push(n);});return normSeatArr(out);}
-  function committeeSeats(){var out=[];membersAll().forEach(function(m){if(m.role||m.badge)out.push(Math.round(Number(m.seat)));});return normSeatArr(out);}
-  function allSeats(){var out=[];membersAll().forEach(function(m){out.push(Math.round(Number(m.seat)));});return normSeatArr(out);}
-  function leagueSeats(cb){
-    try{
-      if(typeof CM_LEAGUE!=="undefined"&&CM_LEAGUE&&CM_LEAGUE.length){cb(seatArrOf(CM_LEAGUE));return;}
-      if(typeof cmLeagueFetch!=="function"){cb([]);return;}
-      cmLeagueFetch().then(function(list){cb(seatArrOf(list||[]));},function(){cb([]);});
-    }catch(e){cb([]);}
-  }
-  /* 复用既有成员按钮的点击逻辑套用目标集合（不复制状态机；点完用户仍可继续逐个增删） */
-  function chipApply(btnSel,attr,seats){
-    var want={},i;normSeatArr(seats).forEach(function(s){want[s]=1;});
-    var guard=0;
-    while(guard++<120){
-      var chips=document.querySelectorAll(btnSel),target=null;
-      for(i=0;i<chips.length;i++){
-        var seat=Math.round(Number(chips[i].getAttribute(attr)));
-        if(!isFinite(seat))continue;
-        var on=chips[i].classList.contains("on");
-        if((!!want[seat])!==on){target=chips[i];break;}
-      }
-      if(!target)break;
-      try{target.click();}catch(e){break;}
-    }
-  }
-  function markPreset(sel,attr,kind){
-    try{
-      var bs=document.querySelectorAll(sel+" ["+attr+"]");
-      for(var i=0;i<bs.length;i++)bs[i].classList.toggle("on",bs[i].getAttribute(attr)===kind);
-    }catch(e){}
-  }
-
-  /* ---------------- 1a. 共享名单弹层快捷预设（draw/group/roll 共用） ---------------- */
-  function rosterPreset(kind){
-    if(typeof RST==="undefined"||!RST||!RST.open)return;
-    var done=function(list){
-      if(typeof RST==="undefined"||!RST||!RST.open)return;
-      chipApply("#rstTxt .rst-b","data-seat",list);
-      markPreset("#rstPresets","data-rstpreset",kind);
-    };
-    if(kind==="committee")done(committeeSeats());
-    else if(kind==="all")done(allSeats());
-    else leagueSeats(done);
-  }
-  try{
-    var _rp=$id("rstPresets");
-    if(_rp)_rp.addEventListener("click",function(e){
-      var b=closestOf(e.target,"[data-rstpreset]");
-      if(b)rosterPreset(b.getAttribute("data-rstpreset"));
-    });
-  }catch(e){}
-
-  /* ---------------- 1b. 投票「指定成员」快捷预设 ---------------- */
-  function votePreset(kind){
-    var box=$id("voteAudBox");
-    if(!box||box.hidden)return;
-    var run=function(){
-      var search=$id("voteAudSearch");
-      if(search&&search.value){search.value="";try{search.dispatchEvent(new Event("input",{bubbles:true}));}catch(e){}}
-      var apply=function(list){
-        var mem=$id("voteAudMem");
-        if(!mem||!mem.querySelector(".vote-mem-b"))return false;
-        chipApply("#voteAudMem .vote-mem-b","data-seat",list);
-        markPreset("#voteAudPresets","data-audpreset",kind);
-        return true;
-      };
-      var retry=function(){
-        setTimeout(function(){
-          if(kind==="committee")apply(committeeSeats());
-          else if(kind==="all")apply(allSeats());
-        },280);
-      };
-      if(kind==="committee"){if(!apply(committeeSeats()))retry();}
-      else if(kind==="all"){if(!apply(allSeats()))retry();}
-      else leagueSeats(function(list){
-        if(apply(list))return;
-        try{ensureMembers().then(function(){apply(list);},function(){});}catch(e){retry();}
-      });
-    };
-    setTimeout(run,0);
-  }
-  try{
-    var _vp=$id("voteAudPresets");
-    if(_vp)_vp.addEventListener("click",function(e){
-      var b=closestOf(e.target,"[data-audpreset]");
-      if(b)votePreset(b.getAttribute("data-audpreset"));
-    });
-  }catch(e){}
-
-  /* ---------------- 1c. 大屏发起投票「指定成员」快捷预设 ----------------
-     V5 结构内由 stgRenderCreateAud 渲染 #o2sCrtMem；这里用 MutationObserver 惰性注入快捷行，
-     点击仍复用 .opt2-memb 的既有增删逻辑（不改大屏内部状态机）。 */
-  function stagePresetInject(){
-    try{
-      var box=$id("o2sCrtMem");
-      if(!box||!box.querySelector(".opt2-memb"))return;
-      if(document.querySelector("[data-crtmempreset]"))return;
-      var row=document.createElement("div");
-      row.className="opt2-crtmempreset";row.id="o2sCrtMemPresets";
-      row.innerHTML='<span class="opt2-dim">快捷</span>'+
-        '<button type="button" class="opt2-chipbtn" data-crtmempreset="all">全班</button>'+
-        '<button type="button" class="opt2-chipbtn" data-crtmempreset="committee">班委</button>'+
-        '<button type="button" class="opt2-chipbtn" data-crtmempreset="league">团员</button>';
-      box.insertBefore(row,box.firstChild);
-    }catch(e){}
-  }
-  try{
-    if(window.MutationObserver){
-      var _mo=new MutationObserver(function(){stagePresetInject();});
-      _mo.observe(document.body,{childList:true,subtree:true});
-    }
-  }catch(e){}
-  try{
-    document.addEventListener("click",function(e){
-      var b=closestOf(e.target,"[data-crtmempreset]");
-      if(!b)return;
-      try{e.preventDefault();e.stopPropagation();}catch(x){}
-      var kind=b.getAttribute("data-crtmempreset");
-      if(!$id("o2sCrtMem"))return;
-      var apply=function(list){chipApply("#o2sCrtMem .opt2-memb","data-crtmemseat",list);markPreset("#o2sCrtMemPresets","data-crtmempreset",kind);};
-      if(kind==="committee")apply(committeeSeats());
-      else if(kind==="all")apply(allSeats());
-      else leagueSeats(apply);
-    },true);
-  }catch(e){}
-
   /* ============================================================
      2. 水量云端宿舍共享（_water_shared_contract.md）
      ============================================================ */
@@ -26964,14 +26959,14 @@ var NTADMIN=(function(){
     var ov=$("#naAudOv");if(ov){ov.hidden=false;ov.style.display="";}
     var t=$("#naAudTitle");if(t)t.textContent="可见人群";
     var sub=$("#naAudGroup");if(sub)sub.textContent=g.name;
-    var ss=$("#naSeatSearch");if(ss)ss.value="";
+    rosterChoiceVersion++;resetRosterSearch("naSeatSearch");
     renderAud();
     if(st.audDraft.type==="custom")ensureMembers();
     try{if(typeof HIST!=="undefined"&&HIST.openModal){HIST.openModal("ntadmin-aud",closeAud);st.audHooked=!!HIST.ready;}}catch(e){}
   }
   function closeAud(){
     if(!st.audOpen)return;
-    st.audOpen=false;
+    rosterChoiceVersion++;resetRosterSearch("naSeatSearch");st.audOpen=false;
     var ov=$("#naAudOv");if(ov){ov.hidden=true;ov.style.display="none";}
     if(st.audHooked){st.audHooked=false;try{if(typeof HIST!=="undefined"&&HIST.closeModal)HIST.closeModal();}catch(e){}}
   }
@@ -26996,10 +26991,9 @@ var NTADMIN=(function(){
   function renderSeats(){
     var box=$("#naSeatGrid");if(!box||!st.audDraft)return;
     var ms=(D.d.members||[]).slice().sort(function(a,b){return (+a.seat)-(+b.seat);});
-    var q=String(st.seatQ||"").trim().toLowerCase();
-    if(q)ms=ms.filter(function(m){return (String(m.name||"")+" "+m.seat).toLowerCase().indexOf(q)>=0;});
+    ms=visibleRosterRows("naSeatSearch",ms);
     if(!ms.length){
-      box.innerHTML='<div class="na-empty">'+((D.d.members||[]).length?"没有匹配的成员":"名单加载中…")+'</div>';
+      box.innerHTML='<div class="na-empty">'+((D.d.members||[]).length?rosterSearchEmpty("naSeatSearch"):"名单加载中…")+'</div>';
     }else{
       var sel={};(st.audDraft.seats||[]).forEach(function(s){sel[s]=1;});
       box.innerHTML=ms.map(function(m){
@@ -27157,7 +27151,7 @@ var NTADMIN=(function(){
     if(ao)ao.addEventListener("click",function(e){
       var b=e.target&&e.target.closest?e.target.closest("[data-naaudtype]"):null;
       if(!b||!st.audDraft)return;
-      st.audDraft.type=b.getAttribute("data-naaudtype");
+      rosterChoiceVersion++;st.audDraft.type=b.getAttribute("data-naaudtype");
       if(st.audDraft.type==="set")st.audDraft.set=st.audSetName||"";
       renderAud();
     });
@@ -27165,14 +27159,17 @@ var NTADMIN=(function(){
     if(sg)sg.addEventListener("click",function(e){
       var b=e.target&&e.target.closest?e.target.closest("[data-naseat]"):null;
       if(!b||!st.audDraft)return;
-      var seat=Number(b.getAttribute("data-naseat")),arr=st.audDraft.seats||[],i=arr.indexOf(seat);
+      rosterChoiceVersion++;var seat=Number(b.getAttribute("data-naseat")),arr=st.audDraft.seats||[],i=arr.indexOf(seat);
       if(i>=0)arr.splice(i,1);else arr.push(seat);
       st.audDraft.seats=padSeats(arr);renderSeats();
     });
-    var ss=$("#naSeatSearch");
-    if(ss)ss.addEventListener("input",function(){st.seatQ=this.value;renderSeats();});
+    mountRosterSearch("naSeatSearch",renderSeats);
+    $("#naSeatPresets").addEventListener("click",function(e){
+      var b=e.target.closest("[data-na-preset]");if(!b||!st.audOpen||st.audDraft.type!=="custom")return;
+      applyRosterPreset(b.dataset.naPreset,function(seats){st.audDraft.seats=seats;renderSeats();});
+    });
     var sc=$("#naSeatClear");
-    if(sc)sc.addEventListener("click",function(){if(st.audDraft){st.audDraft.seats=[];renderSeats();}});
+    if(sc)sc.addEventListener("click",function(){if(st.audDraft){rosterChoiceVersion++;st.audDraft.seats=[];renderSeats();}});
     var ac=$("#naAudClose"),ac2=$("#naAudCancel");
     if(ac)ac.addEventListener("click",closeAud);
     if(ac2)ac2.addEventListener("click",closeAud);
