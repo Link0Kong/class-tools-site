@@ -1,10 +1,10 @@
 {
-  "versionCode": 154,
-  "versionName": "1.0.0-beta71",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta71.apk",
-  "notes": "通知统计与网页对齐，可按需查看原文、图片和文件；补齐任务操作，在点名页直接编辑名单。",
+  "versionCode": 155,
+  "versionName": "1.0.0-beta72",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta72.apk",
+  "notes": "支持分享单个任务链接，接收者可预览并确认保存到我的任务。",
   "force": false,
   "channel": "beta",
-  "sha256": "86e0a1f11e03ae6ec7aa2e8ad8c276857746cef69bf2cb42de29fa6d197cd3b1",
+  "sha256": "8ccc83537944b0bebcf6a89da4f06f021426d40d152ca44c307af109066b5bb7",
   "sizeBytes": 6899144
 }
