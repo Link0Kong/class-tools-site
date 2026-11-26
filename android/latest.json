@@ -1,10 +1,10 @@
 {
-  "versionCode": 167,
-  "versionName": "1.0.0-beta84",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta84.apk",
-  "notes": "「课表接入」移到周／日视图切换旁，避免挡住课表。日视图显示已有的授课教师，周视图在课程块空间足够时显示教师。",
+  "versionCode": 169,
+  "versionName": "1.0.0-beta86",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta86.apk",
+  "notes": "默认使用网页风格的奶油底、暖白卡面与雾青 M3 控件。桌面待办和工作台可直接勾选个人任务，通知可单独刷新。任务新增 AI 整理与可编辑草稿，平板支持并排查看任务详情、课表日程及多栏工作台。",
   "force": false,
   "channel": "beta",
-  "sha256": "fa434c8f13e0604f7da91828aa019e6f7316a9b69bab19bc663390fc881059af",
-  "sizeBytes": 7111052
+  "sha256": "c2b86349a32857a0781d036ebf916995b97cc1087fac5863882b1d7ac77857d9",
+  "sizeBytes": 7131004
 }
