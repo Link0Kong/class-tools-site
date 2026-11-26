@@ -12892,7 +12892,7 @@ function ttTodayPlan(cs,term,now){
     var ongoing=mins>=bell && mins<finish;
     if(ongoing && !current)current={kind:"now",c:c,period:period,left:finish-mins,dayoff:0};
     if(bell>mins && (!next || bell-mins<next.left))next={kind:"next",c:c,period:period,left:bell-mins,dayoff:0};
-    return {c:c,time:time,badge:ongoing?"上课中":(next && next.c===c?"下一节":"")};
+    return {c:c,time:time,ongoing:ongoing,minutes:ongoing?finish-mins:bell-mins};
   });
   for(var offset=1;!next && cs.length && term && offset<14;offset++){
     var date=new Date(now.getFullYear(),now.getMonth(),now.getDate()+offset);
@@ -12974,9 +12974,11 @@ function renderWorkbenchCourses(){
   $("#wbWeek").textContent=fmtMD(now)+" "+DAYS[(now.getDay()+6)%7]+(plan.week?" · 第 "+plan.week+" 周":"");
   $("#wbCourses").innerHTML=plan.rows.map(function(row){
     var c=row.c, span="第"+c.start+(c.end>c.start?"–"+c.end:"")+"节";
+    var isNext=plan.next && plan.next.dayoff===0 && plan.next.c===c;
+    var badge=row.ongoing?"距下课 "+row.minutes+" 分钟":isNext?(row.minutes<=10?"距上课 "+row.minutes+" 分钟":"下一节"):"";
     return '<div class="wb-course"><time>'+row.time+'</time><div><b>'+esc(c.name||"课程")+
       '</b><small>'+span+(c.room?' · <button type="button" class="wb-room" data-wb-go="room" data-wb-id="'+esc(c.room)+'" aria-label="在校园地图查看'+esc(c.room)+'">'+esc(c.room)+'</button>':"")+'</small></div>'+
-      (row.badge?'<em'+(row.badge==="上课中"?' class="current"':'')+'>'+row.badge+'</em>':'')+'</div>';
+      (badge?'<em'+(row.ongoing?' class="current"':'')+'>'+badge+'</em>':'')+'</div>';
   }).join("");
   var note="";
   if(!d.c.length || !d.t)note="课表未同步";
