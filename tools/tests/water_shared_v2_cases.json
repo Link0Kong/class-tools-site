@@ -1,0 +1,51 @@
+{
+  "version": "water-shared-v2",
+  "journey": {
+    "accounts": ["fixture-A", "fixture-B"],
+    "rooms": ["fixture-room-R", "fixture-room-S"],
+    "month": "2030-01",
+    "nextMonth": "2030-02",
+    "first": {"reading": 12.34, "persons": 4},
+    "next": {"reading": 20.5, "persons": 3},
+    "serverPersons": 3,
+    "afterDeleteRefresh": {"months": [], "persons": 3, "sharedWrites": 0},
+    "afterOfflineCreate": {"months": ["2030-02"], "sharedWrites": 1},
+    "afterLegacyReconnect": {"months": ["2030-01", "2030-02"], "sharedWrites": 1}
+  },
+  "persons": {
+    "valid": [1, 2, 3, 4, 5, 6],
+    "invalid": [0, 7, 2.5, null, false],
+    "absentDefault": 4
+  },
+  "refreshCases": [
+    {"id":"successful-empty", "records":"complete-empty", "people":"complete-3", "expectMonths":[], "expectPersons":3, "confirmed":[true,true]},
+    {"id":"no-people-row", "records":"complete-empty", "people":"complete-empty", "expectMonths":[], "expectPersons":4, "confirmed":[true,true]},
+    {"id":"records-offline", "records":"failed", "people":"complete-3", "expectMonths":["2030-01"], "expectPersons":3, "confirmed":[false,true]},
+    {"id":"people-offline", "records":"complete-empty", "people":"failed", "expectMonths":[], "expectPersons":5, "confirmed":[true,false]},
+    {"id":"both-offline", "records":"failed", "people":"failed", "expectMonths":["2030-01"], "expectPersons":5, "confirmed":[false,false]},
+    {"id":"cached-empty-sentinel", "records":"ttl-skip", "people":"complete-3", "expectMonths":["2030-01"], "expectPersons":3, "confirmed":[false,true]},
+    {"id":"incomplete-page", "records":"partial", "people":"invalid", "expectMonths":["2030-01"], "expectPersons":5, "confirmed":[false,false]},
+    {"id":"wrong-room", "records":"foreign-row", "people":"complete-3", "expectMonths":["2030-01"], "expectPersons":3, "confirmed":[false,true]},
+    {"id":"unexpected-shape", "records":"invalid", "people":"complete-empty", "expectMonths":["2030-01"], "expectPersons":4, "confirmed":[false,true]}
+  ],
+  "replayCases": [
+    {"id":"offline-create", "source":"user", "base":null, "current":null, "desired":{"reading":10,"persons":3}, "decision":"send"},
+    {"id":"deliberate-recreate-after-observed-delete", "source":"user", "base":null, "current":null, "desired":{"reading":11,"persons":4}, "decision":"send"},
+    {"id":"edit-on-existing", "source":"user", "base":{"reading":10,"persons":3}, "current":{"reading":10,"persons":3}, "desired":{"reading":11,"persons":3}, "decision":"send"},
+    {"id":"delete-on-existing", "source":"user", "base":{"reading":10,"persons":3}, "current":{"reading":10,"persons":3}, "desired":null, "decision":"send"},
+    {"id":"delete-already-complete", "source":"user", "base":{"reading":10,"persons":3}, "current":null, "desired":null, "decision":"satisfied"},
+    {"id":"missing-edit-needs-reconfirmation", "source":"user", "base":{"reading":10,"persons":3}, "current":null, "desired":{"reading":11,"persons":3}, "decision":"review"},
+    {"id":"competing-create", "source":"user", "base":null, "current":{"reading":10,"persons":4}, "desired":{"reading":11,"persons":3}, "decision":"review"},
+    {"id":"competing-change", "source":"user", "base":{"reading":10,"persons":3}, "current":{"reading":10,"persons":2}, "desired":null, "decision":"review"},
+    {"id":"missing-baseline", "source":"user", "current":null, "desired":{"reading":10,"persons":3}, "decision":"review"},
+    {"id":"lost-reply-same-target", "source":"user", "base":null, "current":{"reading":10,"persons":3}, "desired":{"reading":10,"persons":3}, "decision":"satisfied"},
+    {"id":"lost-reply-intervening-update", "source":"user", "outcomeUnknown":true, "base":{"reading":10,"persons":3}, "current":{"reading":12,"persons":4}, "desired":{"reading":11,"persons":3}, "decision":"review"},
+    {"id":"lost-create-reply-followed-by-deletion", "source":"user", "outcomeUnknown":true, "base":null, "current":null, "desired":{"reading":10,"persons":3}, "decision":"review"},
+    {"id":"legacy-ambiguous-put", "source":"unverified-queue", "base":null, "current":null, "desired":{"reading":10,"persons":3}, "decision":"review"},
+    {"id":"private-history-is-not-a-write", "source":"private-history", "base":null, "current":null, "desired":{"reading":10,"persons":3}, "decision":"review"},
+    {"id":"explicitly-approved-import", "source":"confirmed-import", "base":null, "current":null, "desired":{"reading":10,"persons":3}, "decision":"send"},
+    {"id":"change-people", "source":"user", "base":4, "current":4, "desired":3, "decision":"send"},
+    {"id":"set-default-explicitly", "source":"user", "base":null, "current":null, "desired":4, "decision":"send"},
+    {"id":"people-acknowledged", "source":"user", "base":4, "current":3, "desired":3, "decision":"satisfied"}
+  ]
+}

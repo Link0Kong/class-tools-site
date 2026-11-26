@@ -1,67 +1,76 @@
-# 水量共享云端（以宿舍为单位）· 跨端契约 v1
+# 宿舍共享水表契约 v2
 
-> Lead 定稿 2026-11-11。用户需求：「水量统计与同步以宿舍为单位」「23 号楼的两座自动设为四人间」「去除每月免费*吨水字样」。
-> 本文件是 web / 小程序 / 云端迁移（`deploy/cloudbase/2026-11-11_water_shared.sql`）的唯一接口口径。
-> 现有 UD v6 `water` section **契约不变**，仅降级为「本机离线缓存」（mp 端可继续原样保留/读写，不新增 UD section）。
+W07，2026-11-27。适用于读写共享水表的客户端。W08（微信小程序）与 W09（网页）按本版验收。既有接口、库表、权限与计费公式继续沿用。[脱敏向量](water_shared_v2_cases.json) · [离线协议检查](test_water_shared_v2.py) · [个人水量 section 与计费](./_water_contract.md)
 
-## 1. 云端表（`public` schema，PostgREST 直连）
+## 1. 哪份记录有效
 
-```sql
-create table if not exists public.water (
-  roomverify text not null,              -- 与 PW_ROOMS 一致，如 4-23B---423
-  month      text not null,              -- YYYY-MM（如 2026-11）
-  reading    numeric(10,2) not null,     -- 水表读数（吨，两位小数）
-  persons    int  not null default 4 check (persons in (4,6)),
-  updated_at timestamptz not null default now(),
-  primary key (roomverify, month)
-);
-create table if not exists public.water_room (
-  roomverify text primary key,
-  persons    int not null default 4 check (persons in (4,6)),
-  updated_at timestamptz not null default now()
-);
+| 对象 | 标识、用途与权限 |
+|---|---|
+| 共享月读数 | `public.water` 的主键是 `(roomverify, month)`，与登录账号无关。月份为 `YYYY-MM`，有效读数为非负吨数，保留两位小数；传输中可能是数字或数字字符串。行的 `persons` 是保存该月时传入的人数，不能代替当前房间人数。 |
+| 共享房间人数 | `public.water_room` 每个 `roomverify` 一行。所有楼栋的合法人数都是整数 1–6。成功读取且确实无行时显示默认 4；展示默认值不会创建记录。有行却字段非法时标记读取异常，保留最近一次确认值，不能写回默认值。 |
+| 个人旧账本与关注 | `userdata.water.rooms[rv]={p,recs:[{m,r,ts}]}` 是按账号读写的 v6 资料，原有历史可以查看、恢复或作为明确导入的来源。`power.sel` 只是个人关注选择。个人 section 的时间戳、缓存的更新时间、旧表的 `updated_at` 都不能作为共享记录的版本或写入意图。 |
+| 访问范围 | 两张共享表的 RLS 使用有效班级身份 `auth_ok()`。同宿舍两位成员在既有授权下看到相同键。现行策略没有以“关注房间”或“宿舍成员表”限制读写。换身份须重新按当前授权读取。 |
+
+SQL 源码依据为 [建表与行级策略](../../deploy/cloudbase/2026-11-11_water_shared.sql) 和 [1–6 人约束](../../deploy/cloudbase/2026-11-19_water_persons_1_6.sql)。前者中的 4/6 检查和历史文档的 23 号楼 A/B 固定四人条款已由后者与两端后续实现取代。SQL 源文件能够确认预期定义，判断具体环境是否已迁移还要查该环境。
+
+## 2. HTTP 与确认
+
+资源相对于各端现有 PostgREST 根路径。沿用班级身份请求头，按原值 URL 编码房间与月份。两个 POST 均用 `Prefer: resolution=merge-duplicates,return=minimal`。
+
+| 动作 | 请求 |
+|---|---|
+| 拉取一个房间完整的读数集 | `GET water?select=roomverify,month,reading,persons&roomverify=eq.<rv>&order=month.asc` |
+| 拉取当前人数 | `GET water_room?select=roomverify,persons&roomverify=eq.<rv>` |
+| 新增、更新或明确重新录入某月 | `POST water?on_conflict=roomverify,month`，传 `{roomverify,month,reading,persons}` |
+| 删除某月 | `DELETE water?roomverify=eq.<rv>&month=eq.<month>` |
+| 用户更改房间人数 | `POST water_room?on_conflict=roomverify`，传 `{roomverify,persons}` |
+
+月记录与人数分别确认。部分请求失败时，成功的资源可独立更新，界面应指出另一项待核对。不能用 `undefined`、`null`、错误响应、TTL 免请求哨兵、未读完的一页或无效身份下 RLS 过滤出的空集代替成功全量。当前授权明确、同次刷新、房间匹配、形状有效且已读完整后，空数组是有效结果，须覆盖旧确认值；房间人数的有效空数组表示“无人数记录”。发现分页/截断时用现有翻页能力读完，或保留旧确认快照；缓存最多显示多少条不能界定服务器数据全集。权限失效停止显示受限缓存与发送操作，刷新不能反向写表。服务端没有更改行的修订号；旧 `updated_at` 不能为重试证明因果先后。
+
+## 3. 读取、恢复和切换
+
+1. 进入页面、刷新、切房、返回前台或恢复网络时，采用既有拉取触发。给发起的请求固定登录身份、会话代次、房间和当前刷新序号。切换账号、退出、重新验证、换房或同房发起更新一轮请求后，旧回调不能更新页面、缓存、导出、队列或成功提示。为新上下文重新获取。已发出的远端请求只能按原来捕获的身份/房间完成；客户端丢弃过时回调，不能把操作改投到新房间。
+2. 共享基线是最近一次已确认的完整集。成功全量中没有某月，代表当前共享账本没有该月。页面和导出从该基线加当前身份、本房间的明确待发操作得到；未确认项目应能识别。云端人数为 3、本地人数为 4 时，刷新显示 3，两个共享表均零写入。写本机缓存不等于写共享表。离线、失败或尚未获取完整快照时，显示授权范围内的最近确认值及其状态；私有旧账本可另行读取。
+3. **纯读取不生成共享写入。** 恢复网络可以处理原先已存在且来源明确的待发操作；分别计量恢复时的 GET 和重发，纯缓存、字段缺省、切换房间、看到新人数等不得生成操作。服务拒绝、数据异常或待确认冲突不得显示“已同步”。
+
+## 4. 保存、删除与已有待发操作
+
+用户明确保存读数、删除某月、修改人数或确认导入才产生新的共享操作。操作至少能辨认原账号、房间、作用的月份或人数项、预期基线是否已知、意图值及同键本地操作顺序。实现可沿用现有持久队列；这些信息不加入 v6 共享字段或服务器请求。离线时保留意图与反馈，断线恢复先重新读取。对**同账号、同房、同一月**的本地连续动作按顺序合并或串行；人数是独立键。旧回执只能确认对应的操作，不能移除用户后续编辑。
+
+| 恢复时可证实的状态 | 处理 |
+|---|---|
+| 目标状态已相符，包括删除的月份已无行 | 对应操作已满足，确认本地结果；无需再次发写。比较月行的读数与该行保存的人数。人数操作的“4”值有行与默认展示无行分别处理。 |
+| 明确新增时已确认该月缺行，恢复时仍缺行；明确编辑/删除时的已知行或人数至今仍与基线相符 | 按现有 POST/DELETE 发送，成功后刷新核对。用户刚观察到某月已删，再明确重新录入，按一次合法新增处理。 |
+| 编辑基于已存在的行，恢复时已被另一端删除；旧值已被他人更新；未曾取得基线，或上次写入结果未知且当前状态与目标不同 | 保留本地草稿/待确认操作，展示当前共享值，等待用户选择采用共享结果或基于最新状态再次确认提交。首次离线录入但无基线也保留。完全没有发送过的离线新增可以按上一行补发；发出后丢失回执的新增如又读到缺行，可能已被他人删除，不能盲重试。 |
+| 旧个人历史、原共享缓存、无法证明产生方式的旧队列 | 保留为该用户可读取的本地历史或待确认项。允许用户在目标房间查看月份、数值、现有共享值并明确选中导入。未经确认不写、不全量搬迁；无从证明所属账号的材料不可自动展示给下一名使用者。 |
+
+升级时尤其注意：旧 Web 的自动补传与用户保存都可生成 `k:save`，自动写人数失败与用户操作都可生成 `k:room`。旧小程序的补传失败和正常离线保存都走 `_pendPut`，且旧 store 的 `waterPend` 不自带 sid。仅凭操作名或时间不能对整批旧操作推定来源。能够确认原身份及意图但缺基线的旧操作仍可呈现并让用户确认，不能删队列来“修复”删除传播。用户明确选择导入时逐键处理，先展示与既有记录的冲突。业务可能重试或有多个写者时，不把一次 2xx 作为全局锁。
+
+## 5. 并发边界与混合版本
+
+- 完成适配的客户端不会从旧缓存、缺行或切房事件恢复共享数据。普通表的单键 upsert/DELETE 按数据库实际接收顺序生效；读取后再发写，中间仍可有其他显式写入。最后写入者获胜仅描述这两个无版本条件的接口结果。客户端比较基线能发现已观察到的冲突，不能排除比较与写入之间的竞争，也不能宣称跨端全序或任意重试无副作用。
+- 旧 Web/小程序仍可从纯缓存发出与合法重新录入**相同的** POST。旧客户端重新上线后，被删的月可能再出现；新端下一次成功全量会如实显示服务器当前结果。已修客户端继续使用 v2 读取规则，回退到旧 JS/旧包会重新打开旧写者窗口。个人资料、发布缓存和已安装版本的生命周期不同。
+- 如果产品要求在旧写者在线期间也强制防复活，当前协议无法区分上述两类 POST。须另行决策是否以服务能力开关启用带版本前置条件/删除记录的写入口，并停止旧格式对受保护键的直接盲写。代价包括服务端与权限变更、存量无删除标记的历史边界、旧端写入失败及回退窗口。放行不携带前置条件的旧写者只能提供过渡兼容，不能同时承诺强保证。W07 不部署该机制。
+
+## 6. 各端接入与验收责任
+
+| 基线与实际入口 | 当前行为、适配及回退影响 |
+|---|---|
+| Web `6af5e5f`，`tools/index.html` 中 B2WATER.mergeRowsIntoRoom、pullRoom、flush、reloadLocalFromCloudCache | 基线会补传缓存独有月份；本机人数和云端不同时会写回本机人数。W09 适配全量/待发边界和同房新旧请求，旧 Web 仍有补传风险。 |
+| MP `b71aee2`，`utils/water.js` 的 mergeCloud、roomPersonsOf 与 `pages/water/water.js` 的 _pullCloud、_flushPending | 基线会补传缺月，roomPersonsOf 对合法的 1/2/3/5 返回 null，列表失败也可能被当作空行合并。W08 对照本规则和向量分别校验列表、人数、授权上下文与队列。回退旧小程序重现该风险。 |
+| Android `85f2190` 的 UserDataWaterRepository.save、Harmony `6932b31` 的 WaterScreen/Services.userdata.updateCurrent、Windows `e344f15` 的 WaterPage/UserData.PushAsync | 以上入口读写个人 userdata.water。保持旧私人记录可读；是否以房间为单位开放新读写由产品决定后再派 W10/W11/W12。启用时复用本契约与向量，回退个人模式时不清空房间共享表。 |
+
+离线执行 `python -B tools/tests/test_water_shared_v2.py`（从 Web 仓根目录）。向量涵盖两个合成客户端、纯读取无写、删除、离线明确新增、晚到回包、旧队列、重复请求、不同房间、无行/失败/部分返回及 1–6 人。示例模拟既有 HTTP 语义和 v2 处理规则，不连接数据库。W08/W09 应将相同向量传入各自真实读取/队列/导出入口并记录请求与状态。原网页 `v2_web_batch2_water_cloud_check.py` 中要求 GET 触发补传或固定四人的断言是 v1 历史场景，W09 接管相应页面用例；现有计费公式和普通保存/删除、离线基础用例继续适用。
+
+### 隔离 PostgreSQL 回归
+
+从 Web 仓根目录用 Node.js 22 或更新版本运行以下 PowerShell。W03 已装好同版本 PGlite 时，可沿用其 `NODE_PATH`，直接运行最后一行。测试从仓内读取两份原始水表迁移，在内存数据库执行。[SQL 回归用例](../../deploy/tests/water_shared_sql.cjs)
+
+```powershell
+$waterQaDir = Join-Path ([IO.Path]::GetTempPath()) ('water-qa-' + [guid]::NewGuid().ToString('N'))
+npm install --prefix $waterQaDir --no-save --no-package-lock --ignore-scripts @electric-sql/pglite@0.6.0
+$env:NODE_PATH = Join-Path $waterQaDir 'node_modules'
+node --test deploy/tests/water_shared_sql.cjs
 ```
-- RLS 全部开启；策略：select / insert / update / delete 均 `to anon using (auth_ok()) / with check (auth_ok())`
-  （沿用 `public.homework` / `public.notices` 的班级 token 口径；`auth_ok()` 已接受网页 `X-Device-Id` 与小程序 `X-Class-Token`）。
-- 不存姓名/学号/手机号；`updated_at` 仅时间。
-- 建议给 `water_room` 预置 17 间房（persons 默认 4），可选；客户端无行时按 4 处理。
 
-## 2. HTTP 口径（网页 `fetch` / 小程序 `wx.request`，均带班级 token）
-
-- 列水表记录：`GET water?select=roomverify,month,reading,persons&roomverify=eq.<rv>&order=month.asc` → `[{...}]`
-- 写一条（幂等 upsert）：`POST water?on_conflict=roomverify,month`，头 `Prefer: resolution=merge-duplicates,return=minimal`，
-  body `{"roomverify":"<rv>","month":"YYYY-MM","reading":123.45,"persons":4}`
-- 删一条：`DELETE water?roomverify=eq.<rv>&month=eq.<YYYY-MM>`
-- 房间人数：`GET water_room?select=roomverify,persons&roomverify=eq.<rv>`；
-  写：`POST water_room?on_conflict=roomverify`，body `{"roomverify":"<rv>","persons":4}`
-- 响应/错误同现有 PostgREST；失败不得阻塞页面（离线缓存继续可用）。
-
-## 3. 合并与离线规则（web `WATER` / mp `utils/water.js`）
-
-1. **进入水量页 / 切换宿舍**：先渲染本机缓存（UD `water.rooms[rv]` 或 mp store）→ 再 GET 云端；
-   云端成功：`recs` 以云端为准（同 month 云端覆盖本地；本地有而云端无的月份**补传**，补传失败静默保留本地 pending）。
-   云端失败：保留本机缓存 + 同步状态显示「离线」。
-2. **保存/删除/改人数**：先写本机 + `D.save()`（/ mp store.save）→ 再尽力写云端；失败设 `pending` 标记，
-   下次进入、刷新、联网/页面可见时重试（web 可在 `WATER.enter` + `online` 事件重试；mp `onShow` 重试）。
-3. 云端数据为宿舍共享：同宿舍任一同学写入后，其他同学进入即可看到（这就是「以宿舍为单位」）。
-4. UD v6 `water` 仍可照旧读写（兼容旧版页面），但**统计/展示以云端为准**；不得删除/改写 UD 契约。
-
-## 4. 23 号楼 A/B 座固定四人间
-
-- 判定：`roomverify` 以 `4-23A---` 或 `4-23B---` 开头（等价 `building` 为「23号楼A座」/「23号楼B座」）。
-- 行为：选中这些房间时 `persons` 强制 = 4；人数选择器 `disabled`（web `#wtPersons`，mp 同）或显示「4 人间（固定）」；
-  云端 `water_room.persons` 首次进入自动 upsert 4；不得让用户改成 6。
-- 其他楼栋（13/16）保持 4/6 可选，默认 4。
-
-## 5. 文案
-
-- 去掉 UI 里「每月免费 8 吨水 / 12 吨水」字样（`#wtPersons` option 文案只留「4 人间」「6 人间」）。
-- 水量页/使用说明里「免费额度/免费定额/免费 N 吨」措辞改为「定额」（如「用水定额 每人 2 吨/月」），**计费公式与数值不变**（超额部分 × 3.03 元/吨）。
-- 其余规则卡来源与单价不变。
-
-## 6. 验收（web/mp 各自实现，Lead 统一回归）
-
-- web：选 23A/23B 房间 → 人数=4 且不可改；13/16 房间可 4/6；云 mock：GET/POST/DELETE 口径正确、离线缓存可用、
-  保存后另一账号（同宿舍）能看到同一记录（mock 或真实云端 QA，真实写用测试身份 + finally 清理）。
-- mp：同上（`unit.js` + 页面预览，真实云端只读/测试身份写）。
-- 云端：迁移应用后 RLS 拒绝无 token（401/[]）、有效 token 可读写；`water` 主键幂等；不产生姓名/学号字段。
+两名合成账号使用 `anon` 角色，只有 `auth_ok()` 的身份判断由测试提供。用例校验两表保留原 4/6 人记录、接受 1–6、拒绝 0/7，并验证有效班级账号可跨房间读写。删月后两账号在只读事务中轮流查询，月份保持缺行；旧端无条件 upsert 仍能恢复该月。身份失效时，查询、条件更新和删除均返回零行，向已存在或新键 upsert 均返回 SQLSTATE `42501`。真实请求头、客户端能否识别失效及刷新有无额外 POST 由 W08/W09 的客户端用例验证。

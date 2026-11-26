@@ -7942,11 +7942,12 @@ var UD={
     }
     if(take("tt")){
       var t=merged.tt||{};
+      var refreshCourses=!UD.eq(d.ttLocal,t.ttLocal||null)||d.ttView!==(t.ttView||"")||d.termStart!==(t.termStart||"");
       d.ttView=String(t.ttView==null?"":t.ttView);
       d.ttUseMine=!!t.ttUseMine;
       d.ttLocal=t.ttLocal?UD.clone(t.ttLocal):null;
       d.termStart=String(t.termStart==null?"":t.termStart);
-      try{if(typeof CURTAB!=="undefined"&&CURTAB==="tt")renderTT();}catch(e){}
+      try{if(refreshCourses||CURTAB==="tt")renderTT();}catch(e){}
     }
     if(take("nick")){
       d.nick=String(merged.nick==null?"":merged.nick);
@@ -12881,7 +12882,7 @@ function parseWeeks(str){ var set=[]; String(str||"").split(/[,，]/).forEach(fu
 function active(c,wk){ if(!wk) return true; var ws=parseWeeks(c.weeks);
   if(ws.length&&ws.indexOf(wk)<0) return false; if(c.parity==="odd"&&wk%2===0) return false; if(c.parity==="even"&&wk%2===1) return false; return true; }
 var VIEW=true, VCOURSE=null, VTERM="";
-var TT={w:null,pub:null,pubAt:0,day:null};
+var TT={w:null,pub:null,pubAt:0,day:null,pullSeq:0,appliedSeq:0,savedText:null};
 function fmtMD(d){return (d.getMonth()+1)+"/"+d.getDate();}
 function fmtDT(ts){var d=new Date(Number(ts)); if(isNaN(d))return ""; return fmtMD(d)+" "+pad(d.getHours())+":"+pad(d.getMinutes());}
 function ttHM(s){var m=String(s||"").match(/^(\d{1,2}):(\d{2})$/);return m?((+m[1])*60+(+m[2])):0;}
@@ -13367,7 +13368,7 @@ function ttNormCourses(arr){
   var out=[];
   (arr||[]).forEach(function(x){
     if(!x)return;
-    var name=String(x.name==null?x.n:x.name||"").trim(); if(!name)return;
+    var name=String((x.name==null?x.n:x.name)||"").trim(); if(!name)return;
     var day=parseInt(x.day,10); if(!(day>=0&&day<=6))return;
     var s=parseInt(x.start,10)||1, e=parseInt(x.end,10)||s;
     s=Math.max(1,Math.min(14,s)); e=Math.max(s,Math.min(14,e));
@@ -13416,18 +13417,49 @@ function ttAdoptPub(silent){
   if(!silent)toast("已使用教务课表");
   return true;
 }
-function ttLoadCache(){
-  try{var o=JSON.parse(localStorage.getItem("zq_tt_pub")||"null");
-    if(o&&Array.isArray(o.c)&&o.c.length){TT.pub=o;TT.pubAt=o.at||0;}
-  }catch(e){}
-}
-function ttApplyPub(o){
+function ttReadPub(o){
   if(!o||!Array.isArray(o.c))throw new Error("bad");
   var cs=ttNormCourses(o.c); if(!cs.length)throw new Error("empty");
-  TT.pub={c:cs,t:String(o.t||"").slice(0,10),meta:(o.meta&&typeof o.meta==="object")?o.meta:{}};
-  TT.pubAt=Date.now();
-  try{localStorage.setItem("zq_tt_pub",JSON.stringify({c:TT.pub.c,t:TT.pub.t,meta:TT.pub.meta,at:TT.pubAt}));}catch(e){}
-  syncedMark("tt");
+  return {c:cs,t:String(o.t||"").slice(0,10),meta:(o.meta&&typeof o.meta==="object")?o.meta:{}};
+}
+function ttCacheText(){
+  try{return localStorage.getItem("zq_tt_pub");}catch(e){return null;}
+}
+function ttCachedPub(raw){
+  try{
+    var o=JSON.parse(raw),snapshot=ttReadPub(o);
+    snapshot.at=Number(o.at)||0;
+    return snapshot;
+  }catch(e){return null;}
+}
+function ttLoadCache(){
+  var snapshot=ttCachedPub(ttCacheText());
+  if(snapshot){TT.pub=snapshot;TT.pubAt=snapshot.at;}
+}
+/* 返回相对发布顺序；null 表示不同生产者或两个版本均未知。 */
+function ttPubOrder(next,current){
+  if(!current)return null;
+  var candidate=next.meta,cached=current.meta;
+  var termPattern=/^\d{4}-\d{4}-[12]$/,datePattern=/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+  if(termPattern.test(candidate.term)&&termPattern.test(cached.term)){
+    if(candidate.term!==cached.term)return candidate.term>cached.term?1:-1;
+  }else if(!(candidate.term&&candidate.term===cached.term)&&datePattern.test(next.t)&&datePattern.test(current.t)&&next.t!==current.t){
+    return next.t>current.t?1:-1;
+  }else if(candidate.term&&cached.term&&candidate.term!==cached.term)return null;
+  if((candidate.source||"jwxt")!==(cached.source||"jwxt"))return null;
+  var before=Number(cached.fetchedAt),after=Number(candidate.fetchedAt);
+  before=isFinite(before)&&before>0?before:0;
+  after=isFinite(after)&&after>0?after:0;
+  return before||after?after-before:null;
+}
+function ttApplyPub(snapshot,fromCache){
+  TT.pub=snapshot;
+  TT.pubAt=fromCache?snapshot.at:Date.now();
+  if(!fromCache){
+    var raw=JSON.stringify({c:snapshot.c,t:snapshot.t,meta:snapshot.meta,at:TT.pubAt});
+    try{localStorage.setItem("zq_tt_pub",raw);TT.savedText=raw;}catch(e){}
+    syncedMark("tt");
+  }
   if(canManage()){
     var cur=D.d.course||[];
     if(!cur.length||(D.d.ttAdopt&&JSON.stringify(cur)===D.d.ttAdopt)){
@@ -13437,12 +13469,40 @@ function ttApplyPub(o){
       }
     }
   }
-  applyMode(); renderTT();
+  applyMode(); renderTT(); ttUpdateImportPanel();
 }
 function ttSyncPull(opts){
   opts=opts||{};
   var canSkip=!opts.manual&&!opts.force;
   if(canSkip&&!needPull("tt"))return Promise.resolve(true);
+  var seq=++TT.pullSeq,older=false,startCache=ttCacheText();
+  function accept(o){
+    var next=ttReadPub(o);
+    function commit(){
+      var order=ttPubOrder(next,TT.pub);
+      if(seq<TT.appliedSeq&&!(order>0))return false;
+      var raw=ttCacheText(),disk=ttCachedPub(raw),diskOrder=ttPubOrder(next,disk);
+      var otherTabChanged=disk&&raw!==startCache&&raw!==TT.savedText;
+      if(diskOrder<0||(otherTabChanged&&!(diskOrder>0))){
+        if(!(ttPubOrder(disk,TT.pub)<0))ttApplyPub(disk,true);
+        older=true;throw new Error("older");
+      }
+      if(order<0){older=true;throw new Error("older");}
+      TT.appliedSeq=Math.max(TT.appliedSeq,seq);
+      ttApplyPub(next,false);
+      return true;
+    }
+    /* HTTPS/localhost 上跨标签串行比较和提交；旧浏览器仍在写入前读取共享缓存。 */
+    try{
+      if(window.isSecureContext&&navigator.locks&&location.origin!=="null"){
+        return navigator.locks.request("zq_tt_pub",commit).catch(function(e){
+          if(e&&e.name==="SecurityError")return commit();
+          throw e;
+        });
+      }
+    }catch(e){if(!e||e.name!=="SecurityError")throw e;}
+    return commit();
+  }
   /* 数据源 v2（2026-11-07）：同源 tt.json 优先；域名暂停/文件缺失时回退 CloudBase
      public.site_assets 的 id='tt' 快照（与小程序同口径，README/HANDOFF §39） */
   function fromStatic(){
@@ -13463,12 +13523,14 @@ function ttSyncPull(opts){
         return b;
       });
   }
-  return fromStatic().catch(function(){return fromCloud();}).then(function(o){
-    ttApplyPub(o);
-    if(opts.manual)toast("教务课表已更新");
-    return true;
+  return fromStatic().then(accept).catch(function(){
+    if(seq<TT.appliedSeq)return false;
+    return fromCloud().then(accept);
+  }).then(function(applied){
+    if(applied&&opts.manual&&seq===TT.pullSeq)toast("教务课表已更新");
+    return applied;
   }).catch(function(){
-    if(opts.manual)toast("没有取到教务课表");
+    if(opts.manual&&seq===TT.pullSeq)toast(older?"已保留较新的教务课表":"没有取到教务课表");
     return false;
   });
 }

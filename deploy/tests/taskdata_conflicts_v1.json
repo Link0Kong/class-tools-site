@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "merge": [
+    {
+      "name": "same-source-or-repeat-occurrence-imported-twice",
+      "base": {"items":[]},
+      "local": {"items":[{"id":"local-h","sourceHwId":"h1"},{"id":"local-n","sourceNoticeId":"n1"},{"id":"local-repeat","sourceHwId":"h1","fromId":"series","due":"2030-01-02"},{"id":"next-repeat","sourceHwId":"h1","fromId":"series","due":"2030-01-03"}]},
+      "remote": {"items":[{"id":"remote-h","sourceHwId":"h1"},{"id":"remote-n","sourceNoticeId":"n1"},{"id":"remote-repeat","sourceHwId":"h1","fromId":"series","due":"2030-01-02"}]},
+      "expected": {"items":[{"id":"remote-h","sourceHwId":"h1"},{"id":"remote-n","sourceNoticeId":"n1"},{"id":"remote-repeat","sourceHwId":"h1","fromId":"series","due":"2030-01-02"},{"id":"next-repeat","sourceHwId":"h1","fromId":"series","due":"2030-01-03"}]}
+    },
+    {
+      "name": "concurrent-adds",
+      "base": {"items":[]}, "local": {"items":[{"id":"qa-b","title":"B"}]},
+      "remote": {"items":[{"id":"qa-a","title":"A"}]},
+      "expected": {"items":[{"id":"qa-a","title":"A"},{"id":"qa-b","title":"B"}]}
+    },
+    {
+      "name": "different-fields-and-unknown-metadata",
+      "base": {"items":[{"id":"qa-a","title":"A","done":false}]},
+      "local": {"items":[{"id":"qa-a","title":"B","done":false,"attachments":"local-placeholder","localFiles":["device-only"]}]},
+      "remote": {"items":[{"id":"qa-a","title":"A","done":true,"futureItem":[4]}],"futureRoot":{"type":2},"prefs":{"futurePref":true}},
+      "expected": {"items":[{"id":"qa-a","title":"B","done":true,"futureItem":[4]}],"futureRoot":{"type":2},"prefs":{"futurePref":true}}
+    },
+    {
+      "name": "same-field-last-confirmed-rebase",
+      "base": {"items":[{"id":"qa-a","title":"initial"}]},
+      "local": {"items":[{"id":"qa-a","title":"local"}]},
+      "remote": {"items":[{"id":"qa-a","title":"remote","done":true}]},
+      "expected": {"items":[{"id":"qa-a","title":"local","done":true}]}
+    },
+    {
+      "name": "remote-deletion-versus-offline-edit",
+      "base": {"items":[{"id":"qa-a","title":"A"}]},
+      "local": {"items":[{"id":"qa-a","title":"edited offline"}]},
+      "remote": {"items":[]}, "expected": {"items":[]}
+    },
+    {
+      "name": "explicit-clear-versus-unseen-add",
+      "base": {"items":[{"id":"qa-a","done":false}],"lists":[{"id":"qa-list"}]},
+      "local": {"items":[],"lists":[]},
+      "remote": {"items":[{"id":"qa-a","done":true},{"id":"qa-b","list":"qa-list"}],"lists":[{"id":"qa-list"},{"id":"qa-other"}]},
+      "expected": {"items":[{"id":"qa-b","list":""}],"lists":[{"id":"qa-other"}]}
+    },
+    {
+      "name": "stable-list-id-and-preferences",
+      "base": {"items":[],"lists":[{"id":"qa-list","name":"old","order":0}],"prefs":{"view":"a"}},
+      "local": {"items":[],"lists":[{"id":"qa-list","name":"new","order":0}],"prefs":{"view":"b"}},
+      "remote": {"items":[],"lists":[{"id":"qa-list","name":"old","order":4,"future":true}],"prefs":{"view":"a","unknown":2}},
+      "expected": {"items":[],"lists":[{"id":"qa-list","name":"new","order":4,"future":true}],"prefs":{"view":"b","unknown":2}}
+    },
+    {
+      "name": "older-sidebar-order-keeps-confirmed-order",
+      "base": {"items":[],"prefs":{"sidebarOrder":["a","b"],"sidebarOrderAt":12}},
+      "local": {"items":[],"prefs":{"sidebarOrder":["b","a"],"sidebarOrderAt":14,"view":"local"}},
+      "remote": {"items":[],"prefs":{"sidebarOrder":["c","a","b"],"sidebarOrderAt":18}},
+      "expected": {"items":[],"prefs":{"sidebarOrder":["c","a","b"],"sidebarOrderAt":18,"view":"local"}}
+    },
+    {
+      "name": "clear-to-versioned-empty",
+      "base": {"v":1,"items":[{"id":"qa-a"}],"lists":[]},
+      "local": {"v":1,"items":[],"lists":[]},
+      "remote": {"v":1,"items":[{"id":"qa-a"}],"lists":[]},
+      "expected": {"v":1,"items":[],"lists":[]}
+    }
+  ],
+  "wire": [
+    {"name":"flat","blob":"{\"v\":1,\"items\":[],\"lists\":[]}","path":[]},
+    {"name":"nested-text","blob":"{\"opaque\":7,\"task\":{\"data\":{\"v\":{\"items\":[{\"id\":\"qa-a\"}]}}}}","path":["task","data","v"]},
+    {"name":"object-cache","blob":{"data":{"items":[]}},"path":["data"]},
+    {"name":"initial-db-stub","blob":"","ts":0,"path":[]},
+    {"name":"missing-content-on-existing-snapshot","blob":"","ts":18,"path":null},
+    {"name":"null-column","blob":null,"path":null},
+    {"name":"broken-json","blob":"{","path":null},
+    {"name":"broken-items","blob":"{\"items\":{}}","path":null},
+    {"name":"duplicate-item-id","blob":{"items":[{"id":"qa-dupe"},{"id":"qa-dupe"}]},"path":null},
+    {"name":"list-without-id","blob":{"items":[],"lists":[{"name":"ambiguous"}]},"path":null},
+    {"name":"unrecognized-wrapper","blob":{"meta":{"items":[]}},"path":null}
+  ],
+  "returnedRows": [
+    {"name":"confirmed","rows":[{"id":"9999000001","blob":"{\"items\":[]}","ts":42}],"event":"row"},
+    {"name":"empty","rows":[],"event":"zero"},
+    {"name":"wrong-owner","rows":[{"id":"9999000002","blob":"{\"items\":[]}","ts":42}],"event":"unverified"},
+    {"name":"wrong-stamp","rows":[{"id":"9999000001","blob":"{\"items\":[]}","ts":41}],"event":"unverified"},
+    {"name":"wrong-payload","rows":[{"id":"9999000001","blob":"{\"items\":[{\"id\":\"other\"}]}","ts":42}],"event":"unverified"},
+    {"name":"malformed","rows":[{}],"event":"unverified"},
+    {"name":"ambiguous-count","rows":[{},{}],"event":"unverified"}
+  ],
+  "receipt": [
+    {"name":"own-confirmed-row","event":"row","status":"confirmed"},
+    {"name":"empty-insert-or-patch-response","event":"zero","status":"reread"},
+    {"name":"fourth-conflict","event":"zero","attempt":4,"status":"pending"},
+    {"name":"lost-response","event":"network","status":"pending"},
+    {"name":"unexpected-representation","event":"unverified","status":"pending"},
+    {"name":"expired-session","event":"401","status":"rejected"},
+    {"name":"role-denied","event":"403","status":"rejected"},
+    {"name":"new-identity-old-success","event":"row","sameSession":false,"status":"discard"},
+    {"name":"new-token-same-sid-old-401","event":"401","sameSession":false,"status":"discard"}
+  ]
+}

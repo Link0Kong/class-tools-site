@@ -2,7 +2,7 @@
 
 > 由 Lead 维护。实现方 = Lead（只改 `tools/index.html`）；测试方 = water-tester（只写 `tools/tests/water_check.py`、`_water_shots/`）；
 > 小程序方 = mp-water（只改 `mp-class-tools/`）。计费规则来源见 `web/_water_rules/research.md` 与 `rules.json`。
-> 若上下文冲突，以本文件为准；Lead 改契约会同步通知。
+> 本文保留初版计费、个人 userdata v6 和页面设计。宿舍共享表的读取、删除、待发恢复、1–6 人口径及对应验收以[宿舍共享水表契约](./_water_shared_contract.md)为准。本文的 4/6 选项与离线专用页面描述属于历史实现。
 
 ## 0. 计费规则常量（页面唯一来源 `var RULES`，web/mp 同值）
 
