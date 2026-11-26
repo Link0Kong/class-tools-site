@@ -64,7 +64,7 @@
 错误统一返回 `{error: "..."}`。400 表示输入无效，401 表示缺少或无效身份，429 表示调用频率过高，502 表示模型输出异常，503 表示服务暂不可用，504 表示模型请求超时。客户端保留文字以便重试或手动填写。
 
 - `python deploy/ecs_task_ai.py deploy` 在 ECS 安装 `class-tools-task-ai.service`，监听 `127.0.0.1:8096`。`probe` 查看服务和配置状态。使用 `--dry-run` 检查脚本内容。
-- 服务使用现有 ECS 的 CloudBase publish key 校验账号。DeepSeek API key 由维护者在服务器的 `/etc/class-tools/task-ai.deepseek-key` 配置，文件归 root 所有且权限为 `0600`。配置后重启服务。部署只会在密钥文件缺失时创建空文件。密钥不随云助手脚本传输。
+- 服务使用现有 ECS 的 CloudBase publish key 校验账号。任务整理目前复用通知识别的 DeepSeek 凭据，在 ECS 的 `/etc/class-tools/task-ai.deepseek-key` 由服务独立加载。该文件归 root 所有，权限为 `0600`。轮换时同步更新通知识别与 ECS 配置，再重启任务 AI 服务。部署只会在密钥文件缺失时创建空文件。密钥明文不出现在云助手命令或日志中。
 - `python deploy/ecs_task_ai.py route` 在正式 HTTPS 站点配置精确路由。脚本检验 Caddy 配置并确认匿名 POST 返回 401。验证失败时恢复原 Caddyfile。日志不记录用户文字、模型原始响应或身份令牌。
 - 启用前运行 `python deploy/task_ai_live_check.py --expect-disabled`，确认服务返回预期的 503。启用后运行同一脚本并省略选项，用官方测试账号和虚构文字验证真实生成，再沿用网页与各端发布流程。脚本只显示检查结果。
 
