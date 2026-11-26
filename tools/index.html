@@ -2554,11 +2554,24 @@ body.ppt-dl-lock{overflow:hidden!important}
 #s-file .file-dl.opened:hover{background:#437F73;border-color:#437F73}
 #s-file .file-del{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card, #fff);color:#A25B45;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer}
 #s-file .file-del:hover{border-color:#C98C74;background:#FCF6F3}
+#s-file .file-convert{width:110px;padding:0 6px;box-sizing:border-box;white-space:nowrap}
+#s-file .file-convert-status{cursor:default;color:var(--ink3)}
+#s-file .file-convert-short{display:none}
+#s-file .file-convert-error{color:var(--danger)}
+@media (max-width:540px), (min-width:760px) and (max-width:960px){
+  #s-file .file-ppt-row{gap:6px;padding-inline:8px}
+  #s-file .file-ppt-row .file-ico{width:28px;height:28px}
+  #s-file .file-ppt-row .file-acts{gap:4px}
+  #s-file .file-ppt-row .file-acts a,#s-file .file-ppt-row .file-del{padding-inline:8px}
+  #s-file .file-convert{width:65px;padding-inline:3px;font-size:11px}
+  #s-file .file-convert-long{display:none}
+  #s-file .file-convert-short{display:inline}
+}
 #s-file .file-empty{padding:18px 4px;text-align:center;color:var(--ink3);font-size:12.5px;border:1px dashed var(--line);border-radius:12px}
 #s-file .file-ttl{font-size:11.5px;color:var(--ink3);line-height:1.65;padding:2px 2px 0}
 #s-file .file-count{font-size:11.5px;color:var(--ink3);font-weight:400}
-#s-file .file-cols{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;align-items:start}
-@media (max-width:759px){#s-file .file-cols{grid-template-columns:1fr}}
+#s-file .file-cols{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:12px;align-items:start}
+@media (max-width:759px){#s-file .file-cols{grid-template-columns:minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){#s-file .file-up-bar i{transition:none!important}}
 
 /* ---------- C. 网页提醒 ---------- */
@@ -16597,6 +16610,7 @@ var QRL=(function(){
     if(!confirm("退出当前身份？"))return;
     try{POS.clear();}catch(e){}
     try{cacheKill();}catch(e){}
+    if(window.__B2&&window.__B2.file)window.__B2.file.clearIdentity();
     identityClear();
     try{localStorage.removeItem("zq_last_identity");}catch(e){}
     location.reload();
@@ -17007,9 +17021,10 @@ var PPT=(function(){
     if(ok)hideUpBox();
     pull();
   }
+  function isPptSource(name){return /\.pptx?$/i.test(String(name||""));}
   function startUpload(file,title){
     if(S.up||!file)return;
-    if(!/\.pptx?$/i.test(String(file.name||""))){toast("只能上传 .ppt/.pptx");return;}
+    if(!isPptSource(file.name)){toast("只能上传 .ppt/.pptx");return;}
     if(file.size>MAX_UPLOAD){toast("文件超过 60MB");return;}
     if(!mySid()){toast("请先进入班级");return;}
     var fallback=String(file.name||"演示").replace(/\.[^.]+$/,"").slice(0,80);
@@ -17085,7 +17100,7 @@ var PPT=(function(){
     var f=e.target&&e.target.files&&e.target.files[0];
     try{e.target.value="";}catch(x){}
     if(!f)return;
-    if(!/\.pptx?$/i.test(String(f.name||""))){toast("只能上传 .ppt/.pptx");return;}
+    if(!isPptSource(f.name)){toast("只能上传 .ppt/.pptx");return;}
     if(f.size>MAX_UPLOAD){toast("文件超过 60MB");return;}
     S.pending=f;
     var box=el("pptUpBox");if(box)box.hidden=false;
@@ -17169,7 +17184,7 @@ var PPT=(function(){
        - 旧 deck（无 files）：兼容版未生成 + 原始文件（旧 manifest.src）+ 在线预览（有 slides 时）+ 重新处理；
        - 状态非 ready：只显示状态/进度，不显示下载；failed 显示 error + 重试。
      不新增任何外部请求（只复用 PostgREST 单 deck manifest GET）。 */
-  var D={open:false,root:null,id:"",deck:null,man:null,loading:false,lastFocus:null};
+  var D={open:false,root:null,id:"",deck:null,man:null,loading:false,lastFocus:null,transfer:null};
 
   function dlSrcOf(man){
     if(!man||!man.src)return null;
@@ -17317,6 +17332,8 @@ var PPT=(function(){
       var t=e.target;
       if(!t)return;
       if(t===r){closeDetail();return;}
+      var a=t.closest&&t.closest(".ppt-file a[href]");
+      if(a&&D.transfer){D.transfer.download(e,a);return;}
       var b=(t.closest)?t.closest("[data-dlact]"):null;
       if(!b)return;
       var act=b.getAttribute("data-dlact");
@@ -17336,19 +17353,40 @@ var PPT=(function(){
       closeDetail();
     }
   }
-  function openDetail(id){
-    id=String(id||"");if(!id)return;
-    D.id=id;D.deck=findDeck(id)||{id:id};D.man=null;D.loading=true;
+  function showDetail(title,meta,body,label){
     buildDetail();
-    D.lastFocus=document.activeElement;
+    if(!D.open)D.lastFocus=document.activeElement;
     var tt=el("pptDlTitle"),mt=el("pptDlMeta"),bd=el("pptDlBody");
-    if(tt)tt.textContent=String(D.deck.title||D.deck.source_name||"下载");
-    if(mt)mt.textContent=dlMetaSmall(D.deck);
-    if(bd)bd.innerHTML='<div class="ppt-dl-skel"></div><div class="ppt-dl-skel"></div><div class="ppt-dl-skel"></div>';
+    if(tt)tt.textContent=title;
+    if(mt)mt.textContent=meta;
+    if(bd)bd.innerHTML=body;
+    D.root.setAttribute("aria-label",label||"下载");
     D.root.hidden=false;D.open=true;
     document.body.classList.add("ppt-dl-lock");
     document.addEventListener("keydown",onDlKey,true);
+  }
+  function openDetail(id){
+    id=String(id||"");if(!id)return;
+    if(D.transfer)closeDetail();
+    D.id=id;D.deck=findDeck(id)||{id:id};D.man=null;D.loading=true;
+    showDetail(String(D.deck.title||D.deck.source_name||"下载"),dlMetaSmall(D.deck),"");
     loadDetail();
+  }
+  function showTransferResults(id,name,man,download){
+    var files=filesMeta(man),rows="";
+    if(!files&&!mediaFilesOf(man).length)return false;
+    if(D.open)closeDetail();
+    if(files&&files.compat)rows+=fileRow("compat","兼容版 PPTX",files.compat,man);
+    if(files&&files.pdf)rows+=fileRow("pdf","PDF",files.pdf,man);
+    rows+=mediaFilesHtml(man)+compatWarningsHtml(man);
+    D.transfer={id:id,download:download};
+    showDetail(name,"",rows,"下载转换结果");
+    var first=D.root.querySelector(".ppt-file a");
+    if(first)first.focus();
+    return true;
+  }
+  function closeTransferResults(keep){
+    if(D.transfer&&(!keep||!keep(D.transfer.id)))closeDetail();
   }
   function loadDetail(){
     var id=D.id;
@@ -17403,16 +17441,8 @@ var PPT=(function(){
       var src=dlSrcOf(man);
       if(src)h2+=fileRow("source","原始文件",src,man);
     }
-    var warns=((man.compat&&man.compat.warnings instanceof Array)?man.compat.warnings:[]).filter(function(w){
-      return w&&String(w).trim();
-    });
     if(files)h2+='<div class="ppt-office-hint">兼容版可「PowerPoint 打开」（需本机 Office）；WPS 请下载后用本机 WPS 打开</div>';
-    h2+=mediaFilesHtml(man);
-    if(warns.length){
-      h2+='<div class="ppt-warn"><b>兼容提示</b><ul>';
-      warns.forEach(function(w){h2+='<li>'+esc(String(w))+'</li>';});
-      h2+='</ul></div>';
-    }
+    h2+=mediaFilesHtml(man)+compatWarningsHtml(man);
     if(!files){
       var pv=hasPreview(man);
       h2+='<div class="ppt-dl-acts">';
@@ -17423,6 +17453,15 @@ var PPT=(function(){
       h2+='<div class="ppt-dl-acts"><button class="btn" type="button" data-dlact="preview">在线预览</button></div>';
     }
     body.innerHTML=h2;
+  }
+  function compatWarningsHtml(man){
+    var warns=((man.compat&&man.compat.warnings instanceof Array)?man.compat.warnings:[]).filter(function(w){
+      return w&&String(w).trim();
+    });
+    if(!warns.length)return "";
+    return '<div class="ppt-warn"><b>兼容提示</b><ul>'+warns.map(function(w){
+      return '<li>'+esc(String(w))+'</li>';
+    }).join("")+'</ul></div>';
   }
   function openPreview(){
     var man=D.man,deck=D.deck||{};
@@ -17443,7 +17482,7 @@ var PPT=(function(){
   }
   function closeDetail(){
     if(!D.open&&!D.root)return;
-    D.open=false;D.id="";D.man=null;D.deck=null;D.loading=false;
+    D.open=false;D.id="";D.man=null;D.deck=null;D.loading=false;D.transfer=null;
     document.removeEventListener("keydown",onDlKey,true);
     document.body.classList.remove("ppt-dl-lock");
     if(D.root){
@@ -18970,7 +19009,8 @@ var PPT=(function(){
   }
   try{init();}catch(e){}
   return {enter:enter,leave:leave,pull:pull,render:render,open:play,
-    openDetail:openDetail,
+    openDetail:openDetail,isPptSource:isPptSource,
+    showTransferResults:showTransferResults,closeTransferResults:closeTransferResults,
     list:function(){return (S.list||[]).slice();},
     loaded:function(){return !!S.loaded;},
     err:function(){return S.err;},
@@ -22998,7 +23038,8 @@ function optSaveCanvas(c,o){
      ============================================================ */
   var B2FILE=(function(){
     var CHUNK=8388608, TTL=259200000;
-    var S={session:null,files:[],ups:[],cursor:0,pollT:0,busy:false,err:"",errAt:0,auth:"",bound:false,loading:false,opened:{},expired:0};
+    var S={session:null,files:[],ups:[],cursor:0,pollT:0,busy:false,err:"",errAt:0,auth:"",bound:false,loading:false,opened:{},expired:0,
+      owner:"",active:false,ppt:false,submitting:{},refreshSeq:0,appliedSeq:0,menuSeq:0};
     var OPEN_KEY="zq_file_opened_v1";
     function el(id){return document.getElementById(id);}
     function base(){
@@ -23008,6 +23049,28 @@ function optSaveCanvas(c,o){
       }catch(e){return "http://121.196.47.2/drop";}
     }
     function token(){try{var h=authHdr();return String(h["X-Device-Id"]||"");}catch(e){return "";}}
+    function owner(){var account=identityGet();return account?String(account.sid):"";}
+    function cookiePath(){
+      var url=new URL(base(),location.href);
+      return url.origin===location.origin?url.pathname+"/ppt-result/":"";
+    }
+    function setProof(proof){
+      var path=cookiePath();if(!path)return;
+      var life=proof?Math.max(0,Math.ceil((Number(proof.split(".")[0])-Date.now())/1000)):0;
+      document.cookie="drop_ppt_download="+proof+"; Path="+path+"; Max-Age="+life+"; SameSite=Strict"+
+        (location.protocol==="https:"?"; Secure":"");
+    }
+    function clearIdentity(){
+      stopPoll();setProof("");PPT.closeTransferResults();S.menuSeq++;
+      S.owner="";S.session=null;S.files=[];S.ups=[];S.submitting={};S.cursor=0;S.expired=0;
+      S.busy=false;S.loading=false;S.err="";S.auth="";S.ppt=false;
+      renderAll();
+    }
+    function syncOwner(){
+      var id=owner();
+      if(S.owner!==id){clearIdentity();S.owner=id;}
+      return id;
+    }
     /* 401/503 分类（drop v2.5：响应头 X-Drop-Reason = token / unavailable）
        - token       → 身份令牌失效/过期：提示重新登录，不反复轮询；
        - unavailable → 鉴权服务暂不可用：提示稍后自动重试，并放慢轮询。 */
@@ -23023,7 +23086,7 @@ function optSaveCanvas(c,o){
       var kind=authKind(r);
       return r.json().catch(function(){return {ok:false,reason:"服务响应异常"};}).then(function(j){
         if(!j||typeof j!=="object")j={ok:false,reason:"服务响应异常"};
-        if(!r.ok){j.ok=false;if(!j.reason)j.reason=(r.status===507?"服务器空间不足":("服务错误 "+r.status));}
+        if(!r.ok){j.ok=false;j.status=r.status;if(!j.reason)j.reason=(r.status===507?"服务器空间不足":("服务错误 "+r.status));}
         if(kind)j.authKind=kind;
         return j;
       });
@@ -23072,6 +23135,7 @@ function optSaveCanvas(c,o){
       return "剩 "+h+" 小时";
     }
     function liveFiles(){var a=[];S.files.forEach(function(f){if(f&&!f.expired)a.push(f);});return a;}
+    function findFile(id){return S.files.find(function(f){return f.id===id;});}
     function totalBytes(){var t=0;liveFiles().forEach(function(f){t+=Number(f.size)||0;});return t;}
     function renderStats(){
       var c=el("fileStatCount"),z=el("fileStatSize");
@@ -23089,20 +23153,44 @@ function optSaveCanvas(c,o){
       }
       renderStats();
     }
+    function conversionAction(f){
+      var job=f.conversion||{},status=job.status;
+      if(S.submitting[f.id]||status==="queued"||status==="processing"){
+        var pct=status==="processing"&&Number(job.progress)?(" "+Number(job.progress)+"%"):"";
+        var txt=S.submitting[f.id]?"正在提交":(status==="queued"?"等待处理":"转换中"+pct);
+        return '<span class="file-dl file-convert file-convert-status" role="status">'+
+          '<span class="file-convert-long">'+txt+'</span><span class="file-convert-short">'+txt+'</span></span>';
+      }
+      var action="",label="",short="";
+      if(status==="ready"){action="results";label="下载转换结果";short="下载结果";}
+      else if(S.ppt&&status==="failed"){action="submit";label="重试转换";short="重试转换";}
+      else if(S.ppt&&!status&&PPT.isPptSource(f.name)&&f.size>0&&f.size<=64*1048576){
+        action="submit";label="转换";short=label;
+      }
+      if(!action)return "";
+      return '<button type="button" class="file-dl file-convert" data-fileppt="'+action+'" data-fid="'+esc(f.id)+
+        '" aria-label="'+label+'" title="'+esc(job.error||label)+'"><span class="file-convert-long">'+label+
+        '</span><span class="file-convert-short">'+short+'</span></button>';
+    }
     function fileRow(f){
       if(!f||f.expired)return "";
       var id=esc(String(f.id||"")), url=esc(String(f.downloadUrl||""));
-      return '<div class="file-item" data-fid="'+id+'">'+
+      var conversion=conversionAction(f);
+      var failed=(f.conversion&&f.conversion.status==="failed")?
+        '<span class="file-convert-error" title="'+esc(f.conversion.error||"转换失败")+'">转换失败</span> · ':"";
+      return '<div class="file-item'+(conversion?" file-ppt-row":"")+'" data-fid="'+id+'">'+
         '<span class="file-ico">⇩</span>'+
         '<div style="flex:1;min-width:0"><div class="file-name">'+esc(String(f.name||"文件"))+'</div>'+
-        '<div class="file-meta">'+esc(fmtSize(f.size))+' · '+esc(fmtWhen(f.at))+' · '+esc(ttlText(f.at))+'</div></div>'+
+        '<div class="file-meta">'+failed+esc(fmtSize(f.size))+' · '+esc(fmtWhen(f.at))+' · '+esc(ttlText(f.at))+'</div></div>'+
         '<div class="file-acts">'+
           '<a class="file-dl'+(isOpened(id)?" opened":"")+'" data-fid="'+id+'" href="'+url+'" target="_blank" rel="noopener">'+(isOpened(id)?"打开":"下载")+'</a>'+
+          conversion+
           '<button type="button" class="file-del" data-filedel="'+id+'">删除</button>'+
         '</div></div>';
     }
     function renderFiles(){
       var box=el("fileList");if(!box)return;
+      PPT.closeTransferResults(function(id){var f=findFile(id);return f&&f.conversion&&f.conversion.status==="ready";});
       var live=liveFiles();
       var expiredN=Math.max(0,Number(S.expired)||0,0);
       if(!live.length)box.innerHTML='<div class="file-empty">'+(expiredN?'文件已过期':'还没有文件')+'</div>';
@@ -23143,7 +23231,8 @@ function optSaveCanvas(c,o){
       for(var i=0;i<S.files.length;i++){if(String(S.files[i].id)===id)return;}
       var expired=!!p.expired||!p.downloadUrl;
       S.files.push({id:id,name:p.name||"文件",size:Number(p.size)||0,mime:p.mime||"",
-        downloadUrl:expired?"":String(p.downloadUrl||""),expired:expired,from:p.from||null,at:Number(at)||Date.now()});
+        downloadUrl:expired?"":String(p.downloadUrl||""),expired:expired,from:p.from||null,at:Number(at)||Date.now(),
+        conversion:p.conversion||null});
       if(S.files.length>300)S.files=S.files.slice(-300);
     }
     function delFileLocal(id){
@@ -23156,14 +23245,22 @@ function optSaveCanvas(c,o){
          事件表只保留最近 500 条、且 since 之后没有新事件 ≠ 没有文件——
          以前只按事件渲染，重新打开/换端/事件被挤出窗口时列表会「看不到文件」。
          文件 = 会话状态，以服务端 files 为准；事件只用来做增量提示。 */
-      var q="/state?sessionId="+encodeURIComponent(String(S.session.id))+"&all=1&since="+Number(force?0:(S.cursor||0));
+      var sessionId=String(S.session.id),account=S.owner,seq=++S.refreshSeq;
+      var q="/state?sessionId="+encodeURIComponent(sessionId)+"&all=1&ppt=1&since="+Number(force?0:(S.cursor||0));
       return req(q).then(function(r){
+        if(owner()!==account||!S.session||String(S.session.id)!==sessionId||seq<S.appliedSeq)return false;
+        S.appliedSeq=seq;
         if(!r||!r.ok){
           var f=failOf(r,"连接中断");
+          if(r&&(r.status===404||r.status===403)){
+            clearIdentity();ensureSpace();return false;
+          }
+          if(f.auth==="token"){S.files=[];setProof("");renderFiles();}
           S.err=f.err;S.auth=f.auth||"";
           renderState();return false;
         }
         S.err="";S.auth="";
+        S.ppt=r.pptConversion===true;
         if(r.session)S.session=r.session;
         if(force){S.files=[];S.ups=S.ups.filter(function(u){return u.state==="up"||u.state==="wait";});}
         if(r.files instanceof Array){
@@ -23186,6 +23283,7 @@ function optSaveCanvas(c,o){
       },function(){S.err="服务不可达";S.auth="";renderState();return false;});
     }
     function poll(){
+      if(syncOwner()&&!S.session){ensureSpace();return;}
       if(!S.session)return;
       if(document.hidden)return;
       /* 身份失效：不再空转轮询（重新登录后 enter() 会重新连接）；鉴权服务故障：放慢重试 */
@@ -23193,10 +23291,11 @@ function optSaveCanvas(c,o){
       if(S.auth==="unavailable"&&(Date.now()-(S.errAt||0))<15000)return;
       refreshState(false);
     }
-    function startPoll(){stopPoll();S.pollT=setInterval(poll,5000);}
+    function startPoll(){stopPoll();if(S.active)S.pollT=setInterval(poll,5000);}
     function stopPoll(){if(S.pollT){clearInterval(S.pollT);S.pollT=0;}}
     function ensureSpace(){
-      if(S.busy)return;
+      var account=syncOwner();
+      if(!account||!S.active||S.busy)return;
       if(S.session){startPoll();refreshState(true);return;}
       S.busy=true;S.loading=true;S.err="";S.auth="";renderState();
       function fail(r,extra){
@@ -23205,22 +23304,85 @@ function optSaveCanvas(c,o){
         S.err=f.err;S.auth=f.auth||"";S.errAt=Date.now();renderState();
       }
       req("/mine").then(function(r){
+        if(owner()!==account||S.owner!==account)return;
         if(r&&!r.ok){fail(r,"云空间连接失败");return;}
         if(r&&r.ok&&r.session){
           S.busy=false;S.loading=false;S.session=r.session;S.err="";S.auth="";renderAll();startPoll();refreshState(true);return;
         }
         req("/open",{method:"POST",body:{}}).then(function(r2){
+          if(owner()!==account||S.owner!==account)return;
           if(!r2||!r2.ok){fail(r2,"云空间连接失败");return;}
           S.busy=false;S.loading=false;
           S.session=r2.session;S.err="";S.auth="";renderAll();startPoll();refreshState(true);
         },function(){fail(null,"服务不可达");});
       },function(){fail(null,"服务不可达");});
     }
-    function enter(){loadOpened();bind();renderAll();ensureSpace();}
-    function leave(){stopPoll();}
+    function enter(){S.active=true;syncOwner();loadOpened();bind();renderAll();ensureSpace();}
+    function leave(){S.active=false;stopPoll();S.menuSeq++;PPT.closeTransferResults();}
     function findName(id){
-      for(var i=0;i<S.files.length;i++){if(String(S.files[i].id)===String(id))return S.files[i].name;}
-      return "";
+      var f=findFile(id);return f?f.name:"";
+    }
+    function viewing(account,sessionId){
+      return S.active&&owner()===account&&S.session&&String(S.session.id)===sessionId;
+    }
+    function submitConversion(id){
+      var f=findFile(id);
+      if(!S.session||!f||S.submitting[id])return;
+      var pending=S.submitting,account=S.owner,sessionId=String(S.session.id);
+      var body={sessionId:sessionId};
+      if(f.conversion&&f.conversion.status==="failed")body.retryAttempt=f.conversion.attempt;
+      pending[id]=true;
+      renderFiles();
+      var ctrl=typeof AbortController==="function"?new AbortController():null;
+      var timer=ctrl?setTimeout(function(){ctrl.abort();},12000):0;
+      req("/ppt/"+encodeURIComponent(id),{method:"POST",body:body,signal:ctrl?ctrl.signal:null}).then(function(r){
+        clearTimeout(timer);delete pending[id];
+        if(!viewing(account,sessionId))return;
+        var row=findFile(id);
+        if(row&&r.ok){
+          row.conversion=r.conversion;
+          S.appliedSeq=++S.refreshSeq;
+        }
+        if(!r.ok)toast(failOf(r,"提交转换失败").err);
+        renderFiles();
+        refreshState(false);
+      });
+    }
+    function showConversionResults(id){
+      var f=findFile(id);
+      if(!S.session||!f)return;
+      var sessionId=String(S.session.id),account=S.owner,seq=++S.menuSeq,sameOrigin=!!cookiePath();
+      req("/ppt/"+encodeURIComponent(id)+"?sessionId="+encodeURIComponent(sessionId)+(sameOrigin?"&browser=1":"")).then(function(r){
+        if(!viewing(account,sessionId)||seq!==S.menuSeq||!findFile(id))return;
+        if(!r.ok||!r.manifest){
+          toast(failOf(r,"转换结果已不可用").err);refreshState(false);return;
+        }
+        if(sameOrigin)setProof(r.browserProof||"");
+        function download(e,a){
+          var current=findFile(id);
+          if(!viewing(account,sessionId)||!current||!current.conversion||current.conversion.status!=="ready"){
+            e.preventDefault();PPT.closeTransferResults();return;
+          }
+          if(sameOrigin){
+            if(Number((r.browserProof||"").split(".")[0])>Date.now())return;
+            e.preventDefault();showConversionResults(id);return;
+          }
+          e.preventDefault();
+          // 从外部调试页访问时，浏览器不能写文件服务的同站下载 Cookie。
+          if(a.href.indexOf(base()+"/ppt-result/")!==0)return;
+          var link=a.closest(".ppt-file").querySelector("a[download]");
+          fetch(a.href,{headers:{"X-Device-Id":token()},cache:"no-store"}).then(function(resp){
+            if(!resp.ok)throw new Error("download");
+            return resp.blob();
+          }).then(function(blob){
+            if(!viewing(account,sessionId)||!findFile(id))return;
+            var url=URL.createObjectURL(blob),save=document.createElement("a");
+            save.href=url;save.download=link.download;save.click();
+            setTimeout(function(){URL.revokeObjectURL(url);},30000);
+          }).catch(function(){toast("下载失败，请刷新后重试");});
+        }
+        if(!PPT.showTransferResults(id,f.name,r.manifest,download)){toast("转换结果已不可用");refreshState(false);}
+      });
     }
     function deleteFile(id){
       if(!S.session||!id)return;
@@ -23245,7 +23407,7 @@ function optSaveCanvas(c,o){
           refreshState(true);
           return;
         }
-        S.session=null;S.files=[];S.ups=[];S.cursor=0;S.err="";S.auth="";S.expired=0;stopPoll();renderAll();
+        clearIdentity();
         ensureSpace();toast("云空间已清空");
       },function(){toast("网络不可用，清空未完成");refreshState(true);});
     }
@@ -23330,9 +23492,16 @@ function optSaveCanvas(c,o){
       });
       var fl=el("fileList");
       if(fl)fl.addEventListener("click",function(e){
+        var ppt=closestOf(e.target,"[data-fileppt]");
+        if(ppt){
+          var id=ppt.getAttribute("data-fid");
+          if(ppt.getAttribute("data-fileppt")==="submit")submitConversion(id);
+          else showConversionResults(id);
+          return;
+        }
         var del=closestOf(e.target,"[data-filedel]");
         if(del){try{e.preventDefault();}catch(x){}deleteFile(del.getAttribute("data-filedel"));return;}
-        var a=closestOf(e.target,".file-dl");
+        var a=closestOf(e.target,"a.file-dl");
         if(!a)return;
         try{e.preventDefault();}catch(x){}
         var fid=String(a.getAttribute("data-fid")||"");
@@ -23354,7 +23523,7 @@ function optSaveCanvas(c,o){
         });
       });
     }
-    return {enter:enter,leave:leave,bind:bind,reload:function(){if(S.session){startPoll();return refreshState(true);}ensureSpace();},
+    return {enter:enter,leave:leave,bind:bind,clearIdentity:clearIdentity,reload:function(){syncOwner();if(S.session){startPoll();return refreshState(true);}ensureSpace();},
       status:function(){
       return {session:S.session?{id:S.session.id}:null,files:liveFiles().length,bytes:totalBytes(),
         ups:S.ups.map(function(u){return u.state;}),err:S.err,auth:S.auth};
@@ -23587,6 +23756,11 @@ function optSaveCanvas(c,o){
     document.addEventListener("visibilitychange",function(){
       if(document.hidden)return;
       try{if(String(typeof CURTAB!=="undefined"?CURTAB:"")==="file")B2FILE.reload();}catch(e){}
+    });
+    window.addEventListener("storage",function(e){
+      if(e.key!=="zq_class_identity")return;
+      if(String(CURTAB)==="file")B2FILE.reload();
+      else B2FILE.clearIdentity();
     });
   }catch(e){}
 

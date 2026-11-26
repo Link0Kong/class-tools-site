@@ -53,6 +53,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import convert  # noqa: E402
+import drop_queue  # noqa: E402
 import oss_upload  # noqa: E402
 import pptx_xml  # noqa: E402
 
@@ -1039,7 +1040,70 @@ def force_status_processing(cloud, deck_id, host, log):
     return True
 
 
-def run_once(cloud, uploader, log, host, deck_id=None, dry_run=False, legacy=False, heartbeat=True):
+def run_drop_job(queue, candidate, log, host):
+    """Run the same compatibility pipeline with a temporary, account-owned source."""
+    file_id = candidate["fileId"]
+    summary = {"deck": file_id, "action": "claim-lost"}
+    try:
+        path, claim, source = queue.claim(candidate)
+    except drop_queue.QueueError as exc:
+        if exc.status not in (404, 409):
+            log("WARN 文件传输任务认领失败：%s" % exc)
+        return summary
+    work_dir = None
+    last_pct = 0
+    last_at = 0
+
+    def progress(pct, phase=""):
+        nonlocal last_pct, last_at
+        pct = max(10, min(92, int(pct)))
+        now = time.monotonic()
+        if pct < last_pct + PROGRESS_MIN_DELTA or (last_at and now - last_at < PROGRESS_MIN_INTERVAL):
+            return
+        queue.update(path, claim, "processing", progress=pct)
+        last_pct, last_at = pct, now
+
+    try:
+        name = source["name"]
+        ext = os.path.splitext(name)[1].lower()
+        size = int(source["size"])
+        if ext not in (".ppt", ".pptx") or not 0 < size <= MAX_SOURCE_BYTES:
+            raise convert.ConvertError("原件格式或大小超出转换限制")
+        work_dir = new_work_dir("drop-" + file_id, log)
+        src = os.path.join(work_dir, "source" + ext)
+        queue.download_source(path, claim, src, size)
+        result = convert.convert_compat(src, work_dir, {
+            "deck_id": file_id, "title": os.path.splitext(name)[0], "source_name": name,
+            "converter": host, "timeout_s": COMPAT_TIMEOUT_S, "force_disable_macros": True,
+            "log": lambda message: log("[drop compat] " + str(message)), "progress": progress,
+        })
+        queue.update(path, claim, "processing", progress=93)
+        artifacts = {}
+        for key, item, asset_path in drop_queue.downloadable_assets(result):
+            queue.upload(path, claim, key, asset_path)
+            artifacts[key] = item
+        stats = result["stats"]
+        queue.update(path, claim, "ready", artifacts=artifacts,
+                     warnings=result["manifest"]["compat"]["warnings"])
+        summary.update(action="converted", compat_bytes=stats["compat_size"], pdf_pages=stats["pdf_pages"])
+    except Exception as exc:  # noqa: BLE001
+        busy = isinstance(exc, convert.ConvertBusyError)
+        gone = isinstance(exc, drop_queue.QueueError) and exc.status in (404, 409)
+        err = str(exc) if isinstance(exc, drop_queue.QueueError) else format_error(exc)
+        if not gone:
+            try:
+                queue.update(path, claim, "queued" if busy else "failed", error=err)
+            except drop_queue.QueueError:
+                pass
+        summary.update(action="claim-lost" if gone else ("busy" if busy else "failed"), error=err)
+        log("文件传输转换 %s：%s" % (file_id, err))
+    finally:
+        cleanup_work_dir(work_dir, log)
+    return summary
+
+
+def run_once(cloud, uploader, log, host, deck_id=None, dry_run=False, legacy=False,
+             heartbeat=True, private_queue=None):
     """跑一轮；返回 summary dict。
 
     v2.0：默认走 **compat 兼容性处理**（不降质 + 多端下载）；``legacy=True`` 仅运维调试，
@@ -1072,12 +1136,37 @@ def run_once(cloud, uploader, log, host, deck_id=None, dry_run=False, legacy=Fal
         if str(deck.get("status")) == "uploading" and not dry_run:
             raise CloudError("deck 仍在 uploading（分片未提交），不能转换")
     else:
+        personal = None
+        if private_queue and not dry_run and not legacy:
+            try:
+                personal = private_queue.next()
+            except (drop_queue.QueueError, ValueError) as exc:
+                log("WARN 文件传输队列查询失败：%s" % sanitize(exc, 160))
         status, rows = cloud.get(
             "ppt_decks?select=id,title,status,source_name,source_size,chunk_count,"
-            "owner_sid,progress&deleted=eq.false&status=eq.queued"
+            "owner_sid,progress,created_at&deleted=eq.false&status=eq.queued"
             "&order=created_at.asc&limit=1")
         if status != 200 or not isinstance(rows, list):
-            raise CloudError("查询排队队列失败（HTTP %s）" % status)
+            if not personal:
+                raise CloudError("查询排队队列失败（HTTP %s）" % status)
+            rows = []
+        if personal and (not rows or personal["queuedAt"] < int(rows[0].get("created_at") or 0)):
+            busy, reason = convert.powerpoint_busy()
+            if busy:
+                log("[skip] PowerPoint busy：%s（文件传输任务保持排队）" % reason)
+                summary.update(action="busy", busy=True)
+            else:
+                hb = HeartbeatThread(cloud, log, host) if heartbeat else None
+                if hb:
+                    hb.queued = queued
+                    hb.start()
+                try:
+                    summary.update(run_drop_job(private_queue, personal, log, host))
+                finally:
+                    if hb:
+                        hb.stop()
+            summary["elapsed_s"] = round(time.monotonic() - t0, 2)
+            return summary
         if not rows:
             log("本轮无 queued 任务（queued=%d）" % queued)
             summary["elapsed_s"] = round(time.monotonic() - t0, 2)
@@ -1462,9 +1551,15 @@ def main(argv=None):
                 summary = run_compat_only(cloud, uploader, log, host, args.deck,
                                           dry_run=args.dry_run)
             else:
+                private_queue = None
+                if not (args.deck or args.dry_run or args.legacy):
+                    try:
+                        private_queue = drop_queue.configured(WORKSPACE)
+                    except (OSError, ValueError) as exc:
+                        log.log("WARN 文件传输转换配置无效：%s" % exc.__class__.__name__)
                 summary = run_once(cloud, uploader, log, host,
                                    deck_id=(args.deck or None), dry_run=args.dry_run,
-                                   legacy=bool(args.legacy))
+                                   legacy=bool(args.legacy), private_queue=private_queue)
         except CloudError as exc:
             log.error("云端/配置错误：%s" % sanitize(exc, 300))
             return EXIT_CONFIG

@@ -18,6 +18,7 @@
 import contextlib
 import hashlib
 import http.client
+import io
 import json
 import os
 import shutil
@@ -27,7 +28,10 @@ import threading
 import time
 import unittest
 import urllib.parse
+import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from unittest.mock import patch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.dirname(os.path.dirname(HERE))
@@ -353,14 +357,14 @@ class TestCorsAndHealth(Base):
         self.assertEqual(app.MAX_FILE_BYTES, 0)      # 0 = 不限
         self.assertEqual(app.MAX_SESSION_BYTES, 0)   # 0 = 不限
         self.assertEqual(app.UPLOAD_TTL_SEC, 86400)
-        self.assertEqual(app.VERSION, "2.5")
+        self.assertEqual(app.VERSION, "2.6")
 
     def test_health_no_auth_and_shape(self):
         status, headers, data = self.get("/__health")
         self.assertEqual(status, 200)
         payload = self.client.json_of(status, data)
         self.assertTrue(payload.get("ok"))
-        self.assertEqual(payload["version"], "2.5")
+        self.assertEqual(payload["version"], "2.6")
         self.assertEqual(payload["sessions"], 0)
         self.assertEqual(payload["files"], 0)
         self.assertEqual(payload["bytes"], 0)
@@ -1624,6 +1628,163 @@ class TestStateAll(Base):
         status, _hd, data = self.get(
             "/state?sessionId=%s&all=1" % session["id"], token="tok_bob")
         self.fail_payload(self, status, data, 403)
+
+
+class TestPptConversion(Base):
+    WORKER_KEY = "42" * 32
+
+    def setUp(self):
+        super().setUp()
+        key = patch.object(app, "PPT_WORKER_KEY", self.WORKER_KEY)
+        key.start()
+        self.addCleanup(key.stop)
+        self.session = self.open_session("tok_alice")["id"]
+
+    @staticmethod
+    def pptx(pages=1):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("[Content_Types].xml", '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                        '<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-'
+                        'officedocument.presentationml.presentation.main+xml"/></Types>')
+            zf.writestr("ppt/presentation.xml", '<p:presentation xmlns:p="http://schemas.openxmlformats.org/'
+                        'presentationml/2006/main"><p:sldIdLst>' + '<p:sldId/>' * pages +
+                        '</p:sldIdLst></p:presentation>')
+        return buf.getvalue()
+
+    def submit(self, file_id, token="tok_alice", retry=None):
+        body = {"sessionId": self.session}
+        if retry is not None:
+            body["retryAttempt"] = retry
+        status, _, data = self.post_json("/ppt/" + file_id, body, token)
+        return status, self.client.json_of(status, data)
+
+    def ppt_state(self, token="tok_alice2", ppt=True):
+        status, _, data = self.get("/state?sessionId=%s&all=1&since=99999%s" % (
+            self.session, "&ppt=1" if ppt else ""), token)
+        return status, self.client.json_of(status, data)
+
+    def worker(self, action, file_id=None, body=None, claim="a" * 32):
+        headers = {"X-PPT-Worker-Key": self.WORKER_KEY, "X-PPT-Claim": claim}
+        path = "/ppt-worker/" + ("%s/%s/" % (self.session, file_id) if file_id else "") + action
+        if isinstance(body, dict):
+            body = json.dumps(body).encode("ascii")
+            headers["Content-Type"] = "application/json"
+        return self.req("GET" if body is None else "POST", path, body, headers=headers)
+
+    def detail(self, file_id, token="tok_alice2"):
+        return self.get("/ppt/%s?sessionId=%s&browser=1" % (file_id, self.session), token)
+
+    def test_upload_format_and_opt_in(self):
+        status, _, data = self.post_json("/upload/init", {"sessionId": self.session,
+            "name": "incomplete.pptx", "size": 5, "totalChunks": 1}, "tok_alice")
+        self.assertEqual(status, 200)
+        self.assertEqual(self.submit(json.loads(data)["uploadId"])[0], 404)
+        for name, data, expected in [("light.pdf", b"%PDF-original", 415),
+                                     ("bad.ppt", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1", 422),
+                                     ("bad.pptx", b"%PDF-fake-ppt", 422),
+                                     ("too-many.pptx", self.pptx(301), 422)]:
+            file = self.upload("tok_alice", self.session, name, data)
+            with self.subTest(name=name):
+                self.assertEqual(self.submit(file["id"])[0], expected)
+                self.assertEqual(self.download(file["downloadUrl"])[2], data)
+        file = self.upload("tok_alice", self.session, "第三组汇报.PPTX", self.pptx())
+        with patch.object(app, "PPT_MAX_SOURCE", 25):
+            self.assertEqual(self.submit(file["id"])[0], 413)
+        self.assertEqual(self.worker("next")[0], 200)
+        self.assertIsNone(json.loads(self.worker("next")[2])["job"])
+        self.assertFalse(any("conversion" in row for row in self.ppt_state()[1]["files"]))
+        self.assertNotIn("pptConversion", self.ppt_state(ppt=False)[1])
+        self.assertFalse(any("conversion" in row for row in self.ppt_state(ppt=False)[1]["files"]))
+        with patch.object(app, "PPT_WORKER_KEY", ""):
+            self.assertFalse(self.ppt_state()[1]["pptConversion"])
+            self.assertEqual(self.submit(file["id"])[0], 503)
+
+    def test_concurrent_submit_claim_failure_and_retry(self):
+        source = self.pptx()
+        file = self.upload("tok_alice", self.session, "slides.pptx", source)
+        fid = file["id"]
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            posts = pool.map(lambda token: self.submit(fid, token), ["tok_alice", "tok_alice2", "tok_alice"])
+            for status, data in posts:
+                self.assertEqual(status, 200)
+                self.assertEqual(data["conversion"]["attempt"], 1)
+        self.assertEqual(self.submit(fid, "tok_bob")[0], 403)
+        self.assertEqual(self.ppt_state("tok_bob")[0], 403)
+        self.assertEqual(self.get("/ppt-worker/next", "tok_alice")[0], 403)
+        self.assertEqual(self.worker("source", fid)[0], 409)
+        self.assertEqual(json.loads(self.worker("next")[2])["job"]["fileId"], fid)
+        self.assertEqual(self.worker("claim", fid, {"attempt": 1})[0], 200)
+        self.assertEqual(self.worker("claim", fid, {"attempt": 1})[0], 200)
+        self.assertEqual(self.worker("claim", fid, {"attempt": 1}, claim="b" * 32)[0], 409)
+        self.assertEqual(self.worker("source", fid)[2], source)
+        self.assertEqual(self.worker("update", fid, {"status": "processing", "progress": 45})[0], 200)
+        self.assertEqual(self.ppt_state()[1]["files"][0]["conversion"]["progress"], 45)
+        self.assertEqual(self.download(file["downloadUrl"])[2], source)
+        self.assertEqual(self.worker("update", fid, {"status": "failed", "error": "模拟失败"})[0], 200)
+        self.assertEqual(self.submit(fid)[1]["conversion"]["status"], "failed")
+        self.assertEqual(self.submit(fid, retry=1)[1]["conversion"]["attempt"], 2)
+        self.assertEqual(self.worker("claim", fid, {"attempt": 2}, claim="b" * 32)[0], 200)
+        self.assertEqual(self.worker("update", fid, {"status": "failed"}, claim="b" * 32)[0], 200)
+        self.assertEqual(self.submit(fid, retry=1)[1]["conversion"]["status"], "failed")
+        self.assertEqual(self.submit(fid, retry=2)[1]["conversion"]["attempt"], 3)
+
+    def test_result_grants_omitted_formats_and_cleanup(self):
+        for expire in (False, True):
+            file = self.upload("tok_alice", self.session, "组会.pptx", self.pptx())
+            fid = file["id"]
+            self.assertEqual(self.submit(fid)[0], 200)
+            self.assertEqual(self.worker("claim", fid, {"attempt": 1})[0], 200)
+            pdf = b"%PDF-result"
+            report = {"status": "ready", "artifacts": {"pdf": {
+                "size": len(pdf), "name": "组会_预览.pdf", "pages": 1}}}
+            self.assertEqual(self.worker("update", fid, report)[0], 422)
+            self.assertEqual(self.worker("artifact/pdf", fid, pdf)[0], 200)
+            self.assertEqual(self.worker("update", fid, report)[0], 200)
+            self.age_file(self.session, fid, app.TTL_SEC - 60)
+            self.assertEqual(self.detail(fid, "tok_bob")[0], 403)
+            status, _, data = self.detail(fid)
+            self.assertEqual(status, 200)
+            ready = json.loads(data)
+            self.assertEqual(set(ready["manifest"]["files"]), {"pdf"})
+            url = ready["manifest"]["files"]["pdf"]["s"]
+            expiry = int(urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)["exp"][0])
+            self.assertLessEqual(expiry, app._now_ms() + 60000)
+            self.assertEqual(self.download(url)[0], 401)
+            self.assertEqual(self.download(url, {"X-Device-Id": "tok_bob"})[0], 403)
+            self.assertEqual(self.download(url, {"X-Device-Id": "tok_alice2"})[2], pdf)
+            cookie = {"Cookie": app.PPT_COOKIE + "=" + ready["browserProof"]}
+            self.assertEqual(self.download(url, dict(cookie, Range="bytes=0-3"))[2], pdf[:4])
+            self.assertEqual(self.download(url.replace("/pdf?", "/compat?"), cookie)[0], 404)
+            if expire:
+                self.age_file(self.session, fid, app.TTL_SEC + 1)
+            else:
+                self.assertEqual(self.req("DELETE", "/file/%s?sessionId=%s" % (fid, self.session),
+                                          token="tok_alice2")[0], 200)
+            self.assertEqual(self.detail(fid)[0], 404)
+            self.assertEqual(self.download(url, cookie)[0], 404)
+            self.assertEqual(self.worker("artifact/compat", fid, b"late")[0], 404)
+            app.cleanup_once()
+            self.assertFalse(os.path.exists(app._ppt_dir(self.session, fid)))
+
+    def test_worker_timeouts_and_delete_while_processing(self):
+        file = self.upload("tok_alice", self.session, "slides.pptx", self.pptx())
+        fid = file["id"]
+        base_time = app._now_ms()
+        self.assertEqual(self.submit(fid)[0], 200)
+        with patch.object(app, "_now_ms", return_value=base_time + app.PPT_QUEUE_MS + 1000):
+            self.assertEqual(self.ppt_state()[1]["files"][0]["conversion"]["status"], "failed")
+        self.assertEqual(self.submit(fid, retry=1)[0], 200)
+        self.assertEqual(self.worker("claim", fid, {"attempt": 2})[0], 200)
+        with patch.object(app, "_now_ms", return_value=base_time + app.PPT_CLAIM_MS + 1000):
+            self.assertEqual(self.ppt_state()[1]["files"][0]["conversion"]["status"], "failed")
+        self.assertEqual(self.submit(fid, retry=2)[0], 200)
+        self.assertEqual(self.worker("claim", fid, {"attempt": 3})[0], 200)
+        self.assertEqual(self.worker("artifact/pdf", fid, b"temp")[0], 200)
+        self.assertEqual(self.req("DELETE", "/file/%s?sessionId=%s" % (fid, self.session),
+                                  token="tok_alice")[0], 200)
+        self.assertEqual(self.worker("update", fid, {"status": "ready"})[0], 404)
+        self.assertFalse(os.path.exists(app._ppt_dir(self.session, fid)))
 
 
 if __name__ == "__main__":

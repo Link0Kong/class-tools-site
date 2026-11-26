@@ -42,6 +42,7 @@
 >
 > 前端约定：HTTPS 同源页面用 `location.origin + "/drop"`；HTTP 调试期直连 `https://tool.furina.fun/drop`。
 > 本文件是**前后端唯一契约**；改动必须同步更新本文件 + `drop/tests/test_drop_app.py`。
+> **v2.6（2026-11-26）** 支持按文件 ID 提交个人 PPT 转换，详见 §9。
 
 ---
 
@@ -363,3 +364,13 @@ python deploy\ecs_drop.py selftest   # 测试身份真实 E2E（登录/open/20MB
 - 分片暂存在数据根 `uploads/`，无活动超过 24h 由清理线程回收；**断点续传不跨会话/不跨重启**（刷新后需重传）。
 - 网关鉴权不可用时服务 **fail closed**（全部 API 503），前端应提示「身份服务暂不可用」而不是降级放行。
 - 下载签名为服务端 secret 的 HMAC；secret 丢失（`rm .secret`）会让**已发出的下载链接全部失效**（重新生成即可，不影响会话）。
+
+## 9. 文件行的 PPT 转换（v2.6）
+
+- `GET /state?sessionId=…&all=1&ppt=1` 增加 `pptConversion` 能力标志。已提交的文件有 `conversion: {status,progress,error,attempt}`。`status` 为 `queued`、`processing`、`ready` 或 `failed`。文件、会话归属和到期判断与 §2 一致。原文件的 `downloadUrl` 继续返回原件。旧查询与大屏事件保持原形状。
+- `POST /ppt/<fileId>` 带原有 `X-Device-Id` 和 `{sessionId}`。文件表记录和落盘原件齐备后才可提交。服务端检查 `.ppt` 的复合文档流、`.pptx` 的演示包和页数，以及两种格式的 64 MiB 上限。PowerPoint 在转换时再次检查文件可打开且为 1–300 页。重复请求返回原任务。失败重试另带列表中实际看到的 `retryAttempt`，仅在对应尝试仍为 `failed` 时创建下一次尝试。`fileId` 一直相同。
+- `GET /ppt/<fileId>?sessionId=…` 对同账号返回 `{ok,name,conversion}`，结果就绪时带 PPT v2 格式的 `manifest`。`files.compat`、`files.pdf` 和 `media_files` 只包含可下载的产物。`s` 为文件传输的结果下载地址。浏览器同源加入 `browser=1` 取得 `browserProof`，将其设为结果路由下的 `drop_ppt_download` Cookie。原始文件从原行下载。
+- `GET|HEAD /ppt-result/<sessionId>/<fileId>/<key>?exp=…&sig=…` 支持原有附件响应与 Range。移动和桌面原生端在下载请求中带 `X-Device-Id`，由服务端检查归属。网页的原生下载由同站下载 Cookie 授权。服务端校验结果、所属会话、尝试序号及原件有效期。链接和凭证最长 30 分钟，且截至原件上传完成后 72 小时。删除或清空后即刻停止接受新的下载请求。
+- 转换机通过 `/ppt-worker/` 读取个人任务，与班级队列按时间选择任务。转换机认领后直接读取已拼接原件，使用同一个 `convert_compat()`，再把成品流式写回 ECS。任务、结果和签名留在文件传输服务。队列等待超过 6 小时或认领后超过 50 分钟会转为可重试失败。删除和过期清理一并回收转换目录，旧认领无法把结果写回失效文件。启用方式见 [转换机运维](../ppt/README.md#12-文件传输的个人转换)。
+
+网页文件传输和微信小程序文件传输已接入。Android 在 `data/cloudspace/CloudSpaceApi.kt`、`CloudSpaceRepository.kt` 与 `ui/screens/cloudspace/CloudSpaceScreen.kt` 接入。HarmonyOS 对应 `data/cloudspace/CloudSpaceApi.ets`、`CloudSpaceRepository.ets` 与 `ui/tools/FileTransferScreen.ets`。Windows 对应 `ClassTools.Data/DropRepository.cs` 与 `ClassTools.App/Pages/FileDropPage.xaml.cs`。这些客户端接入时可沿用各自轮询与下载组件，按当前账号持有状态和下载凭证，继续支持不含 `conversion` 的记录。

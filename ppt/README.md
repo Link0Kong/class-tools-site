@@ -616,3 +616,11 @@ python agent.py --deck dmwalrdlgevz90l --compat-only --dry-run
 - OSS 写凭据只在本机 `web/deploy/creds.env`（或环境变量），三端只读，前端不出现任何写入凭据；
 - 测试用身份只用测试账号 `3260799999`；
 - 不修改 `web/deploy/creds.env`、证书、`web/tools/index.html`、云函数/迁移 SQL。
+
+## 12. 文件传输的个人转换
+
+现有 `agent.py --once` 计划任务经 `drop_queue.py` 查询文件传输队列，与班级演示队列的队首按提交时间选取一项。个人任务从 ECS 下载已上传完成的原件，调用 `convert_compat()` 并将结果写回 ECS 的文件目录。PowerPoint 打开个人文件时禁用自动化宏。班级队列继续使用原有 CloudBase 分片、OSS 资产和发布流程。接口见 [文件传输契约](../drop/CONTRACT.md#9-文件行的-ppt-转换v26)。
+
+1. 使用同一个随机 32 字节密钥，在 ECS 文件传输数据目录 `ppt_worker_key`（`root:www-data`、`0640`）与 Windows 转换机 `G:/ClassTools/briefdesk/secrets/drop-ppt-worker.key` 配置 64 个小写十六进制字符。可分别通过 `DROP_PPT_WORKER_KEY_FILE` 和 `PPT_DROP_WORKER_KEY_FILE` 指定路径。转换机默认走正式站点 HTTPS，`PPT_DROP_BASE` 可指向本地验证服务。
+2. 用 `deploy/ecs_drop.py deploy` 更新 ECS 文件服务并重启。确认现有 `PptConvertAgent` 计划任务执行的工作树已更新，沿用当前 `--once` 调度。客户端经 `/state?all=1&ppt=1` 取得 `pptConversion` 后显示动作。服务新增路由沿用现有 `/drop/*` 和微信合法域名。发布前按网页交接清单自检和备份。
+3. 用测试账号在手机发起，在教室电脑查看状态、排队期间下载原件，再下载并打开兼容版和 PDF。常规文件及已有演示入口用原流程复查。本地服务测试为 `python -m pytest -q drop/tests/test_drop_app.py`，兼容输出测试为 `python -m pytest -q ppt/tests/test_compat_integration.py`。

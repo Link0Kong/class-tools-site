@@ -518,13 +518,13 @@ def selftest():
                      "v=%s sessions=%s files=%s bytes=%s"
                      % (health.get("version"), health.get("sessions"),
                         health.get("files"), health.get("bytes")))
-        report.check("health v2.5：file_ttl=session_idle_ttl=259200 / max_file_bytes=0 / max_session_bytes=0",
+        report.check("health v2.6：file_ttl=session_idle_ttl=259200 / max_file_bytes=0 / max_session_bytes=0",
                      health.get("ttl") == 259200
                      and health.get("file_ttl") == 259200
                      and health.get("session_idle_ttl") == 259200
                      and health.get("max_file_bytes") == 0
                      and health.get("max_session_bytes") == 0
-                     and health.get("version") == "2.5",
+                     and health.get("version") == "2.6",
                      "version=%s file_ttl=%s session_idle_ttl=%s "
                      "max_file=%s max_session=%s"
                      % (health.get("version"), health.get("file_ttl"),

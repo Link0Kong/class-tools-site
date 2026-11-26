@@ -50,16 +50,22 @@ import os
 import re
 import secrets
 import shutil
+import struct
 import sys
+import tempfile
 import threading
 import time
 import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
+import zipfile
+import zlib
+from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = "2.5"
+VERSION = "2.6"
 ROOT = os.path.abspath(os.environ.get("DROP_ROOT", "/opt/class-tools/drop"))
 PORT = int(os.environ.get("DROP_PORT", "8093"))
 DEFAULT_GATEWAY = ("https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com"
@@ -102,6 +108,14 @@ SECRET_PATH = os.path.join(ROOT, ".secret")
 PUBLISH_KEY_FILE = os.environ.get("DROP_PUBLISH_KEY_FILE",
                                   os.path.join(ROOT, "publish_key"))
 DEFAULT_ORIGIN = "https://tool.furina.fun"
+PPT_MAX_SOURCE = 64 * 1024 * 1024         # ppt/agent.py 的兼容转换上限
+PPT_MAX_SLIDES = 300                     # ppt/convert.py 的兼容转换上限
+PPT_QUEUE_MS = 6 * 60 * 60 * 1000
+PPT_CLAIM_MS = 50 * 60 * 1000            # 超过转换计划任务 PT45M 的回收宽限
+PPT_COOKIE = "drop_ppt_download"
+PPT_ARTIFACT = re.compile(r"^(compat|pdf|media-[1-9][0-9]{0,4})$")
+PPT_WORKER_KEY_FILE = os.environ.get("DROP_PPT_WORKER_KEY_FILE",
+                                      os.path.join(ROOT, "ppt_worker_key"))
 
 CMD_OPS = frozenset([
     "focus", "focus_clear", "timer", "draw", "vote_select", "ppt",
@@ -132,6 +146,18 @@ def _load_publish_key():
 
 
 PUBLISH_KEY = _load_publish_key()
+
+
+def _load_ppt_worker_key():
+    try:
+        with open(PPT_WORKER_KEY_FILE, encoding="ascii") as fh:
+            value = fh.read(128).strip()
+    except (OSError, UnicodeError):
+        return ""
+    return value if re.fullmatch(r"[0-9a-f]{64}", value) else ""
+
+
+PPT_WORKER_KEY = _load_ppt_worker_key()
 
 
 # ---------------------------------------------------------------------------
@@ -408,6 +434,161 @@ def _file_expired(file_rec, now=None):
         return True
     now = _now_ms() if now is None else now
     return (now - at) > TTL_SEC * 1000
+
+
+def _file_path(session_id, file_id):
+    return os.path.join(FILES_DIR, session_id, file_id + ".bin")
+
+
+def _ppt_dir(session_id, file_id):
+    return os.path.join(FILES_DIR, session_id, file_id + ".ppt")
+
+
+def _remove_ppt_results(session_id, file_id):
+    shutil.rmtree(_ppt_dir(session_id, file_id), ignore_errors=True)
+
+
+def _ppt_record(sess, file_id, now):
+    if sess and not sess.get("closed") and _valid_hex_id(file_id):
+        for record in _session_files(sess):
+            if record.get("id") == file_id and not _file_expired(record, now):
+                return record
+    raise HttpError(404, "文件尚未上传完成、已删除或已过期")
+
+
+def _ppt_artifact_path(session_id, file_id, job, key):
+    return os.path.join(_ppt_dir(session_id, file_id), job["claim"], key + ".bin")
+
+
+def _ppt_artifacts(session_id, file_id, job):
+    for key, meta in (job.get("artifacts") or {}).items():
+        path = _ppt_artifact_path(session_id, file_id, job, key)
+        try:
+            if meta["size"] == os.path.getsize(path):
+                yield key, meta
+        except OSError:
+            continue
+
+
+def _ppt_job_locked(sess, record, now):
+    """Read the task and resolve expired queue/worker leases before exposing it."""
+    job = record.get("conversion")
+    if not job:
+        return None
+    status = job.get("status")
+    error = ""
+    if status == "queued" and now >= job["queuedAt"] + PPT_QUEUE_MS:
+        error = "等待转换超时，请重试"
+    elif status == "processing" and now >= job["claimedAt"] + PPT_CLAIM_MS:
+        error = "转换机处理超时，请重试"
+    elif status == "ready" and not any(_ppt_artifacts(sess["id"], record["id"], job)):
+        error = "转换结果已不可用，请重试"
+    if error:
+        job.update(status="failed", progress=0, error=error)
+        job.pop("artifacts", None)
+        _save_session(sess)
+        _remove_ppt_results(sess["id"], record["id"])
+    return job
+
+
+def _ppt_status(job):
+    return {key: job[key] for key in ("status", "progress", "error", "attempt")} if job else None
+
+
+def _legacy_ppt_stream(fh):
+    """Find the PowerPoint Document stream in the root of a compound file."""
+    header = fh.read(512)
+    if len(header) != 512 or header[:8] != bytes.fromhex("d0cf11e0a1b11ae1"):
+        return False
+    major, byte_order, sector_shift = struct.unpack_from("<3H", header, 26)
+    if (major, byte_order, sector_shift) not in [(3, 0xfffe, 9), (4, 0xfffe, 12)]:
+        return False
+    sector_size = 1 << sector_shift
+    sector_count = os.fstat(fh.fileno()).st_size // sector_size - 1
+    entries = sector_size // 4
+    fat_count, directory = struct.unpack_from("<2I", header, 44)
+    difat_sector, difat_count = struct.unpack_from("<2I", header, 68)
+    if not 0 < fat_count <= sector_count or difat_count > sector_count:
+        return False
+
+    def sector(index):
+        if index >= sector_count:
+            raise ValueError("invalid compound sector")
+        fh.seek((index + 1) * sector_size)
+        return fh.read(sector_size)
+
+    difat = list(struct.unpack_from("<109I", header, 76))
+    seen = set()
+    for _ in range(difat_count):
+        if len(difat) >= fat_count:
+            break
+        if difat_sector in seen:
+            return False
+        seen.add(difat_sector)
+        *indexes, difat_sector = struct.unpack("<%dI" % entries, sector(difat_sector))
+        difat.extend(indexes)
+    if len(difat) < fat_count:
+        return False
+    blocks = []
+    seen.clear()
+    while directory != 0xfffffffe:
+        if directory in seen:
+            return False
+        seen.add(directory)
+        blocks.append(sector(directory))
+        fat_index, offset = divmod(directory, entries)
+        if fat_index >= fat_count:
+            return False
+        directory, = struct.unpack_from("<I", sector(difat[fat_index]), offset * 4)
+    if not blocks or blocks[0][66] != 5:
+        return False
+    root_child, = struct.unpack_from("<I", blocks[0], 76)
+    pending = [root_child]
+    seen.clear()
+    ppt_name = "PowerPoint Document\0".encode("utf-16-le")
+    while pending:
+        entry = pending.pop()
+        if entry == 0xffffffff or entry in seen:
+            continue
+        seen.add(entry)
+        block, index = divmod(entry, sector_size // 128)
+        if block >= len(blocks):
+            return False
+        item = blocks[block][128 * index:128 * (index + 1)]
+        name_len, item_type = struct.unpack_from("<HB", item, 64)
+        if item_type == 2 and name_len == len(ppt_name) and item[:name_len] == ppt_name:
+            return True
+        pending.extend(struct.unpack_from("<2I", item, 68))
+    return False
+
+
+def _validate_ppt_source(fh, ext):
+    try:
+        if ext == ".ppt" and _legacy_ppt_stream(fh):
+            return
+        if ext == ".pptx":
+            with zipfile.ZipFile(fh) as zf:
+                parts = ("[Content_Types].xml", "ppt/presentation.xml")
+                info = [zf.getinfo(part) for part in parts]
+                if any(entry.file_size > CHUNK_SIZE or entry.compress_type not in
+                       (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED) for entry in info):
+                    raise ValueError("invalid presentation metadata")
+                types, doc = [ET.fromstring(zf.read(part)) for part in parts]
+                main_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"
+                namespaces = ("http://schemas.openxmlformats.org/presentationml/2006/main",
+                              "http://purl.oclc.org/ooxml/presentationml/main")
+                for ns in namespaces:
+                    if doc.tag == "{%s}presentation" % ns and any(
+                            node.get("PartName") == "/ppt/presentation.xml"
+                            and node.get("ContentType") == main_type for node in types):
+                        slides = len(doc.findall("{%s}sldIdLst/{%s}sldId" % (ns, ns)))
+                        if not 0 < slides <= PPT_MAX_SLIDES:
+                            raise HttpError(422, "幻灯片页数须为 1–%d 页" % PPT_MAX_SLIDES)
+                        return
+    except (OSError, KeyError, ValueError, RuntimeError, OverflowError, NotImplementedError,
+            struct.error, zipfile.BadZipFile, zlib.error, ET.ParseError):
+        pass
+    raise HttpError(422, "文件内容与 .ppt/.pptx 格式不符，或文件已损坏")
 
 
 def _live_files(sess, now=None):
@@ -782,6 +963,7 @@ def _expire_files_locked(sess, now):
                 os.remove(os.path.join(FILES_DIR, sess["id"], file_id + ".bin"))
             except OSError:
                 pass
+            _remove_ppt_results(sess["id"], file_id)
         try:
             freed += int(item.get("size") or 0)
         except (TypeError, ValueError):
@@ -801,6 +983,7 @@ def cleanup_once():
     removed = 0
     with _LOCK:
         index = _load_index()
+        ppt_claims = {}
         for sid_hash, session_id in list(index.items()):
             sess = _load_session(session_id)
             if sess is None:
@@ -824,7 +1007,28 @@ def cleanup_once():
                 continue
             if expired_count:
                 _save_session(sess)       # 文件表变化落盘
+            for record in _session_files(sess):
+                job = _ppt_job_locked(sess, record, now)
+                if job and job["status"] in ("processing", "ready"):
+                    ppt_claims[(session_id, record["id"])] = job["claim"]
         _save_index(index)
+        # 补收转换中删除、或进程中断时未能移走的产物。原件与上传分片仍走原来的清理。
+        for session_id in os.listdir(FILES_DIR):
+            folder = os.path.join(FILES_DIR, session_id)
+            if not _valid_hex_id(session_id) or not os.path.isdir(folder):
+                continue
+            for name in os.listdir(folder):
+                file_id = name[:-4]
+                if not name.endswith(".ppt") or not _valid_hex_id(file_id):
+                    continue
+                claim = ppt_claims.get((session_id, file_id))
+                if not claim:
+                    _remove_ppt_results(session_id, file_id)
+                    continue
+                result_dir = _ppt_dir(session_id, file_id)
+                for subdir in os.listdir(result_dir):
+                    if subdir != claim and re.fullmatch(r"[0-9a-f]{32}", subdir):
+                        shutil.rmtree(os.path.join(result_dir, subdir), ignore_errors=True)
     # 孤儿分片：会话已不存在、或长时间无活动（UPLOAD_TTL_SEC，默认 24h）后回收。
     # 注意：会话 TTL 是 72h，但未完成分片不属于「已上传文件」，用更短 TTL 避免占满磁盘。
     try:
@@ -1063,6 +1267,17 @@ class Handler(BaseHTTPRequestHandler):
                 if method == "DELETE":
                     return self._route_file_delete(path[len("/file/"):], query)
                 raise HttpError(405, "方法不支持")
+            if path.startswith("/ppt/"):
+                file_id = path[len("/ppt/"):]
+                if method == "POST":
+                    return self._route_ppt_submit(file_id)
+                if method == "GET":
+                    return self._route_ppt_detail(file_id, query)
+                raise HttpError(405, "方法不支持")
+            if path.startswith("/ppt-result/") and method in ("GET", "HEAD"):
+                return self._route_ppt_result(path[len("/ppt-result/"):], query)
+            if path.startswith("/ppt-worker/"):
+                return self._route_ppt_worker(path[len("/ppt-worker/"):])
 
             if path == "/open":
                 if method != "POST":
@@ -1164,6 +1379,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             raise HttpError(400, "since 非法")
         want_all = _query_one(query, "all", "") in ("1", "true", "yes")
+        want_ppt = want_all and _query_one(query, "ppt") == "1"
         with _LOCK:
             sess = _sess_owned_locked(auth, session_id)
             now = _now_ms()
@@ -1221,11 +1437,13 @@ class Handler(BaseHTTPRequestHandler):
                     if not os.path.isfile(os.path.join(FILES_DIR, sess["id"],
                                                        file_id + ".bin")):
                         continue
-                    files.append({"id": file_id, "name": item.get("name"),
-                                  "size": int(item.get("size") or 0),
-                                  "mime": item.get("mime") or "",
-                                  "at": _file_uploaded_at(item),
-                                  "downloadUrl": url})
+                    file_view = {"id": file_id, "name": item.get("name"),
+                                 "size": int(item.get("size") or 0),
+                                 "mime": item.get("mime") or "",
+                                 "at": _file_uploaded_at(item), "downloadUrl": url}
+                    if want_ppt and item.get("conversion"):
+                        file_view["conversion"] = _ppt_status(_ppt_job_locked(sess, item, now))
+                    files.append(file_view)
                 files.sort(key=lambda x: -int(x.get("at") or 0))
                 # 过期文件：在文件表 / 事件窗口里出现过、但已不在有效清单中的 fileId
                 gone = set(str(item.get("id") or "") for item in _session_files(sess))
@@ -1236,6 +1454,8 @@ class Handler(BaseHTTPRequestHandler):
                 payload["fileSeq"] = dict(
                     (file_id, int(sess.get("seq") or 0)) for file_id in touched if file_id)
                 payload["expiredNotice"] = max(0, len(gone - live_ids))
+                if want_ppt:
+                    payload["pptConversion"] = bool(PPT_WORKER_KEY)
         self._send_json(200, payload)
 
     def _route_presence_get(self):
@@ -1626,6 +1846,7 @@ class Handler(BaseHTTPRequestHandler):
                                      {"fileId": file_id, "name": name, "size": size},
                                      auth.get("name"))
                 _save_session(sess)
+                _remove_ppt_results(sess["id"], file_id)
         if record is not None:
             try:
                 os.remove(os.path.join(FILES_DIR, sess["id"], file_id + ".bin"))
@@ -1635,7 +1856,286 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, {"ok": True, "deleted": record is not None,
                               "name": name, "size": size})
 
-    def _serve_file(self, path, record, size, inline):
+    def _route_ppt_submit(self, file_id):
+        auth = self._auth()
+        body = self._read_json()
+        session_id = body.get("sessionId")
+        retry = body.get("retryAttempt")
+        if retry is not None and (type(retry) is not int or retry < 1):
+            raise HttpError(400, "重试版本无效")
+        if not PPT_WORKER_KEY:
+            raise HttpError(503, "文件转换暂不可用")
+
+        def current():
+            now = _now_ms()
+            sess = _sess_owned_locked(auth, session_id)
+            record = _ppt_record(sess, file_id, now)
+            path = _file_path(sess["id"], file_id)
+            if not os.path.isfile(path):
+                raise HttpError(404, "原件已不可用")
+            return sess, record, path, _ppt_job_locked(sess, record, now)
+
+        def submit_needed(job):
+            if job:
+                return job["status"] == "failed" and job["attempt"] == retry
+            if retry is not None:
+                raise HttpError(409, "请刷新后提交转换")
+            return True
+
+        with _LOCK:
+            sess, record, path, job = current()
+            if not submit_needed(job):
+                return self._send_json(200, {"ok": True, "conversion": _ppt_status(job)})
+            ext = os.path.splitext(record["name"])[1].lower()
+            if ext not in (".ppt", ".pptx"):
+                raise HttpError(415, "只支持转换 .ppt 和 .pptx 文件")
+            try:
+                fh = open(path, "rb")
+            except OSError:
+                raise HttpError(404, "原件已不可用")
+        with fh:
+            size = os.fstat(fh.fileno()).st_size
+            if size <= 0 or size != record["size"]:
+                raise HttpError(422, "原件不完整")
+            if size > PPT_MAX_SOURCE:
+                raise HttpError(413, "文件超过 64 MB，无法转换")
+            _validate_ppt_source(fh, ext)
+        with _LOCK:
+            sess, record, path, job = current()
+            if submit_needed(job):
+                _remove_ppt_results(sess["id"], file_id)
+                job = {"status": "queued", "progress": 0, "error": "",
+                       "attempt": (job["attempt"] + 1 if job else 1), "queuedAt": _now_ms()}
+                record["conversion"] = job
+                _save_session(sess)
+        self._send_json(200, {"ok": True, "conversion": _ppt_status(job)})
+
+    def _route_ppt_detail(self, file_id, query):
+        auth = self._auth()
+        with _LOCK:
+            now = _now_ms()
+            sess = _sess_owned_locked(auth, _query_one(query, "sessionId"))
+            sid = sess["id"]
+            record = _ppt_record(sess, file_id, now)
+            if not os.path.isfile(_file_path(sid, file_id)):
+                raise HttpError(404, "原件已不可用")
+            job = _ppt_job_locked(sess, record, now)
+            payload = {"ok": True, "name": record["name"], "conversion": _ppt_status(job)}
+            if job and job["status"] == "ready":
+                exp = min(now + URL_TTL_SEC * 1000, _file_uploaded_at(record) + TTL_SEC * 1000)
+                manifest = {"v": 2, "files": {}, "media_files": [],
+                            "compat": {"warnings": job.get("warnings", [])}}
+                for key, meta in _ppt_artifacts(sid, file_id, job):
+                    sig = _sign("ppt-result:%s:%s:%d" % (file_id, key, job["attempt"]), sid, exp)
+                    args = urllib.parse.urlencode({"exp": exp, "sig": sig})
+                    url = "%s/ppt-result/%s/%s/%s?%s" % (_public_base(self), sid, file_id, key, args)
+                    item = dict(meta, s=url)
+                    if key in ("compat", "pdf"):
+                        manifest["files"][key] = item
+                    else:
+                        manifest["media_files"].append(item)
+                payload["manifest"] = manifest
+                if _query_one(query, "browser") == "1":
+                    payload["browserProof"] = "%d.%s" % (exp, _sign("ppt-browser", sid, exp))
+        self._send_json(200, payload)
+
+    def _route_ppt_result(self, path, query):
+        parts = path.split("/")
+        if len(parts) != 3 or not PPT_ARTIFACT.fullmatch(parts[2]):
+            raise HttpError(404, "转换结果不存在")
+        sid, file_id, key = parts
+        auth = None
+        if self.headers.get("X-Device-Id") is not None:
+            auth = self._auth()
+        else:
+            try:
+                cookie = SimpleCookie(self.headers.get("Cookie") or "")[PPT_COOKIE].value
+                expires, proof = cookie.split(".", 1)
+                exp = int(expires)
+                if exp <= _now_ms() or not _sign_ok("ppt-browser", sid, exp, proof):
+                    raise ValueError("invalid proof")
+            except (KeyError, ValueError, CookieError):
+                raise AuthError(401, "请在文件传输页重新打开下载菜单")
+        try:
+            exp = int(_query_one(query, "exp"))
+        except ValueError:
+            raise HttpError(403, "下载链接无效")
+        with _LOCK:
+            now = _now_ms()
+            sess = _sess_owned_locked(auth, sid) if auth else _load_session(sid)
+            record = _ppt_record(sess, file_id, now)
+            if not os.path.isfile(_file_path(sid, file_id)):
+                raise HttpError(404, "原件已不可用")
+            if exp <= now or exp > _file_uploaded_at(record) + TTL_SEC * 1000:
+                raise HttpError(403, "下载链接已过期，请刷新")
+            job = record.get("conversion") or {}
+            meta = (job.get("artifacts") or {}).get(key)
+            if job.get("status") != "ready" or not meta:
+                raise HttpError(404, "转换结果不存在")
+            scoped_id = "ppt-result:%s:%s:%d" % (file_id, key, job["attempt"])
+            if not _sign_ok(scoped_id, sid, exp, _query_one(query, "sig")):
+                raise HttpError(403, "下载签名无效")
+            try:
+                fh = open(_ppt_artifact_path(sid, file_id, job, key), "rb")
+            except OSError:
+                raise HttpError(404, "转换结果不存在")
+        with fh:
+            size = os.fstat(fh.fileno()).st_size
+            if size != meta["size"]:
+                raise HttpError(404, "转换结果不完整")
+            self._serve_file(None, meta, size, False, stream=fh)
+
+    def _route_ppt_worker(self, path):
+        """Dedicated worker credential. It grants no ordinary drop APIs."""
+        key = self.headers.get("X-PPT-Worker-Key") or ""
+        if not PPT_WORKER_KEY:
+            raise HttpError(404, "接口不存在")
+        if not key.isascii() or not hmac.compare_digest(PPT_WORKER_KEY, key):
+            raise HttpError(403, "转换机未授权")
+        if path == "next" and self.command == "GET":
+            with _LOCK:
+                now = _now_ms()
+                candidate = None
+                for sid in _load_index().values():
+                    sess = _load_session(sid)
+                    if not sess or sess.get("closed"):
+                        continue
+                    for item in _live_files(sess, now):
+                        job = _ppt_job_locked(sess, item, now)
+                        if (job and job["status"] == "queued"
+                                and os.path.isfile(_file_path(sid, item["id"]))
+                                and (not candidate or job["queuedAt"] < candidate["queuedAt"])):
+                            candidate = {"sessionId": sid, "fileId": item["id"],
+                                         "attempt": job["attempt"], "queuedAt": job["queuedAt"]}
+            return self._send_json(200, {"ok": True, "job": candidate})
+        parts = path.split("/")
+        if len(parts) < 3 or not all(_valid_hex_id(i) for i in parts[:2]):
+            raise HttpError(404, "接口不存在")
+        sid, file_id, action = parts[:3]
+        if len(parts) == 4 and action == "artifact" and self.command == "POST":
+            return self._ppt_worker_upload(sid, file_id, parts[3])
+        if len(parts) != 3:
+            raise HttpError(404, "接口不存在")
+        if action == "source" and self.command == "GET":
+            with _LOCK:
+                _sess, record, _job = self._ppt_worker_job(sid, file_id)
+                try:
+                    fh = open(_file_path(sid, file_id), "rb")
+                except OSError:
+                    raise HttpError(404, "原件已不可用")
+            with fh:
+                return self._serve_file(None, record, record["size"], False, stream=fh)
+        if self.command != "POST" or action not in ("claim", "update"):
+            raise HttpError(404, "接口不存在")
+        body = self._read_json()
+        with _LOCK:
+            if action == "claim":
+                payload = self._ppt_worker_claim(sid, file_id, body)
+            else:
+                self._ppt_worker_update(sid, file_id, body)
+                payload = {"ok": True}
+        self._send_json(200, payload)
+
+    def _ppt_worker_job(self, sid, file_id, authorizing=True):
+        now = _now_ms()
+        sess = _load_session(sid)
+        record = _ppt_record(sess, file_id, now)
+        if not os.path.isfile(_file_path(sid, file_id)):
+            raise HttpError(404, "原件已不可用")
+        job = _ppt_job_locked(sess, record, now)
+        if not job or (authorizing and (job["status"] != "processing"
+                or job["claim"] != self.headers.get("X-PPT-Claim"))):
+            raise HttpError(409, "任务已变化")
+        return sess, record, job
+
+    def _ppt_worker_claim(self, sid, file_id, body):
+        sess, record, job = self._ppt_worker_job(sid, file_id, authorizing=False)
+        claim = self.headers.get("X-PPT-Claim") or ""
+        if not re.fullmatch(r"[0-9a-f]{32}", claim):
+            raise HttpError(400, "认领标识无效")
+        if job["attempt"] != body.get("attempt"):
+            raise HttpError(409, "任务已变化")
+        if job["status"] == "queued":
+            job.update(status="processing", progress=3, claim=claim, claimedAt=_now_ms())
+            _save_session(sess)
+        if job["status"] != "processing" or job["claim"] != claim:
+            raise HttpError(409, "任务已被认领")
+        return {"ok": True, "name": record["name"], "size": record["size"]}
+
+    def _ppt_worker_upload(self, sid, file_id, key):
+        if not PPT_ARTIFACT.fullmatch(key):
+            raise HttpError(400, "产物格式无效")
+        length = self._content_length()
+        if length <= 0:
+            raise HttpError(400, "产物为空")
+        _check_disk(length)
+        self.connection.settimeout(60)
+        with _LOCK:
+            _sess, _record, job = self._ppt_worker_job(sid, file_id)
+            path = _ppt_artifact_path(sid, file_id, job, key)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            fh = tempfile.NamedTemporaryFile(dir=os.path.dirname(path), suffix=".part", delete=False)
+        try:
+            with fh:
+                while length:
+                    block = self.rfile.read(min(length, 256 * 1024))
+                    if not block:
+                        raise HttpError(400, "产物上传未完成")
+                    fh.write(block)
+                    length -= len(block)
+                self._body_read = True
+                fh.flush()
+                os.fsync(fh.fileno())
+            with _LOCK:
+                self._ppt_worker_job(sid, file_id)
+                os.replace(fh.name, path)
+        finally:
+            try:
+                os.unlink(fh.name)
+            except OSError:
+                pass
+        self._send_json(200, {"ok": True})
+
+    def _ppt_worker_update(self, sid, file_id, body):
+        sess, _record, job = self._ppt_worker_job(sid, file_id)
+        state = body.get("status")
+        if state == "processing" and type(body.get("progress")) is int:
+            job["progress"] = max(job["progress"], min(99, body["progress"]))
+        elif state == "ready":
+            artifacts = body.get("artifacts")
+            if not isinstance(artifacts, dict) or not any(k in artifacts for k in ("compat", "pdf")):
+                raise HttpError(422, "缺少转换产物")
+            files = {}
+            for key, meta in artifacts.items():
+                if not PPT_ARTIFACT.fullmatch(key) or not isinstance(meta, dict):
+                    raise HttpError(400, "产物清单无效")
+                path = _ppt_artifact_path(sid, file_id, job, key)
+                try:
+                    size = os.path.getsize(path)
+                except OSError:
+                    size = 0
+                if not size or size != meta.get("size"):
+                    raise HttpError(422, "产物未上传完成")
+                mime = {"compat": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        "pdf": "application/pdf"}.get(key)
+                name = _safe_filename(meta.get("name"))
+                files[key] = {k: meta[k] for k in ("ext", "pages", "sha256", "kind",
+                              "dur", "w", "h", "slides") if k in meta}
+                files[key].update(name=name, size=size, mime=mime or _content_type_for(name, ""))
+            warnings = body.get("warnings")
+            job.update(status=state, progress=100, artifacts=files,
+                       warnings=warnings if isinstance(warnings, list) else [])
+        elif state == "failed":
+            job.update(status=state, progress=0, error=str(body.get("error") or "转换失败")[:300])
+        elif state == "queued":
+            job.update(status=state, progress=0)
+        else:
+            raise HttpError(400, "转换状态无效")
+        _save_session(sess)
+        if state in ("failed", "queued"):
+            _remove_ppt_results(sid, file_id)
+
+    def _serve_file(self, path, record, size, inline, stream=None):
         name = _safe_filename(record.get("name"))
         mime = _content_type_for(name, _safe_mime(record.get("mime") or ""))
         quoted = urllib.parse.quote(name, safe="")
@@ -1673,7 +2173,7 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             if self.command == "HEAD" or length <= 0:
                 return
-            with open(path, "rb") as fh:
+            with (stream if stream is not None else open(path, "rb")) as fh:
                 fh.seek(start)
                 remaining = length
                 while remaining > 0:

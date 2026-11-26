@@ -2036,6 +2036,8 @@ def convert_compat(src_path, work_dir, opts=None):
         com["app"] = _acquire_powerpoint(ctx)
         ctx.progress(10, "打开源文件")
         try:
+            if opts.get("force_disable_macros"):
+                com["app"].AutomationSecurity = 3  # msoAutomationSecurityForceDisable
             com["pres"] = com["app"].Presentations.Open(local_copy, False, False, False)
         except Exception as exc:  # noqa: BLE001
             raise ConvertError("PowerPoint 无法打开该文件（可能加密/损坏）：%s"
