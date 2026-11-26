@@ -1,10 +1,10 @@
 {
-  "versionCode": 160,
-  "versionName": "1.0.0-beta77",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta77.apk",
-  "notes": "工作台显示逐小节上下课倒计时，上课流体云支持保持和恢复，优化课间提醒，诊断页排除已归档分析",
+  "versionCode": 161,
+  "versionName": "1.0.0-beta78",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta78.apk",
+  "notes": "优化深色玻璃化观感。工作台背景更安静，今日卡保留柔和反光，正文卡和浮岛层次更稳定，通知详情按钮与课表网格更易辨认。",
   "force": false,
   "channel": "beta",
-  "sha256": "d29c9b372da60b3a8d1363b841405d6d5dc745e88de5fcacacca1039402610d5",
+  "sha256": "695972e7f6475d7e5899c854b9b8a451a0db9648db72cdbc6132cc03b972c102",
   "sizeBytes": 6999512
 }
