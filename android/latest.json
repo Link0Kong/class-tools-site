@@ -1,10 +1,10 @@
 {
-  "versionCode": 166,
-  "versionName": "1.0.0-beta83",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta83.apk",
-  "notes": "Android 12 及以上的工具和默认桌面组件跟随莫奈壁纸配色。待办支持分色清单、四象限与新建入口，课表支持双日日程。通知、作业和任务可按指定时刻提醒，活动报名支持实时通知与悬浮倒计时。",
+  "versionCode": 167,
+  "versionName": "1.0.0-beta84",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta84.apk",
+  "notes": "「课表接入」移到周／日视图切换旁，避免挡住课表。日视图显示已有的授课教师，周视图在课程块空间足够时显示教师。",
   "force": false,
   "channel": "beta",
-  "sha256": "e8309e7673782ca0c1678f8195de98bb060cb1764c2ddee4a1ea3a08df80ac38",
+  "sha256": "fa434c8f13e0604f7da91828aa019e6f7316a9b69bab19bc663390fc881059af",
   "sizeBytes": 7111052
 }
