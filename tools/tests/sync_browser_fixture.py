@@ -17,7 +17,10 @@ from v2_tt_frame_check import EDGE
 HERE = Path(__file__).resolve().parent
 INIT = """
 const owner=IDENTITY;
-if(!localStorage.zq_class_identity)localStorage.zq_class_identity=JSON.stringify({...owner,ts:Date.now()});
+if(!sessionStorage.qaIdentitySeeded){
+ sessionStorage.qaIdentitySeeded='1';
+ if(!localStorage.zq_class_identity)localStorage.zq_class_identity=JSON.stringify({...owner,ts:Date.now()});
+}
 window.confirm=()=>true;window.jsErrors=[];window.calls=[];
 window.addEventListener('error',e=>{if(e.message)jsErrors.push(e.message)});
 window.addEventListener('unhandledrejection',e=>jsErrors.push(String(e.reason)));

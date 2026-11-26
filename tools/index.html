@@ -6891,24 +6891,14 @@ function noticeSetDone(gid,done){
 }
 /* marks 待补发队列：同 (seat,kind,ref) 只保留一条，避免重复叠加/反复补发 */
 function markPendAdd(kind,seat,ref,val){
-  var a=D.d.markPend=D.d.markPend||[],i,found=false;
-  for(i=0;i<a.length;i++){
-    if(a[i]&&a[i].seat===seat&&a[i].kind===kind&&a[i].ref===ref){a[i].val=val;found=true;break;}
-  }
-  if(!found)a.push({seat:seat,kind:kind,ref:ref,val:val});
-  D.save();
+  var op={kind:kind,seat:seat,ref:ref,val:val};
+  D.d.markPend=(D.d.markPend||[]).filter(function(p){return !(p&&p.kind===kind&&p.seat===seat&&p.ref===ref);});
+  D.d.markPend.push(op);D.save();
+  return op;
 }
 function noticePushDone(gid,done){
-  if(!D.d.seat||!gid)return;
-  cbMark("ntdone",D.d.seat,gid,done).then(function(ok){
-    D.d.markPend=D.d.markPend||[];
-    if(ok){
-      D.d.markPend=D.d.markPend.filter(function(p){return !(p.seat===D.d.seat&&p.kind==="ntdone"&&p.ref===gid);});
-      D.save();
-    }else{
-      markPendAdd("ntdone",D.d.seat,gid,done);toast("同步失败，稍后自动重试");
-    }
-  });
+  if(!syncOwner()||!gid)return;
+  sendPendingMark(markPendAdd("ntdone",D.d.seat,gid,done));
 }
 /* 旧 localStorage zq_auto_nt_done 一次性迁移为 marks(kind=ntdone)：按 sid 只做一次，迁完清除 */
 function anMigrateDone(){
@@ -6924,13 +6914,7 @@ function anMigrateDone(){
   for(g in pend){NT.done[g]=true;}
   for(g in pend){
     (function(gid){
-      cbMark("ntdone",D.d.seat,gid,true).then(function(ok){
-        if(ok){ if(AN_DONE_MIGRATE)delete AN_DONE_MIGRATE[gid]; }
-        else{
-          D.d.markPend=D.d.markPend||[];
-          markPendAdd("ntdone",D.d.seat,gid,true);
-        }
-      });
+      sendPendingMark(markPendAdd("ntdone",D.d.seat,gid,true));
     })(g);
   }
   noticeApplyDone();
@@ -7669,10 +7653,68 @@ var NT={on:false,migrated:false,marks:{},done:{},loading:false,fail:false,pullin
   archive:function(it){if(it._pending||!it.id)return Promise.resolve(true);
     return cbPatch("notices",it.id,{archived:true}).then(function(){return true;}).catch(function(){return false;});}
 };
-function cbMark(kind,seat,ref,val){
-  var h=cbH(true); h["Prefer"]="return=representation,resolution=merge-duplicates";
-  return fetch(CB+"marks",{method:"POST",headers:h,body:JSON.stringify([{id:seat+"|"+kind+"|"+ref,seat:seat,kind:kind,ref:ref,val:val,ts:Date.now()}])})
-    .then(function(r){if(!r.ok)throw new Error("http"+r.status);return true;}).catch(function(){return false;});
+/* 心跳读取、写入与回执始终属于发起时的账户和登录票据。 */
+var activeSyncOwner=null;
+function sameSyncIdentity(a,b){
+  return !!(a&&b&&String(a.sid)===String(b.sid)&&a.token===b.token&&
+    (a.role||"")===(b.role||"")&&!!a.is_admin===!!b.is_admin);
+}
+function syncOwner(){
+  return activeSyncOwner&&sameSyncIdentity(activeSyncOwner,AUTH)&&sameSyncIdentity(activeSyncOwner,identityGet())?activeSyncOwner:null;
+}
+function beginSyncIdentity(r){
+  if(sameSyncIdentity(activeSyncOwner,r))return;
+  clearTimeout(UD._timer);
+  UD._cache=null;UD._cacheSid="";UD._pull=null;UD._push=null;UD._recover=null;UD._recoverPower=null;
+  UD._pendKeys={};UD._userGesture=false;
+  if(activeSyncOwner){AN_DONE={};AN_DONE_MIGRATE=null;HW.marks={};NT.marks={};NT.done={};}
+  activeSyncOwner={sid:String(r.sid),token:r.token,role:r.role||"",is_admin:!!r.is_admin,
+    marksVersion:0,forceAt:0,sending:Object.create(null)};
+}
+function ownerHeaders(owner,write){
+  return cbH(write,{"X-Device-Id":owner.token});
+}
+async function readOwnerRows(owner,path){
+  var res=await fetch(CB+path,{headers:ownerHeaders(owner,false),cache:"no-store"});
+  if(!res.ok)throw Error("http"+res.status);
+  var rows=await res.json();
+  if(!Array.isArray(rows))throw Error("rows");
+  if(!rows.length&&syncOwner()===owner){
+    var auth=await fetch(CB+"rpc/auth_ok",{method:"POST",headers:ownerHeaders(owner,true),body:"{}"});
+    if(!auth.ok||await auth.json()!==true)throw Error("identity");
+  }
+  return rows;
+}
+async function sendPendingMark(op){
+  var owner=syncOwner();
+  if(!owner||!op||String(op.seat)!==owner.sid||String(D.d.seat)!==owner.sid)return false;
+  var key=JSON.stringify([op.kind,op.ref]);
+  if(owner.sending[key])return false;
+  owner.sending[key]=true;owner.marksVersion++;
+  var row={id:owner.sid+"|"+op.kind+"|"+op.ref,seat:op.seat,kind:op.kind,ref:op.ref,val:op.val,ts:Date.now()};
+  try{
+    var h=ownerHeaders(owner,true);h.Prefer="return=representation,resolution=merge-duplicates";
+    var res=await fetch(CB+"marks",{method:"POST",headers:h,body:JSON.stringify([row])});
+    if(!res.ok)throw Error("http"+res.status);
+    var rows=await res.json();
+    if(!Array.isArray(rows)||!rows.some(function(x){return x&&x.id===row.id&&x.val===row.val;}))throw Error("unconfirmed");
+    if(owner!==syncOwner())return false;
+    owner.marksVersion++;
+    var cached=(marksCacheRead()||[]).filter(function(x){return x.id!==row.id&&!(x.ref===row.ref&&x.kind===row.kind);});
+    cached.push(row);marksCacheWrite(cached);
+    D.d.markPend=D.d.markPend.filter(function(p){return p!==op;});
+    if(op.kind==="ntdone"&&AN_DONE_MIGRATE)delete AN_DONE_MIGRATE[op.ref];
+    D.save();syncSt();return true;
+  }catch(e){
+    if(owner===syncOwner())toast(/^http40[13]$/.test(e.message)?"登录已失效，请重新验证":"标记待同步，稍后自动重试");
+    return false;
+  }finally{
+    delete owner.sending[key];
+    if(owner===syncOwner()){
+      var next=(D.d.markPend||[]).find(function(p){return p!==op&&String(p.seat)===owner.sid&&p.kind===op.kind&&p.ref===op.ref;});
+      if(next)sendPendingMark(next);
+    }
+  }
 }
 function marksApply(list){
   var oldHW=JSON.stringify(HW.marks||{}),oldNT=JSON.stringify(NT.marks||{}),oldDone=JSON.stringify(NT.done||{});
@@ -7704,19 +7746,21 @@ function marksApply(list){
   noticeApplyDone();
 }
 function marksPull(force){
-  if(!D.d.seat){HW.marks={};NT.marks={};return Promise.resolve();}
+  var owner=syncOwner();
+  if(!owner||String(D.d.seat)!==owner.sid)return Promise.resolve(false);
   var cached=marksCacheRead();
   if(cached&&cached.length)marksApply(cached);
   if(force){
     /* 强制拉取防抖：回前台 + 切页可能连续触发，5s 内合并为一次（不影响 TTL 内的普通轮询） */
-    var last=marksPull._forceAt||0;
+    var last=owner.forceAt;
     if(Date.now()-last<5000)force=false;
-    else marksPull._forceAt=Date.now();
+    else owner.forceAt=Date.now();
   }
   if(!force&&!needPull("marks"))return Promise.resolve(true);
-  return fetch(CB+"marks?select=*&seat=eq."+encodeURIComponent(D.d.seat),{headers:cbH(false),cache:"no-store"})
-    .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();})
+  var version=++owner.marksVersion;
+  return readOwnerRows(owner,"marks?select=*&seat=eq."+encodeURIComponent(owner.sid))
     .then(function(list){
+      if(owner!==syncOwner()||owner.marksVersion!==version)return;
       marksCacheWrite(list);syncedMark("marks");marksApply(list);
       /* 需求16：拉回后立刻补发本机未成功的 marks（离线写入 → 联网自动补发） */
       if((D.d.markPend||[]).length)resyncPending();
@@ -7725,12 +7769,10 @@ function marksPull(force){
 }
 function setMark(kind,it,val){
   if(D.d.seat&&it.id){
+    if(!syncOwner())return;
     (kind==="hw"?HW:NT).marks[it.id]=val;
     if(kind==="hw")renderHW();else renderNT();
-    cbMark(kind,D.d.seat,it.id,val).then(function(ok){
-      if(ok){D.d.markPend=D.d.markPend.filter(function(p){return !(p.seat===D.d.seat&&p.kind===kind&&p.ref===it.id);});}
-      else{markPendAdd(kind,D.d.seat,it.id,val);toast("同步失败，稍后自动重试");}
-      D.save();syncSt();});
+    sendPendingMark(markPendAdd(kind,D.d.seat,it.id,val));
   }else{
     if(kind==="hw"){if(it.id){D.d.hwDone[it.id]=val;}else{it.done=val;}renderHW();}
     else{if(it.id){D.d.ntPin[it.id]=val;}else{it.pin=val;}renderNT();}
@@ -7814,10 +7856,17 @@ var UD={
   },
   pendRead:function(){try{return !!localStorage.getItem("zq_udpend_"+UD.sid());}catch(e){return false;}},
   pendWrite:function(keys){
-    try{localStorage.setItem("zq_udpend_"+UD.sid(),"1");}catch(e){}
+    if(!syncOwner())return;
+    UD.pendKeysList();
     if(keys instanceof Array)for(var i=0;i<keys.length;i++){if(keys[i])UD._pendKeys[keys[i]]=1;}
+    try{localStorage.setItem("zq_udpend_"+UD.sid(),JSON.stringify(Object.keys(UD._pendKeys)));}catch(e){}
   },
-  pendKeysList:function(){var out=[],k;for(k in UD._pendKeys){if(UD._pendKeys.hasOwnProperty(k))out.push(k);}return out;},
+  pendKeysList:function(){
+    try{var saved=JSON.parse(localStorage.getItem("zq_udpend_"+UD.sid())||"null");
+      if(Array.isArray(saved))saved.forEach(function(k){if(UD_KEYS.indexOf(k)>=0&&k!=="prefs")UD._pendKeys[k]=1;});
+    }catch(e){}
+    return Object.keys(UD._pendKeys);
+  },
   pendKeysClear:function(){UD._pendKeys={};},
   /* 无基线时判断「哪些 section 与默认值不同」= 本机真实改动（boot 渲染的默认值不会被当成改动） */
   changedKeysVsDef:function(){
@@ -8006,21 +8055,19 @@ var UD={
       if(typeof renderG==="function"&&typeof G!=="undefined"&&G.result)renderG();
     }catch(e){}
   },
-  fetchRemote:function(){
-    var sid=UD.sid(); if(!sid)return Promise.resolve(null);
-    return fetch(CB+"userdata?select=*&id=eq."+encodeURIComponent(sid),{headers:cbH(false),cache:"no-store"})
-      .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();})
-      .then(function(rows){
-        if(!rows||!(rows instanceof Array)||!rows.length)return null;
-        var row=rows[0]; if(!row||row.blob==null)return null;
-        var b=null; try{b=JSON.parse(row.blob);}catch(e){b=null;}
-        return (b&&typeof b==="object"&&!(b instanceof Array))?b:null;
-      })
-      .catch(function(){return undefined;});
+  fetchRemote:function(owner){
+    return readOwnerRows(owner,"userdata?select=*&id=eq."+encodeURIComponent(owner.sid)).then(function(rows){
+      if(!rows.length)return null;
+      if(rows.length!==1||String(rows[0].id)!==owner.sid)throw Error("owner");
+      var blob=JSON.parse(rows[0].blob);
+      if(!blob||typeof blob!=="object"||Array.isArray(blob))throw Error("userdata");
+      return blob;
+    }).catch(function(){return undefined;});
   },
   pushSoon:function(){
+    var owner=syncOwner();if(!owner)return;
     clearTimeout(UD._timer);
-    UD._timer=setTimeout(function(){UD.push();},1200);
+    UD._timer=setTimeout(function(){if(owner===syncOwner())UD.push();},1200);
   },
   /* 后台自动逻辑（如管理员自动采用教务课表）改了本机值但不是用户改动：
      把当前值写回 UD 基线（at 不变），避免被脏检测当成用户改动同步到其他端 */
@@ -8043,7 +8090,7 @@ var UD={
      pull 成功后其内部会因 pendRead/dirty 补一次 push（防重入：_recover 只跑一条链）。 */
   touch:function(){
     try{
-      if(UD._applying||UD.off()||!UD.sid())return;
+      var owner=syncOwner();if(UD._applying||UD.off()||!owner)return;
       var base=UD.cacheRead();
       if(!base){
         /* 无基线：标记待补发并触发一次 pull（pull 内会按 pendKeys 保本机、随后 push 清 pend）。
@@ -8053,19 +8100,19 @@ var UD={
         if(!ck.length)return;
         UD.pendWrite(ck);
         if(!UD._recover&&!UD._pull){
-          UD._recover=UD.pull(true).then(function(){UD._recover=null;return true;}).catch(function(){UD._recover=null;return false;});
+          UD._recover=UD.pull(true).finally(function(){if(owner===syncOwner())UD._recover=null;});
         }
         return;
       }
-      if(!UD.dirtySections().length)return;
-      UD.pushSoon();
+      var dirty=UD.dirtySections();if(!dirty.length)return;
+      UD.pendWrite(dirty);UD.pushSoon();
     }catch(e){}
   },
   /* 电费关注宿舍专用强同步：有基线 → 立即 push(true,["power"])；
      无基线 → 记录本地选择快照，先 pull(true)，成功后恢复本地选择（防被云端旧值覆盖）再 push；
      供 POWER.pick（选完尽快落云）、POWER.enter 恢复、同步状态「点重试」调用。 */
   requestPowerSync:function(force){
-    if(!UD.sid()||UD.off())return Promise.resolve(false);
+    var owner=syncOwner();if(!owner||UD.off())return Promise.resolve(false);
     var want=(typeof POWER!=="undefined"&&POWER)?String(POWER.sel||""):"";
     try{
       var base=UD.cacheRead();
@@ -8075,9 +8122,10 @@ var UD={
         if(!force&&bsel===want&&!(UD.dirtySections().indexOf("power")>=0))return Promise.resolve(true);
         return UD.push(true,["power"]);
       }
-      UD.pendWrite();
+      UD.pendWrite(["power"]);
       if(UD._recoverPower)return UD._recoverPower;
       UD._recoverPower=UD.pull(true).then(function(){
+        if(owner!==syncOwner())return false;
         UD._recoverPower=null;
         try{
           if(want&&POWER.sel!==want){POWER.applyRemote(want,Date.now(),POWER.low);try{D.save();}catch(e){}}
@@ -8087,14 +8135,14 @@ var UD={
         var cur=String(b.power&&b.power.sel||"");
         if(want&&cur!==want)return UD.push(true,["power"]);
         return true;
-      }).catch(function(){UD._recoverPower=null;return false;});
+      }).catch(function(){if(owner===syncOwner())UD._recoverPower=null;return false;});
       return UD._recoverPower;
     }catch(e){return Promise.resolve(false);}
   },
   /* 离开页面/切后台尽力 flush：有基线才推（无基线留 pend，等下次 pull 补） */
   flush:function(){
     try{
-      if(!UD.sid()||UD.off())return;
+      if(!syncOwner()||UD.off())return;
       if(!UD.cacheRead()){if(UD.pendRead())UD.pendWrite();return;}
       var dirty=UD.dirtySections();
       if(UD.pendRead()||dirty.length){
@@ -8103,13 +8151,14 @@ var UD={
     }catch(e){}
   },
   pull:function(force){
-    if(!UD.sid()||UD.off())return Promise.resolve(false);
+    var owner=syncOwner();if(!owner||UD.off())return Promise.resolve(false);
     if(UD._pull)return UD._pull;
     if(!force){
       var last=UD.lastPull();
       if(last&&Date.now()-last<60000)return Promise.resolve(false);
     }
-    UD._pull=UD.fetchRemote().then(function(remote){
+    UD._pull=UD.fetchRemote(owner).then(function(remote){
+      if(owner!==syncOwner())return false;
       if(remote===undefined)return false; /* 网络失败：保留本机，稍后重试 */
       var wasV5=!!(remote&&Number(remote.v)===5); /* 旧版 v5：迁移合并后要写回 v6（契约 §3.3） */
       var base=UD.cacheRead();
@@ -8156,31 +8205,38 @@ var UD={
       }
       try{udSyncUi();}catch(e){}
       return true;
-    }).catch(function(){return false;}).then(function(x){UD._pull=null;return x;});
+    }).catch(function(){return false;}).then(function(x){if(owner===syncOwner())UD._pull=null;return x;});
     return UD._pull;
   },
   push:function(force,forceKeys){
-    if(!UD.sid()||UD.off())return Promise.resolve(false);
+    var owner=syncOwner();if(!owner||UD.off())return Promise.resolve(false);
     if(UD._push)return UD._push;
     if(!UD.cacheRead()&&!(forceKeys instanceof Array))return Promise.resolve(false); /* 无基线不盲推，避免默认值覆盖云端 */
     var dirty=UD.dirtySections();
     if(!force&&!dirty.length&&!UD.pendRead())return Promise.resolve(false);
-    UD._push=UD.fetchRemote().then(function(remote){
+    UD._push=UD.fetchRemote(owner).then(function(remote){
+      if(owner!==syncOwner())return false;
       if(remote===undefined)throw new Error("net");
       var local=UD.localView(remote,forceKeys);
       var merged=UD.merge(remote,local);
-      var h=cbH(true);h["Prefer"]="return=representation,resolution=merge-duplicates";
-      var body=[{id:UD.sid(),blob:JSON.stringify(merged),ts:Date.now()}];
+      var h=ownerHeaders(owner,true);h["Prefer"]="return=representation,resolution=merge-duplicates";
+      var body=[{id:owner.sid,blob:JSON.stringify(merged),ts:Date.now()}];
       return fetch(CB+"userdata",{method:"POST",headers:h,body:JSON.stringify(body)}).then(function(r){
         if(!r.ok)throw new Error("http"+r.status);
+        return r.json();
+      }).then(function(rows){
+        if(owner!==syncOwner())return false;
+        if(!Array.isArray(rows)||!rows.some(function(row){return row&&String(row.id)===owner.sid&&row.blob===body[0].blob;}))throw Error("unconfirmed");
         UD.cacheWrite(merged);
         UD.pendClear();
         UD.pendKeysClear();
+        var later=UD.dirtySections();if(later.length){UD.pendWrite(later);UD.pushSoon();}
         try{syncSt();}catch(e){}
         try{udSyncUi();}catch(e){}
         return true;
       });
-    }).catch(function(){UD.pendWrite();return false;}).then(function(x){
+    }).catch(function(){if(owner===syncOwner())UD.pendWrite(dirty);return false;}).then(function(x){
+      if(owner!==syncOwner())return false;
       UD._push=null;
       try{udSyncUi();}catch(e){}
       return x;
@@ -8189,7 +8245,7 @@ var UD={
   },
   /* boot：异步 idle 拉一次（不阻塞首屏；真机 1.5s 内必触发） */
   bootPull:function(){
-    var go=function(){UD.pull();};
+    var owner=syncOwner(),go=function(){if(owner&&owner===syncOwner())UD.pull();};
     try{
       if(window.requestIdleCallback)window.requestIdleCallback(go,{timeout:1500});
       else setTimeout(go,0);
@@ -8855,7 +8911,7 @@ function resyncPending(){
   D.d.homework.filter(function(x){return x._pending;}).forEach(function(p){HW.publish(p);});
   D.d.notices.filter(function(x){return x._pending;}).forEach(function(p){NT.publish(p);});
   D.d.fitRecs.filter(function(x){return x._sync;}).forEach(function(r){fitPush(r);});
-  D.d.markPend.slice().forEach(function(p){cbMark(p.kind,p.seat,p.ref,p.val).then(function(ok){if(ok){D.d.markPend=D.d.markPend.filter(function(x){return x!==p;});D.save();syncSt();}});});
+  D.d.markPend.slice().forEach(sendPendingMark);
 }
 var _cloudPullAt=0;
 function cloudPull(force){
@@ -16248,6 +16304,8 @@ function bootRefresh(){
   visitLog();
 }
 function enterClass(r){
+  var renewing=activeSyncOwner&&!sameSyncIdentity(activeSyncOwner,r);
+  beginSyncIdentity(r);
   if(r.sid!==AUTH.sid){CM_LEAGUE=null;CM_LEAGUE_ERR="";CM_LEAGUE_P=null;CM_EDIT=false;rosterChoiceVersion++;resetRosterSearch("cmSearch");}
   AUTH.acc=r.sid; AUTH.sid=r.sid; AUTH.name=r.name||""; AUTH.role=r.role||""; AUTH.badge=r.badge||""; AUTH.is_admin=!!r.is_admin; AUTH.token=r.token; AUTH.ready=true;
   identityStore({token:r.token,sid:r.sid,name:r.name,role:r.role||"",badge:r.badge||"",is_admin:!!r.is_admin,ts:Date.now()});
@@ -16267,6 +16325,7 @@ function enterClass(r){
   bucketInit(); accUi(); applyMode();
   try{if(window.NTADMIN&&window.NTADMIN.syncEntry)window.NTADMIN.syncEntry();}catch(e){}
   startClassData();
+  if(renewing){UD.pull(true);marksPull(true);}
   try{document.body.classList.remove("auth-pending");}catch(e){}
   try{HIST.init();}catch(e){}
   /* 抽签存证深链 #verify=<id>（登录后才可读；进入班级后补一次）+ 今日抽签次数摘要 */
@@ -23758,6 +23817,8 @@ function optSaveCanvas(c,o){
     });
     window.addEventListener("storage",function(e){
       if(e.key!=="zq_class_identity")return;
+      var stored=identityGet();
+      if(!nativeTool&&(activeSyncOwner||stored)&&!sameSyncIdentity(activeSyncOwner,stored)){location.reload();return;}
       if(String(CURTAB)==="file")B2FILE.reload();
       else B2FILE.clearIdentity();
     });
