@@ -373,4 +373,16 @@ python deploy\ecs_drop.py selftest   # 测试身份真实 E2E（登录/open/20MB
 - `GET|HEAD /ppt-result/<sessionId>/<fileId>/<key>?exp=…&sig=…` 支持原有附件响应与 Range。移动和桌面原生端在下载请求中带 `X-Device-Id`，由服务端检查归属。网页的原生下载由同站下载 Cookie 授权。服务端校验结果、所属会话、尝试序号及原件有效期。链接和凭证最长 30 分钟，且截至原件上传完成后 72 小时。删除或清空后即刻停止接受新的下载请求。
 - 转换机通过 `/ppt-worker/` 读取个人任务，与班级队列按时间选择任务。转换机认领后直接读取已拼接原件，使用同一个 `convert_compat()`，再把成品流式写回 ECS。任务、结果和签名留在文件传输服务。队列等待超过 6 小时或认领后超过 50 分钟会转为可重试失败。删除和过期清理一并回收转换目录，旧认领无法把结果写回失效文件。启用方式见 [转换机运维](../ppt/README.md#12-文件传输的个人转换)。
 
-网页文件传输和微信小程序文件传输已接入。Android 在 `data/cloudspace/CloudSpaceApi.kt`、`CloudSpaceRepository.kt` 与 `ui/screens/cloudspace/CloudSpaceScreen.kt` 接入。HarmonyOS 对应 `data/cloudspace/CloudSpaceApi.ets`、`CloudSpaceRepository.ets` 与 `ui/tools/FileTransferScreen.ets`。Windows 对应 `ClassTools.Data/DropRepository.cs` 与 `ClassTools.App/Pages/FileDropPage.xaml.cs`。这些客户端接入时可沿用各自轮询与下载组件，按当前账号持有状态和下载凭证，继续支持不含 `conversion` 的记录。
+网页和微信小程序的文件页已消费 v2.6。审查基线的 Android、HarmonyOS、Windows 文件页仍使用原文件接口；三端分别由 M05、M06、C04 接入，核对结果以对应客户端提交和测试为准。旧客户端继续使用 v2.5 的全量文件列表。
+
+### 隔离验证个人转换
+
+在 Web 仓根执行。脚本启动仅监听 loopback 的真实 Drop HTTP 服务，使用临时存储、两张同账号测试票和另一张合成账号票。所有原件为生成的两页 PPTX 与普通文本，服务、worker 工作目录和测试浏览器随进程结束关闭。输出目录保留本次样本。
+
+    python -B drop/tests/conversion_fixture.py --output <新的结果目录>
+    python -B drop/tests/conversion_fixture.py --web --office --output <新的结果目录>
+    python -B drop/tests/conversion_fixture.py --port 17842 --keep-seconds 300 --output <新的结果目录>
+
+第一条走模拟转换机，第二条用真实移动宽度的 Web 文件选择器上传、提交，第二个独立浏览器存储读取并逐字节校验原件和两项产物，PowerPoint COM 走部署使用的 run_drop_job/convert_compat。第三条在打印 READY 后保留服务，供原生端用同台主机的 loopback 访问；模拟器应使用对应平台的本机端口映射。服务没有向外网开放端口。假 worker 需 requests、python-pptx、pypdf，Web 回归需 Edge、websocket-client、Pillow；Office 路径另需仓内转换机的依赖与已安装的 PowerPoint。
+
+fixture.json 提供本轮 base、sessionId、fileId、同账号的两张本地测试票、另一账号测试票和该次实际签发的响应。responses 包含 v2.5 文件列表、v2.6 文件列表及 queued、processing、failed、ready 四态详情。每次启动重新生成会话和下载链接。原件和产物分别与 sha256 内同名文件比对。预览 PDF 应有两页；兼容 PPTX 可重新打开且两页标题均保留。样例不含媒体，media_files 为空。下载产物需要带所属账号票，失效重新取详情再下载，原件从 files 行重签。下载原件的有效签名链接属于持有即能下载的能力，切号后服务禁止另一账号列出该会话或获取新的链接。释放夹具时删除原件验证已签产物与原件链接随即失效，并模拟 72 小时到期。
