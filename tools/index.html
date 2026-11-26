@@ -1215,6 +1215,12 @@ body.rst-lock{overflow:hidden}
 .wt-cmp-tag{margin-left:auto;font-size:11px;font-weight:700;color:#8A6A3E;background:#FAF3E6;border-radius:999px;
   padding:0 8px;line-height:1.7;white-space:nowrap}
 .wt-hero-foot{position:relative;z-index:2;margin-top:10px;display:flex;align-items:center;justify-content:flex-end;gap:8px;min-height:16px}
+#wtSync{border:0;border-bottom:1px dashed transparent;background:transparent;font-family:inherit;padding:4px 2px;min-height:30px}
+#wtSync.warn{border-bottom-color:currentColor}
+#wtReview{position:relative;z-index:2;margin-top:8px;font-size:13px;overflow-wrap:anywhere}
+#wtReview summary{cursor:pointer}
+#wtReview p{margin:8px 0}
+#wtReview .btn{margin:3px}
 .wt-form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:2px}
 .wt-form-row>div{min-width:0}
 /* ===== 月份选择（自定义：‹ 月步进 › + 点开月份网格；真实值仍在隐藏 #wtMonth） ===== */
@@ -5053,7 +5059,8 @@ html.mobile-tool .wrap > .brand,html.mobile-tool #tabsBar{display:none!important
           <div class="wt-last-s" id="wtLastSub">还没有抄表记录</div>
         </div>
         <div class="wt-cmp" id="wtCmp">先选择关注宿舍</div>
-        <div class="wt-hero-foot"><span id="wtSync" class="pw-sync" hidden></span></div>
+        <div class="wt-hero-foot"><button type="button" id="wtSync" class="pw-sync" hidden></button></div>
+        <details id="wtReview" hidden><summary>个人旧记录与待核对操作</summary><div id="wtReviewRows"></div></details>
       </div>
       <div class="card wt-form">
         <div class="pw-card-hd"><b>新增抄表</b><span class="wt-ts">水表读数（吨）</span></div>
@@ -10871,18 +10878,16 @@ try{window.__POWER_CHART=function(){var c=POWER._chart;return c?{coords:c.coords
    - 与电费共用「关注宿舍」（POWER.sel / UD.power.sel）；每间可设 1–6 人间；
    - 每次抄表 = 月份 + 水表读数（吨）；本期用量 = 本次读数 − 上一次读数；
    - 水费 = max(0, 用量 − 2×人数) × 3.03；折合扣电 = 水费 ÷ 0.58（水费从电费账户扣）；
-   - 数据 D.d.water.rooms[roomverify]={p,recs[]}，随 UD water section 跨端同步；
+   - 个人旧账本 D.d.water.rooms 继续随 UD water section 同步，共享显示和写入由 B2WATER 提供；
    - 页面只有楼栋/房间号/读数，不含姓名、学号。
    计费依据：web/_water_rules/research.md（校方 2025-09-05 说明 + 2021 公寓管理规定）。
    ============================================================ */
 var WATER={
   _bound:false,
   sel:function(){return (typeof POWER!=="undefined"&&POWER)?String(POWER.sel||""):"";},
-  rooms:function(){
-    var d=D.d||{};
-    if(!d.water||typeof d.water!=="object"||!d.water.rooms||typeof d.water.rooms!=="object")d.water={rooms:{}};
-    return d.water.rooms;
-  },
+  rooms:function(){return WATER.shared?WATER.shared.rooms():{};},
+  renderSync:function(){if(WATER.shared)WATER.shared.renderStatus();},
+  requestSync:function(){return WATER.shared?WATER.shared.flush():Promise.resolve(false);},
   room:function(rv,create){
     var rooms=WATER.rooms(),rv0=String(rv||WATER.sel());
     if(!rv0)return null;
@@ -11098,6 +11103,7 @@ var WATER={
     try{D.save();}catch(e){}
     try{if(rv&&typeof UD!=="undefined"&&UD&&UD.requestPowerSync)UD.requestPowerSync();}catch(e){}
     WATER.render();
+    if(WATER.shared&&rv)WATER.shared.onEnter();
   },
   /* 从 UD 缓存/本机兜底恢复关注宿舍（先开水量页时也能接上电费的选择） */
   restoreSel:function(){
@@ -11215,16 +11221,10 @@ var WATER={
     box.innerHTML=h;
   },
   setPersons:function(v){
-    var p=WATER.normPersons(v);
+    var p=Number(v);
     var rv=WATER.sel();
     if(!rv){toast("先选择关注宿舍");return;}
-    var room=WATER.room(rv,true);
-    if(Number(room.p)===p){WATER.render();return;}
-    room.p=p;room.recs=WATER.normRecs(room.recs);
-    D.save();
-    try{UD.pendWrite(["water"]);}catch(e){}
-    WATER.render();
-    toast("已设为 "+p+" 人间（定额 "+(RULES.waterFreePP*p)+" 吨/月）");
+    return WATER.shared.persons(rv,p);
   },
   save:function(){
     var rv=WATER.sel();
@@ -11238,83 +11238,24 @@ var WATER={
     var list=WATER.recs(rv),prev=WATER.prevOf(list,m),next=WATER.nextOf(list,m);
     if(prev&&r<prev.r){toast("读数不能小于上次 "+prev.m+" 的 "+WATER.fmt(prev.r)+" 吨");return false;}
     if(next&&r>next.r){toast("读数不能大于下一条 "+next.m+" 的 "+WATER.fmt(next.r)+" 吨");return false;}
-    var room=WATER.room(rv,true);
-    var exist=false,i;
-    for(i=0;i<room.recs.length;i++){
-      var x=room.recs[i];
-      if(x&&WATER.normMonth(x.m)===m){x.r=r;x.ts=Date.now();exist=true;break;}
-    }
-    if(!exist)room.recs.push({m:m,r:r,ts:Date.now()});
-    room.recs=WATER.normRecs(room.recs);
-    D.save();
-    try{UD.pendWrite(["water"]);}catch(e){}
-    var rEl=$("#wtReading");if(rEl)rEl.value="";
-    WATER.render();
-    toast(exist?("已更新 "+m+" 记录"):("已保存 "+m+" 抄表"));
+    if(!WATER.shared.save(rv,m,r,WATER.persons()))return false;
+    var el=$("#wtReading");if(el)el.value="";
     return true;
   },
   del:function(m){
-    var rv=WATER.sel();
-    if(!rv)return false;
-    m=WATER.normMonth(m);
-    if(!m)return false;
-    if(!confirm("删除 "+m+" 的抄表记录？"))return false;
-    var room=WATER.room(rv);
-    if(!room)return false;
-    var before=WATER.normRecs(room.recs).length;
-    room.recs=WATER.normRecs(room.recs).filter(function(x){return x.m!==m;});
-    if(room.recs.length===before)return false;
-    D.save();
-    try{UD.pendWrite(["water"]);}catch(e){}
-    WATER.render();
-    toast("已删除 "+m+" 记录");
-    return true;
+    var rv=WATER.sel();m=WATER.normMonth(m);
+    return !!(rv&&m&&confirm("删除 "+m+" 的共享抄表记录？")&&WATER.shared.del(rv,m));
   },
   applyRemote:function(w){
     D.d.water=WATER.normWater(w);
     if(typeof CURTAB!=="undefined"&&CURTAB==="water")WATER.render();
-  },
-  /* 云同步状态（与电费页同语义）：覆盖水量页全部用户内容（宿舍人数 + 抄表记录）。
-     已同步 = 云端基线已建立且本机无脏 section / 无待补发；否则「未同步 · 点重试」。 */
-  syncState:function(){
-    try{
-      if(!WATER.sel())return "none";
-      var base=(typeof UD!=="undefined"&&UD&&UD.cacheRead)?UD.cacheRead():null;
-      if(!base)return "pending";
-      var dirty=false;
-      try{dirty=UD.dirtySections().indexOf("water")>=0;}catch(e){}
-      /* 推送进行中云端基线尚未更新 → dirty 天然为真，保持「未同步」；不把 UD._push 计入 pending，
-         避免 push 成功回调瞬间闪回「未同步」再变「已同步」 */
-      var pending=!!(UD.pendRead()||dirty);
-      return pending?"pending":"ok";
-    }catch(e){return "pending";}
-  },
-  renderSync:function(){
-    var el=$("#wtSync");if(!el)return;
-    var st=WATER.syncState();
-    if(st==="none"){el.hidden=true;el.textContent="";el.removeAttribute("data-sync");return;}
-    el.hidden=false;
-    el.className="pw-sync "+(st==="ok"?"ok":"warn");
-    el.textContent=(st==="ok")?"已同步":"未同步 · 点重试";
-    el.setAttribute("data-sync",st==="ok"?"1":"0");
-  },
-  /* 点「重试」：有基线立即补推本机 water；无基线先建基线再补推（不盲推默认值覆盖云端） */
-  requestSync:function(){
-    try{
-      if(typeof UD==="undefined"||!UD||!UD.sid||!UD.sid())return Promise.resolve(false);
-      var base=null;try{base=UD.cacheRead();}catch(e){}
-      try{UD.pendWrite(["water"]);}catch(e){}
-      var p;
-      if(base)p=UD.push(true,["water"]);
-      else p=UD.pull(true).then(function(){return UD.push(true,["water"]);});
-      return Promise.resolve(p).then(function(){WATER.render();return true;},function(){WATER.render();return false;});
-    }catch(e){return Promise.resolve(false);}
   },
   enter:function(){
     WATER.renderOptions();
     WATER.restoreSel();
     WATER.bind();
     WATER.render();
+    if(WATER.shared)WATER.shared.onEnter();
     /* 补拉兜底：boot pull 慢/失败或本机缓存里还没有 water（旧缓存）时，进页强制补拉一次；
        其余情况走 UD.pull() 的 60s TTL，避免每次切页多发请求。 */
     try{
@@ -22818,8 +22759,7 @@ function optSaveCanvas(c,o){
       指定成员。做法：预设只“套用基础集合”，通过真实点击既有成员按钮走原有增删逻辑，
       不引入第二套状态；数据仍是座号数组（rosterSel/groupSel/rollSel / p_audience_seats）。
    2) 反馈6 水量云端宿舍共享：_water_shared_contract.md 口径（water / water_room）。
-      先渲染本机缓存 → 云端合并（云端 month 覆盖本地；本地独有补传）→ 保存/删除先本地再云；
-      失败进 pending（zq_water_pend_<sid>），联网/回前台/进页重试；23A/23B 固定 4 人。
+      共享记录按身份、房间缓存。只有已确认的用户操作进入待发队列，旧个人记录可逐项导入。
    3) 反馈1 文件传输独立页 #s-file：复用 ECS drop 服务（drop/CONTRACT.md，8MiB 分片、
       不限大小、磁盘不足 507、文件自上传起保留 3 天）。文件传输=临时云空间（同账号自动共享，无配对码/链接）；大屏互联仍用 #drop 打开控制器。
    4) 反馈10 网页提醒：通知页浮动入口 + 设置弹层；Notification 授权状态/开关/测试；
@@ -22835,301 +22775,260 @@ function optSaveCanvas(c,o){
      2. 水量云端宿舍共享（_water_shared_contract.md）
      ============================================================ */
   var B2WATER=(function(){
-    var PENDKEY="zq_water_pend_",CACHEKEY="zq_water_cloud_";
-    var online=true,lastOk=0,inflight={},flushT=0,bound=false;
-    function sid(){try{return (typeof AUTH!=="undefined"&&AUTH.sid)?String(AUTH.sid):"";}catch(e){return "";}}
-    function pendKey(){return PENDKEY+sid();}
-    function cacheKey(rv){return CACHEKEY+rv;}
-    function jread(k,def){try{var v=JSON.parse(localStorage.getItem(k)||"null");return v==null?def:v;}catch(e){return def;}}
-    function jwrite(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
-    function pendList(){var a=jread(pendKey(),[]);return (a instanceof Array)?a:[];}
-    function pendSet(a){jwrite(pendKey(),(a instanceof Array)?a:[]);}
-    function pendAdd(op){
-      if(!op)return;
-      if(!op.id)op.id="w"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-      var a=pendList();a.push(op);if(a.length>80)a=a.slice(-80);pendSet(a);
+    var owner=null;
+    var cachePrefix="zq_water_shared_v2_",pendingPrefix="zq_water_pend_";
+    function read(key,fallback){try{return JSON.parse(localStorage.getItem(key))||fallback;}catch(e){return fallback;}}
+    function write(key,value){localStorage.setItem(key,JSON.stringify(value));}
+    function session(){
+      var ident=identityGet(),rv=WATER.sel();
+      if(!ident||AUTH.sid!==ident.sid||AUTH.token!==ident.token){owner=null;return null;}
+      if(!owner||owner.sid!==ident.sid||owner.token!==ident.token||owner.rv!==rv){
+        owner={sid:ident.sid,token:ident.token,rv:rv,seq:0,worker:null,lastOk:0,flags:{},error:"",
+          denied:localStorage.getItem(cachePrefix+ident.sid+"_denied")==="1"};
+      }
+      return owner;
     }
-    function pendRemove(pred){pendSet(pendList().filter(function(x){return !pred(x);}));}
-    /* 2026-11-19：取消 23A/23B 固定四人间，所有宿舍均可自选 1–6 人间。 */
-    function fixed4(rv){return false;}
-    function personsOf(rv){var r=null;try{r=WATER.room(rv);}catch(e){}return WATER.normPersons(r&&r.p);}
-    function rowsNorm(rows){
-      var out=[];
-      (rows instanceof Array?rows:[]).forEach(function(x){
-        if(!x)return;
-        var m=WATER.normMonth(x.month||x.m);if(!m)return;
-        var r=Number(x.reading!=null?x.reading:x.r);if(!isFinite(r)||r<0)return;
-        out.push({m:m,r:Math.round(r*100)/100,ts:Number(x.updated_at?Date.parse(x.updated_at):x.ts)||0});
+    function valid(ctx){return ctx&&ctx===session();}
+    function prefix(ctx){return cachePrefix+ctx.sid+"_room_";}
+    function cache(ctx,rv){return read(prefix(ctx)+rv,{});}
+    function queue(ctx){var a=read(pendingPrefix+ctx.sid,[]);return Array.isArray(a)?a:[];}
+    function replace(ctx,match,withOp){
+      var a=queue(ctx).filter(function(op){return !match(op);});
+      if(withOp)a.push(withOp);
+      write(pendingPrefix+ctx.sid,a);
+    }
+    function keyed(op,other){return op.rv===other.rv&&(op.k==="room"?other.k==="room":other.k!=="room"&&op.m===other.m);}
+    function rowsFor(ctx){return queue(ctx).filter(function(op){return op&&op.rv===ctx.rv;});}
+    function numeric(x){return (typeof x==="number"||(typeof x==="string"&&x.trim()!==""))&&isFinite(Number(x));}
+    function people(x){return numeric(x)&&Number.isInteger(Number(x))&&Number(x)>=1&&Number(x)<=6;}
+    function known(cache,op){return Object.prototype.hasOwnProperty.call(cache,op.k==="room"?"people":"rows");}
+    function target(op){return op.k==="room"?op.p:op.k==="del"?null:{r:op.r,p:op.p};}
+    function at(c,op){
+      if(op.k==="room")return c.people;
+      var row=(c.rows||[]).find(function(r){return r.m===op.m;});
+      return row?{r:row.r,p:row.p}:null;
+    }
+    function equal(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+    function display(ctx,rv,ops){
+      var c=cache(ctx,rv),map=new Map((c.rows||[]).map(function(r){return [r.m,{m:r.m,r:r.r,ts:0}];}));
+      var p=c.people||4;
+      ops.forEach(function(op){
+        if(op.rv!==rv||op.v!==2||op.blocked||op.sent||!known(c,op)||!equal(op.base,at(c,op)))return;
+        if(op.k==="room")p=op.p;
+        else if(op.k==="del")map.delete(op.m);
+        else map.set(op.m,{m:op.m,r:op.r,ts:op.at});
       });
-      out.sort(function(a,b){return a.m<b.m?-1:(a.m>b.m?1:0);});
+      return {p:p,recs:Array.from(map.values())};
+    }
+    function rooms(){
+      var ctx=session(),out=Object.create(null);if(!ctx||ctx.denied)return out;
+      var start=prefix(ctx),rvs=new Set(),ops=queue(ctx);
+      for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf(start)===0)rvs.add(k.slice(start.length));}
+      if(ctx.rv)rvs.add(ctx.rv);
+      rvs.forEach(function(rv){out[rv]=display(ctx,rv,ops);});
       return out;
     }
-    function fetchJSON(url){
-      return fetch(CB+url,{headers:cbH(false),cache:"no-store"}).then(function(r){
-        if(!r.ok)throw new Error("http"+r.status);
-        return r.json();
-      });
+    function render(){
+      if(typeof CURTAB!=="undefined"&&CURTAB==="water")WATER.render();
     }
-    function postJSON(url,body){
-      return fetch(CB+url,{method:"POST",headers:cbH(false,{"Prefer":"resolution=merge-duplicates,return=minimal"}),cache:"no-store",body:JSON.stringify(body)}).then(function(r){
-        if(!r.ok)throw new Error("http"+r.status);
-        return true;
-      });
+    async function request(ctx,url,options){
+      if(!valid(ctx))throw Error("context");
+      options=options||{};
+      options.headers=cbH(false,Object.assign({"X-Device-Id":ctx.token},options.headers));
+      options.cache="no-store";
+      var response=await fetch(CB+url,options);
+      if(!valid(ctx))throw Error("context");
+      if(response.status===401||response.status===403)throw Error("denied");
+      if(!response.ok)throw Error("offline");
+      return response;
     }
-    function delJSON(url){
-      return fetch(CB+url,{method:"DELETE",headers:cbH(false),cache:"no-store"}).then(function(r){
-        if(!r.ok)throw new Error("http"+r.status);
-        return true;
-      });
-    }
-    function cacheGet(rv){return jread(cacheKey(rv),null);}
-    function cacheSet(rv,rows,p){jwrite(cacheKey(rv),{rows:rows,persons:p,at:Date.now()});}
-    function mergeRowsIntoRoom(rv,cloudRows,keepLocalOnly){
-      var cloud=rowsNorm(cloudRows);
-      var room=null;try{room=WATER.room(rv);}catch(e){room=null;}
-      if(!room){
-        if(!cloud.length)return; /* 云端也没有记录 → 不凭空创建本机房间（旧数据默认 {rooms:{}}） */
-        try{room=WATER.room(rv,true);}catch(e){room=null;}
-      }
-      if(!room)return;
-      var local=WATER.normRecs(room.recs),map={},merged=local.slice(),i,j;
-      for(i=0;i<cloud.length;i++)map[cloud[i].m]=1;
-      for(i=0;i<cloud.length;i++){
-        var hit=false;
-        for(j=0;j<merged.length;j++){if(merged[j].m===cloud[i].m){merged[j]=cloud[i];hit=true;break;}}
-        if(!hit)merged.push(cloud[i]);
-      }
-      room.recs=WATER.normRecs(merged);
-      cacheSet(rv,room.recs,personsOf(rv));
-      try{D.save();}catch(e){}
-      if(keepLocalOnly){
-        var p=personsOf(rv);
-        local.forEach(function(x){if(!map[x.m])enqueue({k:"save",rv:rv,m:x.m,r:x.r,p:p});});
-      }
-      if(typeof CURTAB!=="undefined"&&CURTAB==="water"){try{WATER.render();}catch(e){}}
-    }
-    function attempt(op){
-      if(!op)return Promise.resolve(false);
-      var done=function(){online=true;lastOk=Date.now();return true;};
-      var fail=function(){online=false;return false;};
-      try{
-        if(op.k==="save")return postJSON("water?on_conflict=roomverify,month",{roomverify:op.rv,month:op.m,reading:Number(op.r),persons:Number(op.p)||4}).then(done,fail);
-        if(op.k==="del")return delJSON("water?roomverify=eq."+op.rv+"&month=eq."+op.m).then(done,fail);
-        if(op.k==="room")return postJSON("water_room?on_conflict=roomverify",{roomverify:op.rv,persons:Number(op.p)||4}).then(done,fail);
-      }catch(e){return Promise.resolve(false);}
-      return Promise.resolve(true);
-    }
-    function enqueue(op){
-      if(!op)return;
-      pendAdd(op);
-      scheduleFlush(260);
-    }
-    function scheduleFlush(delay){
-      try{if(flushT)clearTimeout(flushT);}catch(e){}
-      flushT=setTimeout(function(){flushT=0;flush();},delay||260);
-    }
-    function flush(){
-      var list=pendList(),i=0;
-      if(!list.length){renderStatus();return Promise.resolve(true);}
-      function next(){
-        if(i>=list.length){renderStatus();return Promise.resolve(true);}
-        var op=list[i];
-        return attempt(op).then(function(ok){
-          if(!ok){renderStatus();return false;}
-          pendRemove(function(x){return x&&x.id&&x.id===op.id;});
-          i++;
-          return next();
-        },function(){renderStatus();return false;});
-      }
-      return next();
-    }
-    function save(rv,m,r,p){
-      pendRemove(function(x){return x&&x.k==="save"&&x.rv===rv&&x.m===m;});
-      return postJSON("water?on_conflict=roomverify,month",{roomverify:rv,month:m,reading:Number(r),persons:Number(p)||4})
-        .then(function(){online=true;lastOk=Date.now();renderStatus();return true;},function(){online=false;pendAdd({k:"save",rv:rv,m:m,r:Number(r),p:Number(p)||4,at:Date.now()});renderStatus();return false;});
-    }
-    function del(rv,m){
-      pendRemove(function(x){return x&&x.rv===rv&&((x.k==="save"&&x.m===m)||(x.k==="del"&&x.m===m));});
-      return delJSON("water?roomverify=eq."+rv+"&month=eq."+m)
-        .then(function(){online=true;lastOk=Date.now();renderStatus();return true;},function(){online=false;pendAdd({k:"del",rv:rv,m:m,at:Date.now()});renderStatus();return false;});
-    }
-    function persons(rv,p){
-      var want=WATER.normPersons(p);
-      pendRemove(function(x){return x&&x.k==="room"&&x.rv===rv;});
-      return postJSON("water_room?on_conflict=roomverify",{roomverify:rv,persons:want})
-        .then(function(){online=true;lastOk=Date.now();renderStatus();return true;},function(){online=false;pendAdd({k:"room",rv:rv,p:want,at:Date.now()});renderStatus();return false;});
-    }
-    function pullRoom(rv,force){
-      rv=String(rv||"");
-      if(!rv)return Promise.resolve(false);
-      if(inflight[rv]&&!force)return inflight[rv];
-      inflight[rv]=fetchJSON("water?select=roomverify,month,reading,persons&roomverify=eq."+rv+"&order=month.asc")
-        .then(function(rows){
-          online=true;lastOk=Date.now();
-          mergeRowsIntoRoom(rv,rows,true);
-          return fetchJSON("water_room?select=roomverify,persons&roomverify=eq."+rv).then(function(rs){
-            var got=null;try{if(rs&&rs[0]&&rs[0].persons!=null)got=Number(rs[0].persons);}catch(e){}
-            var want=personsOf(rv);
-            if(got==null||Number(got)!==Number(want)){
-              return postJSON("water_room?on_conflict=roomverify",{roomverify:rv,persons:want}).then(function(){
-                var room=null;try{room=WATER.room(rv);}catch(e){}
-                if(room){room.p=want;try{D.save();}catch(e){}} /* 有本机缓存才同步人数，不凭空建房 */
-                online=true;return true;
-              },function(){online=false;pendAdd({k:"room",rv:rv,p:want,at:Date.now()});return false;});
-            }
-            return true;
-          },function(){online=false;return false;});
-        },function(){online=false;renderStatus();return false;})
-        .then(function(ok){inflight[rv]=null;renderStatus();return ok;},function(){inflight[rv]=null;online=false;renderStatus();return false;});
-      return inflight[rv];
-    }
-    function reloadLocalFromCloudCache(){
-      var rv="";try{rv=WATER.sel();}catch(e){return;}
-      if(!rv)return;
-      var c=cacheGet(rv);
-      if(!c||!(c.rows instanceof Array)||!c.rows.length)return;
-      try{
-        var room=WATER.room(rv,true);if(!room)return;
-        var local=WATER.normRecs(room.recs),merged=local.slice(),i,j;
-        for(i=0;i<c.rows.length;i++){
-          var hit=false;
-          for(j=0;j<merged.length;j++){if(merged[j].m===c.rows[i].m){merged[j]=c.rows[i];hit=true;break;}}
-          if(!hit)merged.push(c.rows[i]);
+    async function list(ctx,table){
+      var monthly=table==="water",cols=monthly?"roomverify,month,reading,persons":"roomverify,persons";
+      var url=table+"?select="+cols+"&roomverify=eq."+encodeURIComponent(ctx.rv)+(monthly?"&order=month.asc":"");
+      var rows=[],seen=new Set();
+      for(;;){
+        var res=await request(ctx,url+"&limit=100&offset="+rows.length,{headers:{Prefer:"count=exact"}});
+        var page=await res.json(),range=res.headers.get("Content-Range");
+        if(!Array.isArray(page)||page.length>100)throw Error("invalid");
+        var total=null;
+        if(range){
+          var match=/^(?:(\d+)-(\d+)|\*)\/(\d+|\*)$/.exec(range);
+          if(!match||(match[1]!==undefined&&(+match[1]!==rows.length||+match[2]-Number(match[1])+1!==page.length))||
+            (match[1]===undefined&&page.length))throw Error("partial");
+          if(match[3]!=="*")total=Number(match[3]);
         }
-        room.recs=WATER.normRecs(merged);
-        if(c.persons)room.p=WATER.normPersons(c.persons);
-        D.save();
-        if(typeof CURTAB!=="undefined"&&CURTAB==="water"){try{WATER.render();}catch(e){}}
-      }catch(e){}
+        page.forEach(function(row){
+          if(!row||row.roomverify!==ctx.rv||!people(row.persons))throw Error("invalid");
+          if(!monthly){rows.push(Number(row.persons));return;}
+          var m=WATER.normMonth(row.month);
+          if(!m||seen.has(m)||!numeric(row.reading)||Number(row.reading)<0)throw Error("invalid");
+          seen.add(m);rows.push({m:m,r:Math.round(Number(row.reading)*100)/100,p:Number(row.persons)});
+        });
+        if(total!==null&&rows.length>total)throw Error("partial");
+        if(!monthly&&rows.length>1)throw Error("invalid");
+        if(total===rows.length||!page.length){
+          if(total!==null&&total!==rows.length)throw Error("partial");
+          return monthly?rows:(rows[0]||null);
+        }
+        // With no exact total, probe the next offset even after a short page.
+      }
+    }
+    async function refresh(ctx){
+      var seq=++ctx.seq;
+      try{
+        var results=await Promise.allSettled([list(ctx,"water"),list(ctx,"water_room")]);
+        if(!valid(ctx)||ctx.seq!==seq)return null;
+        if(results.some(function(x){return x.status==="rejected"&&x.reason.message==="denied";}))throw Error("denied");
+        var auth=await request(ctx,"rpc/auth_ok",{method:"POST",body:"{}"});
+        var allowed=await auth.json();
+        if(!valid(ctx)||ctx.seq!==seq)return null;
+        if(allowed===false)throw Error("denied");
+        if(allowed!==true)throw Error("invalid");
+        if(ctx.denied)localStorage.removeItem(cachePrefix+ctx.sid+"_denied");
+        ctx.denied=false;
+        var c=cache(ctx,ctx.rv),flags={};
+        ["rows","people"].forEach(function(key,i){
+          var good=results[i].status==="fulfilled";flags[key]=good;
+          if(good)c[key]=results[i].value;
+        });
+        if(flags.rows||flags.people){write(prefix(ctx)+ctx.rv,c);ctx.lastOk=Date.now();}
+        ctx.flags=flags;ctx.error=flags.rows&&flags.people?"":"部分共享数据未确认";
+        render();return flags;
+      }catch(e){
+        if(!valid(ctx)||ctx.seq!==seq)return null;
+        if(e.message==="denied"){
+          ctx.denied=true;localStorage.setItem(cachePrefix+ctx.sid+"_denied","1");
+          ctx.error="登录失效或无权限";
+        }else ctx.error="共享数据未确认 · 点重试";
+        ctx.flags={};render();return null;
+      }
+    }
+    function amend(ctx,op,fields){
+      if(!valid(ctx))return;
+      var live=queue(ctx).find(function(x){return x.id===op.id;});
+      if(live)replace(ctx,function(x){return x.id===op.id;},Object.assign({},live,fields));
+    }
+    function remove(ctx,op){replace(ctx,function(x){return x.id===op.id;});}
+    async function drain(ctx){
+      var skipped=new Set();
+      for(;;){
+        var op=rowsFor(ctx).find(function(x){return x.v===2&&!x.blocked&&!skipped.has(x.id);});
+        if(!op)break;
+        var flags=await refresh(ctx);
+        if(!valid(ctx)||!flags)return false;
+        if(!flags[op.k==="room"?"people":"rows"]){skipped.add(op.id);continue;}
+        if(!rowsFor(ctx).some(function(x){return x.id===op.id;}))continue;
+        var observed=at(cache(ctx,ctx.rv),op);
+        if(equal(observed,target(op))){remove(ctx,op);continue;}
+        if(op.sent||!Object.prototype.hasOwnProperty.call(op,"base")||!equal(observed,op.base)){
+          amend(ctx,op,{blocked:true});continue;
+        }
+        amend(ctx,op,{sent:true});
+        var room=encodeURIComponent(ctx.rv);
+        try{
+          if(op.k==="del")await request(ctx,"water?roomverify=eq."+room+"&month=eq."+encodeURIComponent(op.m),{method:"DELETE"});
+          else{
+            var body=op.k==="room"?{roomverify:ctx.rv,persons:op.p}:{roomverify:ctx.rv,month:op.m,reading:op.r,persons:op.p};
+            var path=op.k==="room"?"water_room?on_conflict=roomverify":"water?on_conflict=roomverify,month";
+            await request(ctx,path,{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(body)});
+          }
+        }catch(e){
+          if(valid(ctx)){
+            if(e.message==="denied"){ctx.denied=true;localStorage.setItem(cachePrefix+ctx.sid+"_denied","1");}
+            ctx.error=ctx.denied?"登录失效或无权限":"写入待核对 · 点重试";render();
+          }
+          return false;
+        }
+        // Read back even a successful minimal/zero-row response before clearing the intent.
+        if(!valid(ctx))return false;
+      }
+      render();return !skipped.size;
+    }
+    function run(ctx){
+      if(!valid(ctx)||!ctx.rv)return Promise.resolve(false);
+      if(ctx.worker)return ctx.worker;
+      var job=(async function(){
+        if(rowsFor(ctx).some(function(x){return x.v===2&&!x.blocked;}))return drain(ctx);
+        var f=await refresh(ctx);return !!(f&&f.rows&&f.people);
+      })();
+      ctx.worker=job.finally(function(){ctx.worker=null;if(ctx.again&&valid(ctx)){ctx.again=false;run(ctx);}});
+      return ctx.worker;
+    }
+    function enqueue(k,rv,m,r,p,reviewed){
+      var ctx=session();if(!ctx||rv!==ctx.rv||ctx.denied||!rv)return false;
+      if(["save","del","room"].indexOf(k)<0||(k!=="room"&&!WATER.normMonth(m)))return false;
+      if(k!=="del"&&(!people(p)||(k==="save"&&(!numeric(r)||Number(r)<0))))return false;
+      var op={v:2,id:cbId(),k:k,rv:rv,m:m,r:Number(r),p:Number(p),at:Date.now()};
+      var prev=rowsFor(ctx).find(function(x){return x.v===2&&keyed(op,x);}),c=cache(ctx,rv);
+      if(reviewed&&known(c,op))op.base=at(c,op);
+      else if(prev&&prev.sent&&!prev.blocked)op.base=target(prev);
+      else if(prev&&!prev.blocked&&Object.prototype.hasOwnProperty.call(prev,"base"))op.base=prev.base;
+      else if(known(c,op))op.base=at(c,op);
+      replace(ctx,function(x){return x&&((x.v===2&&keyed(op,x))||(reviewed&&!reviewed.history&&equal(x,reviewed)));},op);
+      render();
+      if(ctx.worker)ctx.again=true;
+      run(ctx);return true;
+    }
+    function describe(value,k){
+      if(value===undefined)return "尚未确认";
+      if(value===null)return "无记录";
+      return k==="room"?value+" 人":value.r+" 吨 / "+value.p+" 人";
+    }
+    function review(ctx,pending){
+      var panel=$id("wtReview"),content=$id("wtReviewRows");if(!panel)return;
+      content.replaceChildren();panel.hidden=true;
+      if(!ctx||!ctx.rv||ctx.denied)return;
+      var c=cache(ctx,ctx.rv),privateRoom=D.d.water&&D.d.water.rooms&&D.d.water.rooms[ctx.rv];
+      var entries=pending.filter(function(x){return x.v!==2||x.blocked||x.sent||!known(c,x)||!equal(x.base,at(c,x));});
+      if(privateRoom){
+        WATER.normRecs(privateRoom.recs).forEach(function(r){entries.push({k:"save",rv:ctx.rv,m:r.m,r:r.r,p:WATER.normPersons(privateRoom.p),history:true});});
+        if(people(privateRoom.p))entries.push({k:"room",rv:ctx.rv,p:Number(privateRoom.p),history:true});
+      }
+      entries.forEach(function(op){
+        var observed=known(c,op)?at(c,op):undefined,row=document.createElement("p");
+        var label=op.history?"个人旧记录":op.v===2?"待核对":"旧待发记录";
+        var item=op.k==="room"?"人数":op.m||"月份";
+        row.append(label+" · "+item+" · "+describe(target(op),op.k)+"，共享 "+describe(observed,op.k)+" ");
+        function control(text,act){var btn=document.createElement("button");btn.type="button";btn.className="btn sm";btn.textContent=text;btn.onclick=act;row.append(btn);}
+        control(op.history?"导入本项":"按当前共享值重新提交",async function(){
+          if(!valid(ctx))return;
+          var f=await refresh(ctx);
+          if(!valid(ctx)||!f||!f[op.k==="room"?"people":"rows"])return;
+          if(!op.history&&!rowsFor(ctx).some(function(x){return op.id?x.id===op.id:equal(x,op);}))return;
+          var latest=at(cache(ctx,ctx.rv),op);
+          if(observed===undefined||!equal(latest,observed)){toast("共享值已刷新，请重新核对");return;}
+          if(!confirm("将 "+item+" 的共享值从 "+describe(latest,op.k)+" 改为 "+describe(target(op),op.k)+"？"))return;
+          if(!enqueue(op.k,op.rv,op.m,op.r,op.p,op))toast("请先核对记录内容");
+        });
+        if(!op.history)control("采用共享值",function(){if(valid(ctx)){if(op.id)remove(ctx,op);else replace(ctx,function(x){return equal(x,op);});render();}});
+        content.append(row);
+      });
+      panel.hidden=!entries.length;
     }
     function renderStatus(){
-      try{
-        var el=$id("wtSync");if(!el)return;
-        if(typeof WATER==="undefined"||!WATER.sel())return;
-        var p=pendList().length;
-        if(!online||p>0){
-          el.hidden=false;
-          el.className="pw-sync warn";
-          el.textContent=online?("待补传 "+p+" 条 · 点重试"):"离线 · 自动重试中";
-          el.setAttribute("data-sync","0");
-        }else{
-          /* 云端已追上：交回原 UD 同步状态渲染（否则会一直停留在「待补传」文案） */
-          try{if(B2WATER._origRenderSync)B2WATER._origRenderSync.call(WATER);}catch(e){}
-        }
-      }catch(e){}
+      var ctx=session(),el=$id("wtSync");if(!el)return;
+      if(!ctx||!ctx.rv){el.hidden=true;review(null,[]);return;}
+      if(ctx.denied){["wtSave","wtPersons","wtReading"].forEach(function(id){var e=$id(id);if(e)e.disabled=true;});}
+      var pending=rowsFor(ctx),complete=ctx.flags.rows&&ctx.flags.people;
+      var msg=ctx.error||(pending.length?"待同步 "+pending.length+" 项 · 点重试":complete?"共享已同步":"共享值待核对 · 点重试");
+      if(pending.some(function(x){return x.v!==2||x.blocked;}))msg="有待核对记录 · "+(ctx.error||"展开下方记录");
+      el.hidden=false;el.className="pw-sync "+(complete&&!pending.length&&!ctx.error?"ok":"warn");el.textContent=msg;
+      el.setAttribute("data-sync","0");review(ctx,pending);
     }
-    function onlineTick(){
-      online=true;
-      var rv="";try{rv=WATER.sel();}catch(e){}
-      flush();
-      if(rv)pullRoom(rv,true);
+    function pullRoom(rv,force){
+      var ctx=session();if(!ctx||ctx.rv!==rv||!rv)return Promise.resolve(false);
+      if(force&&!ctx.worker)return refresh(ctx).then(function(f){return !!(f&&f.rows&&f.people);});
+      return run(ctx);
     }
-    function onEnter(){
-      bindOnce();
-      var rv="";try{rv=WATER.sel();}catch(e){}
-      if(rv)pullRoom(rv,false);
-      flush();
-    }
-    function bindOnce(){
-      if(bound)return;bound=true;
-      try{window.addEventListener("online",onlineTick);}catch(e){}
-      try{
-        document.addEventListener("visibilitychange",function(){
-          if(document.hidden)return;
-          var rv="";try{rv=WATER.sel();}catch(e){}
-          flush();
-          if(rv)pullRoom(rv,true);
-        });
-      }catch(e){}
-    }
-    return {pullRoom:pullRoom,save:save,del:del,persons:persons,flush:flush,onEnter:onEnter,
-      fixed4:fixed4,personsOf:personsOf,reloadLocalFromCloudCache:reloadLocalFromCloudCache,
-      renderStatus:renderStatus,_origRenderSync:null,
-      status:function(){return {online:online,pending:pendList().length,lastOk:lastOk};}};
+    function flush(){return run(session());}
+    window.addEventListener("online",flush);
+    document.addEventListener("visibilitychange",function(){if(!document.hidden&&CURTAB==="water")flush();});
+    return {rooms:rooms,pullRoom:pullRoom,flush:flush,onEnter:flush,renderStatus:renderStatus,
+      save:function(rv,m,r,p){return enqueue("save",rv,m,r,p);},del:function(rv,m){return enqueue("del",rv,m,null,null);},
+      persons:function(rv,p){return enqueue("room",rv,null,null,p);},
+      status:function(){var c=session();return {online:!!(c&&!c.denied&&c.flags.rows&&c.flags.people),pending:c?rowsFor(c).length:0,lastOk:c?c.lastOk:0};}};
   })();
-
-  /* 把云层接进 WATER（只包方法，不改 UD v6 契约） */
-  try{
-    if(typeof WATER!=="undefined"&&WATER){
-      WATER.fixed4=B2WATER.fixed4;
-      WATER.personsOf=B2WATER.personsOf;
-      var _wEnter=WATER.enter;
-      WATER.enter=function(){var r=_wEnter.apply(WATER,arguments);try{B2WATER.onEnter();}catch(e){}return r;};
-      var _wSave=WATER.save;
-      WATER.save=function(){
-        var ret=_wSave.apply(WATER,arguments);
-        try{
-          if(ret===true){
-            var rv=WATER.sel(),m=WATER.normMonth(($id("wtMonth")||{}).value),list=WATER.recs(rv),hit=null,i;
-            for(i=0;i<list.length;i++){if(list[i].m===m){hit=list[i];break;}}
-            if(hit)B2WATER.save(rv,m,hit.r,WATER.persons());
-          }
-        }catch(e){}
-        return ret;
-      };
-      var _wDel=WATER.del;
-      WATER.del=function(m){
-        var ret=_wDel.apply(WATER,arguments);
-        try{if(ret===true)B2WATER.del(WATER.sel(),m);}catch(e){}
-        return ret;
-      };
-      var _wSetP=WATER.setPersons;
-      WATER.setPersons=function(v){
-        var rv="";try{rv=WATER.sel();}catch(e){}
-        if(B2WATER.fixed4(rv))v=4;
-        var ret=_wSetP.call(WATER,v);
-        try{var rv2=WATER.sel();if(rv2)B2WATER.persons(rv2,WATER.persons());}catch(e){}
-        return ret;
-      };
-      var _wSyncDom=WATER.syncDom;
-      WATER.syncDom=function(){
-        var r=_wSyncDom.apply(WATER,arguments);
-        try{
-          var rv=WATER.sel(),ps=$id("wtPersons"),sel=$id("wtSel");
-          if(sel&&rv)sel.value=rv;
-          if(ps){
-            if(!rv)ps.disabled=true;
-            else if(B2WATER.fixed4(rv)){
-              ps.value="4";ps.disabled=true;
-              /* 只归一已存在的房间值；不在渲染路径里凭空创建房间（旧数据无 water 时保持 {rooms:{}}） */
-              var room=WATER.room(rv);
-              if(room&&Number(room.p)!==4){room.p=4;try{D.save();}catch(e){}}
-            }
-            else ps.disabled=false;
-          }
-        }catch(e){}
-        return r;
-      };
-      var _wPick=WATER.pickRoom;
-      WATER.pickRoom=function(rv){
-        var r=_wPick.apply(WATER,arguments);
-        try{var s=WATER.sel();if(s)B2WATER.pullRoom(s,true);}catch(e){}
-        return r;
-      };
-      var _wApplyRemote=WATER.applyRemote;
-      WATER.applyRemote=function(w){
-        var r=_wApplyRemote.apply(WATER,arguments);
-        try{B2WATER.reloadLocalFromCloudCache();}catch(e){}
-        return r;
-      };
-      var _wRenderSync=WATER.renderSync;
-      B2WATER._origRenderSync=_wRenderSync;
-      WATER.renderSync=function(){
-        var r=_wRenderSync.apply(WATER,arguments);
-        try{B2WATER.renderStatus();}catch(e){}
-        return r;
-      };
-      var _wRequestSync=WATER.requestSync;
-      WATER.requestSync=function(){
-        try{
-          B2WATER.flush();
-          var rv=WATER.sel();if(rv)B2WATER.pullRoom(rv,true);
-        }catch(e){}
-        return _wRequestSync.apply(WATER,arguments);
-      };
-    }
-  }catch(e){}
-
+  WATER.shared=B2WATER;
   /* ============================================================
      3. 文件传输独立页（ECS drop 服务；drop/CONTRACT.md v2）
      ============================================================ */
