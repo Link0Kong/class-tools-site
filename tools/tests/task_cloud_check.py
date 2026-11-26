@@ -1,148 +1,248 @@
-# -*- coding: utf-8 -*-
-"""任务云端同步 mock 集成检查（不连真实云端；真实表冒烟见 task_cloud_live_check.py）。"""
-import os, sys, json, time, threading, http.server, socketserver, subprocess, functools
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
-import task_check as tc
+"""V05: exercise real task UI and taskdata CAS with two isolated browser stores, no live API."""
+import argparse
+import json
+from copy import deepcopy
+from pathlib import Path
 
-OUT = os.path.join(HERE, "_task_cloud_check")
-os.makedirs(OUT, exist_ok=True)
-PORT = 9003
-REPORT = os.path.join(OUT, "report.json")
-
-RUNNER = r'''
-<script>
-(function(){
-  function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
-  function q(s){return document.querySelector(s);}
-  function txt(s){var e=q(s);return e?String(e.textContent||""):"";}
-  function T(k,ok,note){window.__p.steps.push({k:k,ok:!!ok,note:note==null?"":String(note)});}
-  window.__p={steps:[]};
-  window.addEventListener("load",function(){
-    setTimeout(async function(){
-      try{
-        T("云端状态出现", txt("#tkCloud").indexOf("同步")>=0, txt("#tkCloud"));
-        var items=TASK.items();
-        T("首次同步合并云端新任务", items.some(function(t){return t.title==="云端新增任务";}),
-          items.map(function(t){return t.title;}).join("|"));
-        var t2=items.filter(function(t){return t.id==="t2";})[0];
-        T("同名任务采用较新云端标题", !!t2&&t2.title==="云端改过的任务", t2?t2.title:"missing");
-        var sb=TASK.sidebar();
-        T("云端左侧视图顺序已应用", !!sb&&sb.order&&sb.order[0]==="done"&&txt("#tkSmart [data-tkview]").indexOf("已完成")===0,
-          JSON.stringify(sb)+" dom="+txt("#tkSmart [data-tkview]").slice(0,30));
-        T("本机附件不被云端覆盖", !!t2&&String(t2.attachments||"").indexOf("bG9jYWw=")>=0, t2?String(t2.attachments).slice(0,60):"");
-        var posts=window.__taskposts||[];
-        var last=posts.length?posts[posts.length-1]:null;
-        var blob=null;try{blob=JSON.parse(last[0].blob);}catch(e){}
-        T("推送 blob 含任务/分组", !!blob&&blob.items.length>=2&&blob.lists.length>=2,
-          blob?blob.items.length+" items / "+blob.lists.length+" lists":"no post");
-        T("推送 blob 不含附件 data", !!blob&&blob.items.every(function(t){return !t.attachments;}),
-          blob?blob.items.map(function(t){return t.attachments;}).join("|").slice(0,40):"");
-        T("推送 blob 含左侧视图顺序", !!blob&&blob.prefs&&Array.isArray(blob.prefs.sidebarOrder)&&blob.prefs.sidebarOrder[0]==="done",
-          blob&&blob.prefs?JSON.stringify(blob.prefs.sidebarOrder):"missing");
-        var qel=q("#tkQuick");qel.value="云端同步新任务";
-        qel.dispatchEvent(new Event("input",{bubbles:true}));
-        q("#tkQuickAdd").click();
-        var end=Date.now()+8000,found=false;
-        while(Date.now()<end){
-          posts=window.__taskposts||[];
-          found=posts.some(function(p){try{return p[0].blob.indexOf("云端同步新任务")>=0;}catch(e){return false;}});
-          if(found)break;
-          await sleep(150);
-        }
-        T("本机新任务自动推送", found, "posts="+((window.__taskposts||[]).length));
-        window.__holdTaskPost=true;
-        qel.value="第一笔慢速保存";q("#tkQuickAdd").click();
-        for(var wait=0;wait<40&&!window.__releaseTaskPost;wait++)await sleep(100);
-        T("首笔写入已进入请求",!!window.__releaseTaskPost,"");
-        qel.value="等待回包期间追加";q("#tkQuickAdd").click();
-        await sleep(1600);
-        window.__holdTaskPost=false;
-        if(window.__releaseTaskPost)window.__releaseTaskPost();
-        for(var n=0;n<50&&window.__taskdata[0].blob.indexOf("等待回包期间追加")<0;n++)await sleep(100);
-        var final=JSON.parse(window.__taskdata[0].blob);
-        T("请求期间的第二笔修改也补发",final.items.some(function(t){return t.title==="等待回包期间追加";}),"");
-        T("同步后仍无 JS 报错", (window.__errs||[]).length===0, JSON.stringify(window.__errs||[]));
-      }catch(e){window.__p.steps.push({k:"exception",ok:false,note:String(e&&e.stack||e)});}
-      try{var x=new XMLHttpRequest();x.open("POST","/_report",false);x.setRequestHeader("Content-Type","application/json");
-        x.send(JSON.stringify({steps:window.__p.steps}));}catch(e){}
-    },2800);
-  });
-})();
-</script>
-'''
-
-# 1) add taskdata to mock data
-remote = {
-    "v": 1,
-    "lists": [
-        {"id": "inbox", "name": "任务", "color": "cy", "order": 0},
-        {"id": "lstudy", "name": "学习", "color": "bl", "order": 1},
-        {"id": "llife", "name": "生活", "color": "sd", "order": 2},
-        {"id": "lcloud", "name": "云端组", "color": "violet", "order": 3},
-    ],
-    "items": [
-        {"id": "t2", "title": "云端改过的任务", "notes": "", "list": "llife", "done": False,
-         "attachments": "", "updatedAt": tc.NOW - 1000, "order": -1},
-        {"id": "tcloud", "title": "云端新增任务", "notes": "", "list": "inbox", "done": False,
-         "attachments": "", "updatedAt": tc.NOW - 1000, "order": -9},
-    ],
-    "prefs": {"sound": True, "defaultRemind": "none",
-              "sidebarOrder": ["done", "planned", "myday", "important", "all"],
-              "sidebarOrderAt": tc.NOW - 500},
-    "updatedAt": tc.NOW - 1000,
-}
-data = json.loads(json.dumps(tc.DATA))
-data["taskdata"] = [{"id": tc.SID, "blob": json.dumps(remote, ensure_ascii=False), "ts": tc.NOW - 1000}]
-tc.DATA.clear(); tc.DATA.update(data)
-
-# 2) mock taskdata GET/POST + capture
-tc.MOCK = tc.MOCK.replace("var DATA=__DATA__;",
-                          "var DATA=__DATA__;window.__taskdata=DATA.taskdata||[];window.__taskposts=[];", 1)
-tc.MOCK = tc.MOCK.replace(
-    'if(s.indexOf("/userdata")>=0)return ok([]);',
-    'if(s.indexOf("/taskdata")>=0){if(m==="POST"){var tb=JSON.parse(o.body||"[]");window.__taskposts.push(tb);window.__taskdata=tb;if(window.__holdTaskPost)return new Promise(function(resolve){window.__releaseTaskPost=function(){resolve(ok(tb));};});return ok(tb);}return ok(window.__taskdata||[]);}\n'
-    '    if(s.indexOf("/userdata")>=0)return ok([]);', 1)
-
-tasks = json.loads(json.dumps(tc.TASKS))
-for it in tasks["items"]:
-    if it["id"] == "t2":
-        it["attachments"] = json.dumps([{"n": "local.txt", "t": "text/plain", "s": 5, "d": "bG9jYWw="}], ensure_ascii=False)
-
-class H(http.server.SimpleHTTPRequestHandler):
-    def do_POST(self):
-        n = int(self.headers.get("Content-Length", 0))
-        open(REPORT, "wb").write(self.rfile.read(n))
-        self.send_response(200); self.end_headers(); self.wfile.write(b"ok")
-    def log_message(self, *a): pass
+from _test_account import TEST_SID
+from sync_browser_fixture import browser_fixture, click, screenshot, wait
 
 
-def main():
-    html = tc.build_preview(False, tasks=tasks)
-    html = html.replace("</body>", RUNNER + "\n</body>", 1)
-    page = os.path.join(OUT, "cloud.html")
-    open(page, "w", encoding="utf-8", newline="").write(html)
-    socketserver.TCPServer.allow_reuse_address = True
-    httpd = socketserver.TCPServer(("127.0.0.1", PORT), functools.partial(H, directory=OUT))
-    threading.Thread(target=httpd.serve_forever, daemon=True).start(); time.sleep(.4)
-    if os.path.exists(REPORT): os.remove(REPORT)
-    subprocess.run([tc.EDGE, "--headless=new", "--disable-gpu", "--no-first-run",
-                    "--window-size=1280,900", "--virtual-time-budget=30000",
-                    "--user-data-dir=" + os.path.join(OUT, "prof"),
-                    "http://127.0.0.1:%d/cloud.html" % PORT], capture_output=True, timeout=180)
-    for _ in range(50):
-        if os.path.exists(REPORT): break
-        time.sleep(.2)
-    if not os.path.exists(REPORT):
-        print("NO REPORT"); httpd.shutdown(); return 1
-    d = json.loads(open(REPORT, encoding="utf-8").read())
-    fail = 0
-    for s in d.get("steps", []):
-        print(("PASS" if s["ok"] else "FAIL"), s["k"], s["note"])
-        if not s["ok"]: fail += 1
-    print("RESULT", "GREEN" if fail == 0 else "RED", "PASS", len(d.get("steps", [])) - fail, "FAIL", fail)
-    httpd.shutdown()
-    return 0 if fail == 0 else 1
+class TaskService:
+    tables = ["taskdata"]
 
-if __name__ == "__main__":
-    sys.exit(main())
+    def __init__(self):
+        self.rows = {}
+        self.requests = []
+        self.zero = 0
+        self.collisions = 0
+
+    def __call__(self, req):
+        self.requests.append(req)
+        token, method, query = req["token"], req["method"], req["query"]
+        account = {"fixture-a":TEST_SID, "fixture-rotate":TEST_SID, "fixture-b":"9999000012"}.get(token)
+        if not account:
+            return 403, [], {}
+        remote = self.rows.get(account)
+        if method == "GET":
+            assert query["id"] == "eq."+account and query["select"] == "id,blob,ts", query
+            return 200, [deepcopy(remote)] if remote else [], {}
+        row = req["body"]
+        assert row["id"] == account and isinstance(row["blob"], str)
+        if method == "PATCH":
+            assert query["id"] == "eq."+account and req["prefer"] == "return=representation"
+            conflict = not remote or query["ts"] != "eq."+str(remote["ts"])
+        else:
+            assert method == "POST" and req["prefer"] == "resolution=ignore-duplicates,return=representation"
+            conflict = bool(remote)
+        if self.zero or conflict:
+            self.collisions += 1
+            self.zero = max(0, self.zero-1)
+            return 200, [], {}
+        assert row["ts"] > (remote or {"ts":0})["ts"]
+        self.rows[account] = deepcopy(row)
+        return 200, [deepcopy(row)], {}
+
+    def leaf(self, sid=TEST_SID):
+        raw = json.loads(self.rows[sid]["blob"])
+        return raw.get("data",{}).get("task",raw)
+
+    def writes(self):
+        return len([r for r in self.requests if r["method"] != "GET"])
+
+
+def sync(page):
+    return page.evaluate("TASKSYNC.pull(true)", True)
+
+
+def quick(page, name):
+    page.evaluate("document.querySelector('#tkQuick').value="+json.dumps(name))
+    click(page,"#tkQuickAdd")
+
+
+def edit(page, task_id, field, value, save=True):
+    page.evaluate("TASK.open("+json.dumps(task_id)+")")
+    page.evaluate("document.querySelector("+json.dumps("#tkF"+field)+").value="+json.dumps(value))
+    if save:
+        click(page,"#tkFSave")
+
+
+def hold_write(page):
+    page.evaluate("window.hold=r=>r.method!=='GET';void TASKSYNC.pull(true)")
+    wait(page,"typeof window.release==='function'")
+
+
+def check(directory=None):
+    service=TaskService()
+    html=(Path(__file__).resolve().parents[1]/'index.html').read_bytes()
+    html=html.replace(b'function enterClass(r){',b'window.fixtureEnterClass=enterClass;function enterClass(r){',1)
+    marker=b'    window.addEventListener("online",function(){boot();pull(true);});'
+    assert html.count(marker)==1
+    html=html.replace(marker,b'    window.fixtureTaskWire={rebase:rebase,unpack:unpack};'+marker)
+    cases=json.loads((Path(__file__).resolve().parents[2]/"deploy/tests/taskdata_conflicts_v1.json").read_text(encoding="utf8"))
+    with browser_fixture(service,html) as open_page:
+        a=open_page()
+        b=open_page("localhost")
+        for p in (a,b):
+            wait(p,"TASKSYNC.state().status.includes('暂无可见')")
+            p.evaluate("__diag.gotoTab('hw');TASK.setSeg('my')")
+        for case in cases["merge"]:
+            args=",".join(json.dumps(case[key]) for key in ("base","local","remote"))
+            assert a.evaluate("fixtureTaskWire.rebase("+args+")")==case["expected"], case["name"]
+        for case in cases["wire"]:
+            arg=json.dumps({"blob":case["blob"],"ts":case.get("ts",1)})
+            ok=a.evaluate("(()=>{try{fixtureTaskWire.unpack("+arg+");return true}catch{return false}})()")
+            assert ok==(case["path"] is not None), case["name"]
+        quick(a,"device-A")
+        hold_write(a)
+        quick(b,"device-B")
+        assert sync(b)
+        a.evaluate("release()")
+        wait(a,"TASKSYNC.state().status==='已同步'")
+        assert service.collisions==1
+        assert sync(b)
+        rows={r["title"]:r["id"] for r in service.leaf()["items"]}
+        assert set(rows)=={"device-A","device-B"}
+        x,y=rows["device-A"],rows["device-B"]
+        edit(a,x,"Title","A-edit")
+        hold_write(a)
+        edit(b,y,"Title","B-edit")
+        assert sync(b)
+        a.evaluate("release()")
+        wait(a,"TASKSYNC.state().status==='已同步'")
+        assert sync(b)
+        assert {r["title"] for r in service.leaf()["items"]}=={"A-edit","B-edit"}
+        edit(a,x,"Title","A-field")
+        hold_write(a)
+        edit(b,x,"Notes","B-note")
+        assert sync(b)
+        quick(a,"while-writing")
+        a.evaluate("release()")
+        wait(a,"TASKSYNC.state().status==='已同步'&&!TASKSYNC.state().dirty")
+        row=next(r for r in service.leaf()["items"] if r["id"]==x)
+        assert row["notes"]=="B-note" and row["title"]=="A-field"
+        assert any(r["title"]=="while-writing" for r in service.leaf()["items"])
+        assert sync(b)
+        edit(b,x,"Notes","offline-old",False)
+        assert not sync(b)
+        assert "待保存" in b.evaluate("TASKSYNC.state().status")
+        a.evaluate("TASK.open("+json.dumps(x)+")")
+        click(a,"#tkFDelete")
+        assert sync(a)
+        click(b,"#tkFSave")
+        assert sync(b)
+        assert all(r["id"]!=x for r in service.leaf()["items"])
+        quick(a,"lost-ack")
+        a.evaluate("window.lose=r=>r.method==='PATCH'")
+        assert not sync(a) and a.evaluate("TASKSYNC.state().dirty")
+        writes=service.writes()
+        assert sync(a) and service.writes()==writes
+        quick(a,"bounded")
+        service.zero=4
+        assert not sync(a) and service.writes()==writes+4
+        assert "待同步" in a.evaluate("TASKSYNC.state().status")
+        assert sync(a)
+        # The origin row can be a legacy wrapper. Keep untouched metadata and device-only files private.
+        old=deepcopy(service.leaf())
+        for item in old["items"]: item["futureItem"]={"flag":True}
+        old.setdefault("prefs",{})["futurePref"]="keep"
+        wrapped={"envelope":12,"data":{"futureSibling":True,"task":old}}
+        service.rows[TEST_SID].update(blob=json.dumps(wrapped),ts=service.rows[TEST_SID]["ts"]+1)
+        assert sync(a)
+        att=json.dumps([{"id":"fixture","n":"qa.txt","t":"text/plain","s":1,"d":"data:text/plain;base64,QQ=="}])
+        a.evaluate("TASK.items().find(t=>t.id==="+json.dumps(y)+").attachments="+json.dumps(att))
+        edit(a,y,"Notes","wrapped")
+        assert sync(a)
+        raw=json.loads(service.rows[TEST_SID]["blob"])
+        assert raw["envelope"]==12 and raw["data"]["futureSibling"]
+        assert service.leaf()["prefs"]["futurePref"]=="keep"
+        assert all("attachments" not in r and "localFiles" not in r for r in service.leaf()["items"])
+        assert "QQ==" in a.evaluate("TASK.items().find(t=>t.id==="+json.dumps(y)+").attachments")
+        # Unknown/invalid structures cannot be acknowledged as an empty row.
+        good=deepcopy(service.rows[TEST_SID])
+        for corrupt in ["{", "null", '{"items":[{"id":"r"},{"id":"r"}]}', ""]:
+            service.rows[TEST_SID]["blob"]=corrupt
+            before=service.writes()
+            assert not sync(a) and service.writes()==before
+            assert "异常" in a.evaluate("TASKSYNC.state().status")
+        service.rows[TEST_SID]=good
+        assert sync(a)
+        # Two imports of the same homework keep the confirmed task ID. Completing/removing a copy leaves the source alone.
+        assert sync(b)
+        hw=json.dumps({"id":"hw-fixture","subject":"合成","content":"作业","date":"2030-12-03"})
+        a.evaluate("TASK.addFromHW("+hw+")")
+        hold_write(a)
+        b.evaluate("TASK.addFromHW("+hw+")")
+        assert sync(b)
+        a.evaluate("release()")
+        wait(a,"TASKSYNC.state().status==='已同步'")
+        imported=[r for r in service.leaf()["items"] if r.get("sourceHwId")=="hw-fixture"]
+        assert len(imported)==1
+        task_id=json.dumps(imported[0]["id"])
+        b.evaluate("TASK.complete("+task_id+")")
+        assert sync(b)
+        assert any(r["id"]==imported[0]["id"] and r["done"] for r in service.leaf()["items"])
+        b.evaluate("TASK.open("+task_id+")")
+        click(b,"#tkFDelete")
+        assert sync(b) and sync(a)
+        assert not a.evaluate("TASK.linkedHW('hw-fixture')")
+        # Noncanonical acknowledgements require a readback. A denied write remains visibly pending.
+        quick(a,"bad-ack")
+        a.evaluate("window.fake=r=>r.method==='PATCH'?new Response('[{}]'):null")
+        count=len(service.requests)
+        assert sync(a)
+        assert [r["method"] for r in service.requests[count:]]==["GET","PATCH","GET"]
+        a.evaluate("window.fake=null;window.fail=r=>r.method==='GET'")
+        quick(a,"offline-kept")
+        assert not sync(a)
+        a.evaluate("window.fail=null; window.fake=r=>r.method==='GET'?new Response('[]',{status:403}):null")
+        assert not sync(a) and "无权限" in a.evaluate("TASKSYNC.state().status")
+        a.evaluate("window.fake=null;window.dispatchEvent(new Event('online'))")
+        wait(a,"TASKSYNC.state().status==='已同步'")
+        # Old responses after switching token/owner cannot acknowledge, reject or replace the new local view.
+        for token,sid in [("fixture-rotate",TEST_SID),("fixture-b","9999000012")]:
+            a.evaluate("window.hold=r=>r.method==='GET';void TASKSYNC.pull(true)")
+            wait(a,"typeof window.release==='function'")
+            a.evaluate("window.oldRelease=release;var i=JSON.parse(localStorage.zq_class_identity);"+
+                "Object.assign(i,{sid:"+json.dumps(sid)+",token:"+json.dumps(token)+"});"+
+                "fixtureEnterClass(i);TASKSYNC.boot()")
+            wait(a,"TASKSYNC.state().sid==="+json.dumps(sid)+"&&!TASKSYNC.state().status.includes('同步中')")
+            a.evaluate("oldRelease()")
+            if sid!=TEST_SID:
+                assert a.evaluate("TASK.items().length")==0
+        quick(a,"owner-B-only")
+        assert sync(a)
+        assert [r["title"] for r in service.leaf("9999000012")["items"]]==["owner-B-only"]
+        # A timestamp-only old cache is preserved for review. Merely reading the latest cloud row uploads nothing.
+        legacy={"items":[{"id":"old-local","title":"local-only","createdAt":1,"updatedAt":1}],"lists":[]}
+        seed="if(!sessionStorage.seeded){sessionStorage.seeded='1';localStorage.setItem(" +json.dumps("zq_tools_v2_"+TEST_SID)+",JSON.stringify({task:"+json.dumps(legacy)+"}));localStorage.setItem("+json.dumps("zq_task_cloud_"+TEST_SID)+",JSON.stringify({ts:2}));}"
+        count=service.writes()
+        old_page=open_page("127.0.0.1",seed="localStorage.removeItem('zq_class_identity');localStorage.zq_class_identity=JSON.stringify({...owner,ts:Date.now()});"+seed)
+        wait(old_page,"document.querySelector('#tkCloud button')!==null")
+        assert old_page.evaluate("JSON.parse(localStorage["+json.dumps("zq_task_cloud_"+TEST_SID)+"]).legacy.items[0].id")== "old-local"
+        assert service.writes()==count and not old_page.evaluate("TASK.items().some(t=>t.id==='old-local')")
+        # An existing versioned empty row is a real row. Its next explicit edit must use PATCH.
+        empty={"id":TEST_SID,"ts":service.rows[TEST_SID]["ts"]+1,"blob":json.dumps({"v":1,"items":[],"lists":[]})}
+        service.rows[TEST_SID]=empty
+        assert sync(old_page) and old_page.evaluate("TASK.items().length")==0
+        quick(old_page,"after-empty")
+        assert sync(old_page) and service.requests[-1]["method"]=="PATCH"
+        # A mixed legacy unconditional overwrite can move ts backwards. A clean reader takes the visible row as-is.
+        service.rows[TEST_SID]={"id":TEST_SID,"ts":1,"blob":json.dumps({"v":1,"items":[{"id":"old-writer","title":"legacy","createdAt":1}]})}
+        assert sync(old_page) and old_page.evaluate("TASK.items()[0].id")== "old-writer"
+        old_page.close()
+        # Screenshot the visible task page at each actual viewport.
+        for width in (390,430,1100):
+            b.set_device(width,860,1,width<500)
+            b.evaluate("__diag.gotoTab('hw');TASK.setSeg('my')")
+            assert b.evaluate("document.documentElement.scrollWidth===innerWidth")
+            screenshot(b,directory,f"task-{width}")
+        assert not a.evaluate("jsErrors") and not b.evaluate("jsErrors")
+        print("PASS V05: paired browsers, insert/PATCH races, field rebase, remote delete, unsaved editor, in-flight edit, homework source, attachments, session rotation, two owners, four retries and recovered acknowledgements")
+        print("Confirmed mock rows",len(service.rows),"conditional collisions",service.collisions,"writes",service.writes(),"JS errors 0")
+
+
+if __name__=="__main__":
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--evidence-dir",type=Path)
+    check(parser.parse_args().evidence_dir)

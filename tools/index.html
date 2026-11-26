@@ -25781,6 +25781,7 @@ var TK=(function(){
     var aiDraft=TKED.aiDraft!==undefined;
     tkCloseModal("#tkPanel");
     TKED=null;
+    if(window.TASKSYNC)TASKSYNC.resumeEditor();
     ATT_SESSION.task++;ATT_BUSY.task=false;
     PUBATT.task=[];
     attRenderEditor("task");
@@ -26126,7 +26127,7 @@ var TK=(function(){
     tkOpenModal("#tkListPanel");
     setTimeout(function(){try{$("#tkLName").focus();}catch(e){}},50);
   }
-  function tkCloseListEditor(){tkCloseModal("#tkListPanel");TKLIST=null;}
+  function tkCloseListEditor(){tkCloseModal("#tkListPanel");TKLIST=null;if(window.TASKSYNC)TASKSYNC.resumeEditor();}
   function tkFindListExact(id){var a=tkLists(),i;for(i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null;}
   function tkSaveList(){
     if(!TKLIST)return;
@@ -26949,169 +26950,193 @@ var TK=(function(){
      只同步任务文字/分组/排序/提醒/步骤/来源；attachments 不上云（仍本机），
      拉取时按 task id 保留本机附件。表未部署/网络失败时仅提示「仅本机」，不影响本地任务。 */
   var TASKSYNC=(function(){
-    var SID="",bootSid="",pullP=null,pushP=null,timer=0,applying=false,lastPull=0,dirty=false;
-    function sidNow(){return (typeof AUTH!=="undefined"&&AUTH.sid)?String(AUTH.sid):"";}
-    function baseKey(){return "zq_task_cloud_"+SID;}
-    function readBase(){try{return JSON.parse(localStorage.getItem(baseKey())||"null");}catch(e){return null;}}
-    function writeBase(ts){try{localStorage.setItem(baseKey(),JSON.stringify({ts:Number(ts)||0}));}catch(e){}}
-    function setStatus(t,err){var e=$("#tkCloud");if(!e)return;e.textContent=t||"";e.className="tk-cloudst"+(err?" err":"");queueWorkbenchPanels();}
-    function localTask(){return taskNormData(D.d.task);}
-    function hasData(t){return !!(t&&((t.items&&t.items.length)||(t.lists&&t.lists.length)||(t.prefs&&(t.prefs.sound===false||t.prefs.defaultRemind!=="none"||(t.prefs.sidebarOrder&&t.prefs.sidebarOrder.length)||Number(t.prefs.sidebarOrderAt)>0))));}
-    function cloudView(t){
-      var c=JSON.parse(JSON.stringify(t));
-      c.items=(c.items||[]).map(function(x){x.attachments="";return x;});
-      return c;
+    var current=null,timer=0;
+    function same(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+    function copy(a){return JSON.parse(JSON.stringify(a));}
+    function valid(ctx){
+      var id=identityGet();
+      return !!(ctx&&ctx===current&&id&&id.sid===ctx.sid&&id.token===ctx.token&&AUTH.sid===ctx.sid&&AUTH.token===ctx.token);
     }
-    function attMap(t){var m={};(t&&t.items||[]).forEach(function(x){if(x.attachments)m[x.id]=x.attachments;});return m;}
-    function applySnapshot(t,ts){
-      if(TKED){setStatus("待保存");return false;}
-      var local=localTask(),att=attMap(local),next=taskNormData(t);
-      next.items.forEach(function(x){x.attachments=att[x.id]||"";});
-      next.updatedAt=Number(ts)||Number(next.updatedAt)||Date.now();
-      applying=true;
-      D.d.task=next;
-      try{D.save();}catch(e){}
-      applying=false;
-      writeBase(next.updatedAt);dirty=false;
-      try{tkRefresh();renderHW();}catch(e){}
-      setStatus("已同步");
-      return true;
-    }
-    function ensureLocal(){
-      var t=localTask();
-      if(!Number(t.updatedAt)&&hasData(t)){
-        t.updatedAt=Date.now();D.d.task=t;
-        try{D.save();}catch(e){}
+    function key(ctx){return "zq_task_cloud_"+ctx.sid;}
+    function persist(ctx){localStorage.setItem(key(ctx),JSON.stringify(ctx.record));}
+    function status(ctx,msg,err){
+      if(ctx&&!valid(ctx))return;
+      var e=$("#tkCloud");if(!e)return;
+      e.textContent=msg;e.className="tk-cloudst"+(err?" err":"");
+      if(ctx&&ctx.record.legacy){
+        var btn=document.createElement("button");btn.type="button";btn.className="mini";
+        btn.textContent="导出本机旧任务";btn.onclick=function(){
+          if(valid(ctx))tkDownload("本机旧任务.json",JSON.stringify(ctx.record.legacy,null,2),"application/json;charset=utf-8");
+        };e.append(" ",btn);
       }
-      return localTask();
+      queueWorkbenchPanels();
     }
-    function fetchRow(){
-      return fetch(CB+"taskdata?select=*&id=eq."+encodeURIComponent(SID),{headers:cbH(false),cache:"no-store"})
-        .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();})
-        .then(function(rows){return (rows&&rows[0])||null;});
+    function stripped(task){
+      var result=copy(task);
+      result.items.forEach(function(row){delete row.attachments;delete row.localFiles;});
+      return result;
     }
-    function parseRow(row){
-      try{
-        if(!row||row.blob==null||row.blob==="")return null;
-        var t=taskNormData(JSON.parse(row.blob));
-        return t;
-      }catch(e){return null;}
-    }
-    function union(local,remote,rts){
-      var out=taskNormData(remote),lts=Number(local.updatedAt)||0;
-      var rp=out.prefs,lp=local.prefs||{};
-      var seen={};out.items.forEach(function(x){seen[x.id]=x;});
-      local.items.forEach(function(li){
-        var ri=seen[li.id];
-        if(!ri){out.items.push(li);seen[li.id]=li;return;}
-        if((Number(li.updatedAt)||0)>(Number(ri.updatedAt)||0)){
-          var i=out.items.indexOf(ri);if(i>=0)out.items[i]=li;seen[li.id]=li;
-        }
+    function view(){return stripped(taskNormData(D.d.task));}
+    function index(rows){
+      var map=new Map();
+      (rows||[]).forEach(function(r){
+        if(!r||typeof r.id!=="string"||!r.id||map.has(r.id))throw new Error("invalid");
+        map.set(r.id,r);
       });
-      var lmap={};local.lists.forEach(function(l){lmap[l.id]=l;});
-      out.lists=out.lists.map(function(rl){var ll=lmap[rl.id];return (ll&&lts>rts)?ll:rl;});
-      var rseen={};out.lists.forEach(function(l){rseen[l.id]=1;});
-      local.lists.forEach(function(ll){if(!rseen[ll.id])out.lists.push(ll);});
-      if(lts>rts)out.prefs=lp;
-      var lsoAt=Number(lp.sidebarOrderAt)||0,rsoAt=Number(rp.sidebarOrderAt)||0;
-      if(lsoAt>rsoAt){
-        out.prefs.sidebarOrder=tkSmartOrderClean(lp.sidebarOrder);
-        out.prefs.sidebarOrderAt=lsoAt;
-      }else if(rsoAt>lsoAt){
-        out.prefs.sidebarOrder=tkSmartOrderClean(rp.sidebarOrder);
-        out.prefs.sidebarOrderAt=rsoAt;
+      return map;
+    }
+    function stamp(value){
+      if(typeof value!=="number"&&!(typeof value==="string"&&/^\d+$/.test(value)))throw new Error("invalid");
+      var n=Number(value);if(!Number.isSafeInteger(n)||n<0)throw new Error("invalid");
+      return n;
+    }
+    function unpack(row){
+      var ts=row?stamp(row.ts):0;
+      var root=!row||(row.blob===""&&ts===0)?{v:1,items:[],lists:[]}:
+        (typeof row.blob==="string"?JSON.parse(row.blob):copy(row.blob));
+      var obj=root,parent=null,at="";
+      for(var depth=0;obj&&typeof obj==="object"&&!Array.isArray(obj)&&depth<=3;depth++){
+        if(Array.isArray(obj.items)){
+          if(obj.lists!==undefined&&!Array.isArray(obj.lists))break;
+          index(obj.items);index(obj.lists);
+          return {root:root,leaf:obj,parent:parent,at:at,ts:ts};
+        }
+        at=["task","data","v"].find(function(k){return obj[k]&&typeof obj[k]==="object"&&!Array.isArray(obj[k]);});
+        if(!at)break;
+        parent=obj;obj=obj[at];
       }
-      out.updatedAt=Math.max(lts,rts,Date.now());
+      throw new Error("invalid");
+    }
+    function fields(before,local,remote){
+      var result=Object.assign({},remote);
+      Object.keys(local).forEach(function(k){if(!same(before[k],local[k]))result[k]=local[k];});
+      return result;
+    }
+    function sameImport(a,b){
+      if(a.fromId)return a.fromId===b.fromId&&a.due===b.due;
+      return !!((a.sourceHwId&&a.sourceHwId===b.sourceHwId)||(a.sourceNoticeId&&a.sourceNoticeId===b.sourceNoticeId));
+    }
+    function entities(base,local,remote,items){
+      var before=index(base),after=index(local),out=index(remote);
+      before.forEach(function(_,id){if(!after.has(id))out.delete(id);});
+      after.forEach(function(row,id){
+        if(same(row,before.get(id))||(before.has(id)&&!out.has(id)))return;
+        if(items&&!out.has(id)&&Array.from(out.values()).some(function(r){return sameImport(row,r);}))return;
+        out.set(id,fields(before.get(id)||{},row,out.get(id)));
+      });
+      return Array.from(out.values());
+    }
+    function rebase(before,local,remote){
+      var out=Object.assign({},remote);
+      out.items=entities(before.items,local.items,remote.items,true);
+      if(remote.lists||!same(before.lists,local.lists))out.lists=entities(before.lists,local.lists,remote.lists,false);
+      var prefs=Object.assign({},local.prefs);
+      if(Number(prefs.sidebarOrderAt||0)<Number(remote.prefs&&remote.prefs.sidebarOrderAt||0)){
+        delete prefs.sidebarOrder;delete prefs.sidebarOrderAt;
+      }
+      if(remote.prefs||!same(before.prefs,local.prefs))out.prefs=fields(before.prefs||{},prefs,remote.prefs);
+      var lists=index(out.lists);
+      out.items=out.items.map(function(item){
+        var row=Object.assign({},item);delete row.attachments;delete row.localFiles;
+        if(row.list&&out.lists&&!lists.has(row.list))row.list="";
+        return row;
+      });
       return out;
     }
-    function pull(force){
-      var owner=SID;
-      if(!owner||owner!==sidNow())return Promise.resolve(false);
-      if(pullP)return pullP;
-      if(!force&&Date.now()-lastPull<60000)return Promise.resolve(false);
-      setStatus("同步中…");
-      pullP=fetchRow().then(function(row){
-        if(owner!==SID||owner!==sidNow())return false;
-        lastPull=Date.now();
-        var local=localTask(),lts=Number(local.updatedAt)||0;
-        if(!row){
-          writeBase(0);
-          if(!hasData(local)){setStatus("已同步");return true;}
-          if(!lts){local.updatedAt=Date.now();D.d.task=local;try{D.save();}catch(e){}}
-          return push(true);
-        }
-        var remote=parseRow(row),rts=Number(row.ts)||Number(remote&&remote.updatedAt)||0;
-        if(!remote){
-          if(hasData(local))return push(true);
-          setStatus("已同步");return true;
-        }
-        var base=readBase();
-        if(!base){
-          if(hasData(local)){
-            var merged=union(local,remote,rts);
-            if(!applySnapshot(merged,merged.updatedAt))return true;
-            return push(true);
+    function sameContents(a,b){
+      return same(a.items,b.items)&&same(a.lists,b.lists)&&same(a.prefs,b.prefs);
+    }
+    function apply(ctx,row,sent){
+      if(!valid(ctx))return false;
+      if(TKED||TKLIST){ctx.deferred=true;status(ctx,"待保存 · 编辑器仍打开");return false;}
+      var wire=unpack(row),local=view(),ui=taskNormData(wire.leaf),attachments=index(tkData().items);
+      ui.updatedAt=wire.ts;
+      var anchor=stripped(ui),next=taskNormData(rebase(sent,local,ui));
+      next.items.forEach(function(item){var saved=attachments.get(item.id);item.attachments=saved&&saved.attachments||"";});
+      ctx.record.dirty=!sameContents(anchor,stripped(next));
+      next.updatedAt=ctx.record.dirty?Math.max(wire.ts,local.updatedAt):wire.ts;
+      ctx.record.base=row;ctx.record.anchor=anchor;
+      D.d.task=next;D.save();persist(ctx);ctx.lastPull=Date.now();
+      tkRefresh();renderHW();
+      status(ctx,ctx.record.dirty?"待同步 · 已保存本机":row?"已同步":"云端暂无可见任务");
+      return true;
+    }
+    function visible(ctx){if(!valid(ctx))throw new Error("session");}
+    async function request(ctx,suffix,options){
+      visible(ctx);
+      options.headers=cbH(false,Object.assign({"X-Device-Id":ctx.token},options.headers));
+      var r=await fetch(CB+"taskdata"+suffix,options);
+      visible(ctx);
+      if(!r.ok)throw new Error("http"+r.status);
+      var rows=await r.json();visible(ctx);
+      return rows;
+    }
+    async function sync(ctx){
+      var filter="?id=eq."+encodeURIComponent(ctx.sid);
+      for(var attempt=0;attempt<4;attempt++){
+        var rows=await request(ctx,filter+"&select=id,blob,ts",{cache:"no-store"});
+        if(!Array.isArray(rows)||rows.length>1||(rows.length&&(!rows[0]||rows[0].id!==ctx.sid)))throw new Error("invalid");
+        var row=rows[0]||null,wire=unpack(row),record=ctx.record,local=view();
+        if(TKED||TKLIST){ctx.deferred=true;status(ctx,"待保存 · 编辑器仍打开");return false;}
+        if(!Object.prototype.hasOwnProperty.call(record,"base")&&!record.legacy){
+          var first=record.anchor;
+          if((first.items.length||first.lists.length||!same(first.prefs,taskDefaultData().prefs))&&
+             !sameContents(first,stripped(taskNormData(wire.leaf)))){
+            // The old timestamp alone cannot distinguish edits from a stale replica.
+            record.legacy=ctx.oldLocal||copy(D.d.task);persist(ctx);
           }
-          return applySnapshot(remote,rts);
         }
-        if(rts>lts){
-          if(TKED){setStatus("待保存");return true;}
-          return applySnapshot(remote,rts);
-        }
-        if(lts>rts)return push(true);
-        writeBase(rts);setStatus("已同步");return true;
-      }).catch(function(){if(owner===sidNow())setStatus("仅本机",true);return false;}).then(function(x){if(pullP===request)pullP=null;return x;});
-      var request=pullP;
-      return pullP;
-    }
-    function push(force){
-      var owner=SID;
-      if(!owner||owner!==sidNow())return Promise.resolve(false);
-      if(pushP)return pushP;
-      setStatus("同步中…");
-      pushP=fetchRow().then(function(row){
-        if(owner!==SID||owner!==sidNow())return false;
-        var local=ensureLocal(),lts=Number(local.updatedAt)||0;
-        if(!hasData(local)&&!row){setStatus("已同步");return true;}
-        var rts=row?(Number(row.ts)||0):0;
-        if(row&&rts>lts&&!force){
-          var remote=parseRow(row);
-          if(remote&&!TKED)return applySnapshot(remote,rts);
-          setStatus("待保存");return false;
-        }
-        var cloud=cloudView(local);cloud.updatedAt=lts;
-        var body=[{id:SID,blob:JSON.stringify(cloud),ts:lts}];
-        var h=cbH(true);h["Prefer"]="return=representation,resolution=merge-duplicates";
-        return fetch(CB+"taskdata",{method:"POST",headers:h,body:JSON.stringify(body)}).then(function(r){
-          if(!r.ok)throw new Error("http"+r.status);
-          if(owner!==SID||owner!==sidNow())return false;
-          writeBase(lts);
-          if(Number(tkData().updatedAt)>lts){touch();return true;}
-          dirty=false;setStatus("已同步");return true;
+        if(!record.dirty)return apply(ctx,row,local);
+        var merged=rebase(record.anchor,local,wire.leaf);
+        if(same(merged,wire.leaf))return apply(ctx,row,local);
+        var nextTs=stamp(Math.max(Date.now(),stamp(local.updatedAt),wire.ts+1));
+        merged.updatedAt=nextTs;
+        if(wire.parent)wire.parent[wire.at]=merged;else wire.root=merged;
+        var write={id:ctx.sid,blob:JSON.stringify(wire.root),ts:nextTs};
+        var result=await request(ctx,row?filter+"&ts=eq."+wire.ts:"",{
+          method:row?"PATCH":"POST",body:JSON.stringify(write),
+          headers:{Prefer:row?"return=representation":"resolution=ignore-duplicates,return=representation"}
         });
-      }).catch(function(){if(owner===sidNow())setStatus("仅本机",true);return false;}).then(function(x){if(pushP===request)pushP=null;return x;});
-      var request=pushP;
-      return pushP;
+        if(Array.isArray(result)&&result.length===1&&result[0]&&result[0].id===ctx.sid&&
+           (result[0].ts===nextTs||result[0].ts===String(nextTs))&&result[0].blob===write.blob)return apply(ctx,result[0],local);
+        // The next GET verifies an uncertain acknowledgement or rebases on the winner.
+      }
+      status(ctx,"待同步 · 存在并发修改，稍后可重试",true);return false;
     }
-    function touch(){
-      if(applying||!SID)return;
-      dirty=true;setStatus("同步中…");
-      clearTimeout(timer);
-      timer=setTimeout(function(){if(readBase())push();else pull(true);},1200);
+    function schedule(ctx){
+      clearTimeout(timer);timer=setTimeout(function(){if(valid(ctx))pull(true);},1200);
+    }
+    function pull(force){
+      var ctx=current;
+      if(!valid(ctx))return Promise.resolve(false);
+      if(ctx.running)return ctx.running;
+      if(!force&&!ctx.record.dirty&&!ctx.deferred&&Date.now()-ctx.lastPull<60000)return Promise.resolve(false);
+      ctx.deferred=false;status(ctx,"同步中…");
+      ctx.running=sync(ctx).catch(function(e){
+        if(valid(ctx))status(ctx,/^http40[13]$/.test(e.message)?"登录失效或无权限 · 更改留在本机":
+          (e.message==="invalid"||e instanceof SyntaxError)?"云端快照异常 · 已保留本机":"待同步 · 已保存本机",true);
+        return false;
+      }).then(function(ok){ctx.running=null;if(ok&&valid(ctx)&&ctx.record.dirty)schedule(ctx);return ok;});
+      return ctx.running;
     }
     function boot(){
-      var s=sidNow();
-      if(!s){setStatus("登录后同步");return;}
-      if(bootSid===s)return;
-      clearTimeout(timer);pullP=null;pushP=null;dirty=false;
-      bootSid=s;SID=s;lastPull=0;
-      pull(true);
+      if(valid(current))return;
+      clearTimeout(timer);current=null;
+      var id=identityGet();
+      if(!id||!id.token||AUTH.sid!==id.sid||AUTH.token!==id.token){status(null,"登录后同步");return;}
+      var ctx={sid:id.sid,token:id.token,record:{},lastPull:0,running:null};
+      try{ctx.record=JSON.parse(localStorage.getItem(key(ctx)))||{};}catch(e){}
+      if(!ctx.record.anchor){ctx.record={anchor:view(),dirty:false};ctx.oldLocal=copy(D.d.task);}
+      current=ctx;pull(true);
     }
-    function flush(){
-      if(!SID)return;
-      if(dirty){if(readBase())push();else pull(true);}
+    function touch(){
+      var ctx=current;if(!valid(ctx))return;
+      ctx.record.dirty=true;persist(ctx);status(ctx,"待同步 · 已保存本机");schedule(ctx);
     }
-    return {boot:boot,pull:pull,push:push,touch:touch,flush:flush,state:function(){return {sid:SID,dirty:dirty,status:$("#tkCloud")?$("#tkCloud").textContent:""};}};
+    window.addEventListener("online",function(){boot();pull(true);});
+    return {boot:boot,pull:pull,push:function(){return pull(true);},touch:touch,flush:function(){if(current&&current.record.dirty)return pull(true);},
+      resumeEditor:function(){if(valid(current)&&current.deferred)setTimeout(function(){pull(true);},0);},
+      state:function(){return {sid:current?current.sid:"",dirty:!!(current&&current.record.dirty),status:$("#tkCloud").textContent};}};
   })();
   try{window.TASKSYNC=TASKSYNC;}catch(e){}
 
