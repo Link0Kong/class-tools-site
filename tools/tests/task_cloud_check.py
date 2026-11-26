@@ -9,20 +9,22 @@ from sync_browser_fixture import browser_fixture, click, screenshot, wait
 
 
 class TaskService:
-    tables = ["taskdata"]
+    tables = ["taskdata","auth_ok"]
 
     def __init__(self):
         self.rows = {}
         self.requests = []
         self.zero = 0
         self.collisions = 0
+        self.tokens = {"fixture-a":TEST_SID, "fixture-rotate":TEST_SID, "fixture-b":"9999000012"}
 
     def __call__(self, req):
         self.requests.append(req)
         token, method, query = req["token"], req["method"], req["query"]
-        account = {"fixture-a":TEST_SID, "fixture-rotate":TEST_SID, "fixture-b":"9999000012"}.get(token)
+        account = self.tokens.get(token)
+        if req["table"].split("/")[-1]=="auth_ok": return 200,bool(account),{}
         if not account:
-            return 403, [], {}
+            return (200 if method=="GET" else 403), [], {}
         remote = self.rows.get(account)
         if method == "GET":
             assert query["id"] == "eq."+account and query["select"] == "id,blob,ts", query
@@ -48,7 +50,7 @@ class TaskService:
         return raw.get("data",{}).get("task",raw)
 
     def writes(self):
-        return len([r for r in self.requests if r["method"] != "GET"])
+        return len([r for r in self.requests if r["table"]=="taskdata" and r["method"] != "GET"])
 
 
 def sync(page):
@@ -68,8 +70,58 @@ def edit(page, task_id, field, value, save=True):
 
 
 def hold_write(page):
-    page.evaluate("window.hold=r=>r.method!=='GET';void TASKSYNC.pull(true)")
+    page.evaluate("window.hold=r=>r.table==='taskdata'&&r.method!=='GET';void TASKSYNC.pull(true)")
     wait(page,"typeof window.release==='function'")
+
+
+def check_absence(html):
+    service=TaskService()
+    with browser_fixture(service,html) as open_page:
+        page=open_page(seed="window.fail=r=>r.table==='auth_ok'")
+        wait(page,"TASKSYNC.state().status.includes('暂不可核验')")
+        page.evaluate("__diag.gotoTab('hw');TASK.setSeg('my')")
+        quick(page,"first-create")
+        assert not sync(page) and service.writes()==0
+        assert page.evaluate("TASK.items().length===1&&TASKSYNC.state().dirty")
+        page.evaluate("window.fail=null;window.fake=r=>r.table==='auth_ok'?new Response('{}'):null")
+        assert not sync(page) and "暂不可核验" in page.evaluate("TASKSYNC.state().status")
+        page.evaluate("window.fake=null")
+        assert sync(page) and service.writes()==1
+        item=page.evaluate("TASK.items()[0].id")
+        old=deepcopy(service.rows[TEST_SID])
+        key=json.dumps("zq_task_cloud_"+TEST_SID)
+        checkpoint="JSON.parse(localStorage["+key+"]).base"
+        # Both a clean reader and a dirty editor retain the last verified row when RLS masks it.
+        service.tokens.pop("fixture-a")
+        assert not sync(page) and page.evaluate(checkpoint)==old
+        assert page.evaluate("TASK.items().length===1&&!TASKSYNC.state().dirty")
+        assert "无权限" in page.evaluate("TASKSYNC.state().status")
+        edit(page,item,"Notes","offline-draft")
+        assert not sync(page) and page.evaluate(checkpoint)==old
+        assert page.evaluate("TASK.items()[0].notes==='offline-draft'&&TASKSYNC.state().dirty")
+        page.evaluate("window.fail=r=>r.table==='auth_ok'")
+        assert not sync(page) and "暂不可核验" in page.evaluate("TASKSYNC.state().status")
+        page.evaluate("window.fail=null")
+        assert service.writes()==1
+        # An authenticated physical disappearance differs from an explicit, versioned clear.
+        service.tokens["fixture-a"]=TEST_SID
+        service.rows.pop(TEST_SID)
+        assert not sync(page) and "暂不可见" in page.evaluate("TASKSYNC.state().status")
+        assert page.evaluate(checkpoint)==old and page.evaluate("TASK.items()[0].notes==='offline-draft'&&TASKSYNC.state().dirty")
+        # An obsolete auth probe cannot clear or reject a renewed same-owner session.
+        page.evaluate("window.hold=r=>r.table==='auth_ok';void TASKSYNC.pull(true)")
+        wait(page,"typeof release==='function'")
+        service.rows[TEST_SID]=old
+        page.evaluate("fixtureEnterClass({sid:"+json.dumps(TEST_SID)+",name:'测试账号',token:'fixture-rotate'});TASKSYNC.boot()")
+        wait(page,"TASKSYNC.state().status==='已同步'&&!TASKSYNC.state().dirty")
+        page.evaluate("release()")
+        assert service.leaf()["items"][0]["notes"]=="offline-draft"
+        # An incoming legitimate clear applies even to the old offline editor's copy.
+        edit(page,item,"Notes","stale-after-clear")
+        service.rows[TEST_SID]={"id":TEST_SID,"ts":service.rows[TEST_SID]["ts"]+1,"blob":json.dumps({"v":1,"items":[],"lists":[]})}
+        assert sync(page) and page.evaluate("TASK.items().length===0&&!TASKSYNC.state().dirty")
+        assert page.evaluate(checkpoint)==service.rows[TEST_SID]
+        print("PASS RLS HTTP 200 []: clean/dirty existing row preserved, first-create waits for auth, unavailable/denied/unexpected auth differentiated, same-sid token renewed, real versioned clear applied")
 
 
 def check(directory=None):
@@ -240,6 +292,7 @@ def check(directory=None):
         assert not a.evaluate("jsErrors") and not b.evaluate("jsErrors")
         print("PASS V05: paired browsers, insert/PATCH races, field rebase, remote delete, unsaved editor, in-flight edit, homework source, attachments, session rotation, two owners, four retries and recovered acknowledgements")
         print("Confirmed mock rows",len(service.rows),"conditional collisions",service.collisions,"writes",service.writes(),"JS errors 0")
+    check_absence(html)
 
 
 if __name__=="__main__":

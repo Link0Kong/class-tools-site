@@ -26961,21 +26961,37 @@ var TK=(function(){
       return true;
     }
     function visible(ctx){if(!valid(ctx))throw new Error("session");}
-    async function request(ctx,suffix,options){
+    async function request(ctx,path,options){
       visible(ctx);
       options.headers=cbH(false,Object.assign({"X-Device-Id":ctx.token},options.headers));
-      var r=await fetch(CB+"taskdata"+suffix,options);
+      var r=await fetch(CB+path,options);
       visible(ctx);
       if(!r.ok)throw new Error("http"+r.status);
       var rows=await r.json();visible(ctx);
       return rows;
     }
+    async function verifyAbsent(ctx){
+      var allowed;
+      try{allowed=await request(ctx,"rpc/auth_ok",{method:"POST",body:"{}"});}
+      catch(e){
+        if(e.message==="session"||/^http40[13]$/.test(e.message))throw e;
+        throw new Error("authUnknown");
+      }
+      visible(ctx);
+      if(allowed===false)throw new Error("http403");
+      if(allowed!==true)throw new Error("authUnknown");
+      // A supported clear leaves a versioned row. Its disappearance is not a confirmed deletion.
+      if(ctx.record.base)throw new Error("missingRow");
+    }
     async function sync(ctx){
       var filter="?id=eq."+encodeURIComponent(ctx.sid);
       for(var attempt=0;attempt<4;attempt++){
-        var rows=await request(ctx,filter+"&select=id,blob,ts",{cache:"no-store"});
+        var rows=await request(ctx,"taskdata"+filter+"&select=id,blob,ts",{cache:"no-store"});
         if(!Array.isArray(rows)||rows.length>1||(rows.length&&(!rows[0]||rows[0].id!==ctx.sid)))throw new Error("invalid");
-        var row=rows[0]||null,wire=unpack(row),record=ctx.record,local=view();
+        var row=rows[0]||null;
+        if(!row)await verifyAbsent(ctx);
+        visible(ctx);
+        var wire=unpack(row),record=ctx.record,local=view();
         if(TKED||TKLIST){ctx.deferred=true;status(ctx,"待保存 · 编辑器仍打开");return false;}
         if(!Object.prototype.hasOwnProperty.call(record,"base")&&!record.legacy){
           var first=record.anchor;
@@ -26992,7 +27008,7 @@ var TK=(function(){
         merged.updatedAt=nextTs;
         if(wire.parent)wire.parent[wire.at]=merged;else wire.root=merged;
         var write={id:ctx.sid,blob:JSON.stringify(wire.root),ts:nextTs};
-        var result=await request(ctx,row?filter+"&ts=eq."+wire.ts:"",{
+        var result=await request(ctx,"taskdata"+(row?filter+"&ts=eq."+wire.ts:""),{
           method:row?"PATCH":"POST",body:JSON.stringify(write),
           headers:{Prefer:row?"return=representation":"resolution=ignore-duplicates,return=representation"}
         });
@@ -27013,6 +27029,8 @@ var TK=(function(){
       ctx.deferred=false;status(ctx,"同步中…");
       ctx.running=sync(ctx).catch(function(e){
         if(valid(ctx))status(ctx,/^http40[13]$/.test(e.message)?"登录失效或无权限 · 更改留在本机":
+          e.message==="authUnknown"?"登录状态暂不可核验 · 已保留本机":
+          e.message==="missingRow"?"云端任务行暂不可见 · 已保留本机":
           (e.message==="invalid"||e instanceof SyntaxError)?"云端快照异常 · 已保留本机":"待同步 · 已保存本机",true);
         return false;
       }).then(function(ok){ctx.running=null;if(ok&&valid(ctx)&&ctx.record.dirty)schedule(ctx);return ok;});
