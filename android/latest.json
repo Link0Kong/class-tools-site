@@ -1,10 +1,10 @@
 {
-  "versionCode": 163,
-  "versionName": "1.0.0-beta80",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta80.apk",
-  "notes": "通知设置按手机显示对应的厂商推送，刷新时只检查当前通道。统一应用内提示样式，弹窗和底部面板打开时也能看到操作反馈。",
+  "versionCode": 164,
+  "versionName": "1.0.0-beta81",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta81.apk",
+  "notes": "统一站内提示的配色与顶部位置。键盘、弹窗、底部面板和内嵌网页中都可看到操作反馈，长提示支持换行，短提示更紧凑。体测、作业、点名和水量的撤销使用同一提示条。",
   "force": false,
   "channel": "beta",
-  "sha256": "4b24ae3854ab28249aa0f837cafb81b3b88d5a002aaffe825bdb708733891774",
-  "sizeBytes": 6987780
+  "sha256": "903b2ce2c372b594146d5c481e2fc755a9637fa48174bd1910d1c87746f94a68",
+  "sizeBytes": 6971392
 }
