@@ -1,10 +1,10 @@
 {
-  "versionCode": 164,
-  "versionName": "1.0.0-beta81",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta81.apk",
-  "notes": "统一站内提示的配色与顶部位置。键盘、弹窗、底部面板和内嵌网页中都可看到操作反馈，长提示支持换行，短提示更紧凑。体测、作业、点名和水量的撤销使用同一提示条。",
+  "versionCode": 166,
+  "versionName": "1.0.0-beta83",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta83.apk",
+  "notes": "Android 12 及以上的工具和默认桌面组件跟随莫奈壁纸配色。待办支持分色清单、四象限与新建入口，课表支持双日日程。通知、作业和任务可按指定时刻提醒，活动报名支持实时通知与悬浮倒计时。",
   "force": false,
   "channel": "beta",
-  "sha256": "903b2ce2c372b594146d5c481e2fc755a9637fa48174bd1910d1c87746f94a68",
-  "sizeBytes": 6971392
+  "sha256": "e8309e7673782ca0c1678f8195de98bb060cb1764c2ddee4a1ea3a08df80ac38",
+  "sizeBytes": 7111052
 }
