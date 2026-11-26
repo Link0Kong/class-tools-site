@@ -14814,6 +14814,12 @@ var DIAG=(function(){
     if(lp.ok&&used>=0){pct=Math.round(used/(5*1024*1024)*1000)/10;if(pct>100)pct=100;}
     return lp.ok?pct:0;
   }
+  function clockSkew(){
+    var cloud=S.cloud;
+    if(!cloud||cloud.clockSkew==null)return null;
+    var age=Date.now()-cloud.clockAt;
+    return age>=0&&age<S.interval?cloud.clockSkew:null;
+  }
   function deviceBase(){
     var meta=(S.dev&&S.dev.meta)?S.dev.meta:devMeta();
     var pct=(S.dev&&num(S.dev.pct))?num(S.dev.pct):storagePctNow();
@@ -14821,7 +14827,7 @@ var DIAG=(function(){
       screen:{w:num(meta.screen&&meta.screen.w),h:num(meta.screen&&meta.screen.h),dpr:num(meta.screen&&meta.screen.dpr)||1},
       memoryGB:num(meta.memoryGB),storagePct:pct,
       network:String(meta.network||""),
-      clockSkewMs:(S.cloud&&num(S.cloud.serverAt))?Math.round(num(S.cloud.serverAt)+(num(S.cloud.latency)||0)/2-Date.now()):0};
+      clockSkewMs:clockSkew()||0};
   }
 
   /* ---------------- 服务健康（18 行 / 5 组，浏览器实时探测覆盖） ---------------- */
@@ -15174,8 +15180,7 @@ var DIAG=(function(){
       st:online?((meta.network==="slow-2g"||meta.network==="2g")?"warn":"ok"):"down"});
     var lat=S.cloud&&S.cloud.ok?Number(S.cloud.latency)||0:-1;
     checks.push({id:"gateway",k:"云端网关",v:lat>=0?(lat+" ms"):"连接失败",st:lat<0?"down":(lat<1500?"ok":(lat<3000?"warn":"down"))});
-    var skew=null;
-    if(S.cloud&&num(S.cloud.serverAt))skew=Math.round(num(S.cloud.serverAt)+(num(S.cloud.latency)||0)/2-Date.now());
+    var skew=clockSkew();
     meta.clockSkewMs=skew==null?0:skew;
     checks.push({id:"clock",k:"时钟偏差",v:skew==null?"无法校准":(Math.abs(skew)<2000?"正常":(skew+" ms")),
       st:skew==null?"warn":(Math.abs(skew)<120000?"ok":(Math.abs(skew)<600000?"warn":"down"))});
@@ -15216,7 +15221,7 @@ var DIAG=(function(){
       '<button class="btn ghost" id="diagReport" type="button">上报</button></div>';
     if(S.reportNote)h+='<div class="dd-note'+(/失败/.test(S.reportNote)?" err":"")+'">'+esc(S.reportNote)+'</div>';
     box.innerHTML=h;
-    var rb=$("#diagRecheck");if(rb)rb.addEventListener("click",function(){deviceRun();});
+    var rb=$("#diagRecheck");if(rb)rb.addEventListener("click",function(){pull();});
     var pb=$("#diagReport");if(pb)pb.addEventListener("click",function(){reportDevice(true);});
   }
   function deviceRun(){
@@ -15283,7 +15288,7 @@ var DIAG=(function(){
       detail:{check:checkIds.join(",")||"ok",
         latency_ms:(S.cloud&&S.cloud.ok)?Number(S.cloud.latency)||0:-1,
         storage_pct:(S.dev&&num(S.dev.pct))||0,
-        clock_skew_ms:(S.dev&&S.dev.meta&&num(S.dev.meta.clockSkewMs))||0,
+        clock_skew_ms:clockSkew()||0,
         err_count:S.jsErr,
         code:downIds[0]||""},
       device:deviceBase(),
@@ -15292,6 +15297,7 @@ var DIAG=(function(){
   }
   function reportDevice(manual){
     if(!AUTH.token)return Promise.resolve(false);
+    if(manual)S.dev=buildDev();
     var row=devRow(manual);
     if(!row){
       S.reportNote=manual?"当前无明显异常，未上报":"";
@@ -15327,7 +15333,7 @@ var DIAG=(function(){
     if(!AUTH.token)return Promise.resolve(false);
     if(S.aiBusy)return S.aiBusy;
     S.aiBusy=Promise.resolve(Promise.all([
-      fetch(CB+"diag_analysis?select=*&order=ts.desc&limit=20",{headers:cbH(false),cache:"no-store"})
+      fetch(CB+"diag_analysis?select=*&status=neq.ignored&order=ts.desc&limit=20",{headers:cbH(false),cache:"no-store"})
         .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();}),
       fetch(CB+"repair_tasks?select=*&order=created_at.desc&limit=20",{headers:cbH(false),cache:"no-store"})
         .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();})
@@ -15360,12 +15366,16 @@ var DIAG=(function(){
     var t0=Date.now();
     var cloudP=fetch(CB+"service_health?select=id,name,kind,status,detail,meta,checked_at&order=id",{headers:cbH(false),cache:"no-store"})
       .then(function(r){
-        var lat=Date.now()-t0, serverAt=0;
-        try{var dh=(r.headers&&r.headers.get)?r.headers.get("date"):null;if(dh)serverAt=Date.parse(dh)||0;}catch(e){}
+        var receivedAt=Date.now(), lat=receivedAt-t0, skew=null;
+        try{
+          var dh=r.headers.get("date"), age=Number(r.headers.get("age")||0);
+          var serverAt=dh?Date.parse(dh):NaN;
+          if(isFinite(serverAt)&&age===0&&lat>=0)skew=Math.round(serverAt-(t0+lat/2));
+        }catch(e){}
         if(!r.ok)throw new Error("http"+r.status);
-        return r.json().then(function(list){return {ok:true,latency:lat,list:Array.isArray(list)?list:[],serverAt:serverAt};});
+        return r.json().then(function(list){return {ok:true,latency:Math.max(0,lat),list:Array.isArray(list)?list:[],clockSkew:skew,clockAt:receivedAt};});
       })
-      .catch(function(e){return {ok:false,latency:Date.now()-t0,list:[],serverAt:0,error:String((e&&e.message)||e)};});
+      .catch(function(e){return {ok:false,latency:Date.now()-t0,list:[],error:String((e&&e.message)||e)};});
     var t1=Date.now();
     var siteP=fetch("tt.json?ts="+Date.now(),{cache:"no-store"})
       .then(function(r){
@@ -15379,6 +15389,7 @@ var DIAG=(function(){
       S.cloud=cloud;S.site=site;S.busy=false;S.lastDone=true;S.lastTry=Date.now();
       if(cloud.ok&&cloud.list)S.rows=cloud.list;
       render();
+      if(S.active)deviceRun();
       if(S.active&&!S.timer)ensureTimer();
       return true;
     }).catch(function(){
@@ -15426,7 +15437,7 @@ var DIAG=(function(){
     bindFolds();
     renderDev();render();
     ensureTimer();aiTimerStart();
-    pull().then(function(){if(S.active)deviceRun();});
+    pull();
     agentPull();aiPull();
   }
   function leave(){

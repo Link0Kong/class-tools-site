@@ -1,10 +1,10 @@
 {
-  "versionCode": 159,
-  "versionName": "1.0.0-beta76",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta76.apk",
-  "notes": "修复 vivo 推送的账号绑定和失败重试，通知按可见范围下发。个人任务和班级作业改用全屏详情，集中显示截止时间、提醒、步骤与附件。",
+  "versionCode": 160,
+  "versionName": "1.0.0-beta77",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta77.apk",
+  "notes": "工作台显示逐小节上下课倒计时，上课流体云支持保持和恢复，优化课间提醒，诊断页排除已归档分析",
   "force": false,
   "channel": "beta",
-  "sha256": "d573137f7a8e2aec459db1435012071ef15e78ecffe116145d7a805126f00c17",
-  "sizeBytes": 6999264
+  "sha256": "d29c9b372da60b3a8d1363b841405d6d5dc745e88de5fcacacca1039402610d5",
+  "sizeBytes": 6999512
 }

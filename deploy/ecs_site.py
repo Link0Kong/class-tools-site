@@ -31,8 +31,10 @@ import base64
 import hashlib
 import json
 import os
+import re
 import sys
 import time
+import urllib.error
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -457,6 +459,58 @@ def _fetch(url, headers=None, timeout=30):
         return r.status, dict(r.headers), r.read()
 
 
+def sync_index(expected_sha=None, dry_run=False):
+    """从发布源同步已上传的 index.html，核对正式域名的文件内容。"""
+    url = OSS_BASE + "/index.html"
+    headers = {"Cache-Control": "no-cache", "Accept-Encoding": "identity"}
+    status, _, source = _fetch(url, headers, timeout=20)
+    if status != 200 or len(source) < 500_000 or not source.lstrip().lower().startswith(b"<!doctype html"):
+        raise SystemExit("OSS index.html 校验失败")
+    sha = hashlib.sha256(source).hexdigest()
+    if expected_sha is not None and sha != expected_sha:
+        raise SystemExit("OSS index.html 与已通过自检的文件哈希不一致")
+
+    try:
+        status, _, live = _fetch(SITE + "/", headers, timeout=15)
+        if status == 200 and live == source:
+            print("INDEX_MATCH sha256=" + sha)
+            return 0
+    except urllib.error.HTTPError as exc:
+        if exc.code != 404 and not 500 <= exc.code < 600:
+            raise
+    script = r'''#!/bin/bash
+set -euo pipefail
+exec 9>/var/www/.class-tools-index.lock
+flock -w 10 9
+target=/var/www/tool/index.html
+tmp=$(mktemp /var/www/tool/.index.XXXXXXXX)
+trap 'rm -f -- "$tmp"' EXIT
+curl -fsS --retry 2 --max-time 35 -o "$tmp" '__URL__'
+echo "__SHA__  $tmp" | sha256sum -c --status
+if [ -f "$target" ] && cmp -s "$target" "$tmp"; then exit 0; fi
+mkdir -p /var/www/tool_backup
+if [ -f "$target" ]; then
+  backup=$(mktemp -d /var/www/tool_backup/index.XXXXXXXX)
+  cp -p -- "$target" "$backup/index.html.old"
+fi
+chmod 0644 "$tmp"
+mv -f -- "$tmp" "$target"
+echo 'INDEX_INSTALLED __SHA__'
+'''.replace("__URL__", url).replace("__SHA__", sha)
+    if dry_run:
+        print(script)
+        return 0
+    status, rc, output = run_script(script, timeout=120, wait=145, label="sync-index")
+    print(output)
+    if status != "Success" or rc not in (0, "0", None):
+        raise SystemExit("ECS index.html 同步未成功")
+    status, _, live = _fetch(SITE + "/", headers, timeout=20)
+    if status != 200 or live != source:
+        raise SystemExit("正式网页回读与发布源不一致")
+    print("INDEX_MATCH sha256=" + sha)
+    return 0
+
+
 def verify():
     print("=== 本机校验 ECS ===")
     local_index = os.path.join(os.path.dirname(HERE), "tools", "index.html")
@@ -513,7 +567,8 @@ def verify():
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="ECS 静态站部署（云助手）")
-    ap.add_argument("cmd", choices=["probe", "apply", "verify"])
+    ap.add_argument("cmd", choices=["probe", "apply", "verify", "sync-index"])
+    ap.add_argument("--expected-sha", help="sync-index 使用的已通过自检的 index.html SHA-256")
     ap.add_argument("--https", action="store_true",
                     help="兼容旧参数：apply 默认已启用 HTTPS 站点块（保留此参数不报错）")
     ap.add_argument("--http-only", action="store_true",
@@ -521,6 +576,10 @@ def main(argv=None):
     ap.add_argument("--dry-run", action="store_true", help="只打印远端脚本，不执行")
     ns = ap.parse_args(argv)
 
+    if ns.cmd == "sync-index":
+        if ns.expected_sha and not re.fullmatch(r"[\da-f]{64}", ns.expected_sha):
+            ap.error("--expected-sha 需要 64 位小写十六进制 SHA-256")
+        return sync_index(ns.expected_sha, ns.dry_run)
     if ns.cmd == "verify":
         return verify()
     if ns.cmd == "probe":

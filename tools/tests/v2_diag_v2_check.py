@@ -392,6 +392,17 @@ async function run(){
     T("H2 展示端无 UA / 语言 / 品牌", !/Mozilla|zh-CN|Win32|AppleWebKit|语言/.test(devText), devText.slice(0,160));
     T("H3 无 IndexedDB/触摸/电池等非白名单项", !qa(f,"#diagDevice .dd-row").some(function(e){return /IndexedDB|触摸|电池/.test(e.textContent);}), "");
     T("H4 系统行显示 os · 内核主版本", /Windows|macOS|Linux|Android/.test(devText)&&/(Chrome|Edge|Firefox|Safari)\/\d+/.test(devText), devText.slice(0,160));
+    var clockBefore=w.__diag.device().meta.clockSkewMs, realNow=w.Date.now;
+    var sampledNow=realNow();
+    try{
+      w.Date.now=function(){return sampledNow+20000;};
+      await w.__diag.recheck();
+      T("H5 同一时钟样本的偏差不会随等待时间增长", Math.abs(clockBefore-300000)<2000&&w.__diag.device().meta.clockSkewMs===clockBefore, w.__diag.device().meta.clockSkewMs);
+      w.Date.now=function(){return sampledNow+7*3600000;};
+      await w.__diag.recheck();
+      var clockCheck=w.__diag.device().checks.filter(function(c){return c.id==="clock";})[0];
+      T("H6 休眠后旧时钟样本过期，不报时钟异常", clockCheck.st==="warn"&&clockCheck.v==="无法校准"&&w.__diag.device().meta.clockSkewMs===0, clockCheck.v);
+    }finally{w.Date.now=realNow;await w.__diag.recheck();}
 
     /* I. 轮询/错误/外部请求 */
     var before2=diagReq(f,"diag_analysis?select=").length;
@@ -746,11 +757,14 @@ def static_checks(html):
     STATIC.append(("[静态] 保留 60s 服务健康刷新", "interval:60000" in html and "ensureTimer" in html, ""))
     STATIC.append(("[静态] 全局 error/unhandledrejection 自动上报", 'window.addEventListener("error"' in html and 'window.addEventListener("unhandledrejection"' in html, ""))
     STATIC.append(("[静态] APP_VER 保持 2.0.0", 'var APP_VER="2.0.0"' in html, ""))
-    STATIC.append(("[静态] 无外部脚本/字体引用", not re.search(r'(src|href)\s*=\s*["\']https?://', html), ""))
-    STATIC.append(("[静态] 无新增外链域名（只有既有 CloudBase 网关）",
-                   len(set(re.findall(r'https?://([A-Za-z0-9\.\-]+)', html)) - {
-                       "tool.furina.fun", "tool-d4gosudok46e0e081.api.tcloudbasegateway.com", "www.w3.org"}) == 0,
-                   sorted(set(re.findall(r'https?://([A-Za-z0-9\.\-]+)', html)))))
+    tags = re.findall(r'<(?:script|link)\b[^>]*>', html, flags=re.I)
+    resources = [tag for tag in tags if tag.lower().startswith('<script') or re.search(r'\bstylesheet\b|\bas=["\']font', tag, re.I)]
+    STATIC.append(("[静态] 无外部脚本/字体引用",
+                   not any(re.search(r'(src|href)\s*=\s*["\']https?://', tag) for tag in resources), ""))
+    section = html.split('var DIAG=(function(){', 1)[1].split('window.__diag', 1)[0]
+    domains = set(re.findall(r'https?://([A-Za-z0-9.\-]+)', section))
+    STATIC.append(("[静态] 诊断模块无新增外链域名",
+                   domains <= {"tool.furina.fun", "tool-d4gosudok46e0e081.api.tcloudbasegateway.com", "www.w3.org"}, sorted(domains)))
 
 
 def add_many(results, prefix, data):

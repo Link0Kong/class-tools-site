@@ -66,6 +66,9 @@ python deploy\ecs_site.py verify           # 本机校验 ECS 字节（sha、gzi
 python deploy\ecs_site.py apply --dry-run  # 只打印将要执行的远端脚本
 ```
 
+- `python -m pip install -r deploy/requirements-site.txt` 安装静态站发布依赖。只更新网页首页时，按发布自检和备份流程上传 `index.html`，再执行 `python deploy/ecs_site.py sync-index --expected-sha <已自检的SHA256>`。命令从 OSS 取文件，校验哈希，原子替换 ECS 首页并回读正式域名。
+- 本机诊断代理仅在新鲜探针确认首页 HTTP 404 或 5xx 且站点未处于计划暂停时执行 `sync-index`。它使用 OSS 中已经发布的文件，并保留 ECS 上一份首页作为回滚点。
+
 - **`apply` 默认启用 HTTPS 站点块**（2026-11-12 起；`--https` 仍兼容，等价）。已有 `tool.furina.fun` HTTPS 时**绝不要**再用 HTTP-only 配置覆盖：21:23 与 21:40 两次并行会话误跑旧默认，把 443 写没、线上 HTTPS 中断。若确实需要临时降级（域名/证书尚未启用），显式加 **`--http-only`**。
 
 - `apply` 流程：备份 → 从 OSS 公开地址下载（`https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com`）→ 原子替换 → 写 `Caddyfile.new` + `Caddyfile.https.ready` → `caddy validate` 两个文件 → 替换并 `systemctl reload caddy` → 本机 `verify`。

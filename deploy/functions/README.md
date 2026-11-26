@@ -87,7 +87,9 @@ python deploy\ecs_cron.py uninstall [--purge]        # 删 unit；--purge 连 en
 `health_beat.py` 在 `CLASS_JOB_HEARTBEAT=1` 时把它合并进诊断行：
 `cloud_power_sync` / `cloud_xgj_sync` 的 `meta.job`，上一轮失败且数据行仍 ok 时降级 `warn`
 （detail 追加「（ECS 定时任务上轮失败）」）；`cloud_health_probe.meta.runner=ecs-timer`。
-**关闭开关 / 删掉心跳目录 = 回到原「按数据年龄判定」行为**（CloudBase 云函数路径完全不变）。
+学工记同步分别在 `site_assets.xgj-sync-status` 和 `site_assets.xgj-sync-status-local` 保存云任务与本机补同步的结果。回执只含完成时间、执行端、结果、待同步和写入计数。健康探针优先使用回执，成功但暂无作业仍视为正常。旧库没有回执时显示等待回执，并保留作业发布时间作参考。云任务失败而本机已补同步时显示提示。
+
+ECS 的本机任务心跳可在缺少云端回执时补充信息。电费仍可按原数据更新时间判断。
 
 ## 安全
 

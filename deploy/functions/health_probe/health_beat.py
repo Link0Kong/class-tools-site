@@ -1176,35 +1176,57 @@ def detect_cloud_xgj_sync(base: str, key: str, token=None, heartbeat=None) -> di
     P3：heartbeat（ECS timer 心跳）可选；传入时只补 meta["job"]/失败降级，detail 契约不变。
     """
     row = _detect_cloud_xgj_sync_row(base, key, token)
+    if (row.get("meta", {}).get("job") or {}).get("at_ms"):
+        return row
     return apply_job_heartbeat(row, heartbeat, "cloud_xgj_sync")
 
 
 def _detect_cloud_xgj_sync_row(base: str, key: str, token=None) -> dict:
-    """按 homework 最新 xgj 行 ts 判定（原逻辑，行为不变）。"""
+    """优先按写入回执判断作业任务；旧作业只用来显示内容发布时间。"""
+    rid = "cloud_xgj_sync"
     if not base or not key:
-        return _row("cloud_xgj_sync", "unknown", "云端配置缺失（CB/CBK 未解析）", {})
-    status, parsed, ms = _cb_request(
-        base, key,
-        "homework?select=ts&id=like." + XGJ_PREFIX + "*&order=ts.desc&limit=1",
+        return _row(rid, "unknown", "云端配置缺失（CB/CBK 未解析）", {})
+    status, rows, ms = _cb_request(
+        base, key, "site_assets?select=id,body&id=in.(xgj-sync-status,xgj-sync-status-local)",
         token=token)
-    if status != 200:
-        return _row("cloud_xgj_sync", "unknown", "读取学工记作业失败（HTTP %s）" % status,
+    if status != 200 or not isinstance(rows, list):
+        return _row(rid, "unknown", "读取学工记同步回执失败（HTTP %s）" % status,
                     {"http": status, "latency_ms": ms})
-    if not isinstance(parsed, list) or not parsed:
-        return _row("cloud_xgj_sync", "warn", "暂无学工记作业", {"http": 200})
-    rec = parsed[0] if isinstance(parsed[0], dict) else {}
-    ts = _parse_ts(rec.get("ts"))
-    if ts is None:
-        return _row("cloud_xgj_sync", "warn", "学工记作业缺少时间",
-                    {"http": 200, "ts": rec.get("ts")})
-    hours = _age_hours(ts)
-    meta = {"ts": rec.get("ts"), "age_hours": round(hours, 2),
-            "prefix": XGJ_PREFIX}
-    if hours <= XGJ_FRESH_HOURS:
-        return _row("cloud_xgj_sync", "ok", "学工记 %.1f 小时前同步" % hours, meta)
-    if hours <= XGJ_STALE_HOURS:
-        return _row("cloud_xgj_sync", "warn", "学工记 %.1f 小时前同步（偏旧）" % hours, meta)
-    return _row("cloud_xgj_sync", "down", "学工记 %.1f 小时未同步" % hours, meta)
+
+    jobs = {}
+    for row in rows:
+        job = row.get("body") if isinstance(row, dict) else None
+        if not isinstance(job, dict) or type(job.get("ok")) is not bool:
+            continue
+        at = _parse_ts(job.get("at_ms"))
+        if at is not None:
+            jobs[row["id"]] = (job, _age_hours(at))
+    if jobs:
+        cloud = jobs.get("xgj-sync-status")
+        local = jobs.get("xgj-sync-status-local")
+        if cloud and cloud[0]["ok"] and cloud[1] <= XGJ_FRESH_HOURS:
+            job, hours = cloud
+            note = "同步成功，暂无待同步作业" if job.get("pending") == 0 else "同步成功"
+            return _row(rid, "ok", "学工记%s（%.1f 小时前）" % (note, hours),
+                        {"job": job, "age_hours": round(hours, 2)})
+        if local and local[0]["ok"] and local[1] <= XGJ_FRESH_HOURS:
+            job, hours = local
+            return _row(rid, "warn", "云任务回执异常，本机 %.1f 小时前已补同步" % hours,
+                        {"job": cloud[0] if cloud else {}, "fallback": job,
+                         "age_hours": round(hours, 2)})
+        if cloud:
+            job, hours = cloud
+            label = "上轮同步失败" if not job["ok"] else "已 %.1f 小时无同步回执" % hours
+            state = "warn" if job["ok"] and hours <= XGJ_STALE_HOURS else "down"
+            return _row(rid, state, "学工记" + label, {"job": job, "age_hours": round(hours, 2)})
+
+    status, rows, _ = _cb_request(
+        base, key, "homework?select=ts&id=like." + XGJ_PREFIX + "*&order=ts.desc&limit=1", token=token)
+    ts = _parse_ts(rows[0].get("ts")) if status == 200 and isinstance(rows, list) and rows else None
+    note = "尚无学工记同步回执"
+    if ts is not None:
+        note += "；最新作业发布于 %.1f 小时前" % _age_hours(ts)
+    return _row(rid, "unknown", note, {"http": status})
 
 
 def detect_cloud_health_probe(rows: int = CLOUD_ROW_COUNT, patched: int = 0,
