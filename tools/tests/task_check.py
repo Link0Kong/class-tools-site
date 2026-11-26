@@ -114,7 +114,7 @@ DATA = {
 
 MOCK = r"""
 <script>
-window.__errs=[];window.__cerrs=[];window.__external=[];window.__posts=[];window.__dl=0;
+window.__errs=[];window.__cerrs=[];window.__external=[];window.__posts=[];window.__dl=0;window.__taskAiCalls=[];
 window.addEventListener("error",function(e){window.__errs.push(String((e&&e.message)||(e&&e.error)||"error"));});
 window.addEventListener("unhandledrejection",function(e){var r=e&&e.reason;window.__errs.push("rejection:"+String((r&&r.message)||r));});
 (function(){var _ce=console.error;console.error=function(){window.__cerrs.push(Array.prototype.map.call(arguments,function(x){try{return String(x);}catch(e){return "?";}}).join(" "));try{_ce.apply(console,arguments);}catch(e){}};})();
@@ -124,6 +124,13 @@ var DATA=__DATA__;
 function ok(obj){return Promise.resolve({ok:true,status:200,json:function(){return Promise.resolve(obj);},text:function(){return Promise.resolve("");}});}
 window.fetch=function(u,o){
   o=o||{};var s=String((u&&u.url!==undefined)?u.url:u),m=String(o.method||"GET").toUpperCase();
+  if(s==="https://tool.furina.fun/task-ai/suggest"){
+    window.__taskAiCalls.push({method:m,body:JSON.parse(o.body),headers:o.headers,signal:o.signal});
+    var first={title:"报告草稿",notes:"十分钟",due:"2026-12-02",dueTime:"09:30",steps:[{text:"列出提纲",note:"先写主题",done:true}],suggestions:["预留彩排时间"]};
+    if(window.__taskAiMode==="rate")return Promise.resolve({ok:false,status:429});
+    if(window.__taskAiMode==="late")return new Promise(function(resolve){window.__taskAiRelease=function(){ok({drafts:[first]}).then(resolve);};});
+    return ok({drafts:window.__taskAiMode==="single"?[first]:[first,{title:"阅读草稿",due:"2026-02-31",dueTime:"09:00"}]});
+  }
   if(s.indexOf("tcloudbasegateway")>=0||s.indexOf("/v1/rdb/rest")>=0){
     if(s.indexOf("rpc/class_members")>=0)return ok(DATA.members);
     if(s.indexOf("class_notices_meta")>=0)return Promise.resolve({ok:false,status:404,json:function(){return Promise.resolve([]);},text:function(){return Promise.resolve("");}});
@@ -465,6 +472,37 @@ RUNNER = r"""
         click('[data-tkm="new"]');await sleep(250);
         T("菜单新建任务打开编辑器", q("#tkPanel").style.display!=="none", q("#tkPanel").style.display);
         click("#tkFCancel");await sleep(100);
+        /* ---- AI 整理只回填，显式保存后继续选择待填任务 ---- */
+        var taskCountBeforeAi=TASK.items().length;
+        window.__taskAiMode="rate";
+        click("#tkAiOpen");setv("#tkAiText"," 整理报告和阅读要求 ");
+        T("输入原文及打开面板不发请求",window.__taskAiCalls.length===0,"");
+        click("#tkAiSubmit");
+        await waitFor(function(){return txt("#tkAiStatus").indexOf("频繁")>=0;},1500);
+        var aiRequest=window.__taskAiCalls[0];
+        T("AI 接口只收到原文、本地日期及规范身份头",aiRequest.method==="POST"&&aiRequest.body.text==="整理报告和阅读要求"&&/^\d{4}-\d{2}-\d{2}$/.test(aiRequest.body.localDate)&&Object.keys(aiRequest.body).length===2&&aiRequest.headers["X-Device-Id"]==="mock-token","");
+        T("AI 限流保留原文并可重试",txt("#tkAiStatus").indexOf("频繁")>=0&&q("#tkAiText").value===" 整理报告和阅读要求 "&&!q("#tkAiSubmit").disabled,"");
+        window.__taskAiMode="many";
+        click("#tkAiSubmit");await waitFor(function(){return qa("[data-tkai-choice]").length===2;},1500);
+        T("多份建议先展示候选，未打开编辑器或创建任务",!q("#tkAiPicker").hidden&&q("#tkPanel").hidden&&TASK.items().length===taskCountBeforeAi,"");
+        click('[data-tkai-choice="0"]');
+        T("AI 首份候选填入可编辑的任务字段",!q("#tkPanel").hidden&&q("#tkFTitle").value==="报告草稿"&&q("#tkFDate").value==="2026-12-02"&&q("#tkFTime").value==="09:30"&&q("#tkFNotes").value.indexOf("预留彩排时间")>=0&&q("[data-tksteptext]").value==="列出提纲"&&q("[data-tkstepnote]").value==="先写主题"&&q("[data-tkstepdone]").getAttribute("aria-pressed")==="false","");
+        click("#tkFCancel");
+        T("取消新建返回候选且没有新增任务",!q("#tkAiPicker").hidden&&qa("[data-tkai-choice]").length===2&&TASK.items().length===taskCountBeforeAi,"");
+        click('[data-tkai-choice="0"]');setv("#tkFTitle","已核对的报告");click("#tkFSave");
+        var aiSaved=taskByTitle("已核对的报告");
+        T("保存用户改动后返回剩余候选",!!aiSaved&&TASK.items().length===taskCountBeforeAi+1&&!q("#tkAiPicker").hidden&&qa("[data-tkai-choice]").length===1,"");
+        click('[data-tkai-choice="0"]');
+        T("无效日期和无日期的时间不回填",q("#tkFDate").value===""&&q("#tkFTime").value==="","");
+        click("#tkFCancel");click("#tkAiNewText");setv("#tkAiText","另一段原文");
+        window.__taskAiMode="late";
+        click("#tkAiSubmit");click("#tkAiClose");window.__taskAiRelease();await sleep(100);
+        T("关闭时取消请求，晚到结果不打开编辑器",window.__taskAiCalls[2].signal.aborted&&q("#tkPanel").hidden&&q("#tkAiPanel").hidden,"");
+        click("#tkAiOpen");click("#tkAiNewText");window.__taskAiMode="single";
+        click("#tkAiSubmit");await waitFor(function(){return !q("#tkPanel").hidden;},1500);
+        T("只有一个有效候选时直接回填，不自动保存",q("#tkFTitle").value==="报告草稿"&&TASK.items().length===taskCountBeforeAi+1,"");
+        click("#tkFCancel");click("#tkAiClose");
+        if(aiSaved){TASK.open(aiSaved.id);click("#tkFDelete");}
         var dl0=window.__dl;
         click("#tkMore");await sleep(120);click('[data-tkm="ics"]');await sleep(150);
         T("菜单导出日历经下载出口", window.__dl===dl0+1, dl0+"->"+window.__dl);
@@ -729,6 +767,13 @@ RUNNER = r"""
           var closeBtn=md.querySelector("#tkFClose");
           T("390px 编辑器关闭键存在", !!closeBtn, "");
           if(closeBtn)closeBtn.click();
+          md.querySelector("#tkAiOpen").click();
+          var aiCard=md.querySelector(".tk-ai-card"),aiInput=md.querySelector("#tkAiText"),aiSend=md.querySelector("#tkAiSubmit");
+          var aiBounds=aiCard.getBoundingClientRect(),aiSendBounds=aiSend.getBoundingClientRect();
+          T("390px AI 输入与发送操作完整可见",aiInput.clientWidth>=250&&aiBounds.left>=0&&aiBounds.right<=mw.innerWidth&&aiSendBounds.top>=0&&aiSendBounds.bottom<=mw.innerHeight,"");
+          aiInput.value="随任务页清理的示例";
+          mw.document.querySelector('[data-tab="draw"]').click();
+          T("切换工具关闭 AI 弹层并清理原文",md.querySelector("#tkAiPanel").hidden&&aiInput.value==="","");
         }catch(e){T("390px iframe 检查", false, String(e));}
 
         /* ---- 无个人任务时：班级作业加载后自动落在「班级作业」 ---- */

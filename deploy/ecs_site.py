@@ -158,6 +158,16 @@ SEC_HEADERS = """	header {
 HSTS_HEADER = '	header Strict-Transport-Security "max-age=31536000"\n'
 
 
+TASK_AI_ROUTE = """	handle /task-ai/suggest {
+		reverse_proxy 127.0.0.1:8096 {
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 28s
+			}
+		}
+	}"""
+
+
 def _access_log(name):
     # 2026-11-23：X-Device-Id / X-Class-Token 是班级令牌，绝不能明文进日志（Caddy 默认只脱敏
     # Authorization/Cookie）。filter 编码器把这两个头的值替换为 REDACTED，其余字段保持 JSON。
@@ -247,6 +257,7 @@ def _caddy_https():
 tool.furina.fun {
 	encode zstd gzip
 __SEC_HTTPS__
+__TASK_AI_ROUTE__
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8090
 	}
@@ -359,6 +370,7 @@ __SEC_HTTP__
 """.replace("__LE_EMAIL__", LE_EMAIL) \
      .replace("__PROD_API_ROUTE__", _prod_api_route()) \
      .replace("__SEC_HTTPS__", HSTS_HEADER + SEC_HEADERS + _access_log("tool-access.log")) \
+     .replace("__TASK_AI_ROUTE__", TASK_AI_ROUTE) \
      .replace("__SEC_HTTP__", SEC_HEADERS + _access_log("tool-http-access.log"))
 
 

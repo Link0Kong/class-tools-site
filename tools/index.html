@@ -3694,6 +3694,17 @@ body.tk-sorting *{cursor:grabbing!important}
 .tk-titleinput::placeholder{color:var(--ink3);font-weight:600}
 .tk-ed-head .tk-star{margin:0 -6px 0 0}
 .tk-ed-sec{margin-top:11px}
+.tk-ai-entry{margin:0 0 6px;color:var(--tk-accent)}
+.tk-ai-card{width:100%;max-width:520px;max-height:84vh;overflow-y:auto;overscroll-behavior:contain}
+.tk-ai-card h3{padding-right:34px}
+.tk-ai-form textarea{display:block;width:100%;box-sizing:border-box;min-height:126px;resize:vertical}
+.tk-ai-hint,.tk-ai-status{font-size:13px;line-height:1.5;color:var(--ink3);margin:8px 0}
+.tk-ai-status:not(:empty){min-height:20px}
+.tk-ai-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
+.tk-ai-list{display:grid;gap:8px}
+.tk-ai-choice.btn{display:flex;align-items:flex-start;flex-direction:column;text-align:left;white-space:normal;overflow-wrap:anywhere;padding:10px 12px}
+.tk-ai-choice span{color:var(--ink3);font-size:12px;font-weight:500}
+.tk-ai-card [hidden]{display:none!important}
 .tk-ed-label{font-size:11px;font-weight:800;color:var(--ink3);letter-spacing:.06em;margin:0 0 4px 2px}
 .tk-steps{max-height:260px;overflow-y:auto;overscroll-behavior:contain}
 .tk-step{display:flex;align-items:center;gap:2px;min-height:36px;flex-wrap:wrap}
@@ -4384,6 +4395,7 @@ html.mobile-tool .wrap > .brand,html.mobile-tool #tabsBar{display:none!important
           <button class="btn ghost sm" type="button" id="tkQuickDateClear">清除</button>
           <button class="btn sm" type="button" id="tkQuickDateOk">确定</button>
         </div>
+        <button class="btn sm ghost tk-ai-entry" id="tkAiOpen" type="button">AI 整理任务</button>
 
         <div class="tk-toolbar">
           <div class="tk-search" id="tkSearchWrap" hidden>
@@ -4587,6 +4599,31 @@ html.mobile-tool .wrap > .brand,html.mobile-tool #tabsBar{display:none!important
         <span class="tk-ed-meta" id="tkFMeta"></span>
         <button class="btn sm ghost" id="tkFCancel" type="button">取消</button>
         <button class="btn pri" id="tkFSave" type="button">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="tkAiPanel" style="display:none" hidden aria-hidden="true">
+    <div class="mcard tk-ai-card" role="dialog" aria-modal="true" aria-labelledby="tkAiTitle">
+      <button class="mclose" id="tkAiClose" type="button" aria-label="关闭">×</button>
+      <h3 id="tkAiTitle" tabindex="-1">AI 整理任务</h3>
+      <div class="tk-ai-form" id="tkAiForm">
+        <label class="f" for="tkAiText">任务原文</label>
+        <textarea id="tkAiText" maxlength="6000" rows="5" aria-describedby="tkAiHint" placeholder="粘贴作业要求、待办清单，或输入你要做的事"></textarea>
+        <p class="tk-ai-hint" id="tkAiHint">点击发送后，DeepSeek 将收到本次文字和本地日期，用于整理任务。请删去账号、密码等敏感信息。</p>
+        <div class="tk-ai-status" id="tkAiStatus" role="status"></div>
+        <div class="tk-ai-actions">
+          <button class="btn sm ghost" id="tkAiBack" type="button" hidden>返回待填写任务</button>
+          <button class="btn pri" id="tkAiSubmit" type="button">发送给云端 AI</button>
+        </div>
+      </div>
+      <div id="tkAiPicker" hidden>
+        <p class="tk-ai-hint">选择一项填入新建任务，核对后再保存。</p>
+        <p class="tk-ai-hint" id="tkAiLimit" hidden>本次已整理 8 项。如果原文还有其他待办，可以分批发送。</p>
+        <div class="tk-ai-list" id="tkAiList"></div>
+        <div class="tk-ai-actions">
+          <button class="btn sm ghost" id="tkAiNewText" type="button">整理其他文字</button>
+        </div>
       </div>
     </div>
   </div>
@@ -8969,6 +9006,7 @@ function gotoTab(k,noScroll){
   }catch(e){}
   /* 切页前收起水量页的月份选择弹层（fixed 定位，否则会留在新页面上） */
   try{if(typeof WATER!=="undefined"&&WATER&&WATER._monthOpen)WATER.closeMonth(false);}catch(e){}
+  if(CURTAB==="hw"&&k!=="hw"&&typeof TK!=="undefined"&&TK)TK.leaveAi();
   CURTAB=k;
   $$("#tabsBar button").forEach(function(x){x.classList.toggle("on",x.dataset.tab===k);});
   $$("section").forEach(function(s){s.classList.remove("on");});
@@ -24321,6 +24359,7 @@ var TK=(function(){
   var TKU={seg:"",segAuto:true,view:"all",list:"",sort:"default",quickStar:false,quickList:"",
     doneOpen:false,sound:true,search:"",searchOpen:false,today:"",smartOrder:[],smartOrderAt:0};
   var TKED=null, TKLIST=null, TK_RB={queue:[],cur:""}, tkBound=false, tkInitDone=false;
+  var TKA={owner:"",drafts:[],request:null};
   var TKSIDE=null,TKTASK=null,TKEXP={},TKDETAIL={id:"",focus:null};
   var TK_NO_LIST={id:"",name:"未分组",color:"plain",order:-1};
 
@@ -25177,6 +25216,7 @@ var TK=(function(){
     }
   }
   function tkRefresh(){
+    tkAiAccount();
     tkData();
     try{tkSidebarPrefsApply();}catch(e){}
     TKU.today=tkToday();
@@ -25338,6 +25378,155 @@ var TK=(function(){
   function tkCloseModal(id){
     var m=$(id);if(!m)return;
     m.style.display="none";m.hidden=true;m.setAttribute("aria-hidden","true");
+  }
+  function tkAiAbort(){
+    var request=TKA.request;
+    if(!request)return;
+    TKA.request=null;
+    clearTimeout(request.timer);
+    request.controller.abort();
+  }
+  function tkAiAccount(){
+    var identity=identityGet(),owner=identity?identity.token:"";
+    if(TKA.owner!==owner){
+      TKA.owner=owner;
+      tkAiClear();
+    }
+    return owner;
+  }
+  function tkAiClear(){
+    TKA.drafts=[];
+    $("#tkAiText").value="";
+    $("#tkAiStatus").textContent="";
+    tkAiClose(false);
+    if(TKED&&TKED.aiDraft!==undefined)tkCloseEditor(true);
+  }
+  function tkAiRender(picker){
+    var drafts=TKA.drafts,busy=!!TKA.request;
+    $("#tkAiOpen").textContent=drafts.length?"继续整理 · "+drafts.length+" 项待填写":"AI 整理任务";
+    $("#tkAiTitle").textContent=picker?"选择要填写的任务":"AI 整理任务";
+    $("#tkAiForm").hidden=picker;
+    $("#tkAiPicker").hidden=!picker;
+    $("#tkAiLimit").hidden=drafts.length<8;
+    $("#tkAiBack").hidden=!drafts.length;
+    $("#tkAiBack").disabled=busy;
+    $("#tkAiText").readOnly=busy;
+    $("#tkAiSubmit").disabled=busy||!$("#tkAiText").value.trim();
+    $("#tkAiSubmit").textContent=busy?"正在整理…":"发送给云端 AI";
+    var list=$("#tkAiList");
+    list.textContent="";
+    if(picker)drafts.forEach(function(draft,index){
+      var button=document.createElement("button"),title=document.createElement("strong"),meta=document.createElement("span");
+      button.type="button";
+      button.className="btn ghost tk-ai-choice";
+      button.setAttribute("data-tkai-choice",String(index));
+      title.textContent=draft.title;
+      meta.textContent=[draft.due?(draft.due+(draft.dueTime?" "+draft.dueTime:"")):"",draft.steps.length?draft.steps.length+" 个步骤":""].filter(Boolean).join(" · ");
+      button.appendChild(title);
+      if(meta.textContent)button.appendChild(meta);
+      list.appendChild(button);
+    });
+  }
+  function tkAiShow(picker){
+    if(!tkAiAccount()){toast("请先登录再使用 AI 整理");return;}
+    tkAiRender(picker);
+    tkOpenModal("#tkAiPanel");
+    (picker?$("#tkAiTitle"):$("#tkAiText")).focus();
+  }
+  function tkAiClose(focus){
+    var busy=!!TKA.request;
+    tkAiAbort();
+    if(busy)$("#tkAiStatus").textContent="";
+    tkCloseModal("#tkAiPanel");
+    tkAiRender(false);
+    if(focus)$("#tkAiOpen").focus();
+  }
+  function tkAiText(value,limit){
+    return typeof value==="string"?value.trim().slice(0,limit).replace(/[\uD800-\uDBFF]$/,""):"";
+  }
+  function tkAiDrafts(value){
+    if(!value||!Array.isArray(value.drafts))return [];
+    return value.drafts.slice(0,8).map(function(raw){
+      if(!raw)return null;
+      var title=tkAiText(raw.title,200);
+      if(!title)return null;
+      var due=typeof raw.due==="string"&&taskDateOk(raw.due)?raw.due:"";
+      var dueTime=due&&typeof raw.dueTime==="string"&&taskTimeOk(raw.dueTime)?raw.dueTime:"";
+      var steps=(Array.isArray(raw.steps)?raw.steps:[]).slice(0,50).map(function(step){
+        return step?{text:tkAiText(step.text,120),note:tkAiText(step.note,500),done:false}:null;
+      }).filter(function(step){return step&&step.text;});
+      var suggestions=(Array.isArray(raw.suggestions)?raw.suggestions:[]).slice(0,8).map(function(suggestion){
+        return tkAiText(suggestion,500);
+      }).filter(Boolean);
+      var extra=suggestions.length?"完成建议\n"+suggestions.map(function(suggestion){return "• "+suggestion;}).join("\n"):"";
+      var notes=[tkAiText(raw.notes,5000-extra.length-(extra?2:0)),extra].filter(Boolean).join("\n\n");
+      return {title:title,notes:notes,due:due,dueTime:dueTime,steps:steps};
+    }).filter(Boolean);
+  }
+  function tkAiError(status){
+    if(status===400)return "云端无法整理这段文字，请检查内容后重试。";
+    if(status===401)return "登录已失效，请重新登录后再试。";
+    if(status===429)return "整理请求过于频繁，请稍后重试。";
+    if(status===503)return "云端 AI 暂不可用，请稍后重试。";
+    if(status===504)return "整理超时，请重试。";
+    return "暂时无法整理，请稍后重试。";
+  }
+  function tkAiSubmit(){
+    var owner=tkAiAccount(),text=$("#tkAiText").value.trim();
+    if(!owner||!tkIsOpen("#tkAiPanel")||TKA.request||!text||text.length>6000)return;
+    var request={controller:new AbortController(),timer:null};
+    TKA.request=request;
+    request.timer=setTimeout(function(){
+      if(TKA.request!==request)return;
+      tkAiAbort();
+      $("#tkAiStatus").textContent=tkAiError(504);
+      tkAiRender(false);
+    },35000);
+    $("#tkAiStatus").textContent="正在整理，请稍候。";
+    tkAiRender(false);
+    fetch("https://tool.furina.fun/task-ai/suggest",{
+      method:"POST",cache:"no-store",redirect:"error",signal:request.controller.signal,
+      headers:Object.assign({"Content-Type":"application/json"},authHdr()),
+      body:JSON.stringify({text:text,localDate:tkToday()})
+    }).then(function(response){
+      if(!response.ok)throw new Error(tkAiError(response.status));
+      return response.json();
+    }).then(function(value){
+      if(tkAiAccount()!==owner||TKA.request!==request)return;
+      var drafts=tkAiDrafts(value);
+      if(!drafts.length)throw new Error("没有可填写的任务，请补充要做的事后重试。");
+      TKA.request=null;
+      TKA.drafts=drafts;
+      $("#tkAiText").value="";
+      $("#tkAiStatus").textContent="";
+      tkAiRender(true);
+      if(drafts.length===1)tkAiUse(0);
+      else $("#tkAiTitle").focus();
+    }).catch(function(error){
+      if(tkAiAccount()!==owner||TKA.request!==request)return;
+      TKA.request=null;
+      $("#tkAiStatus").textContent=error instanceof TypeError||error instanceof SyntaxError?tkAiError(0):error.message||tkAiError(0);
+      tkAiRender(false);
+    }).finally(function(){clearTimeout(request.timer);});
+  }
+  function tkAiUse(index){
+    if(!tkAiAccount()||TKED||!tkIsOpen("#tkAiPanel"))return;
+    var draft=TKA.drafts[index];
+    if(!draft)return;
+    tkAiClose(false);
+    if(!tkOpenEditor(""))return;
+    TKED.aiDraft=index;
+    TKED.title=draft.title;
+    $("#tkFTitle").value=draft.title;
+    $("#tkFNotes").value=draft.notes;
+    $("#tkFDate").value=draft.due;
+    $("#tkFTime").value=draft.dueTime;
+    datePickSync("tkFDate");
+    timePickSync("tkFTime");
+    TKED.steps=draft.steps.map(function(step){return Object.assign({},step);});
+    tkRenderSteps();
+    TKED._snap=tkEditorSnapshot();
+    tkMarkDirty();
   }
   function tkToLocalInput(ms){
     var d=new Date(Number(ms)||Date.now());
@@ -25527,6 +25716,7 @@ var TK=(function(){
       var orig=TKED.attOrig||[];
       (PUBATT.task||[]).forEach(function(a){if(a.id&&orig.indexOf(a.id)<0)attFileDelete(a.id);});
     }
+    var aiDraft=TKED.aiDraft!==undefined;
     tkCloseModal("#tkPanel");
     TKED=null;
     ATT_SESSION.task++;ATT_BUSY.task=false;
@@ -25534,6 +25724,7 @@ var TK=(function(){
     attRenderEditor("task");
     attNote("task","");
     tkClearDirty();
+    if(aiDraft&&!force&&tkAiAccount()&&TKA.drafts.length)tkAiShow(true);
     return true;
   }
 
@@ -25803,6 +25994,8 @@ var TK=(function(){
   }
   function tkSaveEditor(){
     if(!TKED)return;
+    var aiDraft=TKED.aiDraft;
+    if(aiDraft!==undefined&&(!tkAiAccount()||!TKED))return;
     var f=tkReadEditor();if(!f)return;
     var now=Date.now(),isNew=TKED.isNew;
     var t=isNew?null:tkFindTask(TKED.id);
@@ -25830,6 +26023,12 @@ var TK=(function(){
     tkSave();
     TKED._saved=true;
     tkCloseEditor(true);
+    if(aiDraft!==undefined){
+      TKA.drafts.splice(aiDraft,1);
+      tkAiRender(false);
+      if(TKA.drafts.length)tkAiShow(true);
+      else $("#tkAiOpen").focus();
+    }
     tkRenderAll();
     toast(isNew?"已添加":"已保存");
   }
@@ -26384,6 +26583,20 @@ var TK=(function(){
       if(show)setTimeout(function(){try{$("#tkQuickDateBtn").focus();}catch(e){}},30);
     });
     var qm=$("#tkQuickMore");if(qm)qm.addEventListener("click",tkOpenQuickDetailed);
+    $("#tkAiOpen").addEventListener("click",function(){tkAiAccount();tkAiShow(!!TKA.drafts.length);});
+    $("#tkAiClose").addEventListener("click",function(){tkAiClose(true);});
+    $("#tkAiPanel").addEventListener("click",function(e){if(e.target===this)tkAiClose(true);});
+    $("#tkAiText").addEventListener("input",function(){
+      $("#tkAiStatus").textContent="";
+      $("#tkAiSubmit").disabled=!!TKA.request||!this.value.trim();
+    });
+    $("#tkAiSubmit").addEventListener("click",tkAiSubmit);
+    $("#tkAiBack").addEventListener("click",function(){tkAiShow(true);});
+    $("#tkAiNewText").addEventListener("click",function(){tkAiShow(false);});
+    $("#tkAiList").addEventListener("click",function(e){
+      var button=tkClosest(e.target,"[data-tkai-choice]");
+      if(button)tkAiUse(Number(button.getAttribute("data-tkai-choice")));
+    });
     var h2t=$("#hToTask");if(h2t)h2t.addEventListener("click",tkAddAllHW);
     var qdc=$("#tkQuickDateClear");if(qdc)qdc.addEventListener("click",function(){
       if($("#tkQuickDate"))$("#tkQuickDate").value="";
@@ -26612,6 +26825,7 @@ var TK=(function(){
         if(tkIsOpen("#tkRemindPanel")){tkCloseRemind();e.preventDefault();return;}
         if(tkIsOpen("#tkListPanel")){tkCloseListEditor();e.preventDefault();return;}
         if(tkIsOpen("#tkPanel")){tkCloseEditor();e.preventDefault();return;}
+        if(tkIsOpen("#tkAiPanel")){tkAiClose(true);e.preventDefault();return;}
         if(tkIsOpen("#tkMenu")){tkCloseMenu();e.preventDefault();return;}
         if(TKU.searchOpen){tkToggleSearch(false);e.preventDefault();return;}
         return;
@@ -26626,6 +26840,7 @@ var TK=(function(){
       try{if(typeof TASKSYNC!=="undefined"){TASKSYNC.boot();TASKSYNC.pull();}}catch(e){}
       if(TKU.today!==tkToday()){TKU.today=tkToday();try{tkRenderAll();}catch(e){}}
     });
+    window.addEventListener("pagehide",tkAiClear);
     window.addEventListener("focus",function(){
       try{tkShowNextReminder();}catch(e){}
       try{if(typeof TASKSYNC!=="undefined"){TASKSYNC.boot();TASKSYNC.pull();}}catch(e){}
@@ -26844,6 +27059,7 @@ var TK=(function(){
   return {
     refresh:tkRefresh,
     enter:tkEnter,
+    leaveAi:tkAiClear,
     open:tkOpenEditor,
     openDetail:tkOpenDetail,
     dueMeta:tkDueMeta,

@@ -57,6 +57,17 @@
 - **判据（可复现，2026-11-24）**：`/v1/rdb/rest/` 无凭据仍返回 CloudBase `MISSING_CREDENTIALS`；`/v1/rdb/rest-next/` 返回 PostgREST swagger 且**指向 `class_tools_cut`**；测试身份 `rpc/class_notices_meta` 返回 **381,164 B / 153 行**，与 CloudBase 同字节；`taskdata`、`visits.ver/dev` 在镜像库均存在。
 - **安全（2026-11-23）**：审计时误把 `/etc/class-tools/pgrest.conf` 的本地 DSN 带进终端输出，已轮换 `authenticator` 角色密码（新密码只在远端 `openssl rand` 生成，写入 PostgreSQL 角色 + 0600 `pgrest.conf`，不落仓库、不回显）；PostgREST 重启后 `/v1/rdb/rest-next/` 200、`/v1/rdb/rest/` 401 正常。**以后不要 `grep db-uri` / `cat pgrest.conf`**；需要判断库名用 `ecs_pg.py probe`。
 
+### 2.2 任务 AI 草稿服务
+
+网页和客户端使用 HTTPS `POST https://tool.furina.fun/task-ai/suggest`。身份头沿用 `X-Device-Id` 或 `X-Class-Token`。请求体是 `{text, localDate}`，正文最多 6000 字，日期格式为 `YYYY-MM-DD`。成功时返回 `{drafts:[{title,notes,due,dueTime,steps:[{text,note}],suggestions:[]}]}`。最多返回 8 份草稿，每份最多 12 个步骤、3 条建议。无结果返回空数组。无明确截止日期或时间时，相应字段留空。服务只处理草稿，不读写个人任务库。
+
+错误统一返回 `{error: "..."}`。400 表示输入无效，401 表示缺少或无效身份，429 表示调用频率过高，502 表示模型输出异常，503 表示服务暂不可用，504 表示模型请求超时。客户端保留文字以便重试或手动填写。
+
+- `python deploy/ecs_task_ai.py deploy` 在 ECS 安装 `class-tools-task-ai.service`，监听 `127.0.0.1:8096`。`probe` 查看服务和配置状态。使用 `--dry-run` 检查脚本内容。
+- 服务使用现有 ECS 的 CloudBase publish key 校验账号。DeepSeek API key 由维护者在服务器的 `/etc/class-tools/task-ai.deepseek-key` 配置，文件归 root 所有且权限为 `0600`。配置后重启服务。部署只会在密钥文件缺失时创建空文件。密钥不随云助手脚本传输。
+- `python deploy/ecs_task_ai.py route` 在正式 HTTPS 站点配置精确路由。脚本检验 Caddy 配置并确认匿名 POST 返回 401。验证失败时恢复原 Caddyfile。日志不记录用户文字、模型原始响应或身份令牌。
+- 启用前运行 `python deploy/task_ai_live_check.py --expect-disabled`，确认服务返回预期的 503。启用后运行同一脚本并省略选项，用官方测试账号和虚构文字验证真实生成，再沿用网页与各端发布流程。脚本只显示检查结果。
+
 ## 3. 用法（在 `web` 目录下执行，用带 `aliyunsdkcore` 的 Python，例如系统 `python`）
 
 ```powershell

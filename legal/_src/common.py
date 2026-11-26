@@ -13,9 +13,9 @@ BASE = "https://tool.furina.fun/legal/"
 DEBUG_BASE = "http://121.196.47.2/legal/"
 OPERATOR = "陈子麒"
 EMAIL = "Ko_Link@outlook.com"
-VERSION = "1.0"
-EFFECTIVE = "2026年11月17日"
-LAST_UPDATED = "2026年11月23日"
+VERSION = "1.1"
+EFFECTIVE = "2026年11月26日"
+LAST_UPDATED = "2026年11月26日"
 # 网站备案号（2026-11-23 工信部 ICP 备案通过；网站首页底部须展示并链接工信部备案系统）
 ICP_SITE = "闽ICP备2026042939号-2"
 # 小程序备案号（微信小程序独立备案，与网站备案号不是同一个号）

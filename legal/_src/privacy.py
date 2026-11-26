@@ -300,7 +300,7 @@ STORAGE_ROWS = {
 }
 
 VERSION_HISTORY = [
-    ("V1.0", EFFECTIVE, "首次发布五端差异化隐私政策：网页端、安卓端、电脑端、鸿蒙端、微信小程序端；含个人信息处理清单、权限、第三方、跨境、权利与申请模板。", OPERATOR),
+    ("V1.0", "2026年11月17日", "首次发布五端差异化隐私政策：网页端、安卓端、电脑端、鸿蒙端、微信小程序端；含个人信息处理清单、权限、第三方、跨境、权利与申请模板。", OPERATOR),
 ]
 
 
@@ -314,6 +314,7 @@ def h3(title: str) -> str:
 
 def render_privacy(key: str) -> str:
     p = PLATFORMS[key]
+    task_ai = key in {"web", "android", "harmony", "mp"}
     parts = []
     parts.append(doc_head(p, "privacy"))
     parts.append(nav_links(key, "privacy"))
@@ -412,6 +413,12 @@ def render_privacy(key: str) -> str:
     )
     parts.append(h3("3.8 本端特别说明"))
     parts.append('<div class="special">%s</div>' % p["special_privacy"])
+    if task_ai:
+        parts.append(h3("3.9 任务 AI 整理"))
+        parts.append(
+            "<p>您在任务工具填写或粘贴文字，并点击「发送给云端 AI」后，阿里云 ECS 会接收本次文字和设备的本地日期。服务器核验班级身份后，将文字和日期发送给深度求索（DeepSeek）API。日期用于理解「明天」等相对日期。身份凭据仅用于核验，原有任务、附件和账号资料不会一并发送。</p>"
+            "<p>整理结果在当前任务页供您检查和编辑。您点击保存后，所选草稿才作为个人任务按现有设置保存和同步。我们的整理服务不会存储原文和结果。您也可以直接使用手动新建任务。</p>"
+        )
 
     # ---------------- 4
     parts.append(h2("s4", "04", "四、处理目的与法律依据"))
@@ -548,6 +555,15 @@ def render_privacy(key: str) -> str:
         "<p>本端不接入广告、统计、画像、社交分享 SDK。仅使用下列第三方服务/系统能力；具体字段与地点见<a href=\"#sc\">附件 C</a>。</p>"
     )
     third_rows = list(COMMON_THIRD_PARTIES) + list(p["extra_third_parties"])
+    if task_ai:
+        third_rows.append((
+            "深度求索（DeepSeek）API · 任务整理",
+            "网页、安卓、鸿蒙、微信小程序（主动发送时）",
+            "识别个人任务、拆解步骤、给出完成建议",
+            "您本次提交的文字、本地参考日期",
+            "中国内地",
+            "云端处理，结果由用户选择并编辑后手动保存",
+        ))
     parts.append(
         table(
             ["服务/接收方", "适用端", "目的", "涉及信息", "地点", "说明"],
@@ -598,7 +614,10 @@ def render_privacy(key: str) -> str:
     parts.append(
         "<p>我们只在实现处理目的所必需的<b>最短期限</b>内保留个人信息，到期删除或匿名化；法律另有要求、安全/备份/争议处理需要的除外。端内“清除云端”如为覆盖/置否/归档，属于逻辑清除；物理删除请邮件申请，我们在 15 个工作日内处理。</p>"
     )
-    parts.append(table(["数据类别", "适用端", "保留期", "说明"], RETENTION_ROWS))
+    retention_rows = list(RETENTION_ROWS)
+    if task_ai:
+        retention_rows.append(("任务 AI 原文和未保存草稿", "网页、安卓、鸿蒙、微信小程序", "当前任务页会话", "整理服务不保存正文或草稿。用户保存后的内容按个人任务处理。"))
+    parts.append(table(["数据类别", "适用端", "保留期", "说明"], retention_rows))
     parts.append(
         "<p><b>期限口径：</b>表中为当前保留规则；因备份/云服务机制延迟的，最长不超过 180 天，且不用于业务展示。您可以随时通过邮箱申请提前删除。</p>"
     )
@@ -697,6 +716,8 @@ def render_privacy(key: str) -> str:
         "<p>下表按“类别 / 字段 / 场景 / 必要性 / 存储 / 保留期”列明本端处理的主要个人信息。未列出的信息如与具体功能相关，以该功能页面的说明为准。</p>"
     )
     data_rows = list(COMMON_DATA_ROWS) + list(p["extra_data_rows"])
+    if task_ai:
+        data_rows.append(("任务 AI 整理", "本次输入文字和本地参考日期", "点击发送给云端 AI", "可选，手动新建仍可用", "阿里云 ECS 与 DeepSeek API", "整理服务即时处理。未保存草稿只在当前任务页保留。"))
     parts.append(table(["类别", "具体内容", "场景 / 来源", "必要性", "存储 / 接收方", "保留期"], data_rows))
 
     # ---------------- Appendix B
@@ -741,7 +762,8 @@ def render_privacy(key: str) -> str:
 
     # ---------------- Appendix E
     parts.append(h2("se", "E", "附件 E：版本记录"))
-    parts.append(table(["版本", "生效日期", "主要变更", "发布者"], VERSION_HISTORY))
+    version_history = VERSION_HISTORY + [("V1.1", EFFECTIVE, "新增任务 AI 整理的数据处理说明。" if task_ai else "同步文档版本号。", OPERATOR)]
+    parts.append(table(["版本", "生效日期", "主要变更", "发布者"], version_history))
 
     body = "\n".join(parts)
     title = "班级工具站（%s）隐私政策 V%s" % (p["name"], VERSION)
