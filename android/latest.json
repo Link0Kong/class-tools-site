@@ -1,10 +1,10 @@
 {
-  "versionCode": 161,
-  "versionName": "1.0.0-beta78",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta78.apk",
-  "notes": "优化深色玻璃化观感。工作台背景更安静，今日卡保留柔和反光，正文卡和浮岛层次更稳定，通知详情按钮与课表网格更易辨认。",
+  "versionCode": 162,
+  "versionName": "1.0.0-beta79",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta79.apk",
+  "notes": "重制青瓷工作台卡片和四种桌面小组件。下一节课可直接定位日期和课次，个人待办、班级作业和通知可按行打开详情并返回原位。优化电费读数、工具首屏、大字体排版和通知离线重试。",
   "force": false,
   "channel": "beta",
-  "sha256": "695972e7f6475d7e5899c854b9b8a451a0db9648db72cdbc6132cc03b972c102",
-  "sizeBytes": 6999512
+  "sha256": "3f10e26578a9b5728131da48480a1ce091d900c52a2c3e79300c79c8e3fcda63",
+  "sizeBytes": 6987776
 }
