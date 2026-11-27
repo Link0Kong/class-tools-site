@@ -1,10 +1,10 @@
 {
-  "versionCode": 170,
+  "versionCode": 171,
   "versionName": "1.0.0-beta66",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta66-vc170.apk",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta66-vc171.apk",
   "notes": "新增工作台、班级通知和待办任务桌面卡片。四种卡片可分别添加，并会随卡片大小调整显示内容。",
   "force": false,
   "channel": "beta",
-  "sha256": "501d2142ed8ce169af9e6da0ccae0d5b4ed6a4ec4ccd1d09b69cf800770c1311",
-  "sizeBytes": 7164516
+  "sha256": "08355cb645c95533922bd150d44f22883a173d31a1fbb6a4a8ef331cb40fe9c9",
+  "sizeBytes": 7164464
 }
