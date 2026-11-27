@@ -1467,9 +1467,7 @@ body.rst-lock{overflow:hidden}
 .wb-main:hover b,.wb-room:hover{text-decoration:underline}
 .wb-room{min-height:40px;padding:0 3px;border:0;background:none;color:var(--tl-ink,var(--ink2));font:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .wb-action .btn{flex:none}
-@media(min-width:760px){.wb-panels{grid-template-columns:repeat(2,minmax(0,1fr))}.wb-panels>.card:last-child{grid-column:1/-1}}
-@media(min-width:1080px){.wb-panels{grid-template-columns:repeat(3,minmax(0,1fr))}.wb-panels>.card:last-child{grid-column:auto}}
-@media(min-width:760px){.wb-panels.wb-no-homework{grid-template-columns:repeat(2,minmax(0,1fr))}.wb-panels.wb-no-homework>.card:last-child{grid-column:auto}}
+@media(min-width:760px){.wb-panels{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .wb-courses{display:grid;gap:0 24px}
 .wb-course{display:grid;grid-template-columns:3.4em minmax(0,1fr) auto;gap:9px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
 .wb-course time{font-variant-numeric:tabular-nums;color:var(--ink2);font-weight:650}
@@ -5271,10 +5269,6 @@ html.mobile-tool .wrap > .brand,html.mobile-tool #tabsBar{display:none!important
         <div id="wbTasks"></div>
         <button type="button" class="btn sm ghost" data-wb-go="new">＋ 新建任务</button>
       </div>
-      <div class="card" id="wbHomeworkCard" hidden>
-        <div class="wb-heading"><h2>班级作业<small id="wbHomeworkCount"></small></h2><button type="button" class="btn sm" data-wb-go="homework">全部作业 ›</button></div>
-        <div id="wbHomework"></div>
-      </div>
       <div class="card">
         <div class="wb-heading"><h2>最新通知</h2><button type="button" class="btn sm" data-wb-go="notices">全部通知 ›</button></div>
         <div id="wbNotices"></div>
@@ -8053,6 +8047,7 @@ var UD={
       d.hwHide=UD.clone((hd.hwHide&&typeof hd.hwHide==="object")?hd.hwHide:{});
       d.ntHide=UD.clone((hd.ntHide&&typeof hd.ntHide==="object")?hd.ntHide:{});
       try{renderHW();renderNT();}catch(e){}
+      queueWorkbenchPanels();
     }
     if(take("tt")){
       var t=merged.tt||{};
@@ -9040,7 +9035,7 @@ var TOOLS=[
  {k:"file",n:"文件传输",d:"个人文件互传、PPT 转换与班级课件"},
  {k:"stage",n:"大屏",d:"团日主持与演示放映",admin:true},
  {k:"settings",n:"设置",d:"外观、备份与协议"},
- {k:"workbench",n:"工作台",d:"今日课程、个人任务、班级作业和最新通知"},
+ {k:"workbench",n:"工作台",d:"今日课程、个人任务和最新通知"},
  {k:"map",n:"地图",d:"校园 2.5D 地图与道路导航"},
  {k:"jw",n:"教务",d:"成绩、选课与考试",url:"http://210.34.74.77/sso.jsp"},
  {k:"chsi",n:"学信网",d:"学籍 · 学历 · 学位；官方入口卡"}];
@@ -9174,7 +9169,7 @@ function gotoTab(k,noScroll){
   if(k==="all") renderAllCards();
   renderWorkbenchCourses();
   if(k==="workbench"&&AUTH.ready){
-    HW.pull();NT.pull();marksPull();
+    NT.pull();
     if(window.TASKSYNC){TASKSYNC.boot();TASKSYNC.pull();}
   }
   if(k==="power") POWER.enter();
@@ -13132,15 +13127,14 @@ function renderWorkbenchPanels(){
     var due=TASK.dueMeta(t),meta=[due&&due.txt,t.starred?"重要":"",t.myDay===taskYmd(new Date())?"我的一天":""].filter(Boolean);
     return wbRow("task",t.id,t.title,meta.join(" · "),"complete","完成");
   }),taskSync==="同步中…"?"正在同步个人任务…":(taskSync==="仅本机"?"本机暂无待办任务":"暂无待办任务"));
-  var homework=hwToJoin().sort(function(a,b){return (hwDue(a)||Infinity)-(hwDue(b)||Infinity);});
-  $("#wbHomeworkCard").hidden=!homework.length;
-  $("#wbPanels").classList.toggle("wb-no-homework",!homework.length);
-  $("#wbHomeworkCount").textContent=homework.length?homework.length+" 项待加入":"";
-  wbList("#wbHomework",homework.slice(0,3).map(function(h){
-    var meta=[h.subject,dueInfo(h).txt].filter(Boolean);
-    return wbRow("assignment",h.id||"",h.content||"班级作业",meta.join(" · "),h.id?"addHomework":"","加入任务");
-  }),"");
-  var latest=AUTO_NOTICES.map(function(g){return {g:g,at:wbPublishedAt(g)};}).sort(function(a,b){return b.at-a.at;});
+  var personalHide=D.d.ntHide||{};
+  var hiddenGroups=new Set(NT_HIDDEN.map(function(item){return item.gid;}));
+  var latest=AUTO_NOTICES.filter(function(g){
+    if(!g||g._hidden||hiddenGroups.has(g.id))return false;
+    var meta=noticeMetaOf(g.id);
+    var rowId=g.__rowId||(meta&&meta.rowId)||"auto_"+g.id;
+    return !(meta&&meta.hidden)&&!personalHide[g.id]&&!personalHide[rowId];
+  }).map(function(g){return {g:g,at:wbPublishedAt(g)};}).sort(function(a,b){return b.at-a.at;});
   wbList("#wbNotices",latest.slice(0,3).map(function(row){
     var meta=[row.g.cat,row.at?fmtDT(row.at)+" 发布":""].filter(Boolean);
     return wbRow("notice",row.g.id,row.g.title||"班级通知",meta.join(" · "));
@@ -13185,15 +13179,11 @@ $("#s-workbench").addEventListener("click",function(e){
   if(go==="task"){TASK.openDetail(id);return;}
   if(go==="complete"){TASK.complete(id);return;}
   if(go==="new"){TASK.open();return;}
-  if(go==="addHomework"){
-    var h=D.d.homework.find(function(it){return it.id===id;});
-    if(h)TASK.addFromHW(h);
-    return;
+  if(go==="tasks"){
+    gotoTab("hw");
+    TASK.setSeg("my");
+    TASK.setView("all");
   }
-  gotoTab("hw");
-  if(go==="assignment"&&id){TASK.openHwSource(id);return;}
-  TASK.setSeg(go==="tasks"?"my":"class",go==="homework");
-  if(go==="tasks")TASK.setView("all");
 });
 document.addEventListener("visibilitychange",renderWorkbenchCourses);
 function ttHint(){ var g=$("#tGrid"), h=$("#tHint"); if(g&&h) h.style.display=(g.scrollWidth>g.clientWidth+4)?"":"none"; }
@@ -27018,7 +27008,6 @@ var TK=(function(){
         var _renderHW=renderHW;
         renderHW=function(){
           var r=_renderHW.apply(this,arguments);
-          queueWorkbenchPanels();
           try{tkClassChanged();}catch(e){}
           return r;
         };

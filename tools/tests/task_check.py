@@ -146,7 +146,7 @@ window.fetch=function(u,o){
     if(s.indexOf("/fitrecs")>=0)return ok(DATA.fitrecs);
     if(s.indexOf("/userdata")>=0)return ok([]);
     if(s.indexOf("/taskdata")>=0){
-      if(m==="POST")window.__taskRow=JSON.parse(o.body)[0];
+      if(m==="POST"||m==="PATCH")window.__taskRow=JSON.parse(o.body);
       return ok(window.__taskRow?[window.__taskRow]:[]);
     }
     if(s.indexOf("/visits")>=0)return ok([]);
@@ -161,7 +161,9 @@ localStorage.clear();
 localStorage.setItem("zq_appearance_v1","light");
 localStorage.setItem("zq_class_identity",JSON.stringify({token:"mock-token",sid:"__SID__",name:"__NAME__",role:"",badge:"",is_admin:false,ts:Date.now()}));
 __UI_SEG__
-localStorage.setItem("zq_tools_v2___SID__",JSON.stringify({task:__TASK__,homework:[]}));
+var taskFixture=__TASK__;
+window.__taskRow={id:"__SID__",ts:taskFixture.updatedAt||0,blob:JSON.stringify(taskFixture)};
+localStorage.setItem("zq_tools_v2___SID__",JSON.stringify({task:taskFixture,homework:[]}));
 }catch(e){}
 </script>
 """
@@ -574,11 +576,13 @@ RUNNER = r"""
         TASK.open(src1.id);click("#tkFDelete");
         T("删除个人任务后只有该班级作业恢复",!q("#hCard").hidden&&qa("#hList .item").length===1&&!!q('#hList [data-hw-id="hw1"]'));
         click('[data-tab="all"]');click('[data-card="workbench"]');
-        await waitFor(function(){return q("#s-workbench").classList.contains("on")&&!!q('#wbHomework [data-wb-id="hw1"]');},3000);
-        T("工作台只显示尚未加入的作业",!!q("#wbHomeworkCard").offsetWidth&&qa("#wbHomework .wb-action").length===1&&!!q('#wbHomework [data-wb-id="hw1"]'));
-        click('#wbHomework [data-wb-go="addHomework"]');
-        await waitFor(function(){return q("#wbHomeworkCard").hidden;},2000);
-        T("从工作台加入最后一项后两张卡片并排填满",!q("#wbHomeworkCard").getClientRects().length&&getComputedStyle(q("#wbPanels")).gridTemplateColumns.split(" ").length===2&&q("#wbTasks").offsetWidth>0&&q("#wbNotices").offsetWidth>0);
+        T("有待加入作业时工作台仍只显示个人任务和最新通知",!q("#wbHomeworkCard")&&q("#wbPanels").children.length===2&&q("#wbTasks").offsetWidth>0&&q("#wbNotices").offsetWidth>0);
+        var visibility=window.__checkWorkbenchNoticeVisibility();
+        T("工作台只列可见通知",visibility.visible.join(",")==="wb_visible");
+        T("恢复后通知重新出现在工作台",visibility.restored.includes("wb_personal"));
+        click('[data-wb-go="tasks"]');
+        click('[data-tkseg="class"]');
+        click('#hList [data-hw-id="hw1"] [data-add-hw-task]');
         await waitFor(function(){return !TASKSYNC.state().dirty&&txt("#tkCloud")==="已同步";},5000);
         var original=JSON.parse(localStorage.getItem("zq_tools_v2___SID__")).task;
         function remoteTasks(items){
@@ -588,10 +592,10 @@ RUNNER = r"""
         }
         await remoteTasks(original.items.filter(function(t){return t.sourceHwId!=="hw2";}));
         await new Promise(requestAnimationFrame);
-        T("其它设备移除关联后两处同步恢复",!!q('#wbHomework [data-wb-id="hw2"]')&&!!q('#hList [data-hw-id="hw2"]')&&txt("#tkSegClassN")==="1",txt("#wbHomework")+" / "+txt("#hList")+" / "+txt("#tkSegClassN"));
+        T("其它设备移除关联后任务页恢复该作业",!!q('#hList [data-hw-id="hw2"]')&&txt("#tkSegClassN")==="1",txt("#hList")+" / "+txt("#tkSegClassN"));
         await remoteTasks(original.items);
         await new Promise(requestAnimationFrame);
-        T("其它设备加入后两处同步收起",q("#wbHomeworkCard").hidden&&q("#hCard").hidden&&q("#tkSegClassN").hidden);
+        T("其它设备加入后任务页同步收起作业卡",q("#hCard").hidden&&q("#tkSegClassN").hidden);
         click('[data-tab="hw"]');click('[data-tkseg="my"]');await sleep(250);
 
         /* ---- 任务附件：上传/压缩/限额/持久化 ---- */
@@ -799,7 +803,7 @@ RUNNER = r"""
           T("零班级作业时整卡零占位且发布入口可见",!cd.querySelector("#hCard").getClientRects().length&&!!cd.querySelector("#hPub").offsetWidth);
           cd.querySelector('[data-tab="all"]').click();
           cd.querySelector('[data-card="workbench"]').click();
-          T("空班级工作台无班级卡且其它卡片可见",cd.querySelector("#s-workbench").classList.contains("on")&&!cd.querySelector("#wbHomeworkCard").getClientRects().length&&!!cd.querySelector("#wbTasks").offsetWidth);
+          T("空班级工作台无班级卡且其它卡片可见",cd.querySelector("#s-workbench").classList.contains("on")&&!cd.querySelector("#wbHomeworkCard")&&!!cd.querySelector("#wbTasks").offsetWidth);
           cd.querySelector('[data-tab="hw"]').click();
           cw.TASK.homework().push({subject:"历史作业",content:"旧版没有编号"});
           cd.querySelector('[data-tkseg="class"]').click();
@@ -833,6 +837,28 @@ def build_preview(with_runner, tasks=None, with_ui=True):
         .replace("__SID__", SID).replace("__NAME__", NAME)
     html = html.replace('<meta charset="utf-8">', '<meta charset="utf-8">' + mock, 1)
     if with_runner:
+        notice_check = '''
+window.__checkWorkbenchNoticeVisibility=function(){
+  var savedNotices=AUTO_NOTICES,savedMeta=NT_META,savedHidden=NT_HIDDEN,savedPersonalHide=D.d.ntHide;
+  function visibleIds(){
+    renderWorkbenchPanels();
+    return Array.from(document.querySelectorAll('#wbNotices [data-wb-go="notice"]'),function(el){return el.dataset.wbId;});
+  }
+  try{
+    AUTO_NOTICES=[{id:"wb_visible"},{id:"wb_global"},{id:"wb_personal"},{id:"wb_legacy"},{id:"wb_cached"}];
+    NT_META={wb_global:{hidden:true}};
+    NT_HIDDEN=[{gid:"wb_cached"}];
+    D.d.ntHide={auto_wb_personal:true,wb_legacy:true};
+    var visible=visibleIds();
+    delete D.d.ntHide.auto_wb_personal;
+    return {visible:visible,restored:visibleIds()};
+  }finally{
+    AUTO_NOTICES=savedNotices;NT_META=savedMeta;NT_HIDDEN=savedHidden;D.d.ntHide=savedPersonalHide;
+    renderWorkbenchPanels();
+  }
+};
+'''
+        html = html.replace('function renderWorkbenchCourses(){', notice_check + 'function renderWorkbenchCourses(){', 1)
         runner = RUNNER.replace("__IN2__", json.dumps(IN2)).replace("__TODAY__", json.dumps(TODAY)) \
             .replace("__TOMORROW__", json.dumps(TOMORROW)).replace("__SID__", SID)
         html = html.replace("</body>", runner + "\n</body>", 1)
