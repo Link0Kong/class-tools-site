@@ -1,0 +1,222 @@
+{
+  "version": "userdata-v6-vectors-1",
+  "cases": [
+    {
+      "id": "v5-default",
+      "remote": {
+        "v": 5,
+        "homeTools": [
+          "draw",
+          "tt"
+        ],
+        "homeToolsAt": 13,
+        "fit": {
+          "sex": "m"
+        }
+      },
+      "local": {
+        "v": 6,
+        "at": {}
+      },
+      "expect": {
+        "v": 6,
+        "homeTools": [
+          "draw",
+          "tt"
+        ],
+        "homeToolsAt": 13,
+        "at.homeTools": 13,
+        "fit": {
+          "sex": "m"
+        },
+        "draw.names": ""
+      }
+    },
+    {
+      "id": "a-remote",
+      "remote": {
+        "v": 6,
+        "at": {
+          "homeTools": 19,
+          "nick": 5,
+          "draw": 8
+        },
+        "homeTools": [
+          "tt"
+        ],
+        "nick": "alpha",
+        "draw": {
+          "names": "QA=A"
+        }
+      },
+      "local": {
+        "v": 6,
+        "at": {
+          "homeTools": 11,
+          "nick": 7,
+          "draw": 8
+        },
+        "homeTools": [
+          "hw"
+        ],
+        "nick": "bravo",
+        "draw": {
+          "names": "QA=B"
+        }
+      },
+      "expect": {
+        "homeTools": [
+          "tt"
+        ],
+        "nick": "bravo",
+        "draw.names": "QA=A",
+        "at.draw": 8,
+        "at.nick": 7
+      }
+    },
+    {
+      "id": "b-remote",
+      "remote": {
+        "v": 6,
+        "at": {
+          "homeTools": 11,
+          "nick": 7,
+          "draw": 8
+        },
+        "homeTools": [
+          "hw"
+        ],
+        "nick": "bravo",
+        "draw": {
+          "names": "QA=B"
+        }
+      },
+      "local": {
+        "v": 6,
+        "at": {
+          "homeTools": 19,
+          "nick": 5,
+          "draw": 8
+        },
+        "homeTools": [
+          "tt"
+        ],
+        "nick": "alpha",
+        "draw": {
+          "names": "QA=A"
+        }
+      },
+      "expect": {
+        "homeTools": [
+          "tt"
+        ],
+        "nick": "bravo",
+        "draw.names": "QA=B",
+        "at.draw": 8,
+        "at.nick": 7
+      }
+    },
+    {
+      "id": "unstamped",
+      "remote": {
+        "v": 6,
+        "nick": "remote",
+        "at": {},
+        "draw": {}
+      },
+      "local": {
+        "v": 6,
+        "nick": "local",
+        "draw": {
+          "names": "stale"
+        }
+      },
+      "expect": {
+        "nick": "remote",
+        "at.nick": 0,
+        "at.draw": 0
+      },
+      "legacyEmptyDraw": true
+    },
+    {
+      "id": "section-boundaries",
+      "remote": {
+        "v": 6,
+        "at": {
+          "prefs": 23,
+          "draw": 3
+        },
+        "prefs": {
+          "ntSub": true,
+          "future": {
+            "key": "qa"
+          }
+        },
+        "draw": {
+          "names": "QA=fixture",
+          "optional": 12
+        },
+        "marks": {
+          "unexpected": true
+        }
+      },
+      "local": {
+        "v": 6,
+        "at": {
+          "water": 27
+        },
+        "water": {
+          "rooms": {}
+        }
+      },
+      "expect": {
+        "prefs": {
+          "ntSub": true,
+          "future": {
+            "key": "qa"
+          }
+        },
+        "draw": {
+          "names": "QA=fixture",
+          "optional": 12
+        },
+        "at.prefs": 23,
+        "at.water": 27
+      },
+      "absent": [
+        "marks",
+        "at.marks"
+      ]
+    },
+    {
+      "id": "null-and-newer",
+      "remote": {
+        "v": 6,
+        "at": {
+          "nick": 40,
+          "draw": 1
+        },
+        "nick": null,
+        "draw": {
+          "names": "older"
+        }
+      },
+      "local": {
+        "v": 6,
+        "nick": "recovered",
+        "at": {
+          "draw": 2
+        },
+        "draw": {
+          "names": "QA=keep"
+        }
+      },
+      "expect": {
+        "nick": "recovered",
+        "at.nick": 0,
+        "draw.names": "QA=keep",
+        "at.draw": 2
+      }
+    }
+  ]
+}

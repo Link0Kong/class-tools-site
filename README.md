@@ -9,6 +9,8 @@
 
 ---
 
+[五端维护入口与回归命令](docs/maintenance/README.md)
+
 ## 简介
 
 班级工具站是给一个真实班级用的日常工具集合：一份 `tools/index.html`（原生 HTML/CSS/JS，无构建链、无静态资源目录、无第三方 CDN），打开即用。
