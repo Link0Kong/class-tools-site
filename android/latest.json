@@ -1,10 +1,10 @@
 {
-  "versionCode": 171,
-  "versionName": "1.0.0-beta66",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta66-vc171.apk",
-  "notes": "新增工作台、班级通知和待办任务桌面卡片。四种卡片可分别添加，并会随卡片大小调整显示内容。",
+  "versionCode": 172,
+  "versionName": "1.0.0-beta87",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta87-vc172.apk",
+  "notes": "旗山校园地图更新建筑轮廓与高度，支持课表直达楼层、室内找房和多起点室外路线。修复从班级课件返回文件传输入口。",
   "force": false,
   "channel": "beta",
-  "sha256": "08355cb645c95533922bd150d44f22883a173d31a1fbb6a4a8ef331cb40fe9c9",
-  "sizeBytes": 7164464
+  "sha256": "50227e6cf1b57159149c6ebbabc6efc4deb3284802417c8df7b506c2657ccab4",
+  "sizeBytes": 7181656
 }
