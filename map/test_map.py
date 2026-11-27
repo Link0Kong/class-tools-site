@@ -85,15 +85,28 @@ def run(browser, base, evidence):
 
     legacy_webview = browser.call('Page.addScriptToEvaluateOnNewDocument',
                                   source='delete Element.prototype.replaceChildren')['identifier']
-    for room, code in (('自强楼(教室01204)', '01204'), ('厚德楼 （０２２０１室）', '02201')):
+    locations = (
+        ('自强楼(教室01204)', '01204', '自强楼', 2),
+        ('厚德楼 （０２２０１室）', '02201', '厚德楼', 2),
+        ('自强楼(01514-计算机实验室2)', '01514', '自强楼', 5),
+        ('自强楼(01506-语音室（6）)', '01506', '自强楼', 5),
+        ('自强楼(01509-语音室)', '01509', '自强楼', 5),
+        ('自强楼（计算机实验室2）', '01514', '自强楼', 5),
+        ('2号楼(２３０９—多媒体教室)', '02309', '厚德楼', 3),
+        ('五行楼（07109-2-超低温室）', '07109-2', '五行楼', 1),
+    )
+    for room, code, building, level in locations:
         browser.open(f'{page}?room={quote(room)}')
-        assert browser.js('document.querySelector("#fFloors .on").textContent') == '2 层'
+        assert browser.js('document.querySelector("#fTitle").textContent') == building
+        assert browser.js('document.querySelector("#fFloors .on").textContent') == f'{level} 层'
         assert browser.js('document.querySelector("#fRoomInfo").textContent').startswith(code)
     browser.js('zqMapDismiss(); zqMapTarget("自强楼（教室01999）")')
     assert browser.js('document.querySelector("#floor").hidden && document.querySelector("#cSub").textContent.includes("未收录")')
+    browser.js('zqMapTarget("厚德楼（教室01217）")')
+    assert browser.js('document.querySelector("#floor").hidden && document.querySelector("#cName").textContent === "厚德楼"')
     browser.call('Page.removeScriptToEvaluateOnNewDocument', identifier=legacy_webview)
 
-    browser.open(f'{page}?room=07X206')
+    browser.open(f'{page}?room={quote("五行楼（07X206）")}')
     assert browser.js('document.querySelector("#floor").hidden && document.querySelectorAll("#results .ritem").length === 2')
     browser.js('document.querySelectorAll("#results .ritem")[1].click()')
     assert browser.js('document.querySelector("#fFloors .on").textContent') == '3 层'

@@ -6,10 +6,18 @@
 
   function roomCode(value) {
     const code = normalize(value).replace(/^教室|(?:教室|室)$/g, '');
-    if (/^\d{2}(?:\d|x)\d{2}(?:[a-z]|-\d+)?$/.test(code)) return code.toUpperCase();
+    if (/^\d{2}(?:\d{3}|x\d{2,3})(?:[a-z]|-\d+)?$/.test(code)) return code.toUpperCase();
     if (/^\d{4}(?:[a-z]|-\d+)?$/.test(code)) return ('0' + code).toUpperCase();
     return '';
   }
+
+  function timetableRoomCode(value) {
+    const named = normalize(value)
+      .match(/^((?:教室)?(?:\d{4,5}|\d{2}x\d{2,3})(?:[a-z]|-\d+)?)(?:教室|室)?[-:–—][a-z\u3400-\u9fff].*$/);
+    return roomCode(named ? named[1] : value);
+  }
+
+  const roomNameKey = value => normalize(value).replace(/\((\d+)\)$/, '$1');
 
   function directory(data) {
     const buildings = data.buildings;
@@ -67,21 +75,22 @@
       if (!query) return [];
       const direct = byId.get(String(value)) || byId.get(ids[String(value)]);
       if (direct) return [{building: direct, room: ''}];
-      let code = roomCode(query);
-      if (!code) {
-        const label = String(value).normalize('NFKC').trim()
-          .match(/^(.+?)(?:\s*\(([^()]+)\)|\s+([^()]+)|(?=教室)(教室[^()]+))$/);
-        if (label) {
-          const name = normalize(label[1]);
-          const building = entries.find(entry => !entry.room && entry.keys.includes(name))?.building;
-          code = roomCode(label[2] || label[3] || label[4]);
-          if (building && code) {
-            const matches = (codes.get(code) || []).filter(entry => entry.building === building);
-            return matches.length ? matches : [{building, room: code, missing: true}];
-          }
-          code = '';
+      const text = String(value).normalize('NFKC').trim();
+      const label = text.match(/^([^()]+?)\s*\((.+)\)$/)
+        || text.match(/^([^()]+?)(?:\s+|(?=教室))(.+)$/);
+      if (label) {
+        const name = normalize(label[1]);
+        const places = entries.filter(entry => !entry.room && entry.keys.includes(name));
+        if (places.length) {
+          const detail = label[2].trim();
+          const code = timetableRoomCode(detail);
+          const candidates = code ? (codes.get(code) || [])
+            : entries.filter(entry => entry.item && roomNameKey(entry.item.name) === roomNameKey(detail));
+          const matches = candidates.filter(entry => places.some(place => place.building === entry.building));
+          return matches.length ? matches : places.map(({building}) => ({building, room: code || detail, missing: true}));
         }
       }
+      const code = timetableRoomCode(query);
       if (code) {
         if (codes.has(code)) return codes.get(code);
         const building = buildings.find(item => {
