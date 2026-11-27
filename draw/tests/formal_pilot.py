@@ -2,6 +2,7 @@
 import copy
 import hashlib
 import json
+import re
 from pathlib import Path
 
 FIXTURE = Path(__file__).with_name("formal_pilot.json")
@@ -16,16 +17,25 @@ def digest(value):
 
 
 def commitment(spec):
-    ids = [r["id"] for r in spec["members"]]
-    if (not ids or len(set(ids)) != len(ids) or ids != sorted(ids)
-            or spec["rule"] != "equal-without-replacement"
-            or not 0 < spec["count"] <= len(ids)):
+    members = spec.get("members")
+    if not isinstance(members, list) or not 1 <= len(members) <= 256:
+        raise ValueError("unsupported roster size")
+    if "weights" in spec or any(not isinstance(r, dict) or set(r) != {"id", "binding"}
+                                or not isinstance(r["id"], str) or not r["id"]
+                                or not isinstance(r["binding"], str) for r in members):
+        raise ValueError("unsupported participant schema")
+    ids = [r["id"] for r in members]
+    count = spec.get("count")
+    if (len(set(ids)) != len(ids) or ids != sorted(ids) or type(count) is not int
+            or spec.get("rule") != "equal-without-replacement" or not 0 < count <= len(ids)):
         raise ValueError("invalid locked roster or rules")
     return digest(spec)
 
 
 def bounded(words, n):
     # Rejection sampling, using the largest multiple of n within the word domain.
+    if not 1 <= n <= 256:
+        raise ValueError("unsupported word domain")
     limit = 256 - 256 % n
     for word in words:
         if word < limit:
@@ -55,7 +65,11 @@ def review(spec, witnessed, beacon, *, activity, sample_digest):
         return "活动不匹配", []
     if witnessed is None:
         return "见证材料不足", []
-    if commitment(spec) != witnessed["commitment"]:
+    try:
+        committed = commitment(spec)
+    except ValueError:
+        return "清单参数无效", []
+    if committed != witnessed["commitment"]:
         return "承诺不一致", []
     if witnessed["announced"] >= witnessed["release"]:
         return "见证过晚", []
@@ -63,7 +77,8 @@ def review(spec, witnessed, beacon, *, activity, sample_digest):
         return "等待原定轮次", []
     if (beacon["source"], beacon["round"]) != (spec["source"], spec["round"]):
         return "来源或轮次错误", []
-    if len(beacon["value"]) != 64 or digest(beacon) != sample_digest:
+    if (not isinstance(beacon.get("value"), str) or not re.fullmatch(r"[0-9a-f]{64}", beacon["value"])
+            or digest(beacon) != sample_digest):
         return "样例材料损坏", []
     return "离线样例复算一致", order(spec, beacon["value"])
 
@@ -86,12 +101,14 @@ def run():
         swapped = copy.deepcopy(s)
         swapped["members"][0]["binding"] = "different"
         assert check(swapped)[0] == "承诺不一致"
-        try:
-            commitment(dict(s,members=s["members"]*2))
-        except ValueError:
-            pass
-        else:
-            raise AssertionError("duplicate ID was accepted")
+        weighted = [dict(r, weight=2) for r in s["members"]]
+        for invalid in [dict(s, members=[]), dict(s, members=s["members"]*2), dict(s, members=weighted),
+                        dict(s, weights=[1]*len(s["members"])), dict(s, count=len(s["members"])+1),
+                        dict(s, count=True), dict(s, members=[{}]*257)]:
+            assert check(invalid)[0] == "清单参数无效"
+        invalid_beacon = dict(beacon, value="zz"*32)
+        assert review(s, witness, invalid_beacon, activity=s["activity"],
+                      sample_digest=digest(invalid_beacon))[0] == "样例材料损坏"
     for size in range(2,9):
         limit = 256 - 256 % size
         assert [sum(x % size == i for x in range(limit)) for i in range(size)] == [limit//size]*size
