@@ -321,6 +321,7 @@ class WeatherAdapter:
         response = self.fetch(f"/weather/v1/current/{lat:.2f}/{lon:.2f}?lang=zh")
         if not isinstance(response, dict) or not valid_weather(response, now):
             return None
+        observed = parse_time(response["validTime"])
         code = int(response["condition"]["code"])
         description = response["condition"]["text"]
         if not 100 <= code < 999 or not isinstance(description, str) or not description.strip():
@@ -329,11 +330,12 @@ class WeatherAdapter:
         celsius = temperature.get("value") if isinstance(temperature, dict) and temperature.get("unit") in ("℃", "°C") else None
         if type(celsius) not in (int, float) or not math.isfinite(celsius) or not -90 <= celsius <= 65:
             celsius = None
-        value = {"regionId": region, "validTime": response["validTime"], "conditionCode": code,
+        # The provider may omit seconds, which Android's Instant parser requires.
+        value = {"regionId": region, "validTime": observed.isoformat(), "conditionCode": code,
                  "conditionText": " ".join(description.split())[:40], "temperatureC": celsius,
                  "attributions": self.attributions(response.get("metadata"))}
         if old and old["temperatureC"] is not None and celsius is not None:
-            elapsed = parse_time(response["validTime"]) - parse_time(old["validTime"])
+            elapsed = observed - parse_time(old["validTime"])
             value["cooling"] = WEATHER_INTERVAL <= elapsed <= FRESHNESS and old["temperatureC"] - celsius >= 3
         if code == 100:
             sun = self.daylight(region, now)
@@ -364,7 +366,7 @@ class WeatherAdapter:
             ):
                 return None
             attributions = self.attributions({"attributions": data.get("refer", {}).get("sources")})
-            value = {"sunrise": data["sunrise"], "sunset": data["sunset"], "attributions": attributions}
+            value = {"sunrise": rise.isoformat(), "sunset": setting.isoformat(), "attributions": attributions}
             self.sun[region] = (day, value)
             return value
         except (OSError, ValueError, TypeError, AttributeError, HTTPException):

@@ -118,18 +118,22 @@ def test_weather_timestamp_regions_dedup_and_astronomy(tmp_path):
         nonlocal hits
         calls.append(path)
         if path.startswith("/v7/astronomy/sun"):
-            return {"code": "200", "sunrise": "2026-11-27T06:30:00+08:00",
-                    "sunset": "2026-11-27T17:10:00+08:00", "refer": {"sources": ["Test attribution"]}}
+            return {"code": "200", "sunrise": "2026-11-27T06:30+08:00",
+                    "sunset": "2026-11-27T17:10+08:00", "refer": {"sources": ["Test attribution"]}}
         hits += 1
         stamp = NOW if hits < 3 else NOW - timedelta(hours=1)
-        return {"validTime": stamp.isoformat(), "condition": {"code": "100", "text": "晴"},
+        return {"validTime": stamp.isoformat(timespec="minutes").replace("+00:00", "Z"),
+                "condition": {"code": "100", "text": "晴"},
                 "temperature": {"value": 20, "unit": "°C"}}
 
     regions = app.read_regions(None)
     regions["123"] = (31.2, 121.3)
     weather = app.WeatherAdapter(regions, fetch)
     value = weather.get("minhou", NOW)
-    assert value["regionId"] == "minhou" and value["sunset"] and value["temperatureC"] == 20
+    assert value["regionId"] == "minhou" and value["temperatureC"] == 20
+    assert value["validTime"] == "2026-11-27T03:00:00+00:00"
+    assert value["sunrise"] == "2026-11-27T06:30:00+08:00"
+    assert value["sunset"] == "2026-11-27T17:10:00+08:00"
     assert calls[0].startswith("/weather/v1/current/26.15/119.15")
     assert weather.get("minhou", NOW + timedelta(minutes=14)) == value
     assert len(calls) == 2
