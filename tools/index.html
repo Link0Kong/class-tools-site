@@ -12096,6 +12096,7 @@ function logStr(){
 }
 function removeFlow(idx){
   if(!A.result||!(idx>=0&&idx<A.result.length))return;
+  if(!drawCanChange())return;
   var n=A.result[idx];
   A.result.splice(idx,1);
   A.removed=A.removed||[]; A.removed.push(n);
@@ -12116,13 +12117,17 @@ $("#aRun").addEventListener("click",function(){ if(doDraw()) toast("已抽取");
 /* 重置本轮：只清空抽签结果 / 剔除记录（分组已是独立工具，不再连带清空）；参数与参与名单保留 */
 $("#aReset").addEventListener("click",function(){
   if(!A.result){toast("本轮还没有抽签结果");return;}
+  if(!drawCanChange())return;
   if(!confirm("重置本轮抽签？将清空抽签结果与剔除记录（参数与名单保留）"))return;
-  if(A.proof&&A.proof.status==="ok")drawProofEvent("reset",null,null);
+  if(A.proof&&A.proof.status==="ok"){drawProofEvent("reset",null,null);return;}
+  clearDrawRound();
+});
+function clearDrawRound(){
   A.result=null;A.cfg=null;A.log=[];A.removed=[];A.pool=null;
   A.proof=null;A.proofPayload=null;A.proofSeed=null;A.proofOrder=null;
   renderA();renderProofLine();renderRecSum();
   toast("已重置抽签");
-});
+}
 $$("#aSortRow .btn[data-asort]").forEach(function(b){ b.addEventListener("click",function(){
   if(!A.result){toast("先抽签");return;}
   var k=b.getAttribute("data-asort");
@@ -12141,15 +12146,20 @@ $("#aRosterClear").addEventListener("click",function(){
 });
 $("#aImg").addEventListener("click",function(){
   if(!A.result){toast("先抽签");return;}
+  var requested=A.proof&&A.proof.id;
   drawProofAwait(6000).then(function(){
+    if(!A.result||requested!==(A.proof&&A.proof.id)){toast("本轮已更换，请重新导出");return;}
     var c=A.cfg;
     var st=drawProofState();
     var cf=[["范围",c.range],["抽取个数",c.count],["允许重复",c.dup],["排除序号",c.excl],["结果排序",c.sort],["可用池","共 "+c.pool+" 个"]];
     if(c.rosterN) cf.push(["参与名单",c.rosterN+" 人"]);
     if(c.namesN) cf.push(["名称映射",c.namesN+" 项"]);
     if(A.log&&A.log.length) cf.push(["剔除重抽",A.log.length+" 次"]);
-    var rec=recId("DRAW"), qr=null, qrTitle=null, qrCap=null, qrNote=null;
-    if(st&&st.status==="ok"&&st.record){
+    var rec=st&&st.id||recId("DRAW"), qr=null, qrTitle=null, qrCap=null, qrNote=null;
+    if(st&&st.record&&st.event){
+      cf.push(["初始存证编号",st.id],["操作时间线",st.event.state==="pending"?"操作提交中，图片结果尚未确认":"操作未确认，图片结果仅供本机参考"]);
+      toast("操作尚未核对，图片已注明");
+    }else if(st&&st.status==="ok"&&st.record){
       var r=st.record;
       cf.push(["存证编号",r.id]);
       cf.push(["存证时间",drawTimeFull(r.at)]);
@@ -12161,7 +12171,7 @@ $("#aImg").addEventListener("click",function(){
       qrCap="扫码核验本次抽签记录（需登录班级身份）";
       qrNote=["存证编号 "+r.id,"记录哈希 "+String(r.hash||"").slice(0,12),"今日第 "+r.seq_day+" 次 · 共 "+r.today_count+" 次"];
     }else{
-      cf.push(["存证","未存证（网络不可用）"]);
+      cf.push(["存证","未存证（"+(st&&st.reason||"网络不可用")+"）"]);
       toast("本次未存证，图片无法核验");
     }
     var blocks=[{label:"抽签结果",chips:A.result.map(function(n){return {n:n,nm:nameOf(n)};})}];
@@ -12266,13 +12276,13 @@ function drawProofStart(payload){
 function drawProofCreate(payload,id){
   return drawRpc("draw_record_create",{p_id:id,p_params:payload.params,p_pool:payload.pool,p_result:payload.result,p_labels:payload.labels,p_seed:payload.seed,p_algo:payload.algo})
     .then(function(j){
-      if(!j||!j.ok||!j.record)throw new Error((j&&j.reason)||"存证失败");
+      if(!j||!j.ok||!j.record||j.record.id!==id)throw new Error((j&&j.reason)||"存证失败");
       return j.record;
     });
 }
 function drawProofRetry(){
   var p=A.proof;
-  if(!p||!p.payload||!p.id)return;
+  if(!p||!p.payload||!p.id||p.localChanges||p.status!=="failed")return;
   var id=p.id,payload=p.payload;
   A.proof={status:"pending",id:id,payload:payload,at:Date.now()};
   renderProofLine();
@@ -12286,13 +12296,51 @@ function drawProofRetry(){
     renderProofLine(); drawProofFlush();
   });
 }
-function drawProofEvent(kind,n,added){
+function drawCanChange(){
   var p=A.proof;
-  if(!p||p.status!=="ok"||!p.record||!p.record.id)return;
-  var id=p.record.id;
-  drawRpc("draw_event_append",{p_id:id,p_kind:kind,p_n:(n==null?null:n),p_added:(added==null?null:added),p_note:""})
-    .then(function(j){if(j&&j.ok&&j.event_count!=null&&A.proof&&A.proof.record&&A.proof.record.id===id){A.proof.record.event_count=j.event_count;}})
-    .catch(function(){});
+  if(!p)return true;
+  if(p.status==="pending"){toast("初始记录正在存证，请稍后再操作");return false;}
+  if(p.event){toast("请先核对上一条操作，或开始新一轮抽签");return false;}
+  return true;
+}
+function drawEventMatches(event,intent){
+  return !!event&&event.seq===intent.seq&&event.kind===intent.kind&&
+    (event.n==null?null:event.n)===intent.n&&(event.added==null?null:event.added)===intent.added;
+}
+function confirmDrawEvent(p,intent){
+  if(A.proof!==p||p.event!==intent)return;
+  p.record.event_count=intent.seq;p.event=null;
+  if(intent.kind==="reset"){clearDrawRound();return;}
+  renderProofLine();
+}
+async function readDrawEvent(p){
+  var intent=p.event;
+  if(!intent||intent.reading)return;
+  intent.reading=true;
+  try{
+    var response=await drawRpc("draw_record_get",{p_id:p.id});
+    var r=response&&response.ok&&response.record;
+    if(r&&r.id===p.id&&r.hash===p.record.hash&&r.event_count===intent.seq&&
+       Array.isArray(r.events)&&r.events.some(function(ev){return drawEventMatches(ev,intent);})){
+      confirmDrawEvent(p,intent);return;
+    }
+  }catch(e){}
+  finally{intent.reading=false;}
+  if(A.proof===p&&p.event===intent){intent.state="unknown";renderProofLine();}
+}
+async function drawProofEvent(kind,n,added){
+  var p=A.proof;
+  if(!p)return;
+  if(p.status!=="ok"||!p.record){p.localChanges=true;renderProofLine();return;}
+  var intent={state:"pending",seq:Number(p.record.event_count||0)+1,kind:kind,n:n,added:added};
+  p.event=intent;renderProofLine();
+  try{
+    var ack=await drawRpc("draw_event_append",{p_id:p.id,p_kind:kind,p_n:n,p_added:added,p_note:""});
+    if(ack&&ack.ok&&ack.event_count===intent.seq&&drawEventMatches(ack.event,intent)){
+      confirmDrawEvent(p,intent);return;
+    }
+  }catch(e){}
+  if(A.proof===p)await readDrawEvent(p);
 }
 function drawTimeText(ms){
   var d=new Date(Number(ms)||0);
@@ -12321,7 +12369,10 @@ function renderProofLine(){
   var p=A.proof;
   if(!A.result||!p){el.style.display="none";el.innerHTML="";return;}
   var h="";
-  if(p.status==="ok"&&p.record){
+  if(p.event){
+    el.className="proof-line "+(p.event.state==="pending"?"pending":"fail");
+    h=p.event.state==="pending"?"操作存证中…":'操作未确认，导出图片将标注未确认。 <button type="button" class="btn sm ghost" id="aEventCheck">重新核对</button>';
+  }else if(p.status==="ok"&&p.record){
     var r=p.record;
     el.className="proof-line ok";
     h='<span class="pdot"></span><b>已存证</b><span> · 今日第 '+r.seq_day+' 次（全班今日共 '+r.today_count+' 次）</span><button type="button" class="btn sm ghost" id="aProofView">查看核验</button>';
@@ -12330,11 +12381,12 @@ function renderProofLine(){
     h='<span class="pdot"></span>存证中…';
   }else{
     el.className="proof-line fail";
-    h='<span class="pdot"></span>未存证（'+esc(p.reason||"网络不可用")+'）'+(p.payload?'<button type="button" class="btn sm ghost" id="aProofRetry">重试存证</button>':"");
+    h='<span class="pdot"></span>未存证（'+esc(p.reason||"网络不可用")+'）'+(p.payload&&!p.localChanges?'<button type="button" class="btn sm ghost" id="aProofRetry">重试存证</button>':"");
   }
   el.innerHTML=h; el.style.display="";
   var v=$("#aProofView");
   if(v)v.addEventListener("click",function(){if(A.proof&&A.proof.record)openRecordDetail(A.proof.record.id);});
+  var check=$("#aEventCheck");if(check)check.addEventListener("click",function(){readDrawEvent(p);});
   var g=$("#aProofRetry");
   if(g)g.addEventListener("click",drawProofRetry);
 }
@@ -20027,7 +20079,7 @@ try{window.VOTE=VOTE;}catch(e){}
   function drawLastSave(){
     try{
       if(typeof A==="undefined"||!A||!A.result||!A.result.length)return;
-      var o={at:Date.now(),result:A.result.slice(0,80),pool:(A.pool||[]).slice(0,300),
+      var o={at:Date.now(),proofRef:A.proof&&A.proof.id||"",result:A.result.slice(0,80),pool:(A.pool||[]).slice(0,300),
         cfg:{range:(A.cfg&&A.cfg.range)||"",count:(A.cfg&&A.cfg.count)||"",dup:(A.cfg&&A.cfg.dup)||"否",sort:(A.cfg&&A.cfg.sort)||"按抽取顺序"}};
       localStorage.setItem(LS_LAST,JSON.stringify(o));
     }catch(e){}
@@ -20050,6 +20102,8 @@ try{window.VOTE=VOTE;}catch(e){}
   }
   function restoreDraw(last){
     try{
+      A.proof={status:"local",id:last.proofRef||drawNewRecordId(),reason:"从本机历史恢复，时间线未核对"};
+      A.proofOrder=null;A.proofSeed=null;
       A.result=last.result.slice();
       A.pool=last.pool&&last.pool.length?last.pool.slice():null;
       A.cfg={range:last.cfg.range||"",rangeF:"",count:last.cfg.count||"",dup:last.cfg.dup||"否",
