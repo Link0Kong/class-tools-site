@@ -1,0 +1,131 @@
+{
+  "first": {
+    "manifest": {
+      "v": 1,
+      "activity": "demo-001",
+      "algorithm": "sha256-byte-fy-1",
+      "rule": "equal-without-replacement",
+      "source": "fixture-beacon",
+      "round": 81,
+      "count": 2,
+      "members": [
+        {
+          "id": "11",
+          "binding": "941e40991a04242a7aee364d19a2aab902eff61bbaea923c3645458aeae5ae13"
+        },
+        {
+          "id": "12",
+          "binding": "6080debb051d23fef81ae268111bfa9737d8c08ec34ccb0573b485027019e08a"
+        },
+        {
+          "id": "13",
+          "binding": "da3c035f5296ebac3b3447bb385d1038220ecf10e8feb8b39d20bd1d4dd10236"
+        },
+        {
+          "id": "14",
+          "binding": "2a516f3dead676254704cb996c78381dc17cbe2baf3e52bb2e08d218c900d5e4"
+        },
+        {
+          "id": "15",
+          "binding": "6a645a61a23a8f17272d95df199fbb59a2a3999293cc3e64d61f569dab78a44d"
+        }
+      ]
+    },
+    "witness": {
+      "commitment": "aa00fe4c9d1a02977ec8280fb252fe92f78affc13aff57c561accb7780fda2f7",
+      "announced": 809,
+      "release": 810
+    },
+    "postRoundDigest": "071ffee67facaa0334a8f8fb668a4835c84af246327c5e4041ea2b5761a9e1f2",
+    "beacon": {
+      "source": "fixture-beacon",
+      "round": 81,
+      "value": "1212121212121212121212121212121212121212121212121212121212121212"
+    },
+    "result": [
+      "14",
+      "11"
+    ],
+    "resultId": "result-demo-001",
+    "replaces": null
+  },
+  "successor": {
+    "manifest": {
+      "v": 1,
+      "activity": "demo-002",
+      "algorithm": "sha256-byte-fy-1",
+      "rule": "equal-without-replacement",
+      "source": "fixture-beacon",
+      "round": 82,
+      "count": 2,
+      "members": [
+        {
+          "id": "11",
+          "binding": "941e40991a04242a7aee364d19a2aab902eff61bbaea923c3645458aeae5ae13"
+        },
+        {
+          "id": "12",
+          "binding": "6080debb051d23fef81ae268111bfa9737d8c08ec34ccb0573b485027019e08a"
+        },
+        {
+          "id": "13",
+          "binding": "da3c035f5296ebac3b3447bb385d1038220ecf10e8feb8b39d20bd1d4dd10236"
+        },
+        {
+          "id": "14",
+          "binding": "2a516f3dead676254704cb996c78381dc17cbe2baf3e52bb2e08d218c900d5e4"
+        },
+        {
+          "id": "15",
+          "binding": "6a645a61a23a8f17272d95df199fbb59a2a3999293cc3e64d61f569dab78a44d"
+        }
+      ]
+    },
+    "witness": {
+      "commitment": "fb4fa6849ec9018ce9a5266b99d61e7100786e6f843a0b4c9c1d336807229873",
+      "announced": 819,
+      "release": 820
+    },
+    "postRoundDigest": "efe89498c648d056dfb2fb317d3eebe693bda97e0d657294157872d88e4581e4",
+    "beacon": {
+      "source": "fixture-beacon",
+      "round": 82,
+      "value": "3434343434343434343434343434343434343434343434343434343434343434"
+    },
+    "result": [
+      "12",
+      "11"
+    ],
+    "resultId": "result-demo-002",
+    "replaces": "demo-001"
+  },
+  "legacyImage": {
+    "receiptId": "normal-demo-07",
+    "witness": null
+  },
+  "exports": [
+    {
+      "timestamp": 811,
+      "resultId": "result-demo-001",
+      "digest": "c612a60b00c951ca2d005fb167fef9dbbc6355a2ab88cba89746bdbec94d3d32"
+    },
+    {
+      "timestamp": 812,
+      "resultId": "result-demo-001",
+      "digest": "c612a60b00c951ca2d005fb167fef9dbbc6355a2ab88cba89746bdbec94d3d32"
+    }
+  ],
+  "events": [
+    {
+      "id": "event-001",
+      "kind": "create",
+      "activity": "demo-001"
+    },
+    {
+      "id": "event-002",
+      "kind": "void",
+      "activity": "demo-001",
+      "supersededBy": "demo-002"
+    }
+  ]
+}
