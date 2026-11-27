@@ -1,10 +1,10 @@
 {
-  "versionCode": 172,
-  "versionName": "1.0.0-beta87",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta87-vc172.apk",
-  "notes": "旗山校园地图更新建筑轮廓与高度，支持课表直达楼层、室内找房和多起点室外路线。修复从班级课件返回文件传输入口。",
+  "versionCode": 174,
+  "versionName": "1.0.0-beta89",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta89-vc174.apk",
+  "notes": "修复旧版 WebView 的离线地图空白，支持从带楼名的课表教室直达对应楼层。页面返回和系统返回均先退出平面图，再回原课表。",
   "force": false,
   "channel": "beta",
-  "sha256": "50227e6cf1b57159149c6ebbabc6efc4deb3284802417c8df7b506c2657ccab4",
-  "sizeBytes": 7181656
+  "sha256": "39fe3203c8b722cf3a6037910e025d8d7426b574bd74d05ca54103bae9db9c4d",
+  "sizeBytes": 7193084
 }
