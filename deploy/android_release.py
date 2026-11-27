@@ -42,7 +42,6 @@ ANDROID_DIR = os.path.join(WEB, "android")
 OSS_BASE = "https://tool-furina-fun.oss-cn-hongkong.aliyuncs.com"
 ECS_PUBLIC = "https://tool.furina.fun"   # 正式域名（备案 + HTTPS 已就绪）
 ECS_ANDROID = "/var/www/tool/android"
-ECS_IP = ecs_site.ECS_IP
 
 
 def sha256(path):
@@ -121,7 +120,7 @@ def main(argv=None):
     verify_app_entrypoints(apk)
     digest = sha256(apk)
     size = os.path.getsize(apk)
-    fname = "classtools-%s.apk" % safe_name(args.version_name)
+    fname = "classtools-%s-vc%d.apk" % (safe_name(args.version_name), args.version_code)
     oss_name = fname + ".bin"
     notes = args.notes.strip() or ("%s（测试版本）" % args.version_name)
     payload = {
@@ -172,45 +171,57 @@ def main(argv=None):
         shutil.copy2(apk, local_apk)
     if os.path.abspath(apk) != os.path.abspath(local_bin):
         shutil.copy2(apk, local_bin)
-    # 1) OSS：先 APK，后 JSON
+    # 1) 先暂存归档。两个清单均指向 ECS，必须等正式下载地址可用才能切换。
     if not args.skip_oss:
         b = oss_bucket()
         b.put_object_from_file("android/" + oss_name, apk, headers={
             "Content-Type": "application/octet-stream", "Cache-Control": "no-cache"})
-        # 关键：必须上传本次生成的 raw，而不是本地 latest.json（本地只在全部校验通过后才更新，
-        # 否则会把上一版 JSON 传到 OSS，出现 ECS/OSS 版本分裂）。
-        b.put_object("android/latest.json", raw, headers={
-            "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache"})
-        print("  OSS 上传完成：android/%s + android/latest.json" % oss_name)
+        print("  OSS 归档上传完成：android/%s" % oss_name)
 
-    # 2) ECS：从 OSS 拉 APK（云助手脚本只含固定 OSS URL / sha / origin），再写 latest.json
+    # 2) ECS 在目标目录内校验并原子安装 APK，失败保留旧的可下载文件。
     if not args.skip_ecs:
-        b64_json = base64.b64encode(raw).decode("ascii")
         script = "\n".join([
             "set -euo pipefail",
             "mkdir -p %s" % ECS_ANDROID,
-            "TMP=$(mktemp /tmp/classtools-android.XXXXXX)",
+            'TMP=$(mktemp "%s/.apk.XXXXXX")' % ECS_ANDROID,
             'cleanup(){ rm -f "$TMP"; }',
             "trap cleanup EXIT",
             'curl -fsSL --retry 3 --retry-delay 2 --max-time 300 -o "$TMP" "%s/android/%s"' % (OSS_BASE, oss_name),
             'echo "%s  $TMP" | sha256sum -c -' % digest,
-            'install -m 0644 "$TMP" "%s/%s"' % (ECS_ANDROID, fname),
-            'echo "%s" | base64 -d > "%s/latest.json"' % (b64_json, ECS_ANDROID),
-            'chmod 0644 "%s/latest.json"' % ECS_ANDROID,
-            'curl -fsS -m 8 -o /tmp/android-latest.check "http://127.0.0.1/android/latest.json"',
-            'python3 -c "import json;d=json.load(open(\'/tmp/android-latest.check\'));assert d[\'versionCode\']==%d' % int(args.version_code) + '"',
-            'curl -fsS -m 20 -o /dev/null "http://127.0.0.1/android/%s"' % fname,
-            'rm -f /tmp/android-latest.check',
-            'echo "ECS_ANDROID_OK %s %s"' % (fname, digest),
+            'chmod 0644 "$TMP"',
+            'mv -f "$TMP" "%s/%s"' % (ECS_ANDROID, fname),
         ]) + "\n"
         status, code, out = ecs_site.run_script(script, timeout=360, wait=480, label="android-release")
         print(out.strip()[-1200:])
         if status != "Success" or str(code) not in ("0", "None"):
             raise SystemExit("ECS 更新渠道发布失败：status=%s exit=%s" % (status, code))
 
+    code, body = http_code(payload["apkUrl"], timeout=120)
+    if code != 200 or len(body) != size or hashlib.sha256(body).hexdigest() != digest:
+        raise SystemExit("ECS 公网 APK 校验失败，保留原渠道清单：HTTP %s" % code)
+    if not args.skip_ecs:
+        b64_json = base64.b64encode(raw).decode("ascii")
+        script = "\n".join([
+            "set -euo pipefail",
+            'TMP=$(mktemp "%s/.latest.XXXXXX")' % ECS_ANDROID,
+            '''trap 'rm -f "$TMP"' EXIT''',
+            'echo "%s" | base64 -d > "$TMP"' % b64_json,
+            'chmod 0644 "$TMP"',
+            'mv -f "$TMP" "%s/latest.json"' % ECS_ANDROID,
+            'echo "ECS_ANDROID_OK %s %s"' % (fname, digest),
+        ]) + "\n"
+        status, code, out = ecs_site.run_script(script, timeout=60, wait=120, label="android-manifest")
+        print(out.strip()[-1200:])
+        if status != "Success" or str(code) not in ("0", "None"):
+            raise SystemExit("ECS 清单切换失败：status=%s exit=%s" % (status, code))
+    if not args.skip_oss:
+        b.put_object("android/latest.json", raw, headers={
+            "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache"})
+        print("  OSS 清单上传完成：android/latest.json")
+
     # 3) 公网验证（ECS 主 + OSS 归档）
     checks = [
-        ("ECS latest.json", "http://%s/android/latest.json" % ECS_IP, "GET"),
+        ("ECS latest.json", ECS_PUBLIC + "/android/latest.json", "GET"),
         ("ECS APK", ECS_PUBLIC + "/android/" + fname, "HEAD"),
         ("OSS latest.json", OSS_BASE + "/android/latest.json", "GET"),
         ("OSS APK.bin", OSS_BASE + "/android/" + oss_name, "HEAD"),
@@ -222,12 +233,12 @@ def main(argv=None):
             raise SystemExit("验证失败：%s HTTP %s" % (label, code))
         if method == "GET" and "latest.json" in url:
             remote = json.loads(body.decode("utf-8"))
-            if str(remote.get("sha256")) != digest or int(remote.get("versionCode") or 0) != int(args.version_code):
+            if remote != payload:
                 raise SystemExit("验证失败：%s 内容与发布不一致" % label)
 
     # 只有公网双通道都验证通过后才写本地 latest.json（失败时下次不会被幂等跳过）
-    with open(os.path.join(ANDROID_DIR, "latest.json"), "w", encoding="utf-8") as f:
-        f.write(raw.decode("utf-8"))
+    with open(os.path.join(ANDROID_DIR, "latest.json"), "wb") as f:
+        f.write(raw)
 
     print("== 发布完成：%s / vc%s / %s ==" % (args.version_name, args.version_code, digest))
     print("  客户端主入口：%s/android/latest.json" % ECS_PUBLIC)
