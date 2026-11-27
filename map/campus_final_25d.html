@@ -308,7 +308,21 @@ var DATA = {"vb":[848,493],"features":[{"id":"B378392","k":"bld","t":"polygon","
       if (!query) return [];
       const direct = byId.get(String(value)) || byId.get(ids[String(value)]);
       if (direct) return [{building: direct, room: ''}];
-      const code = roomCode(query);
+      let code = roomCode(query);
+      if (!code) {
+        const label = String(value).normalize('NFKC').trim()
+          .match(/^(.+?)(?:\s*\(([^()]+)\)|\s+([^()]+)|(?=教室)(教室[^()]+))$/);
+        if (label) {
+          const name = normalize(label[1]);
+          const building = entries.find(entry => !entry.room && entry.keys.includes(name))?.building;
+          code = roomCode(label[2] || label[3] || label[4]);
+          if (building && code) {
+            const matches = (codes.get(code) || []).filter(entry => entry.building === building);
+            return matches.length ? matches : [{building, room: code, missing: true}];
+          }
+          code = '';
+        }
+      }
       if (code) {
         if (codes.has(code)) return codes.get(code);
         const building = buildings.find(item => {
@@ -1631,7 +1645,8 @@ var DATA = {"vb":[848,493],"features":[{"id":"B378392","k":"bld","t":"polygon","
     $("fTitle").textContent = building.n;
     $("fSub").textContent = building.no + " 号楼 · " + floor.level + " 层";
     var floors = $("fFloors"), rooms = $("fRooms"), orgs = $("fOrg");
-    floors.replaceChildren(); rooms.replaceChildren();
+    floors.textContent = "";
+    rooms.textContent = "";
     for (const candidate of DIRECTORY.indoor[building.id]) {
       var button = document.createElement("button");
       button.type = "button"; button.textContent = candidate.level + " 层";
@@ -1645,7 +1660,8 @@ var DATA = {"vb":[848,493],"features":[{"id":"B378392","k":"bld","t":"polygon","
       floors.append(button);
     }
     var names = Array.from(new Set(floor.rooms.map(item => item.org).filter(Boolean)));
-    orgs.replaceChildren(new Option("全部机构", ""));
+    orgs.options.length = 0;
+    orgs.add(new Option("全部机构", ""));
     for (var name of names) orgs.add(new Option(name, name));
     orgs.hidden = !names.length;
     orgs.value = floorState.org;

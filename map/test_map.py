@@ -83,6 +83,16 @@ def run(browser, base, evidence):
             assert browser.js('!document.querySelector("#selection").hidden')
         print(f'{width}×{height}: floor link, dark/light, map restored')
 
+    legacy_webview = browser.call('Page.addScriptToEvaluateOnNewDocument',
+                                  source='delete Element.prototype.replaceChildren')['identifier']
+    for room, code in (('自强楼(教室01204)', '01204'), ('厚德楼 （０２２０１室）', '02201')):
+        browser.open(f'{page}?room={quote(room)}')
+        assert browser.js('document.querySelector("#fFloors .on").textContent') == '2 层'
+        assert browser.js('document.querySelector("#fRoomInfo").textContent').startswith(code)
+    browser.js('zqMapDismiss(); zqMapTarget("自强楼（教室01999）")')
+    assert browser.js('document.querySelector("#floor").hidden && document.querySelector("#cSub").textContent.includes("未收录")')
+    browser.call('Page.removeScriptToEvaluateOnNewDocument', identifier=legacy_webview)
+
     browser.open(f'{page}?room=07X206')
     assert browser.js('document.querySelector("#floor").hidden && document.querySelectorAll("#results .ritem").length === 2')
     browser.js('document.querySelectorAll("#results .ritem")[1].click()')

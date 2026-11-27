@@ -67,7 +67,21 @@
       if (!query) return [];
       const direct = byId.get(String(value)) || byId.get(ids[String(value)]);
       if (direct) return [{building: direct, room: ''}];
-      const code = roomCode(query);
+      let code = roomCode(query);
+      if (!code) {
+        const label = String(value).normalize('NFKC').trim()
+          .match(/^(.+?)(?:\s*\(([^()]+)\)|\s+([^()]+)|(?=教室)(教室[^()]+))$/);
+        if (label) {
+          const name = normalize(label[1]);
+          const building = entries.find(entry => !entry.room && entry.keys.includes(name))?.building;
+          code = roomCode(label[2] || label[3] || label[4]);
+          if (building && code) {
+            const matches = (codes.get(code) || []).filter(entry => entry.building === building);
+            return matches.length ? matches : [{building, room: code, missing: true}];
+          }
+          code = '';
+        }
+      }
       if (code) {
         if (codes.has(code)) return codes.get(code);
         const building = buildings.find(item => {
