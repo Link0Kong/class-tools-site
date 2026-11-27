@@ -1,10 +1,10 @@
 {
-  "versionCode": 174,
-  "versionName": "1.0.0-beta89",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta89-vc174.apk",
-  "notes": "修复旧版 WebView 的离线地图空白，支持从带楼名的课表教室直达对应楼层。页面返回和系统返回均先退出平面图，再回原课表。",
+  "versionCode": 175,
+  "versionName": "1.0.0-beta90",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta90-vc175.apk",
+  "notes": "工作台隐藏已隐藏的通知，移除班级作业卡片。班级作业仍可在任务工具中查看。",
   "force": false,
   "channel": "beta",
-  "sha256": "39fe3203c8b722cf3a6037910e025d8d7426b574bd74d05ca54103bae9db9c4d",
-  "sizeBytes": 7193084
+  "sha256": "43fd28ae186a6200285d3e33eff9e6c9ad33b80e75a7363a4c0afd01be893447",
+  "sizeBytes": 7193136
 }
