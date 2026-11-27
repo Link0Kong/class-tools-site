@@ -6046,22 +6046,20 @@ function cbGet(t){return fetch(CB+t+"?select=*&order=ts.asc&archived=eq.false",{
    否则其他端会一直命中缓存、看不到管理员改动。
    新列由 2026-11-05 迁移（notice_admin_override.sql）提供；尚未应用时（HTTP 400）自动退回旧签名，不破坏可用性。
    两条查询都固定 ts.asc,id.asc 次级排序，保证同 ts 行顺序确定，签名不会误判。 */
-function cbSigFallback(){return fetch(CB+"notices?select=id,ts&order=ts.asc,id.asc&archived=eq.false",{headers:cbH(false),cache:"no-store"})
-  .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();})
-  .then(function(list){return sigOfNotices(list);});}
-function cbSig(){return fetch(CB+"notices?select=id,ts,hidden,edited_at&order=ts.asc,id.asc&archived=eq.false",{headers:cbH(false),cache:"no-store"})
-  .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();})
-  .then(function(list){return sigOfNotices(list);})
-  .catch(function(){return cbSigFallback();});}
-/* 通知整表（签名校验确认变化后才调用） */
-function cbGetNotices(){return fetch(CB+"notices?select=*&order=ts.asc,id.asc&archived=eq.false",{headers:cbH(false),cache:"no-store"})
-  .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();});}
+function noticeRows(columns){
+  var owner=syncOwner();if(!owner)return Promise.reject(Error("identity"));
+  return readOwnerRows(owner,"notices?select="+columns+"&order=ts.asc,id.asc&archived=eq.false","notices");
+}
+function cbSigFallback(){return noticeRows("id,ts").then(sigOfNotices);}
+function cbSig(){return noticeRows("id,ts,hidden,edited_at").then(sigOfNotices).catch(cbSigFallback);}
+/* 通知整表（旧版没有轻量 RPC 时才调用），沿用当前身份和完整分页。 */
+function cbGetNotices(){return noticeRows("*");}
 /* 2026-11-18 通知列表轻量化（与小程序同一契约）：
    class_notices_meta 在服务端把 body 里 items[].url/src 的 data URI 置空并写 lazy=true，
    整表约 0.3MB（原 15MB）；点开图片/附件时再按 id 拉单行完整 body。
    接口不存在/失败时回退旧整表，保证旧云端仍可用。 */
 function cbGetNoticesMeta(){return fetch(CB+"rpc/class_notices_meta",{method:"POST",headers:cbH(false),cache:"no-store",body:"{}"})
-  .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();})
+  .then(function(r){if(!r.ok||r.status===206)throw new Error("http"+r.status);return r.json();})
   .then(function(list){if(!(list instanceof Array))throw new Error("badmeta");return list;});}
 function cbGetNoticeRow(id){return fetch(CB+"notices?select=*&id=eq."+encodeURIComponent(id),{headers:cbH(false),cache:"no-store"})
   .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();})
@@ -7085,7 +7083,7 @@ function noticeCacheMeta(){
 function noticeUpdateCache(){try{cacheNoticesSet(AUTO_NOTICES,NT.sig,NT_HIDDEN,noticeCacheMeta());}catch(e){}}
 function noticeRebuild(){NOTICE_LAST_DATA="";renderNoticeFrame();}
 function noticeAdminEdit(gid,fields){
-  if(!canManage()||!fields||typeof fields!=="object")return Promise.resolve(false);
+  var owner=syncOwner();if(!owner||!canManage()||!fields||typeof fields!=="object")return Promise.resolve(false);
   var m=noticeMetaOf(gid);if(!m||!m.rowId)return Promise.resolve(false);
   var clean={},has=false,k,i;
   for(k in fields){
@@ -7099,7 +7097,8 @@ function noticeAdminEdit(gid,fields){
   for(kk in clean)ov[kk]=clean[kk];
   var now=Date.now(),rowId=m.rowId;
   return cbPatch("notices",rowId,{override_json:JSON.stringify(ov),edited_at:now,edited_by:AUTH.acc||""})
-    .then(function(){
+    .then(function(rows){
+      if(owner!==syncOwner()||!canManage()||!Array.isArray(rows)||!rows.some(function(row){return row.id===rowId;}))return false;
       m.override=ov;m.edited_at=now;
       for(var j=0;j<AUTO_NOTICES.length;j++){
         if(AUTO_NOTICES[j].id===gid){noticeApplyOverrideFields(AUTO_NOTICES[j],clean);break;}
@@ -7115,11 +7114,12 @@ function noticeAdminEdit(gid,fields){
     },function(){toast("保存失败，请稍后重试");return false;});
 }
 function noticeAdminSetHidden(gid,hide){
-  if(!canManage())return;
+  var owner=syncOwner();if(!owner||!canManage())return;
   var m=noticeMetaOf(gid);if(!m||!m.rowId)return;
   var now=Date.now();
   cbPatch("notices",m.rowId,{hidden:!!hide,edited_at:now,edited_by:AUTH.acc||""})
-    .then(function(){
+    .then(function(rows){
+      if(owner!==syncOwner()||!canManage()||!Array.isArray(rows)||!rows.some(function(row){return row.id===m.rowId;}))return;
       m.hidden=!!hide;
       if(hide){
         var out=[],i;
@@ -7477,11 +7477,12 @@ window.addEventListener("message",function(e){
     var tm=String(e.data.msg||""); if(tm)toast(tm); return;
   }
   if(type==="class-notice-need-body"){
-    var lgid=String(e.data.gid||""),lidx=Number(e.data.idx)||0,lact=String(e.data.act||"");
+    var lgid=String(e.data.gid||""),lidx=Number(e.data.idx)||0,lact=String(e.data.act||""),requestFrame=e.source;
     if(!lgid)return;
     Promise.resolve().then(function(){return NT.loadBody(lgid);}).then(function(g){
       var nf=NOTICE_FRAME;
-      if(nf&&nf.contentWindow&&typeof nf.contentWindow.__zqHydrate==="function")nf.contentWindow.__zqHydrate(lgid,g,lidx,lact);
+      if(!nf||nf.contentWindow!==requestFrame||AUTO_NOTICES.indexOf(g)<0)return;
+      if(nf.contentWindow&&typeof nf.contentWindow.__zqHydrate==="function")nf.contentWindow.__zqHydrate(lgid,g,lidx,lact);
       else renderNoticeFrame();
     }).catch(function(){toast("附件加载失败");});
     return;
@@ -7536,6 +7537,7 @@ function noticeGroupOfRow(x){
 }
 var NT={on:false,migrated:false,marks:{},done:{},loading:false,fail:false,pulling:null,visited:false,sig:"",hydrated:false,
   pull:function(force){
+    var owner=syncOwner();if(!owner)return Promise.resolve(false);
     NT.visited=true; visitedMark("nt");
     if(!force&&NT.pulling)return NT.pulling;
     /* 需求15：IDB 缓存补水未完成时先等它，再判断 TTL —— 避免刚点开通知 tab 就白拉整表（约 2MB）。
@@ -7551,7 +7553,7 @@ var NT={on:false,migrated:false,marks:{},done:{},loading:false,fail:false,pullin
               if(done)return;done=true;
               NT._waitCache=null;
               if(!__bootCacheSettled)NT._bootWaitExpired=true;
-              res(NT.pull(force));
+              res(owner===syncOwner()?NT.pull(force):false);
             }
             __bootCacheP.then(go,go);
             setTimeout(go,1200);
@@ -7564,25 +7566,30 @@ var NT={on:false,migrated:false,marks:{},done:{},loading:false,fail:false,pullin
     if(!force&&!needPull("nt")&&AUTO_NOTICES.length){renderNoticeFrame();return Promise.resolve(true);}
     NT.fail=false;
     if(!AUTO_NOTICES.length){NT.loading=true;renderNoticeFrame();}
-    NT.pulling=NT.refresh(force).then(function(){
+    var seq=++owner.noticeRead;
+    function current(){return owner===syncOwner()&&owner.noticeRead===seq;}
+    NT.pulling=NT.refresh(force,current).then(function(){
+      if(!current())return false;
       if(!AUTO_NOTICES.length)NT.fail=true;
       NT.loading=false;NT.pulling=null;renderNoticeFrame();syncSt();
     });
     return NT.pulling;
   },
-  refresh:function(force){
+  refresh:function(force,current){
     if(!force&&AUTO_NOTICES.length&&NT.sig){
       /* 轻量重校验：先取 id,ts 签名（约 2KB）；一致只更新时间、不拉 2MB 整表 */
       return cbSig().then(function(sig){
+        if(!current())return false;
         if(sig===NT.sig){NT.on=true;syncedMark("nt");return true;}
-        return NT.fetchFull();
-      }).catch(function(){NT.on=false;syncSt();return false;});
+        return NT.fetchFull(current);
+      }).catch(function(){if(!current())return false;NT.on=false;syncSt();return false;});
     }
-    return NT.fetchFull();
+    return NT.fetchFull(current);
   },
-  fetchFull:function(){
+  fetchFull:function(current){
     /* 优先 lite（0.3MB）；接口不存在/网络失败才回退旧整表（15MB）。 */
-    return cbGetNoticesMeta().catch(function(){return cbGetNotices();}).then(function(list){
+    return cbGetNoticesMeta().catch(function(err){if(!current())throw err;return cbGetNotices();}).then(function(list){
+      if(!current())return false;
       NT.on=true;
       var pend=D.d.notices.filter(function(x){return x._pending;});
       if(!list.length&&!NT.migrated){
@@ -7595,7 +7602,7 @@ var NT={on:false,migrated:false,marks:{},done:{},loading:false,fail:false,pullin
       (list||[]).forEach(function(x){
         var r=noticeGroupOfRow(x);
         if(r){
-          meta[r.g.id]=r.m;
+          if(!r.hidden||canManage())meta[r.g.id]=r.m;
           if(r.hidden){hidden.push({gid:r.g.id,title:String(r.g.title||"通知")});}
           else{autos.push(r.g);}
         }else{
@@ -7611,21 +7618,23 @@ var NT={on:false,migrated:false,marks:{},done:{},loading:false,fail:false,pullin
       syncedMark("nt");
       D.d.notices=manual.concat(pend);
       D.save();renderNT();renderNoticeFrame();syncSt();
-    }).catch(function(){NT.on=false;syncSt();});
+    }).catch(function(){if(current()){NT.on=false;syncSt();}});
   },
   /* 按需拉单条完整 body（lite 列表里的图片/附件/压缩包点击时）。 */
   loadBody:function(gid){
     /* 长期安排的期次卡 id 是 `<base>@occ:YYYYMMDD`；完整 body 仍按 base id 取。 */
     var base=String(gid||"").split("@occ:")[0],g=null,i;
     for(i=0;i<AUTO_NOTICES.length;i++){if(AUTO_NOTICES[i]&&AUTO_NOTICES[i].id===base){g=AUTO_NOTICES[i];break;}}
-    if(!g)return Promise.reject(new Error("nogroup"));
+    var owner=syncOwner();
+    if(!g||!owner)return Promise.reject(new Error("nogroup"));
     if(g.__full)return Promise.resolve(g);
     if(g.__bodyPromise)return g.__bodyPromise;
     var rid=g.__rowId||"";
     if(!rid)return Promise.reject(new Error("norow"));
     g.__bodyPromise=cbGetNoticeRow(rid).then(function(x){
       var r=noticeGroupOfRow(x);
-      if(!r)throw new Error("badrow");
+      if(owner!==syncOwner()||AUTO_NOTICES.indexOf(g)<0||!r||x.archived||r.hidden||
+         r.g.id!==base||r.m.rowId!==rid||!NT_META[base]||r.m.edited_at!==NT_META[base].edited_at)throw new Error("notice changed");
       r.g.__full=true;
       for(var j=0;j<AUTO_NOTICES.length;j++){if(AUTO_NOTICES[j]&&AUTO_NOTICES[j].id===base){AUTO_NOTICES[j]=r.g;break;}}
       if(NT_META[base])NT_META[base]=r.m;
@@ -7667,18 +7676,47 @@ function beginSyncIdentity(r){
   clearTimeout(UD._timer);
   UD._cache=null;UD._view=null;UD._cacheSid="";UD._pull=null;UD._push=null;UD._recover=null;UD._recoverPower=null;
   UD._pendKeys={};UD._userGesture=false;
-  if(activeSyncOwner){AN_DONE={};AN_DONE_MIGRATE=null;HW.marks={};NT.marks={};NT.done={};}
+  if(activeSyncOwner){
+    AN_DONE={};AN_DONE_MIGRATE=null;HW.marks={};NT.marks={};NT.done={};
+    AUTO_NOTICES=[];NT_META={};NT_HIDDEN=[];NT.sig="";NT._fresh=false;NT.hydrated=false;NT.pulling=null;NT._waitCache=null;
+    __bootCacheP=null;__bootCacheSettled=false;
+  }
   activeSyncOwner={sid:String(r.sid),token:r.token,role:r.role||"",is_admin:!!r.is_admin,
-    marksVersion:0,forceAt:0,sending:Object.create(null)};
+    marksVersion:0,memberRead:0,noticeRead:0,forceAt:0,sending:Object.create(null)};
 }
 function ownerHeaders(owner,write){
   return cbH(write,{"X-Device-Id":owner.token});
 }
-async function readOwnerRows(owner,path){
-  var res=await fetch(CB+path,{headers:ownerHeaders(owner,false),cache:"no-store"});
-  if(!res.ok)throw Error("http"+res.status);
-  var rows=await res.json();
-  if(!Array.isArray(rows))throw Error("rows");
+async function readOwnerRows(owner,path,paged){
+  var rows=[],seen=new Set(),total=null,next=0,limit=500;
+  while(true){
+    if(owner!==syncOwner())throw Error("identity");
+    var headers=ownerHeaders(owner,false);
+    if(paged){headers.Prefer="count=exact";headers.Range=next+"-"+(next+limit-1);headers["Range-Unit"]="items";}
+    var res=await fetch(CB+path,{headers:headers,cache:"no-store"});
+    if(!res.ok)throw Error("http"+res.status);
+    var page=await res.json();
+    if(!Array.isArray(page))throw Error("rows");
+    if(!paged){rows=page;break;}
+    var raw=res.headers&&res.headers.get("Content-Range")||"",range=/^(\d+)-(\d+)\/(\d+|\*)$/.exec(raw);
+    if(range){
+      if(Number(range[1])!==next||Number(range[2])-next+1!==page.length)throw Error("partial");
+      if(range[3]!=="*"){
+        if(total!==null&&total!==Number(range[3]))throw Error("changed");
+        total=Number(range[3]);
+      }
+    }else if(raw&&!(raw==="*/0"&&!page.length))throw Error("range");
+    for(var row of page){
+      if(!row||!row.id||seen.has(row.id)||(paged==="marks"&&String(row.seat)!==owner.sid))throw Error("rows");
+      seen.add(row.id);rows.push(row);
+    }
+    next=rows.length;
+    if(total!==null){
+      if(next===total)break;
+      if(next>total||!page.length)throw Error("partial");
+    }else if(!page.length||page.length<limit&&res.status!==206)break;
+    else if(!range&&res.status===206)throw Error("partial");
+  }
   if(!rows.length&&syncOwner()===owner){
     var auth=await fetch(CB+"rpc/auth_ok",{method:"POST",headers:ownerHeaders(owner,true),body:"{}"});
     if(!auth.ok||await auth.json()!==true)throw Error("identity");
@@ -7758,7 +7796,7 @@ function marksPull(force){
   }
   if(!force&&!needPull("marks"))return Promise.resolve(true);
   var version=++owner.marksVersion;
-  return readOwnerRows(owner,"marks?select=*&seat=eq."+encodeURIComponent(owner.sid))
+  return readOwnerRows(owner,"marks?select=*&order=id.asc&seat=eq."+encodeURIComponent(owner.sid),"marks")
     .then(function(list){
       if(owner!==syncOwner()||owner.marksVersion!==version)return;
       marksCacheWrite(list);syncedMark("marks");marksApply(list);
@@ -8336,11 +8374,12 @@ var IDBQ=(function(){
     }).catch(function(){return null;});
   }
   function put(name,rec){
+    var storageKey=key(name);
     return open().then(function(d){
       if(!d)return false;
       return new Promise(function(res){
         try{
-          var rq=d.transaction(CACHE_STORE,"readwrite").objectStore(CACHE_STORE).put(rec,key(name));
+          var rq=d.transaction(CACHE_STORE,"readwrite").objectStore(CACHE_STORE).put(rec,storageKey);
           rq.onsuccess=function(){res(true);};
           rq.onerror=function(){res(false);};
         }catch(e){res(false);}
@@ -8350,16 +8389,19 @@ var IDBQ=(function(){
   return {open:open,get:get,put:put};
 })();
 function cacheGen(){try{return localStorage.getItem(LS_GEN+cacheSid())||"0";}catch(e){return "0";}}
+function noticeAccess(owner){return JSON.stringify([owner.role,owner.is_admin]);}
 function cacheNoticesGet(){
+  var owner=syncOwner();if(!owner)return Promise.resolve(null);
   return IDBQ.get("notices").then(function(rec){
+    if(owner!==syncOwner()||!rec||rec.access!==noticeAccess(owner))return null;
     if(!rec||rec.ver!==CACHE_VER||rec.sid!==cacheSid()||rec.g!==cacheGen())return null;
     if(!(rec.val instanceof Array)||!rec.val.length)return null;
     return rec;
   }).catch(function(){return null;});
 }
 function cacheNoticesSet(val,sig,hidden,meta){
-  if(!(val instanceof Array))return Promise.resolve(false);
-  return IDBQ.put("notices",{sid:cacheSid(),ver:CACHE_VER,g:cacheGen(),at:Date.now(),sig:String(sig||""),
+  var owner=syncOwner();if(!owner||!(val instanceof Array))return Promise.resolve(false);
+  return IDBQ.put("notices",{sid:owner.sid,access:noticeAccess(owner),ver:CACHE_VER,g:cacheGen(),at:Date.now(),sig:String(sig||""),
     hid:(hidden instanceof Array)?hidden:[],meta:(meta&&typeof meta==="object")?meta:{},val:val}).then(function(ok){return ok;}).catch(function(){return false;});
 }
 /* 退出身份：立刻换代（旧记录即使没删干净也读不到，防共用手机串数据）+ 尽力物理清除 */
@@ -8440,15 +8482,22 @@ function membersApply(list){
 function membersPull(force){
   if(!isVerified())return Promise.resolve(false);
   /* 名单已在 D.d.members 本机持久化：TTL 内不重复拉取 */
-  var sid=AUTH.sid;
+  var owner=syncOwner();if(!owner)return Promise.resolve(false);
   if(!force&&!needPull("members")&&(D.d.members||[]).length){renderCommittee();return Promise.resolve(true);}
-  return fetch(CB+"rpc/class_members",{method:"POST",headers:cbH(false),cache:"no-store",body:"{}"})
-    .then(function(r){if(!r.ok)throw new Error("http"+r.status);return r.json();})
+  var seq=++owner.memberRead;
+  return fetch(CB+"rpc/class_members",{method:"POST",headers:ownerHeaders(owner,false),cache:"no-store",body:"{}"})
+    .then(function(r){if(!r.ok||r.status===206)throw new Error("http"+r.status);return r.json();})
     .then(function(list){
-      if(sid!==AUTH.sid)return false;
+      if(owner!==syncOwner()||seq!==owner.memberRead)return false;
       if(!Array.isArray(list)||!list.length)throw new Error("empty");
       syncedMark("members");
       membersApply(list);
+      var self=list.find(function(member){return String(member.sid)===owner.sid;});
+      if(self&&typeof self.is_admin==="boolean"&&typeof self.role==="string"&&
+         (self.is_admin!==owner.is_admin||self.role!==owner.role)){
+        var refreshed=Object.assign({},identityGet(),{is_admin:self.is_admin,role:self.role,badge:self.badge||""});
+        enterClass(refreshed);
+      }
       return true;
     });
 }
@@ -16326,6 +16375,8 @@ function startClassData(){
   bootRefresh();  /* 初始化不依赖 IndexedDB：小表 TTL / 大表 idle / 访问记录立即排期 */
   /* 异步补水：IDB 返回后 applyCache 自行渲染通知板（不阻塞其余初始化；IDB 异常也不影响） */
   bootCache().then(function(){ if(!NT.pulling){ NT.loading=false; renderNoticeFrame(); } });
+  if(startClassData.polling)return;
+  startClassData.polling=true;
   setInterval(function(){ if(!document.hidden&&navigator.onLine!==false){ cloudPull(); } },30000);
   document.addEventListener("visibilitychange",function(){
     if(document.hidden)return;
@@ -16339,9 +16390,10 @@ var __bootCacheDone=false,__bootCacheP=null,__bootCacheSettled=false;
 function bootCache(){
   if(__bootCacheP)return __bootCacheP;
   __bootCacheDone=true;
-  __bootCacheP=cacheNoticesGet().then(function(rec){NT.applyCache(rec);return !!rec;})
+  var owner=syncOwner();
+  __bootCacheP=cacheNoticesGet().then(function(rec){if(owner!==syncOwner())return false;NT.applyCache(rec);return !!rec;})
     .catch(function(){return false;})
-    .then(function(x){__bootCacheSettled=true;return x;});
+    .then(function(x){if(owner===syncOwner())__bootCacheSettled=true;return x;});
   return __bootCacheP;
 }
 var __bootRefreshDone=false;
@@ -16391,7 +16443,7 @@ function enterClass(r){
   bucketInit(); accUi(); applyMode();
   try{if(window.NTADMIN&&window.NTADMIN.syncEntry)window.NTADMIN.syncEntry();}catch(e){}
   startClassData();
-  if(renewing){UD.pull(true);marksPull(true);}
+  if(renewing){UD.pull(true);marksPull(true);NT.pull(true);}
   try{document.body.classList.remove("auth-pending");}catch(e){}
   try{HIST.init();}catch(e){}
   /* 抽签存证深链 #verify=<id>（登录后才可读；进入班级后补一次）+ 今日抽签次数摘要 */
