@@ -7665,7 +7665,7 @@ function syncOwner(){
 function beginSyncIdentity(r){
   if(sameSyncIdentity(activeSyncOwner,r))return;
   clearTimeout(UD._timer);
-  UD._cache=null;UD._cacheSid="";UD._pull=null;UD._push=null;UD._recover=null;UD._recoverPower=null;
+  UD._cache=null;UD._view=null;UD._cacheSid="";UD._pull=null;UD._push=null;UD._recover=null;UD._recoverPower=null;
   UD._pendKeys={};UD._userGesture=false;
   if(activeSyncOwner){AN_DONE={};AN_DONE_MIGRATE=null;HW.marks={};NT.marks={};NT.done={};}
   activeSyncOwner={sid:String(r.sid),token:r.token,role:r.role||"",is_admin:!!r.is_admin,
@@ -7807,7 +7807,7 @@ function udSyncUi(){
   try{if(typeof WATER!=="undefined"&&WATER&&WATER.renderSync)WATER.renderSync();}catch(e){}
 }
 var UD={
-  _cache:null,_cacheSid:"",_pull:null,_push:null,_timer:null,_applying:false,
+  _cache:null,_view:null,_cacheSid:"",_pull:null,_push:null,_timer:null,_applying:false,
   _recover:null,_recoverPower:null,_t0:Date.now(),_userGesture:false,_pendKeys:{},
   sid:function(){return (typeof AUTH!=="undefined"&&AUTH.sid)?String(AUTH.sid):"";},
   off:function(){return false;}, /* 网页端无「仅本机」开关（开关在小程序隐私页） */
@@ -7906,6 +7906,12 @@ var UD={
     out.water=(typeof WATER!=="undefined"&&WATER&&WATER.normWater)?WATER.normWater(d.water):{rooms:UD.clone((d.water&&d.water.rooms)||{})};
     return out;
   },
+  /* 表单只编辑自己认识的字段；修改某节时仍携带该基线的扩展字段。 */
+  editedSection:function(previous,current){
+    if(previous&&current&&typeof previous==="object"&&typeof current==="object"&&
+       !Array.isArray(previous)&&!Array.isArray(current))return {...previous,...current};
+    return current;
+  },
   /* 本机视图（带本地 section 时间）：与 cache 基线不同即本地改动，at 取 now/remote+1 保证本地赢 */
   localView:function(remote,forceKeys){
     var base=UD.cacheRead(),cur=UD.sections(),now=Date.now(),out={v:6,at:{}},i,k;
@@ -7913,9 +7919,13 @@ var UD={
     for(i=0;i<UD_KEYS.length;i++){
       k=UD_KEYS[i];
       var val=(k==="prefs")?((base&&base.prefs)?UD.clone(base.prefs):UD.clone(UD_DEF.prefs)):cur[k];
+      var form=UD._view||base;
+      var dirty=k!=="prefs"&&!!form&&!UD.eq(form[k],val);
+      if(base&&base[k]!==undefined){
+        val=(dirty||force.indexOf(k)>=0)?UD.editedSection(base[k],val):UD.clone(base[k]);
+      }
       out[k]=val;
       var ba=(base&&base.at)?UD.num(base.at[k]):0;
-      var dirty=base?!(base[k]!==undefined&&UD.eq(base[k],val)):false;
       /* power 防丢保护（2026-11-11）：本机「未初始化/隐式空」不得把已保存的宿舍清掉。
          仅当用户在本端显式选择空值（POWER._clearedAt）时才允许推送空；否则沿用基线非空值并强制补推。 */
       if(k==="power"){
@@ -7945,7 +7955,7 @@ var UD={
     return out;
   },
   dirtySections:function(){
-    var base=UD.cacheRead(),cur=UD.sections(),out=[],i,k;
+    var base=UD._view||UD.cacheRead(),cur=UD.sections(),out=[],i,k;
     for(i=0;i<UD_KEYS.length;i++){
       k=UD_KEYS[i];
       if(k==="prefs")continue;
@@ -8079,7 +8089,8 @@ var UD={
       for(i=0;i<list.length;i++){
         k=list[i];
         if(k==="prefs")continue;
-        base[k]=UD.clone(cur[k]);
+        base[k]=UD.editedSection(base[k],UD.clone(cur[k]));
+        if(UD._view)UD._view[k]=UD.clone(cur[k]);
       }
       UD.cacheWrite(base);
       return true;
@@ -8195,6 +8206,7 @@ var UD={
       try{UD.apply(merged,wasV5?["homeTools","fit"]:null);}catch(e){}
       UD._applying=false;
       UD.cacheWrite(merged);
+      UD._view=UD.sections();
       UD.lastPullWrite(Date.now());
       try{D.save();}catch(e){}
       /* 本机有未推送改动，或云端是 v5（需写回 v6），或云端关注宿舍被清空需自愈 → 立刻补一次 push（幂等，写回后不会重复） */
@@ -8220,6 +8232,7 @@ var UD={
       var local=UD.localView(remote,forceKeys);
       var merged=UD.merge(remote,local);
       var h=ownerHeaders(owner,true);h["Prefer"]="return=representation,resolution=merge-duplicates";
+      var sentView=UD.sections();
       var body=[{id:owner.sid,blob:JSON.stringify(merged),ts:Date.now()}];
       return fetch(CB+"userdata",{method:"POST",headers:h,body:JSON.stringify(body)}).then(function(r){
         if(!r.ok)throw new Error("http"+r.status);
@@ -8228,6 +8241,7 @@ var UD={
         if(owner!==syncOwner())return false;
         if(!Array.isArray(rows)||!rows.some(function(row){return row&&String(row.id)===owner.sid&&row.blob===body[0].blob;}))throw Error("unconfirmed");
         UD.cacheWrite(merged);
+        UD._view=sentView;
         UD.pendClear();
         UD.pendKeysClear();
         var later=UD.dirtySections();if(later.length){UD.pendWrite(later);UD.pushSoon();}
