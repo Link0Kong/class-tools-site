@@ -1,0 +1,16 @@
+[Unit]
+Description=ClassTools homepage weather and content API
+After=network-online.target
+
+[Service]
+DynamicUser=yes
+User=class-tools-home-context
+StateDirectory=class-tools-home-context
+StateDirectoryMode=0750
+EnvironmentFile=-/etc/class-tools/home-context-weather.env
+LoadCredential=qweather-api-key
+ExecStart=/usr/bin/python3 -B /opt/class-tools/home-context/home_context_app.py serve --state-dir /var/lib/class-tools-home-context --regions /opt/class-tools/home-context/home_regions.tsv
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

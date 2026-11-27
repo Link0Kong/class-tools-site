@@ -1,0 +1,13 @@
+[Unit]
+Description=Generate the ClassTools public homepage copy
+After=network-online.target
+
+[Service]
+Type=oneshot
+DynamicUser=yes
+User=class-tools-home-context
+StateDirectory=class-tools-home-context
+StateDirectoryMode=0750
+LoadCredential=deepseek-api-key:/etc/class-tools/task-ai.deepseek-key
+ExecStart=/usr/bin/python3 -B /opt/class-tools/home-context/home_context_app.py generate --state-dir /var/lib/class-tools-home-context
+TimeoutStartSec=180

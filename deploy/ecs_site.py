@@ -167,6 +167,13 @@ TASK_AI_ROUTE = """	handle /task-ai/suggest {
 		}
 	}"""
 
+HOME_CONTEXT_ROUTE = """	handle /home-context/content/v1 {
+		reverse_proxy 127.0.0.1:8097
+	}
+	handle /home-context/weather/v1 {
+		reverse_proxy 127.0.0.1:8097
+	}"""
+
 
 def _access_log(name):
     # 2026-11-23：X-Device-Id / X-Class-Token 是班级令牌，绝不能明文进日志（Caddy 默认只脱敏
@@ -258,6 +265,7 @@ tool.furina.fun {
 	encode zstd gzip
 __SEC_HTTPS__
 __TASK_AI_ROUTE__
+__HOME_CONTEXT_ROUTE__
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8090
 	}
@@ -371,6 +379,7 @@ __SEC_HTTP__
      .replace("__PROD_API_ROUTE__", _prod_api_route()) \
      .replace("__SEC_HTTPS__", HSTS_HEADER + SEC_HEADERS + _access_log("tool-access.log")) \
      .replace("__TASK_AI_ROUTE__", TASK_AI_ROUTE) \
+     .replace("__HOME_CONTEXT_ROUTE__", HOME_CONTEXT_ROUTE) \
      .replace("__SEC_HTTP__", SEC_HEADERS + _access_log("tool-http-access.log"))
 
 

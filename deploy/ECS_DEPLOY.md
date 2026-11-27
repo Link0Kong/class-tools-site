@@ -68,6 +68,10 @@
 - `python deploy/ecs_task_ai.py route` 在正式 HTTPS 站点配置精确路由。脚本检验 Caddy 配置并确认匿名 POST 返回 401。验证失败时恢复原 Caddyfile。日志不记录用户文字、模型原始响应或身份令牌。
 - 启用前运行 `python deploy/task_ai_live_check.py --expect-disabled`，确认服务返回预期的 503。启用后运行同一脚本并省略选项，用官方测试账号和虚构文字验证真实生成，再沿用网页与各端发布流程。脚本只显示检查结果。
 
+### 2.3 Android 与鸿蒙工作台情境卡
+
+两端共用 `GET /home-context/content/v1` 和 `GET /home-context/weather/v1?region=minhou`。2026-11-27 在 ECS 启用，内容路由回读 200，发布首批 5 条复核文案。每日定时器已启用，下次运行是北京时间 2026-11-28 06:00。和风 API Host 和凭据待配置，天气路径返回 503，客户端保留课表和可用文案。Caddy 备份位于 `/var/www/tool_backup/home-context.ojz3o8bn`。 [部署与联调](home_context/README.md)
+
 ## 3. 用法（在 `web` 目录下执行，用带 `aliyunsdkcore` 的 Python，例如系统 `python`）
 
 ```powershell

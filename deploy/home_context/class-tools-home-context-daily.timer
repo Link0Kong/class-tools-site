@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh ClassTools homepage copy each morning
+
+[Timer]
+OnCalendar=*-*-* 06:00:00 Asia/Shanghai
+Persistent=true
+
+[Install]
+WantedBy=timers.target
