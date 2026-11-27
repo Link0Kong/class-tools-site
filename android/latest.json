@@ -1,10 +1,10 @@
 {
-  "versionCode": 186,
-  "versionName": "1.0.0-beta101",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta101-vc186.apk",
-  "notes": "课表记住上次使用的周/日视图；日视图左右滑动切换本周相邻一天（周一/周日边界回弹），周视图仍切上一周/下一周。",
+  "versionCode": 187,
+  "versionName": "1.0.0-beta102",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta102-vc187.apk",
+  "notes": "课表记住上次使用的周/日视图；日视图左右滑动切换本周相邻一天，周视图仍切周；滑到周/天边界时回弹。",
   "force": false,
   "channel": "beta",
-  "sha256": "68675d03f4f9311c0f5bfc3aa807158ff41740863d6735295093c5098451f524",
+  "sha256": "7d34e6d669d9c54236dcd9efa82bb0fbea26c59660dc66b702483f9b38465833",
   "sizeBytes": 7345793
 }
