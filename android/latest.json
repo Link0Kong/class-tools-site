@@ -1,10 +1,10 @@
 {
-  "versionCode": 182,
-  "versionName": "1.0.0-beta97",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta97-vc182.apk",
-  "notes": "工作台加入情境卡。支持 DeepSeek 生活与学习短句、课表定位、英语译文和天气地区设置。",
+  "versionCode": 183,
+  "versionName": "1.0.0-beta98",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.0-beta98-vc183.apk",
+  "notes": "课前倒计时在上课时自动退出，展开可查看本节教室、时段和教师，点卡片直达当日课程。工作台新增进行中；文件上传和 PPT 转换支持离页继续，投票可主动关注，报名倒计时支持画中画与本轮隐藏。",
   "force": false,
   "channel": "beta",
-  "sha256": "2f42e13f32397de924df9c77e514824e9bbf5cb87fa7f81926e52042cec83038",
-  "sizeBytes": 7313221
+  "sha256": "4dccb8430a1a0af6d6ff00eba16b4304a3af8daafe7fd6e08326dc6bc6385558",
+  "sizeBytes": 7345849
 }
