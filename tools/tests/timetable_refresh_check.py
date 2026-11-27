@@ -15,11 +15,30 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from time import monotonic, sleep
 from PIL import Image
+import websocket
 
 from _test_account import TEST_NAME, TEST_SID
 from v2_tt_frame_check import CDP, EDGE, wait_until
 
 HERE = Path(__file__).resolve().parent
+
+
+def stop_browser(process, profile):
+    """Ask this test profile's Edge to shut down its renderer children before terminating it."""
+    if process.poll() is not None:
+        return
+    try:
+        port, path = (Path(profile)/"DevToolsActivePort").read_text().splitlines()[:2]
+        control = websocket.create_connection("ws://127.0.0.1:"+port+path, timeout=2)
+        try:
+            control.send(json.dumps({"id":1,"method":"Browser.close"}))
+        finally:
+            control.close(timeout=1)
+        process.wait(timeout=8)
+    except (OSError, ValueError, subprocess.TimeoutExpired, websocket.WebSocketException):
+        if process.poll() is None:
+            process.terminate()
+            process.wait(timeout=25)
 
 
 class Page(CDP):
@@ -96,6 +115,8 @@ const fixtureFetch=window.fetch.bind(window),realNow=Date.now.bind(Date);
 window.clockOffset=0;Date.now=()=>realNow()+clockOffset;
 window.fetch=(url,opts)=>{
   const path=new URL(url,location.href);
+  if(path.pathname.endsWith('/rpc/auth_ok'))return Promise.resolve(new Response(JSON.stringify(
+    opts.headers?.['X-Device-Id']===JSON.parse(localStorage.zq_class_identity).token)));
   if(path.pathname.endsWith('/userdata')){
     return fixtureFetch('/fixture/userdata',{method:opts.method||'GET',body:opts.body});
   }
@@ -377,9 +398,10 @@ def main(index_html=None, evidence_dir=None):
             browser = "http://127.0.0.1:" + active_port.read_text().splitlines()[0]
             run(browser, "http://127.0.0.1:%d/index.html" % server.server_port, evidence_dir)
         finally:
-            process.terminate()
-            process.wait(timeout=10)
-            server.shutdown()
+            try:
+                stop_browser(process, profile)
+            finally:
+                server.shutdown()
     print("PASS public timetable refresh, source selection and display")
 
 

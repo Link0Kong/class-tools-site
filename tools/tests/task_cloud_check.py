@@ -133,11 +133,13 @@ def check(directory=None):
     html=html.replace(marker,b'    window.fixtureTaskWire={rebase:rebase,unpack:unpack};'+marker)
     cases=json.loads((Path(__file__).resolve().parents[2]/"deploy/tests/taskdata_conflicts_v1.json").read_text(encoding="utf8"))
     with browser_fixture(service,html) as open_page:
-        a=open_page()
-        b=open_page("localhost")
-        for p in (a,b):
-            wait(p,"TASKSYNC.state().status.includes('暂无可见')")
-            p.evaluate("__diag.gotoTab('hw');TASK.setSeg('my')")
+        def open_tasks(host):
+            page=open_page(host)
+            page.evaluate("__diag.gotoTab('hw');TASK.setSeg('my')")
+            wait(page,"TASKSYNC.state().status.includes('暂无可见')")
+            return page
+        a=open_tasks("127.0.0.1")
+        b=open_tasks("localhost")
         for case in cases["merge"]:
             args=",".join(json.dumps(case[key]) for key in ("base","local","remote"))
             assert a.evaluate("fixtureTaskWire.rebase("+args+")")==case["expected"], case["name"]

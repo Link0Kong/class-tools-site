@@ -11,7 +11,7 @@ from pathlib import Path
 from time import monotonic, sleep
 
 from _test_account import TEST_NAME, TEST_SID, assert_test_identity
-from timetable_refresh_check import Page
+from timetable_refresh_check import Page, stop_browser
 from v2_tt_frame_check import EDGE
 
 HERE = Path(__file__).resolve().parent
@@ -107,9 +107,10 @@ def browser_fixture(service, html=None):
             yield open_page
             assert not errors, errors
         finally:
-            process.terminate()
-            process.wait(timeout=10)
-            server.shutdown()
+            try:
+                stop_browser(process, profile)
+            finally:
+                server.shutdown()
 
 
 def wait(page, expr):

@@ -144,6 +144,7 @@ def main(out):
         service.break_notices=True
         call("scopeQA.NT.pull(true)")
         assert len(run("scopeQA.D.d.notices"))==5
+        page.evaluate("__diag.gotoTab('nt')")
         screenshot(page,out,"notification-after-revocation")
         assert not run("window.jsErrors"),run("window.jsErrors")
         print("V06 lite + lazy attachment, audience revocation while reading, role, edited/cleared override, hidden and archive: PASS")
