@@ -65,8 +65,8 @@ WORKSPACE = os.path.abspath(os.path.join(WEB_ROOT, ".."))
 
 # 2026-11-18 迁移：CLASS_CB_BASE 可覆盖（默认仍是 CloudBase，行为不变）；
 # 与 G:\ClassTools\briefdesk\scripts\cloud_backend.py 同一套约定（env > index.html）。
-CFG_BASE = (os.environ.get("CLASS_CB_BASE", "").strip().rstrip("/") + "/") \
-    or "https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/"
+CFG_BASE = (os.environ.get("CLASS_CB_BASE", "").strip()
+            or "https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest").rstrip("/") + "/"
 PUBLISH_KEY_FILE = os.path.join(WEB_ROOT, "deploy", "cloudbase", "publish_key.txt")
 TOKEN_FILE = r"G:\ClassTools\briefdesk\secrets\class-token.json"
 CLOUDBASE_RC = r"G:\ClassTools\briefdesk\secrets\cloudbaserc.local.json"

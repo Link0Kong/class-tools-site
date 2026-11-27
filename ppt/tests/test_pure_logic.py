@@ -11,6 +11,7 @@ PPTX 包解析（真实 zip 结构）、分片拼装、token 刷新、心跳字�
 import hashlib
 import json
 import os
+import runpy
 import sys
 import tempfile
 import time
@@ -474,6 +475,13 @@ class TestChunkAssembly(unittest.TestCase):
 
 
 class TestTokenRefresh(unittest.TestCase):
+    def test_scheduled_cloud_base_default_and_override(self):
+        default = "https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/"
+        for setting, expected in (("", default), ("  ", default),
+                                  (" https://example.test/rest/// ", "https://example.test/rest/")):
+            with self.subTest(setting=setting), mock.patch.dict(os.environ, {"CLASS_CB_BASE": setting}):
+                self.assertEqual(runpy.run_path(agent.__file__)["CFG_BASE"], expected)
+
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="ppt_tok_")
         self.old_file = agent.TOKEN_FILE
