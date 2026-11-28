@@ -1,5 +1,8 @@
 # 本机管线 + 云端定时任务切自建后端 · Runbook（P3/P4）
 
+> **2026-11-28 P4 已执行**：`secrets\cloud.env` 已加 `CLASS_CB_BASE=https://tool.furina.fun/v1/rdb/rest/`
+> （`cloud_backend.py --status` → `backend=selfhosted`）；ECS 三个 job timer 已启用并写生产库；
+> CloudBase 三个定时触发器已删除。下文保留为流程与回滚参考。
 > 阶段：**CloudBase → ECS 自建 PostgREST** 迁移 P3（本机管线/云函数替代）+ P4（PG 监控并入诊断行）。
 > 总计划见 [`PLAN.md`](PLAN.md) §3。
 > 目标：切流前让**本机数据管线**与**CloudBase 云端定时任务**都支持「ECS 自建后端」，但
