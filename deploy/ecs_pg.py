@@ -915,10 +915,9 @@ def main():
                 if not cols_types:
                     print("FATAL 目标表不存在：%s（schema.sql 未导入？）" % full)
                     sys.exit(5)
-                bad = [c for c, t in cols_types.items() if "bytea" in str(t).lower()]
-                if bad:
-                    print("FATAL %s 含 bytea 列 %s：P0 序列化口径未确认，拒绝猜测" % (full, bad))
-                    sys.exit(5)
+                # bytea：P0 导出按 PostgreSQL 文本形式（\x<hex>）序列化；导入前转回二进制。
+                # 只接受这一种形态，其它表示法（base64/原文）仍然拒绝，避免把脏数据写进去。
+                bytea_cols = {c for c, t in cols_types.items() if "bytea" in str(t).lower()}
                 colnames = list(cols_types.keys())
                 for r in rows:
                     missing_cols = [c for c in colnames if c not in r]
@@ -937,6 +936,15 @@ def main():
                         v = r.get(c)
                         if c in json_cols and v is not None and not isinstance(v, str):
                             v = Json(v)
+                        if c in bytea_cols and isinstance(v, str):
+                            if not v.startswith("\\x"):
+                                print("FATAL %s.%s bytea 值不是 \\x<hex> 形式，拒绝猜测" % (full, c))
+                                sys.exit(5)
+                            try:
+                                v = psycopg2.Binary(bytes.fromhex(v[2:]))
+                            except ValueError:
+                                print("FATAL %s.%s bytea 十六进制解析失败" % (full, c))
+                                sys.exit(5)
                         out.append(v)
                     values.append(tuple(out))
                 stmt = sql.SQL("INSERT INTO {}.{} ({}) VALUES %s").format(

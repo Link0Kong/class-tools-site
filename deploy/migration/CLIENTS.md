@@ -1,6 +1,8 @@
 # 客户端切流配置（小程序 / 安卓）— CloudBase → ECS 自建后端（P3）
 
-> 阶段：P3 客户端就绪。**默认行为不变**（小程序仍指 CloudBase；安卓 release 的 ECS 服务已在 2026-11-23 切到 https 正式域名，REST 仍 cloudbase 待 P4）。
+> 阶段：P3 客户端就绪；**2026-11-28 P4 生产切流已完成**（`/v1/rdb/rest/*` → ECS 自建 PostgREST）。
+> 小程序 `5c5053e`（2.1.3 已发布）、安卓 `23888f4`、鸿蒙 `aa84f24`、Windows `cc21a4d` 均默认 `selfhosted`；
+> `cloudbase` 档仅作 2026-12-10 到期前的回滚路径。未升级旧版客户端仍直连 CloudBase，到期后失效。
 > 目标后端：ECS 自建 PostgreSQL 18 + PostgREST 13，API 路径与 CloudBase 相同。
 > 关联：`PLAN.md`（总计划）、`PIPELINE.md`（本机管线）、`IMPORT.md`（P1 导入）、`CUTOVER.md`（P4 切流/回滚）。
 > 红线：不读/不打印密钥（publishableKey 可引用不整段粘贴）；测试只用测试账号 `3260799999/测试账号`；
@@ -10,9 +12,9 @@
 
 | 档位 | REST base | 用途 | 允许明文 |
 |---|---|---|---|
-| `cloudbase` | `https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/` | 现状（腾讯云 CloudBase 网关）；CloudBase 2026-12-10 到期前有效 | 否（https） |
+| `cloudbase` | `https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com/v1/rdb/rest/` | **回滚档**（旧版客户端仍直连）；CloudBase 2026-12-10 到期 | 否（https） |
 | `staging` | `https://tool.furina.fun/v1/rdb/rest-next/` | ECS 影子验证（P2）；仅 devtools / debug 构建 | 是（仅 debug） |
-| `selfhosted` | `https://tool.furina.fun/v1/rdb/rest/` | 正式域名（备案 2026-11-23 已通过、HTTPS 已启用；REST 切流 P4 后） | 否（https） |
+| `selfhosted` | `https://tool.furina.fun/v1/rdb/rest/` | **生产**（2026-11-28 起，Caddy → 127.0.0.1:3000） | 否（https） |
 
 - 三档使用同一份 publishableKey（公开 anon 令牌）；自建 Caddy 在 `/v1/rdb/rest*` 路由上 `header_up -Authorization` 剥掉该头，
   客户端鉴权头逻辑无需改动（RLS 仍按 `X-Class-Token` 校验）。
@@ -30,13 +32,13 @@ const REST_PROFILES = {
   staging:    'https://tool.furina.fun/v1/rdb/rest-next/',
   selfhosted: 'https://tool.furina.fun/v1/rdb/rest/'
 };
-const ACTIVE_REST_PROFILE = 'cloudbase';   // ← 切流/回滚只改这一行
+const ACTIVE_REST_PROFILE = 'selfhosted';   // ← 2026-11-28 生产；回滚改 'cloudbase'（CloudBase 2026-12-10 到期）
 ```
 
 - `restBase` 由 `resolveRestBase(ACTIVE_REST_PROFILE)` 计算（`module.exports.restBase` 仍与旧版同名字段兼容）；
   另有只读探针 `restProfile/restProfiles/resolveRestBase`。
 - 切 staging（仅 devtools 冒烟）：`ACTIVE_REST_PROFILE = 'staging'`；
-- 切正式（P4，随新版本发布）：`ACTIVE_REST_PROFILE = 'selfhosted'`；
+- 生产（2026-11-28 已切）：`ACTIVE_REST_PROFILE = 'selfhosted'`；
 - 回滚：改回 `'cloudbase'` 重新上传发布。
 
 ### 1.2 开发期 http/IP 说明（devtools）
@@ -53,7 +55,7 @@ const ACTIVE_REST_PROFILE = 'cloudbase';   // ← 切流/回滚只改这一行
 
 - 小程序后台 → 开发管理 → 开发设置 → 服务器域名：**request 合法域名** 增加 `https://tool.furina.fun`
   （通知附件/PPT 媒体如需 `downloadFile` 再增加 downloadFile 合法域名；drop 云空间同域）。
-- 发布前确认 `ACTIVE_REST_PROFILE === 'cloudbase'`（P4 前）或 `'selfhosted'`（P4 切流批次），然后由用户本人上传发布。
+- 发布前确认 `ACTIVE_REST_PROFILE === 'selfhosted'`（2026-11-28 起生产档），然后由用户本人上传发布。
 - 版本号不动（`utils/version.js` 仍 `2.0.0`）；本阶段不发布/不上传。
 
 ### 1.4 小程序网络层优化（2026-11-18，`utils/cloud.js` + `utils/cloud-config.js`）

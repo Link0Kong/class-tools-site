@@ -5,10 +5,10 @@
     python deploy\\ecs_audit.py            # 人类可读报告
     python deploy\\ecs_audit.py --json     # 机器可读（不含任何密钥）
 
-口径（2026-11-23 ICP 备案通过后）：
-- 「已迁」= 进程/数据在 ECS 上，公网只能经 Caddy 同源访问；
-- 「未迁」= 仍在腾讯云 CloudBase（生产数据 API / 定时云函数）、阿里云 OSS 香港（发布源与 PPT/APK 资产）、
-  本机 Windows（通知采集/构建、PPT 转换、教务抓取、诊断 agent 等必须依赖本机环境的部分）。
+口径（2026-11-28 P4 切流后）：
+- 「已迁」= 进程/数据在 ECS 上，公网只能经 Caddy 同源访问（含生产 REST 与三个定时任务）；
+- 「外部依赖」= 阿里云 OSS 香港（发布源与 PPT/APK 资产）、本机 Windows（通知采集/构建、PPT 转换、教务抓取、
+  诊断 agent 等必须依赖本机环境的部分）、微信云开发（小程序订阅消息 openid/发送）、CloudBase 旧库（2026-12-10 到期）。
 本脚本不读取、不打印任何密码/凭据。
 """
 from __future__ import annotations
@@ -112,18 +112,24 @@ def main(argv=None) -> int:
                "/pptfiles/__health", "/drop/__health", "/v1/rdb/rest/", "/v1/rdb/rest-next/")}
     data["public"] = public
 
-    # 生产 REST 的响应格式可用于判断「是否仍走 CloudBase」：CloudBase 缺凭据返回 code=MISSING_CREDENTIALS
-    prod_is_cloudbase = False
+    # 生产 REST 的响应格式可用于判断上游：CloudBase 缺凭据返回 code=MISSING_CREDENTIALS；
+    # ECS 自建 PostgREST 返回 200 OpenAPI（swagger/openapi 字段）。2026-11-28 P4 切流后应为后者。
+    prod_mode = "unknown"
     try:
         with urllib.request.urlopen(urllib.request.Request(SITE + "/v1/rdb/rest/"), timeout=20) as r:
-            body = r.read(200).decode("utf-8", "replace")
-        prod_is_cloudbase = "MISSING_CREDENTIALS" in body or "cloudbase.net" in body
+            body = r.read(300).decode("utf-8", "replace")
+        if '"swagger"' in body or '"openapi"' in body:
+            prod_mode = "selfhosted"
+        elif "MISSING_CREDENTIALS" in body or "cloudbase.net" in body:
+            prod_mode = "cloudbase"
     except urllib.error.HTTPError as e:  # type: ignore[attr-defined]
         body = e.read(300).decode("utf-8", "replace")
-        prod_is_cloudbase = "MISSING_CREDENTIALS" in body or "cloudbase.net" in body
+        if "MISSING_CREDENTIALS" in body or "cloudbase.net" in body:
+            prod_mode = "cloudbase"
     except Exception:  # noqa: BLE001
         pass
-    data["prod_rest_cloudbase"] = prod_is_cloudbase
+    data["prod_rest_mode"] = prod_mode
+    data["prod_rest_cloudbase"] = prod_mode == "cloudbase"
     data["oss_refs"] = [u for u in data["upstream"] if "tcloudbasegateway" in u]
 
     if ns.json:
@@ -142,7 +148,7 @@ def main(argv=None) -> int:
         ("扫码登录/账号服务 /account/*", "class-tools-account"),
         ("校园地图共享状态 /map/api/*", "class-tools-map"),
         ("PostgreSQL 18（127.0.0.1:5432）", "postgresql@18-main"),
-        ("PostgREST 13（127.0.0.1:3000，staging）", "class-tools-pgrest"),
+        ("PostgREST 13（127.0.0.1:3000，生产 + staging）", "class-tools-pgrest"),
     ]
     for label, unit in rows:
         print("  %-42s %s" % (label, ok(unit) if unit else "[OK] " + (data["sizes"][0] if data["sizes"] else "")))
@@ -160,22 +166,24 @@ def main(argv=None) -> int:
         print("  %-16s %-8s notices.max(ts)=%s  %s" % (
             name, size, fresh, "（历史快照，非实时）" if fresh and fresh != "-" else ""))
     print("  public/private 表数：%s；PostgREST 版本：13.x" % data["tables"])
-    if data["prod_rest_cloudbase"]:
+    if data.get("prod_rest_mode") == "selfhosted":
+        print("  /v1/rdb/rest/*      → ECS 自建 PostgREST（127.0.0.1:3000，2026-11-28 起生产）")
+    elif data["prod_rest_cloudbase"]:
         print("  /v1/rdb/rest/*      → **腾讯云 CloudBase 网关（未迁移）**，ECS Caddy 仅做同源反代")
     else:
-        print("  /v1/rdb/rest/*      → 未识别为 CloudBase（请人工确认）")
+        print("  /v1/rdb/rest/*      → 未识别上游（请人工确认）")
     print("  /v1/rdb/rest-next/* → 127.0.0.1:3000（ECS PostgREST，staging/影子验证，非生产）")
 
     print("\n== 三、公网入口（https://tool.furina.fun） ==")
     for p, code_ in data["public"].items():
         print("  %-28s HTTP %s" % (p, code_))
 
-    print("\n== 四、未迁移（仍在外部） ==")
-    print("  1) 生产数据 API：CloudBase（PostgreSQL + PostgREST 托管），P4 切流未执行")
-    print("  2) 定时云函数：power_sync / xgj_sync / health_probe 仍由腾讯云触发（ECS 只有 pg-monitor、pg-backup、sysstat）")
-    print("  3) 静态站发布源：OSS 香港（sync_tools 上传 → ECS apply 拉取）；PPT 媒体与 APK 亦在 OSS 香港")
-    print("  4) 本机 Windows：通知采集/构建/AI 质检、PPT 转换（PowerPoint COM）、教务抓取、诊断 agent、看门狗")
-    print("  5) 客户端 REST：小程序/安卓/鸿蒙仍直连 CloudBase 网关（ECS 服务地址已切 https 域名）")
+    print("\n== 四、外部依赖（CloudBase / OSS / 本机） ==")
+    print("  1) 腾讯云 CloudBase：生产数据 API 与三个定时任务已于 2026-11-28 迁到 ECS；仅函数本体与旧库保留到 2026-12-10 到期")
+    print("  2) 静态站发布源：OSS 香港（sync_tools 上传 → ECS apply 拉取）；PPT 媒体与 APK 亦在 OSS 香港")
+    print("  3) 本机 Windows：通知采集/构建/AI 质检、PPT 转换（PowerPoint COM）、教务抓取、诊断 agent、看门狗")
+    print("  4) 小程序订阅消息：微信云开发（独立 env，不随 CloudBase 到期）；openid 与发送仍依赖 wx.cloud")
+    print("  5) 旧版客户端：未升级的小程序/安卓/鸿蒙/Windows 仍直连 CloudBase 网关，2026-12-10 后失效")
     return 0
 
 

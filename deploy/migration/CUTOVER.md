@@ -4,6 +4,13 @@
 > **本文件由 Lead 执行；任何一步失败按 §7 回滚。**
 > 关键约束：迁移窗口内 CloudBase 保持在线（回滚依赖它）；测试只用测试账号；数据文件走私有 OSS + 短签名 URL。
 
+> **执行记录（2026-11-28 11:39 CST，已完成）**：快照 `C:\briefdesk\data\cloudbase_migration\cutover-20261128`
+> （36 表 / 34,648 行 / 57.4 MiB gzip，`verify_export` PASS）→ `class_tools_cut`（`HASH_OK 36`、`verify OK 36`、
+> `smoke` 全 PASS）→ `ecs_cutover.py switch --to selfhosted --confirm`（备份
+> `/var/www/tool_backup/20261128-113858/Caddyfile.old`）→ `post_cutover.py apply --confirm` A1–A7 全 PASS
+> （18 行健康数据、`prod_mode=selfhosted`）。CloudBase 三个定时触发器已删除、函数本体保留；本机管线
+> `CLASS_CB_BASE` 已指向 ECS。回滚见 §4，CloudBase 2026-12-10 到期前有效。
+
 ## 0. 前置检查（切流前一天）
 
 - [ ] staging `/v1/rdb/rest-next/` 合同回归全绿（RPC/RLS/读写/性能），且用测试账号在网页 `?api=next` 真实登录成功。
@@ -23,9 +30,9 @@
 
 ### 1.0 四端发版（切流前先做；这一步本身不改数据）
 
-> **状态（2026-11-24 18:5x）**：四端源码已切 `selfhosted` 并推送——小程序 `5c5053e`、安卓 `23888f4`（vc145/beta62 已发布）、
-> 鸿蒙 `aa84f24`（1.0.9）、Windows `cc21a4d`（0.1.1）。**待办**：小程序上传+审核发布、鸿蒙签名构建、Windows 分发。
-> 四端都到位后再执行下面的切流；切流前新版走的仍是 Caddy→CloudBase 反代，行为正常。
+> **状态（2026-11-28）**：四端源码已切 `selfhosted`——小程序 `5c5053e`（2.1.3 **已发布**）、安卓 `23888f4`
+> （vc145/beta62）、鸿蒙 `aa84f24`（1.0.9）、Windows `cc21a4d`（0.1.1）。**P4 已于 2026-11-28 完成**；
+> 仍未升级的旧版客户端继续直连 CloudBase，2026-12-10 到期前需完成存量升级。
 
 > 客户端的 REST 地址是**编译常量**，没有远程开关：先发版（`selfhosted` 指向 `https://tool.furina.fun/v1/rdb/rest/`），
 > 因为切流前这条路径仍由 Caddy 反代到 CloudBase，**新版在切流前连的还是 CloudBase，零风险**；

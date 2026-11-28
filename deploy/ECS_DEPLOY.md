@@ -24,12 +24,12 @@
 | 缓存头 | `index.html` / `tt.json` / `/board` → `Cache-Control: no-cache`；`/assets/*` 与图标 → `public, max-age=604800` |
 | 原有服务（未改） | `/api/*` → uvicorn `127.0.0.1:8090`（briefdesk-board）；`/board*` → `/opt/briefdesk/data/board.html` |
 | 通知附件服务（迁移第 2 步） | `/att/*` → `127.0.0.1:8091`（`class-tools-att.service`，systemd，代码 `/opt/class-tools/att-code/`，数据 `/opt/class-tools/attachments/`；签名 URL 契约见 `attachments/CONTRACT.md`） |
-| 同源 API 代理（第 3 步就绪，前端已切） | `/v1/rdb/rest/*` → `https://tool-d4gosudok46e0e081.api.tcloudbasegateway.com`（`header_up Host` 已设为网关域名，`header_up -Origin` 已加；实测 https 域名下 `/v1/rdb/rest/` **401**、测试身份 `rpc/class_verify` **200**）。网页 `var CB` 在 `tool.furina.fun` / `121.196.47.2` 下运行时改走同源（字面量保留给本机脚本解析） |
+| 生产数据 API（2026-11-28 已切自建） | `/v1/rdb/rest/*` → `127.0.0.1:3000`（ECS PostgreSQL 18 + PostgREST 13，`header_up -Authorization`；实测 `/v1/rdb/rest/` 200 OpenAPI）。网页 `var CB` 在 `tool.furina.fun` / `121.196.47.2` 下运行时改走同源（字面量保留给本机脚本解析） |
 | HTTPS 配置 | `/etc/caddy/Caddyfile` 即 HTTPS 版；`/etc/caddy/Caddyfile.https.ready` 作为同内容副本保留（`apply` 会同时校验两份）。`caddy validate` 均通过 |
 | 备份 | 每次 apply 前备份到 `/var/www/tool_backup/<时间戳>/`（旧 `index.html` + 旧 `Caddyfile`） |
 | 实测（2026-11-23） | `https://tool.furina.fun/` **200 / 1,681,591 B**（与 OSS、ECS 字节一致）；`http://` **308**；`/board` 200、`/api/status` 200、`/tt.json` 7,463 B、`/legal/web/privacy.html` 200、`/legal/manifest.json` 200、`/pptfiles/__health` 200、`/drop/__health` 200 |
 
-### 2.1 服务迁移盘点（2026-11-24；`python deploy\ecs_audit.py` 可随时复跑）
+### 2.1 服务迁移盘点（2026-11-28 P4 切流后；`python deploy\ecs_audit.py` 可随时复跑）
 
 | 已迁至 ECS（实测 active） | 位置 |
 |---|---|
@@ -42,19 +42,27 @@
 | 扫码登录 / 账号 | `8094`（`/account/*`） |
 | 校园地图共享状态 | `8095`（`/map/api/*`） |
 | **安卓更新包** | `/var/www/tool/android/*.apk`；`android/latest.json` 的 `apkUrl` **2026-11-24 起指向 ECS**（6.1 MB 实测 0.5–0.8 s / 7–12 MB/s；此前香港 OSS `.bin` ≈49 KB/s、约 2 分钟） |
-| PostgreSQL 18.6 | `127.0.0.1:5432`；`class_tools_cut` = **2026-11-24 13:52 全量镜像**（35 表 / 29,744 行 / 86 MB，HASH_OK 35、verify PASS）；`class_tools` 为旧 staging 库 |
-| PostgREST 13.0.8 | `127.0.0.1:3000`；staging `/v1/rdb/rest-next/*` **当前指向 `class_tools_cut`** |
-| 定时任务 | `class-tools-pg-monitor.timer`（10 分钟）、`class-tools-pg-backup.timer`（每日 03:30，保留 6 份 dump） |
+| PostgreSQL 18.6 | `127.0.0.1:5432`；`class_tools_cut` = **2026-11-28 11:37 全量切流库**（36 表 / 34,648 行 / 101 MB，HASH_OK 36、verify OK 36）；`class_tools` 为旧 staging 库（73 MB） |
+| PostgREST 13.0.8 | `127.0.0.1:3000`；**生产 `/v1/rdb/rest/*` 与 staging `/v1/rdb/rest-next/*` 均指向 `class_tools_cut`**（Caddy 剥 `Authorization`） |
+| 定时任务 | `class-tools-pg-monitor.timer`（10 分钟）、`class-tools-pg-backup.timer`（每日 03:30，保留 6 份 dump）、`class-tools-job-{power-sync,xgj-sync,health-probe}.timer`（2026-11-28 启用，写生产库） |
 
 | 仍未迁移（外部依赖） | 现状 |
 |---|---|
-| 生产数据 API `/v1/rdb/rest/*` | **腾讯云 CloudBase 网关**（ECS Caddy 仅同源反代；P4 切流未执行） |
-| 定时云函数 `power_sync` / `xgj_sync` / `health_probe` | CloudBase（ECS 没有对应 timer） |
 | 静态站发布源 / PPT 媒体 | 阿里云 **OSS 香港**（`sync_tools.py` 上传 → `ecs_site.py apply` 拉取；PPT 主存仍在港，ECS 只做 `/pptfiles` 缓存，APK 已移出） |
 | 通知采集/构建、AI 质检、PPT 转换、教务抓取、诊断 agent | 本机 Windows（依赖本机 QQ/微信/Office/校园网环境，不能搬到 ECS） |
-| 客户端 REST | 小程序/安卓/鸿蒙仍直连 CloudBase 网关（ECS 服务地址已切 https 域名） |
+| 小程序订阅消息云函数 `notify` | 微信云开发（CloudBase，独立 env `fengdan-…`，不受 2026-12-10 到期影响；发送依赖 `wx.cloud`） |
+| 旧版客户端 REST | 2026-11-28 起新版（小程序 2.1.3 / 安卓 beta145+ / 鸿蒙 / Windows）走 `https://tool.furina.fun/v1/rdb/rest/`；未升级旧版仍直连 CloudBase，2026-12-10 到期后失效 |
 
-- **判据（可复现，2026-11-24）**：`/v1/rdb/rest/` 无凭据仍返回 CloudBase `MISSING_CREDENTIALS`；`/v1/rdb/rest-next/` 返回 PostgREST swagger 且**指向 `class_tools_cut`**；测试身份 `rpc/class_notices_meta` 返回 **381,164 B / 153 行**，与 CloudBase 同字节；`taskdata`、`visits.ver/dev` 在镜像库均存在。
+### 2.1.1 2026-11-28 P4 切流记录
+
+- **快照**：`C:\briefdesk\data\cloudbase_migration\cutover-20261128`（36 表 / 34,648 行 / 57.4 MB gzip；`verify_export` PASS）。
+- **导入**：`ecs_pg.py import --reset` → `class_tools_cut`（修复 `private.roster_search_keys.name_hash` bytea 导入，`ecs_pg.py` 现在接受 `\x<hex>` 文本形态）。
+- **切换**：`ecs_cutover.py switch --to selfhosted --confirm`（2026-11-28 11:38:59，备份 `/var/www/tool_backup/20261128-113858/Caddyfile.old`）；`post_cutover.py apply --confirm` 全部 PASS（18 行健康数据、`cloudbase` 行含 PG 指标、`prod_mode=selfhosted`）。
+- **CloudBase 侧**：三个定时触发器（`power_sync/hourly`、`xgj_sync/every2h`、`health_probe/every5m`）已删除；函数本体保留用于回滚。
+- **本机管线**：`C:\briefdesk\secrets\cloud.env` 增加 `CLASS_CB_BASE=https://tool.furina.fun/v1/rdb/rest/`（`cloud_backend.py --status` → `backend=selfhosted`）。
+- **回滚**：`python deploy\ecs_cutover.py switch --to cloudbase --confirm`（CloudBase 2026-12-10 到期前有效）+ 恢复三个触发器。
+
+- **判据（可复现，2026-11-28）**：`/v1/rdb/rest/` 无凭据返回 PostgREST `200` OpenAPI（`Server: Caddy` + `Server: postgrest/13.0.8`，不再有 `Server: tcbgw`）；`/v1/rdb/rest-next/` 同为 PostgREST 且指向 `class_tools_cut`；测试身份 `rpc/class_members` 返回 70 行、`rpc/class_notices_meta` 160 行；`ecs_pg.py smoke` 全 PASS（staging P50 60.6 ms，CloudBase 基线 115.4 ms）。
 - **安全（2026-11-23）**：审计时误把 `/etc/class-tools/pgrest.conf` 的本地 DSN 带进终端输出，已轮换 `authenticator` 角色密码（新密码只在远端 `openssl rand` 生成，写入 PostgreSQL 角色 + 0600 `pgrest.conf`，不落仓库、不回显）；PostgREST 重启后 `/v1/rdb/rest-next/` 200、`/v1/rdb/rest/` 401 正常。**以后不要 `grep db-uri` / `cat pgrest.conf`**；需要判断库名用 `ecs_pg.py probe`。
 
 ### 2.2 任务 AI 草稿服务
@@ -143,7 +151,7 @@ systemctl reload caddy
    等四端新版发布后按 `attachments/README.md` §2 一次性开启（存量 41 个附件自动回填）。
 2. **前端同源切换（第 3 步）**：已完成；运行时按 `location.hostname` 决定 `CB = location.origin + "/v1/rdb/rest/"`（`tool.furina.fun` / `121.196.47.2`），其它来源仍走 CloudBase 网关。
 3. **PPT 媒体仍在 OSS 香港**（`ppt/a/…`），跨境访问慢；已用 ECS `/pptfiles` 磁盘缓存加速（下载/预览均走缓存），**存储未迁移**。
-4. **自建 Postgres 切流（P4）**：REST 仍走 CloudBase 网关（`/v1/rdb/rest/*` 同源反代）；切流需按 `deploy/migration/CUTOVER.md` 在窗口内做最终快照 → 导入 → `ecs_pg.py switch-db` → 观察，**不在本次备案修复范围**。
+4. **自建 Postgres 切流（P4）**：**2026-11-28 已完成**（`/v1/rdb/rest/*` → 自建 PostgREST，见 §2.1.1）；CloudBase 保留到 2026-12-10 到期前作回滚。
 
 ## 8. PPT 文件本地缓存（下载加速，2026-11-11）
 
