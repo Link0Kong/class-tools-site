@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import ecs_site
+from home_context_app import ENGLISH_TYPOGRAPHY
 
 
 DEPLOY = Path(__file__).resolve().parent
@@ -46,8 +47,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--regions", type=Path, default=REGIONS)
     parser.add_argument("--reviewed-batch", type=Path)
-    parser.add_argument("--check-bundle", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check-bundle", action="store_true")
+    mode.add_argument("--english-typography", choices=ENGLISH_TYPOGRAPHY)
     args = parser.parse_args()
+    if args.english_typography:
+        installer = INSTALLED.read_text(encoding="utf-8")
+        script = (f"python3 -B - --english-typography {args.english_typography} <<'HOME_CONTEXT_INSTALL'\n"
+                  f"{installer}\nHOME_CONTEXT_INSTALL\n")
+        print(remote(script, "home-context-presentation", 30) or "")
+        return 0
     archive = payload(args.regions, args.reviewed_batch)
     digest = hashlib.sha256(archive).hexdigest()
     encoded = base64.b64encode(archive).decode("ascii")

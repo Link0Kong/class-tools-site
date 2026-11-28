@@ -199,7 +199,27 @@ def install(bundle):
     command("systemctl", "list-timers", TIMER, "--no-pager")
 
 
+def publish_presentation(value):
+    path = STATE / "presentation.json"
+    original = path.read_bytes() if path.is_file() else None
+    write(path, (json.dumps({"englishTypography": value}) + "\n").encode("ascii"))
+    try:
+        status, batch = http(PATHS[0], secure=True)
+        if status != 200 or batch.get("englishTypography") != value:
+            raise RuntimeError("Public content endpoint did not return the new presentation")
+    except (Exception, KeyboardInterrupt):
+        if original is not None:
+            write(path, original)
+        else:
+            path.unlink(missing_ok=True)
+        raise
+    print(f"HOME_CONTEXT_PRESENTATION_OK englishTypography={value}")
+
+
 if __name__ == "__main__":
+    if sys.argv[1] == "--english-typography":
+        publish_presentation(sys.argv[2])
+        raise SystemExit(0)
     stage = Path(sys.argv[1])
     expected = sys.argv[2]
     archive = base64.b64decode(b"".join(item.read_bytes() for item in sorted(stage.glob("*.part"))), validate=True)

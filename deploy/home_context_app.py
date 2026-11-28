@@ -30,6 +30,7 @@ MAX_CONTENT_BYTES = 64 * 1024
 FRESHNESS = timedelta(minutes=45)
 WEATHER_INTERVAL = timedelta(minutes=15)
 CONTENT_LIFETIME = timedelta(hours=72)
+ENGLISH_TYPOGRAPHY = ("large", "extraLarge")
 
 # Asia/Shanghai has used UTC+8 since 1991. The fallback keeps the Windows review
 # host usable when no IANA zone database is installed.
@@ -118,6 +119,17 @@ def read_batch(path, now):
         return value if isinstance(value["entries"], list) and value["entries"] else None
     except (OSError, ValueError, KeyError, TypeError, RecursionError):
         return None
+
+
+def english_typography(path):
+    try:
+        with path.open(encoding="utf-8") as stream:
+            value = json.loads(stream.read(1024))["englishTypography"]
+        if value in ENGLISH_TYPOGRAPHY:
+            return value
+    except (OSError, ValueError, KeyError, TypeError, RecursionError):
+        pass
+    return ENGLISH_TYPOGRAPHY[0]
 
 
 def get_material(topic, day, send):
@@ -394,6 +406,8 @@ class HomeContextHandler(BaseHTTPRequestHandler):
         now = self.server.clock()
         if target.path == CONTENT_PATH and not target.query:
             value = read_batch(self.server.batch_file, now)
+            if value is not None:
+                value["englishTypography"] = english_typography(self.server.batch_file.with_name("presentation.json"))
         elif target.path == WEATHER_PATH:
             params = parse_qs(target.query, max_num_fields=4) if target.query.count("&") < 4 else {}
             regions = params.get("region", ())

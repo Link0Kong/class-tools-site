@@ -147,7 +147,16 @@ def test_weather_timestamp_regions_dedup_and_astronomy(tmp_path):
         try:
             base = "http://127.0.0.1:" + str(server.server_port)
             with urllib.request.urlopen(base + app.CONTENT_PATH, timeout=3) as response:
-                assert len(json.load(response)["entries"]) == 12
+                initial = json.load(response)
+                assert len(initial["entries"]) == 12
+                assert initial["englishTypography"] == "large"
+            config = tmp_path / "presentation.json"
+            app.atomic_write(config, {"englishTypography": "extraLarge"})
+            with urllib.request.urlopen(base + app.CONTENT_PATH, timeout=3) as response:
+                assert json.load(response) == {**initial, "englishTypography": "extraLarge"}
+            app.atomic_write(config, {"englishTypography": "unsupported"})
+            with urllib.request.urlopen(base + app.CONTENT_PATH, timeout=3) as response:
+                assert json.load(response) == initial
             with pytest.raises(urllib.error.HTTPError) as exc:
                 urllib.request.urlopen(base + app.WEATHER_PATH + "?region=unknown", timeout=3)
             assert exc.value.code == 400

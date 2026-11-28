@@ -21,6 +21,16 @@ python -B web/deploy/home_context_app.py generate --state-dir android-class-tool
 
 次日之前相同状态目录只接受一次生成尝试。两个公开主题各检索一次、各读取最多一篇来源文章，再分别调用 JSON 生成和文本审核。模型只接收公开素材及待审核文案。失败保留上次有效批次，最长使用 72 小时。
 
+## 卡片热更
+
+Android 与鸿蒙共用正式域名的 `GET /home-context/content/v1`。同一接口每天自动更新联网文案，并返回独立配置的 `englishTypography`。英文始终在上方，`large` 是默认大字号，`extraLarge` 使用更大的主句字号，中文译文保持在下方。支持配置的客户端在工作台可见且开启联网内容时最多每 15 分钟拉取一次，同一文案批次可收到字号调整。无有效缓存时使用客户端默认字号。
+
+修改字号只更新 ECS 状态目录中的 `presentation.json`，每日文案生成保留此文件，无需重新打包、重启服务或重新配置客户端。在 web 仓运行以下命令切到更大字号，切回时将最后一个参数改为 `large`。命令回读正式 HTTPS 接口，回读失败时恢复原文件。
+
+~~~powershell
+python -B deploy/ecs_home_context.py --english-typography extraLarge
+~~~
+
 ## 接口和部署模板
 
 - `GET /home-context/content/v1` 返回 `generatedAt`、`expiresAt`、`entries`。条目包含稳定 ID、主题、语气、正文和可信来源。
