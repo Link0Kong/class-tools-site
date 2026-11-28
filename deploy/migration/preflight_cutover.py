@@ -156,7 +156,11 @@ def check_ecs_services():
     if st == 401:
         add("PASS", "生产路由模式", "HTTP 401（仍 CloudBase，未切流）")
     elif st == 200:
-        add("WARN", "生产路由模式", "HTTP 200（可能已切自建；确认是否预期）")
+        is_pgrest = b'"swagger"' in body or b'"openapi"' in body
+        if is_pgrest:
+            add("PASS", "生产路由模式", "HTTP 200 · ECS 自建 PostgREST（已切流）")
+        else:
+            add("WARN", "生产路由模式", "HTTP 200（格式未知；确认是否预期）")
     else:
         add("WARN", "生产路由模式", "HTTP %s" % st)
     for path, name, key in (("/att/healthz", "附件服务", "ok"),
