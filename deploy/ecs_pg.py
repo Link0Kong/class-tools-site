@@ -333,10 +333,14 @@ DIR="__BACKUP_DIR__"
 mkdir -p "$DIR"
 TS="$(date +%Y%m%d-%H%M%S)"
 umask 077
-runuser -u postgres -- pg_dump -Fc -Z6 -d "__DB__" -f "$DIR/__DB__-$TS.dump"
-SIZE="$(stat -c%s "$DIR/__DB__-$TS.dump")"
-echo "backup ok: $DIR/__DB__-$TS.dump ${SIZE} bytes"
-find "$DIR" -maxdepth 1 -type f -name '__DB__-*.dump' -mtime +14 -delete
+# 备份生产库：优先读 PostgREST 当前 db-uri（切流后为 class_tools_cut），读不到回退 class_tools_cut
+CONF="/etc/class-tools/pgrest.conf"
+DB="$(sed -n 's|^db-uri = "postgres://[^/]*/\([A-Za-z0-9_]*\)".*|\1|p' "$CONF" 2>/dev/null | head -1)"
+[ -n "$DB" ] || DB="class_tools_cut"
+runuser -u postgres -- pg_dump -Fc -Z6 -d "$DB" -f "$DIR/$DB-$TS.dump"
+SIZE="$(stat -c%s "$DIR/$DB-$TS.dump")"
+echo "backup ok: $DIR/$DB-$TS.dump ${SIZE} bytes"
+find "$DIR" -maxdepth 1 -type f -name '*.dump' -mtime +14 -delete
 # 最近一次成功时间，供 probe 使用
 date -Is > "$DIR/.last_ok"
 BK
@@ -370,7 +374,7 @@ systemctl daemon-reload
 systemctl enable --now class-tools-pg-backup.timer >/dev/null 2>&1
 systemctl start class-tools-pg-backup.service
 sleep 2
-LATEST=$(ls -1t "__BACKUP_DIR__"/__DB__-*.dump 2>/dev/null | head -1 || true)
+LATEST=$(ls -1t "__BACKUP_DIR__"/*.dump 2>/dev/null | head -1 || true)
 echo "timer=$(systemctl is-active class-tools-pg-backup.timer) dump=${LATEST:-NONE}"
 if [ -n "${LATEST:-}" ]; then
   pg_restore -l "$LATEST" | head -6
@@ -407,7 +411,8 @@ pg_lsclusters 2>/dev/null
 runuser -u postgres -- psql -tAc "select version()" 2>/dev/null | cut -c1-80
 runuser -u postgres -- psql -tAc "SHOW listen_addresses; SHOW shared_buffers; SHOW effective_cache_size; SHOW max_connections; SHOW work_mem; SHOW maintenance_work_mem" 2>/dev/null
 echo "connections=$(runuser -u postgres -- psql -tAc 'SELECT count(*) FROM pg_stat_activity')"
-echo "db_size=$(runuser -u postgres -- psql -tAc "SELECT pg_size_pretty(pg_database_size('class_tools'))" 2>/dev/null)"
+DBM=$(sed -n 's|^db-uri = "postgres://[^/]*/\([A-Za-z0-9_]*\)".*|\1|p' /etc/class-tools/pgrest.conf 2>/dev/null | head -1)
+echo "db_size=$(runuser -u postgres -- psql -tAc "SELECT pg_size_pretty(pg_database_size('${DBM:-class_tools_cut}'))" 2>/dev/null)"
 runuser -u postgres -- psql -tAc "SELECT 'role '||rolname||' login='||rolcanlogin FROM pg_roles WHERE rolname IN ('anon','authenticated','service_role','authenticator') ORDER BY 1" 2>/dev/null
 echo
 echo "=== 2. 表/行数（staging 导入后） ==="
@@ -510,7 +515,7 @@ echo
 echo "=== 2. 备份文件 ==="
 du -sh /opt/class-tools/backup/pg 2>/dev/null || true
 ls -la --time-style=long-iso /opt/class-tools/backup/pg 2>/dev/null | tail -8
-LATEST=$(ls -1t /opt/class-tools/backup/pg/class_tools-*.dump 2>/dev/null | head -1 || true)
+LATEST=$(ls -1t /opt/class-tools/backup/pg/*.dump 2>/dev/null | head -1 || true)
 echo "latest=${LATEST:-NONE}"
 echo
 echo "=== 3. 可读性校验（pg_restore -l） ==="
@@ -594,7 +599,7 @@ def probe():
 
 def backup():
     ok, out = _remote(BACKUP_SCRIPT_RUN, "pg-backup", timeout=240, wait=420)
-    if ok and "latest=/opt/class-tools/backup/pg/class_tools-" in out:
+    if ok and "/opt/class-tools/backup/pg/" in out and ".dump" in out:
         print("\n[backup] 成功：pg_dump -Fc 已生成且 pg_restore -l 可读")
         return 0
     print("\n[backup] 失败（见上方输出）")
@@ -1592,7 +1597,7 @@ HTTP=$(curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:3000/ 2>/dev
 [ "$HTTP" = "200" ] || bad "pgrest_http=$HTTP"
 STG=$(curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1/v1/rdb/rest-next/ 2>/dev/null || echo 000)
 [ "$STG" = "200" ] || bad "staging_http=$STG"
-LATEST=$(ls -1t /opt/class-tools/backup/pg/class_tools-*.dump 2>/dev/null | head -1 || true)
+LATEST=$(ls -1t /opt/class-tools/backup/pg/*.dump 2>/dev/null | head -1 || true)
 AGE_H="NA"
 if [ -z "${LATEST:-}" ]; then
   bad "backup=missing"
@@ -1604,8 +1609,10 @@ USE=$(df -P / | awk 'NR==2{gsub("%","",$5); print $5}')
 [ "${USE:-100}" -le 85 ] || bad "disk_use_pct=$USE"
 CONN=$(runuser -u postgres -- psql -tAc "select count(*) from pg_stat_activity" 2>/dev/null | tr -d ' ')
 [ "${CONN:-999}" -lt 72 ] || bad "connections=$CONN"
-DBSIZE=$(runuser -u postgres -- psql -tAc "select pg_size_pretty(pg_database_size(current_database()))" -d class_tools 2>/dev/null | tr -d ' ')
-BAKCNT=$(ls -1 /opt/class-tools/backup/pg/class_tools-*.dump 2>/dev/null | wc -l)
+DBM="$(sed -n 's|^db-uri = "postgres://[^/]*/\([A-Za-z0-9_]*\)".*|\1|p' /etc/class-tools/pgrest.conf 2>/dev/null | head -1)"
+[ -n "$DBM" ] || DBM=class_tools_cut
+DBSIZE=$(runuser -u postgres -- psql -tAc "select pg_size_pretty(pg_database_size('$DBM'))" 2>/dev/null | tr -d ' ')
+BAKCNT=$(ls -1 /opt/class-tools/backup/pg/*.dump 2>/dev/null | wc -l)
 PROD_MODE=$(grep -q 'handle_path /v1/rdb/rest/\*' /etc/caddy/Caddyfile 2>/dev/null && echo selfhosted || echo cloudbase)
 mkdir -p /var/lib/class-tools
 python3 - "$PG" "$PR" "$HTTP" "$STG" "${LATEST:-NONE}" "$AGE_H" "$USE" "$CONN" "${DBSIZE:-NA}" "$BAKCNT" "$PROD_MODE" "$FAIL" <<'PY'
@@ -1700,7 +1707,7 @@ def monitor(install_timer=False, json_out=False):
 LATEST_DUMP_SCRIPT = r"""#!/bin/bash
 set -uo pipefail
 export LC_ALL=C
-LATEST=$(ls -1t /opt/class-tools/backup/pg/class_tools-*.dump 2>/dev/null | head -1 || true)
+LATEST=$(ls -1t /opt/class-tools/backup/pg/*.dump 2>/dev/null | head -1 || true)
 if [ -z "${LATEST:-}" ]; then echo "latest=NONE"; exit 4; fi
 echo "latest=$LATEST"
 echo "size=$(stat -c %s "$LATEST")"

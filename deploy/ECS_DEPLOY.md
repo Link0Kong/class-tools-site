@@ -60,6 +60,7 @@
 - **切换**：`ecs_cutover.py switch --to selfhosted --confirm`（2026-11-28 11:38:59，备份 `/var/www/tool_backup/20261128-113858/Caddyfile.old`）；`post_cutover.py apply --confirm` 全部 PASS（18 行健康数据、`cloudbase` 行含 PG 指标、`prod_mode=selfhosted`）。
 - **CloudBase 侧**：三个定时触发器（`power_sync/hourly`、`xgj_sync/every2h`、`health_probe/every5m`）已删除；函数本体保留用于回滚。
 - **本机管线**：`C:\briefdesk\secrets\cloud.env` 增加 `CLASS_CB_BASE=https://tool.furina.fun/v1/rdb/rest/`（`cloud_backend.py --status` → `backend=selfhosted`）。
+- **备份**：`class-tools-pg-backup.timer` 已改为备份 PostgREST 当前库（切流后 = `class_tools_cut`，实测 dump 60.6 MB）；`monitor`/`probe` 的 `db_size` 与离线 `offsite` 也都跟随当前库。旧 `class_tools-*.dump` 保留 14 天作回滚。
 - **回滚**：`python deploy\ecs_cutover.py switch --to cloudbase --confirm`（CloudBase 2026-12-10 到期前有效）+ 恢复三个触发器。
 
 - **判据（可复现，2026-11-28）**：`/v1/rdb/rest/` 无凭据返回 PostgREST `200` OpenAPI（`Server: Caddy` + `Server: postgrest/13.0.8`，不再有 `Server: tcbgw`）；`/v1/rdb/rest-next/` 同为 PostgREST 且指向 `class_tools_cut`；测试身份 `rpc/class_members` 返回 70 行、`rpc/class_notices_meta` 160 行；`ecs_pg.py smoke` 全 PASS（staging P50 60.6 ms，CloudBase 基线 115.4 ms）。
