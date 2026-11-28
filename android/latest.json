@@ -1,10 +1,10 @@
 {
-  "versionCode": 191,
-  "versionName": "1.0.1-beta105",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.1-beta105-vc191.apk",
-  "notes": "修复工作台顶部互动卡片的英文排版，英文原句在上方以大字号显示，中文译文在下方。互动卡片的文案和英文主句字号现可通过线上配置更新。",
+  "versionCode": 192,
+  "versionName": "1.0.1-beta106",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.1-beta106-vc192.apk",
+  "notes": "修复「班级通知」横滑时统计卡和筛选栏跟着移动的问题。左右滑动松手后切换筛选，切回时恢复列表位置。",
   "force": false,
   "channel": "beta",
-  "sha256": "a197c54413ec298750a4959b7a48dc5bc14516da4941daf0e62f3ee9c1af4bf1",
+  "sha256": "11e498e4230b3182132e8c32f189a85b9b6ac66b934f8e5e32d907daed2686e6",
   "sizeBytes": 7402282
 }
