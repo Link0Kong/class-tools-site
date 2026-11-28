@@ -1,10 +1,10 @@
 {
-  "versionCode": 190,
-  "versionName": "1.0.1",
-  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.1-vc190.apk",
-  "notes": "1.0.1 正式版：工作台加入日期问候、天气与今日课程，新增四类桌面组件；课表记住周/日视图，课程可直达离线校园地图；个人任务支持跨端同步、AI 整理与步骤；新增精确提醒、实时活动、文件互传与班级课件；新增投票、独立点名、扫码登录与抽签核验；改善深浅色外观、大字号和通知离线缓存。",
+  "versionCode": 191,
+  "versionName": "1.0.1-beta105",
+  "apkUrl": "https://tool.furina.fun/android/classtools-1.0.1-beta105-vc191.apk",
+  "notes": "修复工作台顶部互动卡片的英文排版，英文原句在上方以大字号显示，中文译文在下方。互动卡片的文案和英文主句字号现可通过线上配置更新。",
   "force": false,
-  "channel": "stable",
-  "sha256": "d380c1910722dc06d6478c9489830ea58b64ceaa846c2b27c7df1ecca143a06b",
-  "sizeBytes": 7402278
+  "channel": "beta",
+  "sha256": "a197c54413ec298750a4959b7a48dc5bc14516da4941daf0e62f3ee9c1af4bf1",
+  "sizeBytes": 7402282
 }
